@@ -1,0 +1,49 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.ipynb_checkpoints/
+
+# ---- 가상환경 ----
+.venv/
+venv/
+env/
+.conda/
+
+# ---- 학습 산출물 / 로그 ----
+work_dirs/
+outputs/
+*.log
+runs/
+wandb/
+
+# ---- 모델 체크포인트 (필요 시 별도 스토리지/릴리스로 관리) ----
+*.pth
+*.pkl
+*.ckpt
+*.onnx
+
+# ---- 대용량 아카이브 ----
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+
+# ---- 데이터셋 (내용물은 추적하지 않음, 폴더 규칙 문서만 유지) ----
+/dataset/*
+!/dataset/README.md
+
+# ---- OS / 에디터 ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# 참고:
+#  - mmdetection3d/ 는 submodule(gitlink)이라 무시 대상이 아님.
+#  - constraints.txt 는 버전 고정 파일이므로 반드시 커밋함.
