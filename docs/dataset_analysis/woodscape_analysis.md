@@ -2,7 +2,7 @@
 
 > 목적: 자체 Fisheye 4-cam BEV 3D 검출 데이터셋을 설계하기 전에, 가장 유사한 공개 데이터셋인
 > **WoodScape**(Valeo, ICCV 2019)가 실제로 어떻게 구축되어 있는지 — 폴더 구성, 파일명 규칙,
-> 각 라벨 포맷 — 을 정리한다. 모든 내용은 로컬 데이터(`dataset/WoodScape_ICCV19/`)와
+> 각 라벨 포맷 — 을 정리한다. 모든 내용은 로컬 데이터(`dataset/woodscape/`)와
 > 공식 repo(`WoodScape/`)를 직접 열어 검증했다.
 
 ---
@@ -40,26 +40,27 @@
 
 ## 2. 폴더 구조 (top-level)
 
-루트: `dataset/WoodScape_ICCV19/` (총 ~42 GB). 네이티브 이미지 크기 **1280×966** (soiling만 1280×960).
+루트: `dataset/woodscape/` (총 ~42 GB). 네이티브 이미지 크기 **1280×966** (soiling만 1280×960).
 
 | 폴더 | 역할 | 내부 포맷 | 압축 여부 | 개수(train) | BEV 중요도 |
 |---|---|---|---|---|---|
 | `rgb_images/` | 입력 RGB (fisheye) | PNG | 압축 해제 (`rgb_images/rgb_images/`) | 8,234 (+test 1,766) | ★★★ |
 | `previous_images/` | 각 프레임의 직전 프레임 (`_prev`) | PNG | 압축 해제 | 8,234 (+1,766) | ★★ (self-sup depth/motion용) |
-| `box_2d_annotations/` | 2D 박스 (5 클래스) | `.txt` | **zip** | 8,234 | ★★ |
+| `box_2d_annotations/` | 2D 박스 (5 클래스) | `.txt` | 압축 해제 (`box_2d_annotations/`) | 8,234 | ★★ |
 | `dense_polygon_annotations/` | 객체 dense 윤곽점 | `.txt` | 압축 해제 (`polygon_annotations/`) | 8,234 | ★ |
-| `instance_annotations/` | **마스터** 인스턴스 폴리곤 (40+ 태그) | JSON | **zip** | 8,234 | ★★ |
-| `semantic_annotations/` | semantic 세그 마스크 (10 클래스) | PNG (gt+rgb) | **zip** | 8,235 | ★★ |
-| `motion_annotations/` | motion(움직임) 세그 마스크 (19 클래스) | PNG (gt+rgb) | **zip** | 8,235 | ★ |
-| `calibration_data/` | **프레임별** fisheye 캘리브레이션 | JSON | **zip** (+test zip) | 8,235 (+1,766) | ★★★ |
-| `vehicle_data/` | CAN/주행 데이터 (ego-motion) | JSON | **zip-in-zip** | 8,234 | ★★ |
+| `instance_annotations/` | **마스터** 인스턴스 폴리곤 (40+ 태그) | JSON | 압축 해제 (`instance_annotations/`) | 8,234 | ★★ |
+| `semantic_annotations/` | semantic 세그 마스크 (10 클래스) | PNG (gt+rgb) | 압축 해제 (`semantic_annotations/`) | 8,235 | ★★ |
+| `motion_annotations/` | motion(움직임) 세그 마스크 (19 클래스) | PNG (gt+rgb) | 압축 해제 (`motion_annotations/`) | 8,235 | ★ |
+| `calibration_data/` | **프레임별** fisheye 캘리브레이션 | JSON | 압축 해제 (`calibration/`) | 8,235 (+1,766) | ★★★ |
+| `vehicle_data/` | CAN/주행 데이터 (ego-motion) | JSON | 압축 해제 (`vehicle_info/`) | 8,234 | ★★ |
 | `soiling_dataset/` | 렌즈 오염 세그 (4 클래스, 별도 트랙) | PNG | 압축 해제 | 4,000 (+test 1,000) | ✗ (무관) |
 | `WoodScape License and Terms of Use.pdf` | 라이선스 | PDF | — | — | — |
 
-- **압축 해제됨:** rgb_images, previous_images, dense_polygon_annotations, soiling_dataset
-- **아직 zip:** box_2d, instance, semantic, motion, calibration, vehicle
-- 각 zip 폴더에는 작은 메타 파일(`*_info.json` 또는 `readme.txt`)이 압축 밖에 함께 있다.
-- 시각화 도구는 **zip을 풀지 않고 메모리에서 직접** 읽으므로 별도 압축 해제가 필요 없다 (§6).
+- **모든 zip은 디스크에 압축 해제됨** (통일성 위해 전부 해제). 각 어노테이션 타입은 추출 결과
+  **이중 폴더**(`<type>/<type>/...`) 형태다 — 예: `semantic_annotations/semantic_annotations/rgbLabels/`,
+  `calibration_data/calibration/`. `vehicle_data`는 zip-in-zip이 풀려 `vehicle_info/{rgb_images,previous_images}/`.
+- 각 타입 폴더에는 작은 메타 파일(`*_info.json` 또는 `readme.txt`)이 이중 폴더 밖(타입 폴더 바로 아래)에 함께 있다.
+- 시각화 도구(`tools/woodscape_viz/`)는 이 **추출된 파일에서 직접** 읽는다 (§6).
 
 ---
 
@@ -182,7 +183,7 @@ semantic/box/dense polygon은 모두 이 인스턴스 폴리곤에서 *생성*�
   - **(c) 캘리 정확도.** 정밀 측정된 계수는 잔차가 작아 undistort 후에도 곡률이 거의 안 남는다. 손으로 몇 장 맞춘 계수는 미세 곡률이 남는다.
 
 ### 4.7 vehicle_data — CAN / ego-motion
-- `vehicle_info.zip` 안에 **중첩 zip 2개**: `rgb_images.zip`, `previous_images.zip`. 각 프레임당 json 1개.
+- 압축 해제 후 `vehicle_info/` 아래 **두 폴더**: `rgb_images/`, `previous_images/` (원본은 zip-in-zip이었다). 각 프레임당 json 1개.
 - 스키마(값은 문자열, 예 `rgb_images/00000_FV.json`):
   ```json
   {
@@ -213,7 +214,7 @@ semantic/box/dense polygon은 모두 이 인스턴스 폴리곤에서 *생성*�
 
 ## 6. 라벨 시각화 도구
 
-`tools/woodscape_viz/` — 라벨을 RGB 이미지 위에 오버레이해 PNG로 저장한다. zip을 디스크에 풀지 않고 메모리에서 직접 읽는다. `mmdet3d` conda 환경에서 실행 (numpy/opencv/scipy 필요).
+`tools/woodscape_viz/` — 라벨을 RGB 이미지 위에 오버레이해 PNG로 저장한다. 추출된 데이터셋 파일에서 직접 읽는다(이중 폴더 레이아웃 기준). `mmdet3d` conda 환경에서 실행 (numpy/opencv/scipy 필요).
 
 ```bash
 # 한 샘플, 전체 라벨(+스택 패널)
@@ -231,7 +232,7 @@ python tools/woodscape_viz/visualize.py --gallery 3 --out outputs/woodscape_viz
 - `calib` — 공식 `projection.py`를 재사용해 (좌) 차량 좌표계 지면 격자(1m, z=0)를 fisheye 이미지에 투영, (우) fisheye→cylindrical 왜곡 보정을 나란히 보여준다. **BEV 좌표 ↔ fisheye 이미지 매핑**을 눈으로 확인하는 용도.
 
 구성 파일:
-- `ws_io.py` — 데이터셋 I/O (zip 스트리밍, 색상표 로딩, 오버레이/범례 유틸)
+- `ws_io.py` — 데이터셋 I/O (추출된 파일 읽기, 색상표 로딩, 오버레이/범례 유틸)
 - `viz_box.py` / `viz_semantic.py` / `viz_instance.py` / `viz_motion.py` / `viz_calib.py` — 타입별 렌더러
 - `visualize.py` — CLI 러너
 
