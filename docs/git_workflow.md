@@ -8,12 +8,12 @@
 |---|---|
 | `main` | **안정 버전.** 여러 번 검증되어 안정적임이 확실해진 코드만 존재. |
 | `develop` | **핵심 개발 라인.** 기능 브랜치가 여기로 모임. |
-| `feature/*`, `fix/*`, `docs/*`, `exp/*`, `refactor/*` | **작업 브랜치.** 개별 기능/수정/실험 단위. |
+| `feat/*`, `fix/*`, `docs/*`, `exp/*`, `refactor/*` | **작업 브랜치.** 개별 기능/수정/실험 단위. |
 
 ## 작업 흐름
 
 ```
-feature/xxx  ──(개발·커밋)──▶  develop  ──(안정성 확인)──▶  main
+feat/xxx  ──(개발·커밋)──▶  develop  ──(안정성 확인)──▶  main
                   ▲                 ▲                          ▲
              새 작업마다        사용자가 직접 merge       사용자가 직접 merge
              브랜치 생성
@@ -33,7 +33,7 @@ feature/xxx  ──(개발·커밋)──▶  develop  ──(안정성 확인)�
 
 ## 브랜치 네이밍 컨벤션
 
-- `feature/<간단한-설명>` — 새 기능 (예: `feature/woodscape-loader`)
+- `feat/<간단한-설명>` — 새 기능 (예: `feat/woodscape-loader`)
 - `fix/<간단한-설명>` — 버그 수정
 - `docs/<간단한-설명>` — 문서 작업
 - `exp/<간단한-설명>` — 실험적 시도
@@ -52,7 +52,7 @@ feature/xxx  ──(개발·커밋)──▶  develop  ──(안정성 확인)�
 ```bash
 # 작업 브랜치 생성 & 이동
 git switch develop
-git switch -c feature/woodscape-loader
+git switch -c feat/woodscape-loader
 
 # 커밋
 git add <files>
@@ -60,7 +60,7 @@ git commit -m "feat: ..."
 
 # (사용자가 직접 수행) develop로 merge
 git switch develop
-git merge --no-ff feature/woodscape-loader
+git merge --no-ff feat/woodscape-loader
 
 # (사용자가 직접 수행) 원격 반영
 git push origin develop
