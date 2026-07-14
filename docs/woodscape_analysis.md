@@ -134,6 +134,7 @@ semantic/box/dense polygon은 모두 이 인스턴스 폴리곤에서 *생성*�
 - 두 형태의 PNG (1280×966):
   - `gtLabels/NNNNN_XX.png` — **단일 채널 인덱스 마스크** (픽셀값 = 클래스 index 0–9). 학습용.
   - `rgbLabels/NNNNN_XX.png` — **3채널 색상 마스크** (info의 class_colors로 색칠). 시각화용.
+- ⚠️ 이 semantic은 dense한 전체-scene 라벨이 **아니다.** 관심 10개만 라벨하고 나머지(건물·하늘·자연물 등)는 전부 `void(0)`다. info 첫 줄이 *"use semantic_map_generator.py for generating annotations for 40+ classes"* 라고 밝히듯, 공개본은 **43-class instance 마스터에서 뽑은 10-class 축약본**이다. instance보다 오히려 sparse해 보이는 이유는 §7.1에서 정리한다.
 
 ### 4.5 motion_annotations
 - **19 클래스** (`motion_annotation_info.json`): animal, rider, person, bicycle, motorcycle, car, van, bus, truck, train_tram, ... (주의: info에 `no samples for dynamic_car, dynamic_van, moveable_objects`).
@@ -170,6 +171,13 @@ semantic/box/dense polygon은 모두 이 인스턴스 폴리곤에서 *생성*�
   v = ρ·Y/χ·aspect_ratio + cy_offset + height/2 − 0.5
   ```
   구현·역투영(np.roots)은 공식 `WoodScape/scripts/calibration/projection.py`에 그대로 있고, 우리 시각화 도구가 이를 재사용한다.
+- **`calib` 시각화의 두 패널이 뜻하는 것** (`viz_calib.py`):
+  - (좌) 차량 좌표 z=0 지면에 1m 격자 3D 점을 만들어 위 투영식으로 fisheye 이미지에 찍은 것 → **BEV 지면 좌표 ↔ 어안 픽셀 매핑**을 눈으로 확인.
+  - (우) 원본 어안 모델과, 수평선을 편 원통형(cylindrical) 모델 사이의 remap 맵(`create_img_projection_maps`)을 만들어 `cv2.remap`으로 왜곡을 편 것.
+- **⚠️ 자체 어안 카메라로 이만큼 깔끔한 변환이 안 나오는 이유** (로직이 아니라 입력·모델 품질 문제):
+  - **(a) 투영 모델 종류.** WoodScape는 `ρ = Σ kₙ·θⁿ`로 **θ의 1~4차 전 차수**를 쓴다. OpenCV `fisheye`(Kannala-Brandt)는 홀수차만(`θ + k1θ³ + k2θ⁵ …`), OCamCalib/Scaramuzza는 반대로 **ρ→θ 다항식 + affine 행렬**이다. 렌즈에 맞지 않는 모델로 맞추면 가장자리 잔차가 커서 격자가 휜다.
+  - **(b) extrinsic이 있어야 지면 격자가 나온다.** 좌측 격자는 **camera→vehicle 외부파라미터(회전·이동)가 정확히 있어야** 그릴 수 있다. 체커보드로 보통 얻는 것은 **intrinsic뿐**이라, 지면 z=0 격자 투영은 **별도의 extrinsic(지면 기준) 캘리브레이션**이 추가로 필요하다. WoodScape는 이 값이 데이터에 포함돼 있어 격자가 딱 맞는다.
+  - **(c) 캘리 정확도.** 정밀 측정된 계수는 잔차가 작아 undistort 후에도 곡률이 거의 안 남는다. 손으로 몇 장 맞춘 계수는 미세 곡률이 남는다.
 
 ### 4.7 vehicle_data — CAN / ego-motion
 - `vehicle_info.zip` 안에 **중첩 zip 2개**: `rgb_images.zip`, `previous_images.zip`. 각 프레임당 json 1개.
@@ -227,7 +235,39 @@ python tools/woodscape_viz/visualize.py --gallery 3 --out outputs/woodscape_viz
 
 ---
 
-## 7. 자체 BEV 데이터셋 구축에 주는 시사점
+## 7. semantic vs instance density, 그리고 BEV 라벨링 관례
+
+라벨 시각화만 보면 "**semantic이 더 dense해야 하는데 오히려 instance가 더 빽빽하다**"는 인상을 받기 쉽다. 실제로 그게 맞고, 아래 두 가지가 이유다.
+
+### 7.1 왜 instance가 semantic보다 빽빽한가 (직관과 반대)
+
+두 라벨은 별개가 아니라 **instance가 원본(마스터), semantic이 그로부터 뽑은 축소판**이다.
+
+| | 클래스 수 | 배경(건물/하늘/자연물) | 렌더링 방식 | 체감 밀도 |
+|---|---|---|---|---|
+| **semantic** | 10 (void 포함) | 전부 `void(0)`로 버려짐 | void=검정 픽셀은 blend에서 **스킵**(`ws_io.blend_nonzero`) → 배경 텅 빔 | sparse |
+| **instance** | 43 태그 | `sky`·`structure`·`nature`·`construction`·`road_surface` 등 폴리곤 존재 | 모든 폴리곤을 `fillPoly`로 칠함(`viz_instance.py`) | dense |
+
+- semantic이 비어 보이는 건 **버그가 아니라 의도된 축약본** + **void 미렌더링**의 조합이다.
+- 진짜 dense한 40+ class semantic이 필요하면 instance 폴리곤에서 `semantic_map_generator.py`로 **재생성**해야 한다.
+- BEV 3D 검출 관점에선 정보량이 많은 **instance 폴리곤 쪽이 활용 가치가 크다** (관심 객체 클래스만 추려 쓰면 됨).
+
+### 7.2 BEV task는 왜 관심 객체만 라벨하나 (sky는 어디서도 불필요)
+
+"BEV에서 sky 같은 클래스는 필요 없는데 왜 라벨돼 있나?"에 대한 답: **WoodScape의 semantic/instance는 이미지 평면(perspective) 라벨이지 BEV 라벨이 아니다.** BEV 라벨링 관례는 다르다.
+
+| BEV 하위 task | 라벨 형태 | 대상 | sky |
+|---|---|---|---|
+| **3D object detection** (nuScenes/KITTI/Waymo) | 3D bounding box | **동적/관심 객체만** (car·truck·bus·person·cyclist 등) | 없음 (칠 박스 자체가 없음) |
+| **BEV map seg / occupancy** (BEVFormer·Occ3D 등) | top-down 격자 / voxel semantic | 지면 요소 (drivable·lane·sidewalk / vegetation·manmade) | 없음 |
+
+- **sky가 어느 BEV 표현에서도 빠지는 이유:** BEV는 지면(z≈0)을 내려다본 top-down 투영이라, 하늘은 **지면 발자국(ground footprint)이 없어** BEV 격자·voxel에 떨어질 좌표가 없다. 가장 dense한 3D voxel semantic인 Occ3D-nuScenes조차 `vegetation`/`manmade`(건물)는 있어도 **sky 클래스는 없다** (voxel이 지면에 앵커링되므로).
+- 따라서 **"관심 객체만 라벨"은 BEV 3D detection의 정상 관례**이고, sky를 라벨하지 않는 것도 표준이다. 님 직관이 맞다.
+- **우리 dataset 함의:** BEV 3D 검출이 목표라면 배경 클래스(sky·building)는 버리고, 관심 객체의 **3D 박스**만 필요하다. WoodScape 2D 폴리곤에서 관심 객체 클래스만 추리되, **3D 정보는 3D 라벨이 있는 SynWoodScape 등에서** 가져와야 한다(§8, §1).
+
+---
+
+## 8. 자체 BEV 데이터셋 구축에 주는 시사점
 
 - **가져갈 것:** fisheye 캘리브레이션 JSON 스키마(radial_poly + quaternion/translation), per-frame 또는 per-camera 캘리브레이션 파일 분리, `NNNNN_CAM` 파일명 규칙, semantic gt=인덱스/rgb=색상 이원화, CAN(ego-motion) json 구조.
 - **개선할 것:** 우리는 4-cam 동기 촬영이 가능하므로 **동기화된 4-tuple**과 **카메라별 고정 캘리브레이션**을 쓸 수 있다(WoodScape의 per-frame 비동기 구조는 GDPR 제약의 산물).
