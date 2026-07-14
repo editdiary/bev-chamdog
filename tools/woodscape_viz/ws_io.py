@@ -1,16 +1,17 @@
 """I/O helpers for the WoodScape ICCV19 dataset.
 
-Reads annotations directly from the shipped zip archives (no extraction to
-disk) and returns decoded numpy arrays / python objects. Every image is
-returned in OpenCV BGR channel order.
+Reads annotations from the extracted dataset tree (all zips have been
+unpacked to disk) and returns decoded numpy arrays / python objects. Every
+image is returned in OpenCV BGR channel order.
 
-The dataset layout this expects (train set, 8,234 samples):
-    <root>/rgb_images/rgb_images/<sample>.png           (extracted)
-    <root>/box_2d_annotations/box_2d_annotations.zip
-    <root>/instance_annotations/instance_annotations.zip
-    <root>/semantic_annotations/semantic_annotations.zip
-    <root>/motion_annotations/motion_annotations.zip
-    <root>/calibration_data/calibration.zip
+The dataset layout this expects (train set, 8,234 samples). Extraction left
+each annotation type inside a doubled folder (`<type>/<type>/...`):
+    <root>/rgb_images/rgb_images/<sample>.png
+    <root>/box_2d_annotations/box_2d_annotations/<sample>.txt
+    <root>/instance_annotations/instance_annotations/<sample>.json
+    <root>/semantic_annotations/semantic_annotations/{rgbLabels,gtLabels}/<sample>.png
+    <root>/motion_annotations/motion_annotations/{rgbLabels,gtLabels}/<sample>.png
+    <root>/calibration_data/calibration/<sample>.json
 A <sample> is "<NNNNN>_<CAM>", e.g. "00000_FV" (CAM in FV/RV/MVL/MVR).
 """
 from __future__ import annotations
@@ -18,7 +19,6 @@ from __future__ import annotations
 import hashlib
 import json
 import tempfile
-import zipfile
 from pathlib import Path
 
 import cv2
@@ -84,17 +84,19 @@ class WoodScape:
     def __init__(self, root):
         self.root = Path(root)
         self.rgb_dir = self.root / "rgb_images" / "rgb_images"
-        self.box_zip = self.root / "box_2d_annotations" / "box_2d_annotations.zip"
-        self.instance_zip = self.root / "instance_annotations" / "instance_annotations.zip"
-        self.semantic_zip = self.root / "semantic_annotations" / "semantic_annotations.zip"
-        self.motion_zip = self.root / "motion_annotations" / "motion_annotations.zip"
-        self.calib_zip = self.root / "calibration_data" / "calibration.zip"
+        self.box_dir = self.root / "box_2d_annotations" / "box_2d_annotations"
+        self.instance_dir = self.root / "instance_annotations" / "instance_annotations"
+        self.semantic_dir = self.root / "semantic_annotations" / "semantic_annotations"
+        self.motion_dir = self.root / "motion_annotations" / "motion_annotations"
+        self.calib_dir = self.root / "calibration_data" / "calibration"
 
     # ---- generic helpers ----
     @staticmethod
-    def _zip_bytes(zip_path, inner):
-        with zipfile.ZipFile(zip_path) as z:
-            return z.read(inner)
+    def _read_bytes(path):
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(f"annotation not found: {p}")
+        return p.read_bytes()
 
     @staticmethod
     def _decode_img(data):
@@ -114,7 +116,7 @@ class WoodScape:
 
     def box2d(self, sample):
         """Return list of (class_name, class_index, x_min, y_min, x_max, y_max)."""
-        data = self._zip_bytes(self.box_zip, f"box_2d_annotations/{sample}.txt")
+        data = self._read_bytes(self.box_dir / f"{sample}.txt")
         boxes = []
         for line in data.decode().splitlines():
             line = line.strip()
@@ -127,34 +129,35 @@ class WoodScape:
 
     def instance(self, sample):
         """Return the inner annotation dict (unwraps the filename-keyed root)."""
-        data = self._zip_bytes(self.instance_zip, f"instance_annotations/{sample}.json")
+        data = self._read_bytes(self.instance_dir / f"{sample}.json")
         obj = json.loads(data.decode())
         return obj[next(iter(obj))]
 
     def semantic_rgb(self, sample):
-        return self._decode_img(self._zip_bytes(
-            self.semantic_zip, f"semantic_annotations/rgbLabels/{sample}.png"))
+        return self._decode_img(self._read_bytes(
+            self.semantic_dir / "rgbLabels" / f"{sample}.png"))
 
     def semantic_gt(self, sample):
-        return self._decode_img(self._zip_bytes(
-            self.semantic_zip, f"semantic_annotations/gtLabels/{sample}.png"))
+        return self._decode_img(self._read_bytes(
+            self.semantic_dir / "gtLabels" / f"{sample}.png"))
 
     def motion_rgb(self, sample):
-        return self._decode_img(self._zip_bytes(
-            self.motion_zip, f"motion_annotations/rgbLabels/{sample}.png"))
+        return self._decode_img(self._read_bytes(
+            self.motion_dir / "rgbLabels" / f"{sample}.png"))
 
     def motion_gt(self, sample):
-        return self._decode_img(self._zip_bytes(
-            self.motion_zip, f"motion_annotations/gtLabels/{sample}.png"))
+        return self._decode_img(self._read_bytes(
+            self.motion_dir / "gtLabels" / f"{sample}.png"))
 
     def calib_dict(self, sample):
-        return json.loads(self._zip_bytes(
-            self.calib_zip, f"calibration/{sample}.json").decode())
+        return json.loads(self._read_bytes(
+            self.calib_dir / f"{sample}.json").decode())
 
     def calib_tempfile(self, sample):
-        """Extract the calibration json to a temp file and return its path, so
-        the official path-based read_cam_from_json() can be reused as-is."""
-        data = self._zip_bytes(self.calib_zip, f"calibration/{sample}.json")
+        """Copy the calibration json to a temp file and return its path, so
+        the official path-based read_cam_from_json() can be reused as-is. The
+        caller deletes the temp file, so we must not hand back the real path."""
+        data = self._read_bytes(self.calib_dir / f"{sample}.json")
         f = tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False)
         f.write(data)
         f.close()

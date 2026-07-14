@@ -41,7 +41,7 @@ RENDERERS = {
 }
 ALL_TYPES = list(RENDERERS)
 
-DEFAULT_ROOT = Path(__file__).resolve().parents[2] / "dataset" / "WoodScape_ICCV19"
+DEFAULT_ROOT = Path(__file__).resolve().parents[2] / "dataset" / "woodscape"
 
 
 def montage(images, width=960):
@@ -93,7 +93,7 @@ def gallery_samples(ws, per_cam, seed):
 def main():
     ap = argparse.ArgumentParser(description="WoodScape label visualizer")
     ap.add_argument("--root", type=Path, default=DEFAULT_ROOT,
-                    help="dataset root (default: repo dataset/WoodScape_ICCV19)")
+                    help="dataset root (default: repo dataset/woodscape)")
     ap.add_argument("--sample", help="sample id, e.g. 00000_FV")
     ap.add_argument("--gallery", type=int, metavar="N",
                     help="render N random samples per camera instead of --sample")
