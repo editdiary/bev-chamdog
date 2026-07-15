@@ -3,6 +3,22 @@
 	url = https://github.com/open-mmlab/mmdetection3d.git
 	ignore = untracked
 [submodule "WoodScape"]
-	path = WoodScape
+	path = third_party/datasets/WoodScape
 	url = https://github.com/valeoai/WoodScape
+	ignore = untracked
+[submodule "lift-splat-shoot"]
+	path = third_party/models/lift-splat-shoot
+	url = https://github.com/nv-tlabs/lift-splat-shoot
+	ignore = untracked
+[submodule "simple_bev"]
+	path = third_party/models/simple_bev
+	url = https://github.com/aharley/simple_bev
+	ignore = untracked
+[submodule "bevformer"]
+	path = third_party/models/bevformer
+	url = https://github.com/fundamentalvision/bevformer
+	ignore = untracked
+[submodule "BEVDet"]
+	path = third_party/models/BEVDet
+	url = https://github.com/HuangJunJie2017/BEVDet
 	ignore = untracked

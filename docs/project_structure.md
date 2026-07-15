@@ -17,6 +17,14 @@ bev-chamdog/
 │   └── dataset_analysis/      # WoodScape/SynWoodScape 등 분석 노트
 ├── dataset/               # 데이터셋 (내용물은 git 미추적)
 ├── mmdetection3d/         # MMDetection3D (git submodule)
+├── third_party/           # 참고용 외부 레포 (git submodule 모음)
+│   ├── datasets/
+│   │   └── WoodScape/         # WoodScape 공식 레포 (submodule)
+│   └── models/
+│       ├── lift-splat-shoot/  # 참고용 논문 구현체 (submodule)
+│       ├── simple_bev/        # 〃
+│       ├── bevformer/         # 〃
+│       └── BEVDet/            # 〃
 ├── configs/               # 커스텀 학습/추론 config
 ├── tools/                 # 커스텀 스크립트
 └── projects/              # 커스텀 mmdet3d 모듈 (registry 등록)
@@ -28,7 +36,9 @@ bev-chamdog/
 |---|---|
 | `docs/` | 모든 문서. 환경/워크플로/구조 및 데이터셋 분석 노트. |
 | `dataset/` | 원본·가공 데이터셋. 용량이 크므로 **내용물은 git으로 추적하지 않음** (`dataset/README.md`만 유지). |
-| `mmdetection3d/` | 학습 프레임워크. **submodule → 직접 수정 금지.** |
+| `mmdetection3d/` | 학습 프레임워크. **submodule → 직접 수정 금지.** 실행 경로가 루트 기준으로 고정돼 있어 루트에 유지. |
+| `third_party/datasets/` | 데이터셋 공식 레포(submodule). 코드에서 직접 참조하는 것만 여기 둔다 (예: WoodScape 캘리브레이션 스크립트). |
+| `third_party/models/` | BEV 3D 검출 논문 구현체(submodule). 현재는 참고·포팅용이며 학습 파이프라인에서 직접 임포트하지 않음. |
 | `configs/` | 자체 실험용 학습/추론 config. mmdet3d config를 상속·오버라이드. |
 | `tools/` | 데이터 변환, 분석, 시각화 등 보조 스크립트. |
 | `projects/` | mmdet3d registry에 등록할 커스텀 코드(dataset 클래스, transform, model 등). |

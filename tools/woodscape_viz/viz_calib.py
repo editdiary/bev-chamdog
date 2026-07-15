@@ -7,7 +7,7 @@ Two panels are produced and stacked side by side:
   (right) the same image undistorted to a centered cylindrical projection
           (fisheye -> cylindrical remap), which straightens the horizon.
 
-Reuses WoodScape/scripts/calibration/projection.py:
+Reuses third_party/datasets/WoodScape/scripts/calibration/projection.py:
   read_cam_from_json, Camera, RadialPolyCamProjection, CylindricalProjection,
   create_img_projection_maps.
 """
@@ -21,7 +21,7 @@ import numpy as np
 import ws_io
 
 # Make the official calibration module importable.
-_CALIB_DIR = Path(__file__).resolve().parents[2] / "WoodScape" / "scripts" / "calibration"
+_CALIB_DIR = Path(__file__).resolve().parents[2] / "third_party" / "datasets" / "WoodScape" / "scripts" / "calibration"
 if str(_CALIB_DIR) not in sys.path:
     sys.path.insert(0, str(_CALIB_DIR))
 
@@ -35,7 +35,7 @@ from scipy.spatial.transform import Rotation as SciRot  # noqa: E402
 def make_cylindrical_cam(cam):
     """Generate a cylindrical camera with a centered horizon.
 
-    Adapted from WoodScape/scripts/calibration/example.py (Valeo, MIT).
+    Adapted from third_party/datasets/WoodScape/scripts/calibration/example.py (Valeo, MIT).
     """
     assert isinstance(cam.lens, RadialPolyCamProjection)
     lens = CylindricalProjection(cam.lens.coefficients[0])
