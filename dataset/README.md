@@ -10,9 +10,11 @@
 dataset/
 ├── woodscape/        # WoodScape 벤치마크 (분석용)
 ├── synwoodscape/     # SynWoodScape 벤치마크 (분석용)
+├── nuscenes_mini/    # nuScenes v1.0-mini (3D 박스 라벨 포맷 참고용)
 └── custom/           # 자체 구축 BEV 데이터셋 (Fisheye 4-cam)
 ```
 
 ## 현재 보유
 
 - `WoodScape_ICCV19.tar.gz` — WoodScape 원본 아카이브 (약 41GB). 압축 해제 후 `woodscape/` 아래에 배치 예정.
+- `nuscenes_mini/` — nuScenes `v1.0-mini` (6-cam + LIDAR + radar, `v1.0-mini/` 아래 annotation JSON 포함). WoodScape에 없는 **3D bounding box 라벨 포맷** 참고용 (`docs/dataset_analysis/woodscape_analysis.md` §8 참고).
