@@ -1,8 +1,16 @@
-# MMDetection3D 환경 세팅 가이드 (RTX 3080 기준)
+# 환경 세팅 가이드 (RTX 3080 기준)
 
 > 작성일: 2026-07-13
 > 대상 서버: agtechresearch (GPU: NVIDIA GeForce RTX 3080, VRAM 10GB)
-> 목적: mmdet3d 개발 환경 구축 과정, 트러블슈팅, 최종 검증 결과 기록
+> 목적: 개발 환경 구축 과정, 트러블슈팅, 최종 검증 결과 기록
+
+> ⚠️ **이 문서는 Phase 0에서 mmdet3d 스택을 구축한 과정의 기록입니다.**
+> 현재 학습 경로인 **Simple-BEV는 mmdet3d에 의존하지 않으므로**, 아래에서 실제로 필요한 것은
+> **Python 3.9 / PyTorch 2.1.0+cu118 / torchvision 0.16.0+cu118 / numpy<2 / opencv<5** 까지입니다
+> (설치 단계 0~3, 8). mmengine·mmcv·mmdet·mmdet3d(단계 4~7)는 같은 conda 환경에 설치되어 있으나
+> 현재 사용하지 않습니다. 이후 3D 검출로 확장할 때 다시 필요합니다. (→ `ROADMAP.md`)
+>
+> conda 환경 이름이 `mmdet3d`인 것도 이때 붙은 것이며, 현재 학습 경로와는 무관합니다.
 
 ---
 
@@ -170,6 +178,6 @@ python demo/pcd_demo.py demo/data/kitti/000008.bin pointpillars_hv_secfpn_8xb6-1
 
 ## 6. 향후 참고 사항
 
-- **GPU 메모리 제약**: 3080은 VRAM 10GB로, mmdet3d 기본 config(PointPillars, SECOND, CenterPoint 등)의 기본 batch size는 대개 다중 GPU 기준으로 설정되어 있음. 단일 3080으로 학습 시 `batch_size`를 낮추거나 gradient accumulation 적용 필요. 첫 학습 실행 시 OOM(Out of Memory) 발생 가능성 있음.
+- **GPU 메모리 제약**: 3080은 VRAM 10GB로, 공개 BEV 모델의 기본 batch size는 단일 소비자용 GPU에 맞지 않음. Simple-BEV `train_nuscenes.py`의 기본값은 `batch_size=8`, `grad_acc=5`(유효 배치 40)이고 저장소의 `train.sh` 예시는 `batch_size=1`이다. mmdet3d 기본 config도 대개 다중 GPU 기준. 단일 3080으로 학습 시 `batch_size`를 낮추고 `grad_acc`를 키우는 조합이 필요하며, **gradient accumulation은 Simple-BEV에 이미 내장되어 있어 따로 구현할 필요가 없다.** 첫 학습 실행 시 OOM(Out of Memory) 발생 가능성 있음.
 - **버전 관리 원칙**: mmcv/mmdet/mmdet3d/numpy/opencv는 버전 범위(`>=`)보다 정확한 버전을 명시적으로 고정하는 것을 권장. 새 패키지 설치/업데이트 후에는 항상 `pip check`로 재검증.
 - **재현성**: 다른 서버에 동일 환경을 구축할 경우, 본 문서의 "1. 최종 확정 버전" 표와 "3. 설치 단계"를 그대로 따르면 동일하게 재현 가능.

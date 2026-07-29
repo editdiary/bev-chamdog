@@ -8,13 +8,18 @@
 
 ```
 dataset/
-├── woodscape/        # WoodScape 벤치마크 (분석용)
-├── synwoodscape/     # SynWoodScape 벤치마크 (분석용)
-├── nuscenes_mini/    # nuScenes v1.0-mini (3D 박스 라벨 포맷 참고용)
-└── custom/           # 자체 구축 BEV 데이터셋 (Fisheye 4-cam)
+├── synwoodscape/     # ★ 현재 학습에 사용 (Phase 3)
+├── woodscape/        # WoodScape 벤치마크 (분석 완료, 참고용)
+├── nuscenes_mini/    # nuScenes v1.0-mini (포맷 참고용)
+└── custom/           # 자체 구축 BEV 데이터셋 (Fisheye 4-cam, Phase 4에서 배치)
 ```
 
 ## 현재 보유
 
-- `WoodScape_ICCV19.tar.gz` — WoodScape 원본 아카이브 (약 41GB). 압축 해제 후 `woodscape/` 아래에 배치 예정.
-- `nuscenes_mini/` — nuScenes `v1.0-mini` (6-cam + LIDAR + radar, `v1.0-mini/` 아래 annotation JSON 포함). WoodScape에 없는 **3D bounding box 라벨 포맷** 참고용 (`docs/dataset_analysis/woodscape_analysis.md` §8 참고).
+- **`synwoodscape/`** (약 61GB) — SynWoodScape `V0.1.0`, **500 samples**. Phase 3 학습에 사용하는 데이터셋.
+  - 샘플당 어안 4-cam(`FV`/`RV`/`MVL`/`MVR`) + BEV 1대의 RGB·semantic·depth, 그리고 LiDAR·3D 박스
+  - `semantic_annotations/gtLabels/*_BEV.png` → **BEV occupancy GT의 원본** (drivable remap 대상)
+  - `calibration_data/`에는 어안 4대의 json만 있고 **BEV 카메라 json은 없음** → BEV의 미터/픽셀 스케일은 별도 확정 필요 (→ `ROADMAP.md` Phase 3.1)
+  - 클래스 팔레트·센서 배치는 `synwoodscape/readme.txt` 참고
+- **`woodscape/`** (약 43GB) — WoodScape 원본(ICCV19). 분석 완료(→ `docs/dataset_analysis/woodscape_analysis.md`). 공개본은 2D 라벨만 제공하고 3D·depth GT가 없어 학습에는 쓰지 않는다. **캘리브레이션 규약 문서와 참고 코드는 `third_party/datasets/WoodScape/` submodule에 있다.**
+- **`nuscenes_mini/`** (약 5.1GB) — nuScenes `v1.0-mini` (6-cam + LiDAR + radar). 3D bounding box 라벨 포맷 참고용(→ `docs/dataset_analysis/woodscape_analysis.md` §8). 현재 task(BEV occupancy)에는 사용하지 않으며, 이후 3D 검출로 확장할 때 참고한다.

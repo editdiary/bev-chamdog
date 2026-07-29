@@ -1,9 +1,15 @@
 # WoodScape ICCV19 데이터셋 분석
 
-> 목적: 자체 Fisheye 4-cam BEV 3D 검출 데이터셋을 설계하기 전에, 가장 유사한 공개 데이터셋인
+> 목적: 자체 Fisheye 4-cam BEV 데이터셋을 설계하기 전에, 가장 유사한 공개 데이터셋인
 > **WoodScape**(Valeo, ICCV 2019)가 실제로 어떻게 구축되어 있는지 — 폴더 구성, 파일명 규칙,
 > 각 라벨 포맷 — 을 정리한다. 모든 내용은 로컬 데이터(`dataset/woodscape/`)와
-> 공식 repo(`WoodScape/`)를 직접 열어 검증했다.
+> 공식 repo(`third_party/datasets/WoodScape/`)를 직접 열어 검증했다.
+
+> 📌 **이 문서는 작성 당시(Phase 1) 기록이며, 프로젝트 task가 "BEV 3D 검출"이던 시점의 관점으로
+> 쓰여 있다.** 이후 task는 **BEV occupancy map(drivable / non-drivable)** 으로 변경되었다(→ `ROADMAP.md`).
+> 데이터셋 구조·포맷에 관한 사실 관계는 그대로 유효하나, "우리 dataset 함의"류의 서술은 3D 박스를
+> 전제로 한 것이므로 현재 계획과 다르다. 현재 task 기준의 핵심 결론은 아래 §0의 첫 항목
+> — **WoodScape 공개본은 2D 라벨만 제공하므로 학습에는 쓰지 않고, SynWoodScape를 쓴다** — 이다.
 
 ---
 
