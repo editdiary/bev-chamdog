@@ -18,8 +18,8 @@ Simple-BEV(`third_party/models/simple_bev`)는 핀홀 카메라 모델을 전제
 
 이번 스펙은 다음 두 단계까지만 다룬다.
 
-- **Phase 1**: `radial_poly` project/unproject 함수 구현 및 검증
-- **Phase 2**: SynWoodScape로부터 BEV occupancy GT(drivable/non-drivable) 생성 및 두 방법 간 교차검증
+- **Phase 1**: `radial_poly` project/unproject 함수 구현 및 검증 (LiDAR 재투영 이용)
+- **Phase 2**: SynWoodScape로부터 BEV occupancy GT(drivable/non-drivable) 생성 (BEV 이미지 스케일 보정 + 크롭)
 
 **범위 밖** (다음 스펙에서 다룸):
 - Simple-BEV `vox.py`/`geom.py`에 위 투영 함수를 실제로 통합하는 모델 래핑 작업
@@ -73,6 +73,12 @@ x, y는 거의 일치하고 z만 약 2m 차이가 나며, 이는 readme.txt에 �
 - semantic consistency rate 90% 이상
 - project→unproject 라운드트립 오차가 허용 오차(예: 서브픽셀) 이내
 
+### 3.6 알아둘 점 — LiDAR 근접 커버리지
+
+실제 데이터 확인 결과, SynWoodScape LiDAR는 **차량 근접(0~5m) 포인트가 여러 샘플에서 일관되게 0개**다(예: 5개 샘플 모두 5m 이내 0개, 20m 이내도 수~수백 개 수준). world 좌표계에서 차량 위치까지의 순수 거리로 확인했으므로 좌표계 변환 버그가 아니라 센서 스펙(수직 FOV/range gate)에 의한 특성으로 보인다.
+
+이는 Phase 1(§3.4)의 검증 방식에는 영향이 없다 — 투영 검증은 카메라 FOV 안에 들어오는 어떤 거리의 포인트든(원거리 포함) 유효하며, 실제로 22~536m 범위의 포인트로도 건물/기둥 등 다양한 class에 대해 검증 가능함을 확인했다. 다만 **Phase 2에서 LiDAR를 근접 occupancy 그리드의 직접적인 래스터화 소스로 쓸 수 없다는 뜻이며, 이는 §4의 설계에 반영되어 있다.**
+
 ## 4. Phase 2 — BEV Occupancy GT 설계
 
 ### 4.1 그리드 정의
@@ -96,41 +102,50 @@ SynWoodScape semantic palette 기준:
 
 이 매핑은 `projects/bev_gt/`의 상수/설정으로 분리해, 추후 자체 로봇(보도 포함 등)에 맞게 바꾸기 쉽게 한다.
 
-### 4.3 소스 A — LiDAR 포인트 래스터화
+### 4.3 BEV 이미지 스케일/원점 보정 (1회성)
 
-1. §3.3의 좌표계 규약으로 LiDAR 포인트를 ego frame으로 변환
-2. §4.1의 ROI로 crop
-3. 각 셀에 대해 포인트 투표(최근접 또는 다수결)로 class 결정 → §4.2 매핑으로 drivable/non-drivable 판정
-4. **포인트가 없는 셀은 "unknown"으로 별도 마스킹한다(바로 non-drivable로 채우지 않음)**. 차량 바로 아래·뒤(그리드 ROI)는 실제로 LiDAR가 가려지거나 sparse할 가능성이 있어, 이 사각지대를 non-drivable로 오판하지 않기 위함.
+**문제**: `_BEV.png`(top-down semantic 라벨)를 만든 가상 BEV 카메라의 intrinsic(화각/스케일)이 `calibration_data`에도 `vehicle_data`에도 없다. readme.txt에는 위치(z=15, pitch=-90)만 명시돼 있다.
 
-### 4.4 소스 B — `_BEV.png` semantic 라벨 활용
+**해결책 (실측으로 확인됨)**: LiDAR가 아니라, 데이터셋에 이미 있는 **instance-level BEV 라벨 + 3D 박스**로 직접 역산한다.
 
-- **문제**: `_BEV.png`(top-down semantic 라벨)를 만든 가상 BEV 카메라의 intrinsic(화각/스케일)이 `calibration_data`에도 `vehicle_data`에도 없다. readme.txt에는 위치(z=15, pitch=-90)만 명시돼 있다.
-- **해결안**: semantic palette의 `ego-vehicle`(class 24)이 BEV 이미지에 항상 고정된 실제 크기로 찍힌다는 점을 이용해, 그 픽셀 크기로부터 픽셀↔미터 스케일을 역산한다. 카메라가 지면 수직 방향으로 15m 높이에서 내려다보므로, ego 차량 주변(우리 관심 ROI인 전방3m/후방1m/좌우1m)에서는 근사적으로 orthographic이라고 가정하고 검증한다.
-- 스케일 역산 후 §4.2 class 매핑, §4.1 ROI crop을 동일하게 적용한다.
+- `_unuserd/instance_annotations/gtLabels/*_BEV.png` (1024×1024, grayscale)의 픽셀 값은 **instance id**다.
+- `_unuserd/box_3d_annotations/*.pkl`은 `{instance_id: (8,4) 3D 코너 좌표}`를 담고 있다.
+- 샘플 00000에서 instance id `24`가 **ego-vehicle 자신**이었고(semantic class 24=ego-vehicle과 픽셀 bbox 완전 일치, 66×132px, 중심 (511.5,511.5) = 이미지 정중앙), 그 3D 박스 치수(X=1.9m, Y=3.76m)로 스케일을 역산하면 **폭 기준 0.0288 m/px, 길이 기준 0.0285 m/px로 두 축이 거의 일치**한다 → 등방 스케일의 top-down 투영, 약 0.0286 m/px (1024px ≈ 29m 정사각형 커버리지).
+- 4개 샘플(world yaw 0°/88°/91°/147°, 서로 다른 헤딩)에서 ego-vehicle bbox가 **항상 정확히 같은 크기·같은 위치(이미지 정중앙)** 로 나옴을 확인했다 → 이 BEV 카메라는 world 고정이 아니라 **ego 차량과 함께 회전하는(ego-relative) 카메라**다. 따라서 world yaw 보정이 불필요하고, 이미지 축이 곧바로 ego의 전후/좌우 축이다.
 
-### 4.5 교차검증
+**절차**:
+1. 여러 샘플 × 여러 instance(3D 박스가 있는 것)에서 BEV 픽셀 bbox 크기와 3D 박스 치수를 짝지어 스케일(m/px)을 계산하고 평균·표준편차로 신뢰도를 확인한다.
+2. ego-vehicle(semantic class 24) bbox 중심이 여러 샘플에서 일관되게 이미지 정중앙인지 재확인해 원점을 확정한다.
+3. 이미지 축(가로=폭/좌우, 세로=길이/전후) 중 어느 쪽이 전방(+)인지는 `rgb_images/*_BEV.png`(컬러) 육안 확인 또는 `vehicle_data`의 velocity 벡터 방향과 대조해 부호를 정한다.
+4. 확정된 스케일·원점·축 매핑을 `projects/bev_gt/`의 상수로 고정한다(샘플마다 다시 계산하지 않음 — 동일 가상 카메라이므로 데이터셋 전체에 대해 한 번만 구하면 된다).
 
-두 소스(LiDAR 래스터, `_BEV.png` 기반)의 occupancy grid를 겹쳐 cell 단위 일치율(agreement/IoU)을 계산하고, 불일치 지점을 시각화한다. 이를 통해 어느 소스를 최종 GT로 채택할지(또는 둘을 어떻게 결합할지) 판단 근거를 마련한다.
+### 4.4 근접 occupancy GT 생성
 
-### 4.6 완료 기준 (제안, 조정 가능)
+1. §4.3에서 확정한 스케일/원점/축으로 `semantic_annotations/gtLabels/*_BEV.png`에서 §4.1 ROI(전방3m/후방1m/좌우±1m)에 해당하는 픽셀 영역을 잘라낸다.
+2. §4.2의 class 매핑(road/road line → drivable, 나머지 → non-drivable)을 그대로 적용해 5cm 셀 그리드로 리샘플링한다.
+3. LiDAR는 이 근접 그리드 생성에 관여하지 않는다(§3.6 — 근접 LiDAR 포인트가 사실상 없어 래스터화 소스로 부적합하다고 확인됨). LiDAR의 역할은 Phase 1(§3)의 fisheye project/unproject 검증으로 한정한다.
 
-- 두 소스 간 occupancy cell 일치율 90% 이상
-- 불일치가 발생하는 위치·원인(예: LiDAR sparse 영역, BEV 스케일 추정 오차) 문서화
+### 4.5 완료 기준 (제안, 조정 가능)
+
+- §4.3의 스케일 추정이 서로 다른 샘플/instance에서 일관됨(예: 표준편차가 평균의 5% 이내)
+- ego-vehicle bbox 중심이 여러 샘플에서 이미지 중앙 ±1px 이내로 일관됨
+- 최종 occupancy 그리드를 몇 개 샘플에 대해 시각화했을 때 도로 형태가 육안상 타당함
 
 ## 5. 산출물
 
 - 코드
-  - `projects/geometry/fisheye.py` — radial_poly project/unproject
-  - `projects/bev_gt/` — occupancy 변환(class remap, ROI crop, 래스터화, BEV 이미지 스케일 역산)
-  - `tools/verify_fisheye_projection.py` — Phase 1 검증 스크립트
+  - `projects/geometry/frames.py` — 동차좌표 변환 헬퍼, LiDAR world→ego 변환, 좌표계 규약 회귀 테스트
+  - `projects/geometry/fisheye.py` — radial_poly project/unproject (WoodScape 공식 구현 wrapping)
+  - `projects/bev_gt/` — occupancy 변환(class remap, 그리드 스펙, BEV 이미지 스케일/원점 보정, ROI crop)
+  - `tools/verify_fisheye_projection.py` — Phase 1 검증 스크립트 (LiDAR 재투영 오버레이 + semantic consistency rate)
+  - `tools/calibrate_bev_scale.py` — §4.3의 스케일/원점 보정을 여러 샘플에 대해 수행하고 상수를 도출하는 스크립트
   - `tools/build_occupancy_gt.py` — Phase 2 occupancy GT 배치 생성 + 시각화
-  - `tools/cross_validate_occupancy_gt.py` — 소스 A/B 교차검증 리포트
 - 문서
   - 이 design doc
   - Phase 1/2 실행 결과를 기록할 짧은 findings 노트(`docs/dataset_analysis/` 또는 `docs/study/`에 추가 — 실행 후 작성)
 
 ## 6. 열린 질문 / 향후 확인 사항
 
-- BEV 이미지 스케일 역산(§4.4)의 정확도는 실제 검증 전까지는 가정이다. 검증 결과 오차가 크면 소스 B의 신뢰도를 낮추고 소스 A(LiDAR) 비중을 높인다.
-- LiDAR ROI(§4.3) sparse/사각지대 비율이 예상보다 크면, unknown 마스크 비율에 따라 소스 B에 더 의존하는 방향으로 조정할 수 있다.
+- §4.3의 스케일은 샘플 00000의 instance 1개로 처음 확인했다. 더 많은 샘플/instance로 평균을 내 견고성을 확인해야 한다.
+- 이미지 축의 전방(+) 방향 부호는 아직 육안/velocity 대조로 확정하지 않았다 — `tools/calibrate_bev_scale.py` 실행 시 확정한다.
+- `_unuserd/instance_annotations`, `_unuserd/box_3d_annotations`는 이 보정 단계에서만 참조하고, 최종 occupancy GT 파이프라인(`tools/build_occupancy_gt.py`)은 `semantic_annotations`만 사용한다.
