@@ -8,6 +8,11 @@ build/
 dist/
 .ipynb_checkpoints/
 
+# ---- 테스트 도구 캐시 ----
+.pytest_cache/
+.coverage
+htmlcov/
+
 # ---- 가상환경 ----
 .venv/
 venv/
@@ -37,12 +42,14 @@ wandb/
 /dataset/*
 !/dataset/README.md
 
-# ---- OS / 에디터 ----
+# ---- OS / 에디터 / 도구 ----
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 *.swp
+# 개인 로컬 설정 (공유 설정을 두려면 .claude/settings.json 을 커밋)
+.claude/settings.local.json
 
 # 참고:
 #  - mmdetection3d/ 는 submodule(gitlink)이라 무시 대상이 아님.
