@@ -155,13 +155,16 @@
 ## 6. 이 프로젝트와의 연결
 
 - **sim (SynWoodScape):** `radial_poly` (파라미터 제공됨 → 캘리 불필요). project/unproject만
-  구현. 참고: WoodScape omnidet `generate_luts.py`. → `native_fisheye_plan/phase1 §2`.
+  구현. 참고: WoodScape omnidet `generate_luts.py`.
 - **real (자체 4-cam, 추후):** 표준 툴로 캘리. 모델 **1순위 Double Sphere, 후보 eUCM**
-  (강어안). 최종은 재투영 오차 비교로 확정. → `native_fisheye_plan/phase1 §2.3`.
+  (강어안). 최종은 재투영 오차 비교로 확정.
 - **sim↔real 모델 통일 불필요:** 투영은 카메라별 고정 기하 함수라 학습 가중치와 무관.
   각자 올바르면 pretrain→fine-tune 성립. **변환 안 함.**
-- **좌표계 주의:** SynWoodScape extrinsic은 "CARLA reference" → 축 규약·quaternion 순서 확인
-  필요(부호 오류 방지). → phase1 §2.2 / phase2.
+- **좌표계 주의:** SynWoodScape extrinsic은 JSON 키가 "CARLA reference"라고 적혀 있으나,
+  WoodScape 공식 `calibration_readme.txt`는 vehicle 좌표계를 **ISO 8855**(원점 = 뒷축 중점
+  아래 지면, X 전방 / **Y 좌측** / Z 상방), camera 좌표계를 **OpenCV**(X 우 / Y 하 / Z 광축)로
+  명시하고, translation+quaternion은 **camera → vehicle** 변환이라고 못박고 있다. 축 규약을
+  실험으로 역추적하지 말고 이 문서를 먼저 볼 것.
 
 ---
 
