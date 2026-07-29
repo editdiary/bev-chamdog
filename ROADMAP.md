@@ -8,9 +8,9 @@
 
 ## Phase 0 — 개발 환경 세팅 & 데모 검증 ✅ 완료
 
-- conda 환경 및 버전 고정 (→ `docs/setup_guide.md`)
-- GPU 인식, CUDA 커스텀 연산, 모델 빌드, 추론 데모 정상 동작 확인
-- 당시 mmdet3d 스택까지 함께 구축했으나, 현재 학습 경로(Simple-BEV)에는 PyTorch·numpy만 필요하다
+- conda 환경 및 버전 고정 (→ `docs/setup_guide_pro6000.md`)
+- GPU 인식, sm_120 커널 실행, 사전학습 encoder, 로깅 스택, simple_bev import 정상 동작 확인
+- 최초 구축(RTX 3080) 당시에는 mmdet3d 스택까지 함께 깔았으나, 현재 학습 경로(Simple-BEV)에는 PyTorch·numpy만 필요하다. **RTX PRO 6000 서버로 이전하면서 mmcv 계열은 설치하지 않는다** (prebuilt wheel이 torch 2.1까지만 존재). 3080 시절 이력은 `docs/setup_guide.md`에 보존
 
 ## Phase 1 — 벤치마크 데이터셋 분석 ✅ 완료
 
@@ -44,7 +44,7 @@
 
 ### 3.3 학습 & 평가
 
-- RTX 3080 10GB 제약: batch size 축소 / gradient accumulation / AMP
+- 하드웨어: RTX PRO 6000 96GB. VRAM 제약이 없으므로 batch size 축소·gradient accumulation은 불필요하고, **데이터 로딩(`num_workers`)과 GPU 활용률**을 먼저 살핀다. bf16 AMP는 검토 대상
 - 지표: **drivable IoU**를 주지표로 사용
 - 성공 기준: 학습이 수렴하고, 예측 BEV가 GT와 육안으로도 정합한다
 

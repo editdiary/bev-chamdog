@@ -4,6 +4,12 @@
 
 > ⚠️ **이 폴더의 내용물은 git으로 추적하지 않습니다** (용량 큼). `.gitignore`에서 `/dataset/*`를 무시하고 이 `README.md`만 유지합니다. 데이터는 각자 환경에서 내려받아 배치하세요.
 
+> 📌 현재 서버에서는 실제 데이터를 **`/data`(3.7T) 파티션**에 두고 이 폴더에 symlink를 겁니다.
+> 루트 파티션에 넣으면 자체 데이터셋·체크포인트가 쌓일 때 좁아집니다.
+> ```bash
+> ln -s /data/datasets/synwoodscape dataset/synwoodscape
+> ```
+
 ## 권장 하위 구조
 
 ```

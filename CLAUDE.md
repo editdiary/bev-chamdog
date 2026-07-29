@@ -21,17 +21,20 @@
 
 ## 개발 환경
 
-- conda 환경명: **`mmdet3d`** (Python 3.9) — 초기 세팅 때 붙은 이름이며, 현재 학습 경로와는 무관하다.
-- Simple-BEV 학습에 실제로 필요한 것: PyTorch 2.1.0+cu118 / torchvision 0.16.0+cu118 / **numpy<2 고정**.
-- 같은 환경에 mmcv 2.1.0 / mmdet 3.2.0 / mmdet3d 1.4.0도 설치되어 있으나 현재 쓰지 않는다.
-- 패키지 설치/업데이트 시 `constraints.txt`로 numpy<2·opencv<5 강제, 이후 항상 `pip check`.
-- 상세: `@docs/setup_guide.md`
+- conda 환경명: **`bev-chamdog`** (Python 3.11)
+- **PyTorch는 반드시 `cu128` 빌드**(2.7.0+cu128)를 쓴다. GPU가 sm_120이라 `cu118` 빌드로는 커널이 실행되지 않는다. `torch.cuda.is_available()`이 True로 나와도 실제 연산에서 죽으므로 속지 말 것.
+- 의존성은 `constraints.txt`(numpy<2·opencv<5) + `requirements.txt` 조합으로 설치하고, 이후 항상 `pip check`.
+- **`third_party/models/simple_bev/requirements.txt`를 그대로 쓰면 안 된다** (Python 3.7~3.8 시절 핀 → 3.11에서 설치 실패). 루트의 `requirements.txt`를 쓴다.
+- **mmcv / mmdet / mmdet3d는 설치하지 않는다.** prebuilt wheel이 torch 2.1까지만 존재한다. 이후 3D 검출로 확장할 때는 별도 conda 환경으로 분리한다.
+- 상세: `@docs/setup_guide_pro6000.md` (이전 RTX 3080 환경 이력은 `@docs/setup_guide.md`)
 
 ## 하드웨어
 
-- GPU: **RTX 3080 / VRAM 10GB** (단일 GPU)
-- 공개 BEV 모델 config는 다중 GPU 기준이 많음 → `batch_size` 축소 또는 gradient accumulation 필요. **첫 학습 시 OOM 주의.**
-- 상세: `@docs/setup_guide.md`
+- GPU: **RTX PRO 6000 Blackwell / VRAM 96GB** (단일 GPU, sm_120)
+- CPU 32코어 / RAM 250GB / `/dev/shm` 126GB
+- 데이터셋은 루트 파티션이 아니라 **`/data`(3.7T)** 에 두고 symlink를 건다.
+- VRAM이 넉넉해 `batch_size` 축소나 gradient accumulation 회피가 **불필요**하다. 오히려 **데이터 로딩이 병목**이 되기 쉬우므로 `num_workers`(8~16)와 GPU 활용률을 먼저 살핀다. 최대 batch size는 추측하지 말고 실측한다.
+- 상세: `@docs/setup_guide_pro6000.md`
 
 ## 폴더 규칙
 

@@ -1,0 +1,46 @@
+# Simple-BEV 학습에 실제로 필요한 의존성 (RTX PRO 6000 / Python 3.11 검증본)
+#
+# 사용법:
+#   pip install -c constraints.txt -r requirements.txt
+#
+# ⚠️ torch / torchvision 은 이 파일에 넣지 않는다.
+#    전용 index-url이 필요하므로 별도 설치한다 (→ docs/setup_guide_pro6000.md §3):
+#      pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#
+# ⚠️ third_party/models/simple_bev/requirements.txt 를 그대로 쓰면 안 된다.
+#    그 파일의 핀(matplotlib==3.5.1, scikit-learn==1.1.2, protobuf==3.19.4 등)은
+#    Python 3.7~3.8 시절 기준이라 3.11용 wheel이 없어 설치가 깨진다.
+#    아래 목록은 simple_bev 의 실제 import 를 추적해 재구성한 것이다.
+
+# --- 수치 연산 / 이미지 (constraints.txt 로 상한 강제) ---
+numpy==1.26.4
+opencv-python==4.11.0.86
+scipy==1.17.1
+pillow==12.2.0
+
+# --- 모델 (nets/segnet.py 가 모듈 최상단에서 import → encoder_type 과 무관하게 필수) ---
+efficientnet_pytorch==0.7.1
+einops==0.8.2
+
+# --- 학습 스크립트 (train_nuscenes.py) ---
+fire==0.7.1
+tensorboard==2.21.0
+tensorboardX==2.6.5
+
+# --- 시각화 / 지표 (utils/improc.py 등) ---
+matplotlib==3.11.1
+scikit-image==0.26.0
+scikit-learn==1.9.0
+imageio==2.37.4
+
+# --- 의도적으로 제외한 것 --------------------------------------------------
+# nuscenes-devkit, lyft_dataset_sdk, pyquaternion
+#   → nuscenesdataset.py / eval_*.py 전용. SynWoodScape 로더는 projects/ 에
+#     직접 구현하므로 불필요하며, 이 패키지들이 구버전 핀을 대량으로 끌고 온다.
+# protobuf==3.19.4 (원본 핀)
+#   → 제외. tensorboard 2.21 이 요구하는 protobuf 7.x 로 설치되며 런타임 검증 완료.
+# nets/ops (MultiScaleDeformableAttention CUDA 확장)
+#   → bevformernet 전용. 우리가 쓰는 Segnet 은 불필요 → CUDA 확장 빌드 회피.
+# mmcv / mmdet / mmdet3d
+#   → 현재 학습 경로에서 미사용. prebuilt wheel 이 torch 2.1 까지만 존재하므로
+#     신규 torch 에서는 설치하지 않는다 (→ docs/setup_guide_pro6000.md §2).

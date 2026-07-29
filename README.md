@@ -28,7 +28,8 @@ bev-chamdog/
 ├── README.md              # 프로젝트 개요 (현재 문서)
 ├── CLAUDE.md              # 개발 시 참고할 핵심 지침
 ├── ROADMAP.md             # 단계별 로드맵
-├── constraints.txt        # 패키지 버전 고정 (numpy<2 등)
+├── constraints.txt        # 패키지 버전 상한 고정 (numpy<2, opencv<5)
+├── requirements.txt       # Simple-BEV 학습에 실제로 필요한 의존성
 ├── docs/                  # 상세 문서 (환경 세팅, git 워크플로, 구조, 분석 노트, study)
 ├── dataset/               # 데이터셋 (내용물은 git 미추적 → dataset/README.md 참고)
 ├── third_party/           # 참고용 외부 저장소 (git submodule — 직접 수정 금지)
@@ -44,7 +45,7 @@ bev-chamdog/
 
 ## ✅ 진행 상황
 
-- [x] **개발 환경 세팅** — conda 환경 및 버전 고정 (→ [`docs/setup_guide.md`](docs/setup_guide.md))
+- [x] **개발 환경 세팅** — conda 환경 및 버전 고정 (→ [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md))
 - [x] **벤치마크 분석** — WoodScape 분석 완료 (→ [`docs/dataset_analysis/`](docs/dataset_analysis/)), SynWoodScape 구조 파악
 - [x] **자체 데이터셋 구축** — 별도 프로젝트에서 수집·캘리브레이션·라벨링 마무리
 - [ ] **SynWoodScape + Simple-BEV 학습** ← *현재 단계*
@@ -64,9 +65,18 @@ git submodule update --init --recursive
 
 ### 2) 개발 환경 세팅
 
-conda 환경 및 패키지 버전 세팅 과정은 [`docs/setup_guide.md`](docs/setup_guide.md)에 정리되어 있습니다. 핵심은 Python 3.9 / PyTorch 2.1.0+cu118 / **numpy<2** 이며, Simple-BEV 학습에는 이 정도만 필요합니다. (문서에 함께 기록된 mmcv·mmdet·mmdet3d 스택은 현재 학습 경로에서 사용하지 않습니다.)
+```bash
+conda create -n bev-chamdog python=3.11 -y && conda activate bev-chamdog
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pip install -c constraints.txt -r requirements.txt
+pip check
+```
 
-학습 하드웨어는 **RTX 3080 / VRAM 10GB 단일 GPU**입니다. 공개 BEV 모델 config는 대부분 다중 GPU 기준이므로 batch size 축소 또는 gradient accumulation이 필요합니다.
+> ⚠️ **PyTorch는 반드시 `cu128` 빌드**여야 합니다. GPU가 sm_120(Blackwell)이라 `cu118` 빌드로는 커널이 실행되지 않으며, `torch.cuda.is_available()`이 True로 나와도 실제 연산에서 죽습니다.
+
+전체 절차·검증 스크립트·트러블슈팅은 [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md)에 정리되어 있습니다. mmcv·mmdet·mmdet3d는 현재 학습 경로에서 사용하지 않으므로 설치하지 않습니다. (이전 RTX 3080 환경의 세팅 이력은 [`docs/setup_guide.md`](docs/setup_guide.md)에 남겨두었습니다.)
+
+학습 하드웨어는 **RTX PRO 6000 Blackwell / VRAM 96GB 단일 GPU**입니다. VRAM이 넉넉해 batch size 축소나 gradient accumulation 회피는 불필요하고, 오히려 데이터 로딩이 병목이 되기 쉽습니다.
 
 ## 🔀 개발 / 버전 관리
 

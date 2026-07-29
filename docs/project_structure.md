@@ -7,16 +7,19 @@ bev-chamdog/
 ├── README.md              # 프로젝트 개요
 ├── CLAUDE.md              # 개발 핵심 지침
 ├── ROADMAP.md             # 단계별 로드맵
-├── constraints.txt        # 패키지 버전 고정 (numpy<2, opencv<5)
+├── constraints.txt        # 패키지 버전 상한 고정 (numpy<2, opencv<5)
+├── requirements.txt       # Simple-BEV 학습에 실제로 필요한 의존성
 ├── .gitignore
 ├── .gitmodules            # submodule 정의
 ├── docs/                  # 문서 모음
-│   ├── setup_guide.md         # 환경 세팅 가이드 & 트러블슈팅
+│   ├── setup_guide_pro6000.md # ★ 환경 세팅 가이드 (현재 정본)
+│   ├── setup_guide.md         # 〃 RTX 3080 시절 이력 (참고용)
+│   ├── env/                   # pip freeze 스냅샷
 │   ├── git_workflow.md        # git 브랜치 전략
 │   ├── project_structure.md   # (현재 문서)
 │   ├── dataset_analysis/      # WoodScape/SynWoodScape 등 분석 노트
 │   └── study/                 # 배경 지식 정리 (카메라 모델·캘리브레이션 등)
-├── dataset/               # 데이터셋 (내용물은 git 미추적)
+├── dataset/               # 데이터셋 (내용물은 git 미추적, /data 로 symlink)
 ├── third_party/           # 외부 레포 (git submodule 모음)
 │   ├── datasets/
 │   │   └── WoodScape/         # WoodScape 공식 레포 (캘리브레이션 규약·참고 코드)

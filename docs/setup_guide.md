@@ -1,4 +1,14 @@
-# 환경 세팅 가이드 (RTX 3080 기준)
+# 환경 세팅 가이드 (RTX 3080 기준) — 📦 이력 문서
+
+> 🚨 **이 문서는 더 이상 현재 환경이 아닙니다.**
+> 서버를 RTX PRO 6000 Blackwell 환경으로 이전했습니다. **현재 정본은 [`setup_guide_pro6000.md`](setup_guide_pro6000.md)** 입니다.
+>
+> 특히 아래 §2-2의 `pip install ... --index-url .../whl/cu118` 명령을 **새 서버에서 그대로 쓰면 안 됩니다.**
+> cu118 wheel에는 sm_90까지의 커널만 들어 있어 sm_120(Blackwell)에서
+> `CUDA error: no kernel image is available for execution on the device`로 실패합니다.
+> (실제로 이전 과정에서 이 함정을 밟았습니다 → `setup_guide_pro6000.md` §4-1)
+>
+> 이 문서는 3080 시절의 구축 과정·트러블슈팅 이력으로만 보존합니다.
 
 > 작성일: 2026-07-13
 > 대상 서버: agtechresearch (GPU: NVIDIA GeForce RTX 3080, VRAM 10GB)

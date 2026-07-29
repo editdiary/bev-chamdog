@@ -220,7 +220,7 @@ semantic/box/dense polygon은 모두 이 인스턴스 폴리곤에서 *생성*�
 
 ## 6. 라벨 시각화 도구
 
-`tools/woodscape_viz/` — 라벨을 RGB 이미지 위에 오버레이해 PNG로 저장한다. 추출된 데이터셋 파일에서 직접 읽는다(이중 폴더 레이아웃 기준). `mmdet3d` conda 환경에서 실행 (numpy/opencv/scipy 필요).
+`tools/woodscape_viz/` — 라벨을 RGB 이미지 위에 오버레이해 PNG로 저장한다. 추출된 데이터셋 파일에서 직접 읽는다(이중 폴더 레이아웃 기준). `bev-chamdog` conda 환경에서 실행 (numpy/opencv/scipy 필요).
 
 ```bash
 # 한 샘플, 전체 라벨(+스택 패널)
