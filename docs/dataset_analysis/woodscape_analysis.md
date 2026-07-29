@@ -179,7 +179,7 @@ semantic/box/dense polygon은 모두 이 인스턴스 폴리곤에서 *생성*�
   u = ρ·X/χ + cx_offset + width/2  − 0.5
   v = ρ·Y/χ·aspect_ratio + cy_offset + height/2 − 0.5
   ```
-  구현·역투영(np.roots)은 공식 `WoodScape/scripts/calibration/projection.py`에 그대로 있고, 우리 시각화 도구가 이를 재사용한다.
+  구현·역투영(np.roots)은 공식 `third_party/datasets/WoodScape/scripts/calibration/projection.py`에 그대로 있고, 우리 시각화 도구가 이를 재사용한다.
 - **`calib` 시각화의 두 패널이 뜻하는 것** (`viz_calib.py`):
   - (좌) 차량 좌표 z=0 지면에 1m 격자 3D 점을 만들어 위 투영식으로 fisheye 이미지에 찍은 것 → **BEV 지면 좌표 ↔ 어안 픽셀 매핑**을 눈으로 확인.
   - (우) 원본 어안 모델과, 수평선을 편 원통형(cylindrical) 모델 사이의 remap 맵(`create_img_projection_maps`)을 만들어 `cv2.remap`으로 왜곡을 편 것.
