@@ -1,14 +1,20 @@
-# SynWoodScape 기하 검증 결과 노트 (Phase 1 · Phase 2)
+# SynWoodScape 기하 검증 결과 노트 (Phase 1 · Phase 2 · Phase 2.5)
 
-- 작성일: 2026-07-30
+- 작성일: 2026-07-30 / **2026-08-02 visibility·raycast 설계(§3) 추가**
 - 대상 스펙: [`docs/superpowers/specs/2026-07-29-synwoodscape-fisheye-bev-occupancy-design.md`](../superpowers/specs/2026-07-29-synwoodscape-fisheye-bev-occupancy-design.md)
-- 대상 코드: `projects/geometry/`, `projects/bev_gt/`, `tools/verify_fisheye_projection.py`,
-  `tools/calibrate_bev_scale.py`, `tools/build_occupancy_gt.py`
+- 대상 코드: `projects/geometry/`, `projects/bev_gt/`(`grid.py`, `bev_crop.py`, `visibility.py`,
+  `raycast_occupancy.py`), `tools/verify_fisheye_projection.py`, `tools/calibrate_bev_scale.py`,
+  `tools/build_occupancy_gt.py`(§2, 구 파이프라인), `tools/build_visibility_mask.py`(§3.1, 폐기),
+  `tools/build_raycast_occupancy.py`(§3.2, 폐기), **`tools/build_hybrid_occupancy.py`(§3.3, 현재 파이프라인)**
 
-> 목적: SynWoodScape의 어안 투영(Phase 1)과 BEV occupancy GT 생성(Phase 2)을 구현·검증하면서
-> **실측으로 밝혀낸 것들**을 남긴다. 특히 **데이터셋 문서가 말해주지 않거나 잘못 말해주는**
-> 항목(extrinsic 부호, LiDAR 좌표 규약, BEV 카메라 스케일)에 집중한다.
+> 목적: SynWoodScape의 어안 투영(Phase 1)과 BEV occupancy GT 생성(Phase 2, Phase 2.5)을
+> 구현·검증하면서 **실측으로 밝혀낸 것들**을 남긴다. 특히 **데이터셋 문서가 말해주지 않거나
+> 잘못 말해주는** 항목(extrinsic 부호, LiDAR 좌표 규약, BEV 카메라 스케일, 어안 semantic
+> segmentation 자체의 라벨 결함)에 집중한다.
 > 모든 수치는 로컬 데이터(`dataset/synwoodscape/SynWoodScape_V0.1.0/`)를 직접 읽어 측정했다.
+> §1·§2(기하·스케일)는 여전히 유효하다. §3(visibility 설계)은 이후 여러 차례 갈아엎은
+> 과정이라 **결론만이 아니라 왜 앞선 두 시도가 버려졌는지**를 함께 남긴다 — 같은 실수를
+> 반복하지 않기 위함이다.
 
 ---
 
@@ -26,6 +32,10 @@
 | `SIGN_FORWARD`, `SIGN_LATERAL` | **−1, −1** (ego +x → row 감소, ego +y → col 감소) | 같은 파일 |
 | occupancy 배열 방향 | row 0 = 최전방, col 0 = 차량 좌측 (**표시용 그대로**, flip 불필요) | 같은 파일 |
 | drivable class | 6 (road line), 7 (road) | `projects/bev_gt/grid.py` |
+| occupancy(class) 값의 출처 | **top-down `_BEV.png` gtLabel** (어안 카메라 자신의 semantic label은 안 씀 — §3.2 이유) | `bev_crop.crop_bev_occupancy` |
+| observed/visible(관측 여부) 출처 | **4-cam 어안 depth raycast** — 어느 cell에 광선이 실제로 도달했는가 (semantic label 불필요) | `raycast_occupancy.compute_observed_mask` |
+| 최종 GT 위치·형식 | `dataset/synwoodscape_occupancy_gt/{sample}_{occupancy.npy,visible.npy,combined.png}` (`outputs/`가 아니다) | `tools/build_hybrid_occupancy.py` |
+| 실제로 생성하는 grid spec | `synwoodscape_pretrain`만 (`robot`은 자체 로봇 fine-tuning 단계용으로 보류, SynWoodScape에는 생성 안 함) | 같은 파일 |
 
 ---
 
@@ -222,38 +232,143 @@ ego → 소스 픽셀 매핑은 한 곳(`bev_crop.ego_to_bev_pixel`)에만 둔�
 
 ---
 
-## 3. 그리드 스펙이 두 개인 이유
+## 3. Visibility(관측 여부) 설계 — 가설검정 → raycast 단독 → 하이브리드 (2026-08-02)
+
+§2까지의 `crop_bev_occupancy`는 `_BEV.png`를 crop+remap만 할 뿐이라, 어안 카메라가 실제로
+그 지점을 봤는지와 무관하게 **모든 cell에 항상 값이 있다**. 하지만 ego 차체 바로 아래나
+다른 차량에 가려진 노면은 실제로는 "안 보이는" 영역이라 drivable/obstacle을 단정할 근거가
+없다 — 이 영역을 구분해 학습 loss에서 제외(ignore)하는 게 이번 절의 목표였다. 두 번의
+시도가 실패하거나 새 버그를 만들었고, 세 번째(하이브리드)로 정착했다.
+
+### 3.1 시도 1 — grid cell을 z=0으로 투영해 가설검정 (`visibility.py`, 폐기)
+
+`projects/bev_gt/visibility.py` + `tools/build_visibility_mask.py`: 각 grid cell을 지면
+(z=0) 점으로 보고 4대 어안 카메라에 투영한 뒤, 그 픽셀의 depth map 값과 카메라-점 거리가
+`max(0.20m, 5%·depth)` 오차 이내로 맞는지 가설검정한다(`projects/geometry/reprojection.py::
+visibility_mask`). 맞으면 "보임", 벗어나면 "가려짐".
+
+**폐기 이유:** BEV grid는 카메라에서 2~4 m 이내인 근거리인데, 이 거리대에서는 §1.2/§1.3에서
+고친 뒤에도 남는 잔여 캘리브레이션 오차(translation ~4cm, rotation ~0.2~0.5°)가 5% 상대오차
+문턱을 근소하게 넘나든다. 즉 **"장애물이 없는데 안 보인다"는 허위 오탐**과 **실제 가려짐**을
+가설검정만으로는 구분할 수 없다 — 오차의 원인(캘리브레이션 잔차 vs 진짜 가려짐)이 근본적으로
+분리되지 않는 문제였다(`VISIBILITY_ABS_TOL_M` 도입으로 일부 완화했으나 원인 자체는 해결 못함).
+
+### 3.2 시도 2 — 어안 카메라 자신의 semantic label로 raycast (`build_raycast_occupancy`, 폐기)
+
+`projects/bev_gt/raycast_occupancy.py::build_raycast_occupancy` + `tools/
+build_raycast_occupancy.py`: 가설검정 대신, 4대 카메라 각각의 depth map **모든 픽셀**을 그
+픽셀의 depth로 실제 언프로젝션해 ego 프레임 3D 점(카메라 광선이 실제로 부딪힌 지점)을 얻고,
+그 점이 떨어지는 cell에 **그 픽셀 자신의 semantic label**을 찍는다. 여러 카메라·픽셀이 한
+cell에 겹치면 다수결로 drivable/obstacle을 정하고, 광선이 한 번도 안 닿은 cell은
+`observed=False`로 남긴다.
+
+이 방식은 "보였는가"를 문턱 없이 **정의 그대로** 판정하므로 시도 1의 오탐 문제를 완전히
+해결했다. 하지만 occupancy **값**도 같은 raycast에서 만드는 구조라 새로운 문제가 생겼다:
+
+**FV 카메라의 semantic segmentation이 ego 차량 자신의 본네트(hood)를 "road"(class 7)로
+잘못 라벨링한다.** 실측(샘플 00000): FV 이미지 하단(row 766~917)의 RGB에는 "CARLA
+Simulator" 워터마크가 박힌 본네트가 선명히 찍혀 있는데, 같은 위치의 `gtLabels`는 class 7
+(road, 보라색)로 표시돼 있다. depth도 0.9~1.3m로 이웃 픽셀과 매끄럽게 이어져(불연속 없음)
+depth 자체는 정확하다 — **semantic label만 잘못됐다**. 같은 영역을 top-down `_BEV.png`
+gtLabel로 보면 ego-vehicle(class 24, 7346px)과 road(class 7, 23095px)가 깨끗이 분리돼
+있어, 이 결함이 FV 카메라 자신의 segmentation에만 있음을 확인했다.
+
+이 결함이 그대로 occupancy grid에 스며들어, ego 차량 실루엣 안쪽에 drivable(초록) 얼룩이
+생겼다(실측: ego 안쪽 8/128 cell, 인접한 다른 차량 안쪽 21/1103 cell). 차량 실루엣도 카메라
+4대의 독립적인 다수결이 경계마다 어긋나 4~5조각으로 끊겨 보였다.
+
+### 3.3 최종 — 하이브리드: class는 top-down label, observed는 raycast (`build_hybrid_occupancy.py`, 현재)
+
+시도 1은 visibility가 노이즈였고, 시도 2는 visibility는 견고했지만 class 값이 노이즈였다.
+두 축의 강점만 합친다:
+
+- **occupancy(class) 값** — §2의 `crop_bev_occupancy`(top-down `_BEV.png` label crop+remap)
+  그대로 사용. top-down 카메라는 §3.2의 FV 본네트 결함이 없다(위 검증).
+- **observed(visible) 값** — `raycast_occupancy.compute_observed_mask`. 시도 2와 같은
+  raycast를 쓰되, semantic label은 아예 읽지 않고 "어느 cell에 광선이 도달했는가"만 계산한다.
+
+`tools/build_hybrid_occupancy.py`가 이 조합을 실행한다. 샘플 00000에서 재검증한 결과:
+
+| | 시도 2 (raycast 단독) | 하이브리드 |
+|---|---:|---:|
+| ego 실루엣 내부 drivable 오염 | 8 / 128 cell | **0** |
+| 인접 차량 실루엣 내부 drivable 오염 | 21 / 1103 cell | **0** |
+| 인접 차량 실루엣 연결성 | 4~5조각으로 단절 | 단일 연결(685 cell) |
+
+**부가 발견 — obstacle 영역이 "얇은 테두리"가 아니라 넓게 채워지는 이유(정상 동작):** 인접
+차량 실루엣에서 top-down label 기준 진짜 풋프린트는 1760 cell인데 그중 1486개(84%)가 실제로
+raycast에 "관측됨"으로 잡히고 진짜 안 보이는(차체 바로 밑) 부분은 274개(16%)뿐이다. 차량의
+옆면·지붕·보닛까지 카메라에 넓게 잡히면 그 표면들의 언프로젝션 점이 대부분 차량 자신의 지면
+풋프린트 안에 떨어지기 때문 — "얇은 경계선만 obstacle"이라는 직관과 달리, 외부에서 잘 보이는
+물체는 풋프린트 대부분이 정당하게 obstacle로 채워지는 게 맞다.
+
+### 3.4 남겨둔 잔여 노이즈 — 일부러 정리하지 않음
+
+두 종류의 잔여 아티팩트를 발견했지만, 값이 틀린 게 아니라 판단 여지가 있는 경우라 **정리
+후처리를 넣지 않기로 결정**했다(둘 다 재검토 여지는 남겨둠).
+
+1. **1~2 cell짜리 고립된 obstacle 조각** (이미지당 평균 7.6개, 전체 obstacle cell의 약 1%).
+   500샘플 중 12개를 무작위로 뽑아 top-down label class를 역추적하면 vegetation(class 9,
+   57개) > pole(class 5, 25개) > 차량 경계 조각(class 10, 2개) 순이었다. **크기만으로는
+   "무시해도 될 잡초"와 "진짜 지켜야 할 기둥"을 구분할 수 없다** — 크기 기반 정리(작은
+   연결요소 제거)는 잡초와 함께 진짜 장애물(기둥)까지 지워버릴 위험이 있어 채택하지 않았다.
+2. **ego 차량 자신의 실루엣 경계에서만 두드러지는 salt-and-pepper 잡음**(observed/unknown
+   경계). ego 차량은 자기 몸에 붙은 카메라로 자신을 거의 스치듯(grazing angle) 보기 때문에,
+   픽셀당 depth 잡음이 5cm 격자 단위로 그대로 드러난다. `observed` mask에 3×3
+   `scipy.ndimage.binary_closing`을 시험했고 — 그 과정에서 `border_value` 기본값(0)이
+   이미지 최외곽 테두리 전체를 잘못 바꾸는 부작용을 발견해 `border_value=1`로 고쳐야
+   한다는 것도 확인했다 — 고친 뒤에는 ego bbox 안쪽 51/25600 cell만 정확히, 다른 물체는
+   건드리지 않고 매끈해지는 걸 확인했다. 그럼에도 **적용하지 않기로 결정**했다: 이 cell들은
+   observed 여부와 무관하게 어차피 obstacle(ego 차체)이라 실제 학습 신호에는 영향이 거의
+   없고, closing은 "여기는 관측이 애매하다"는 사실 자체를 지우는 셈이라 GT의 실측 충실도를
+   낮춘다고 판단했다. 학습을 실제로 돌려봐서 이 잡음이 문제가 된다는 증거가 나오면 그때
+   재검토한다.
+
+---
+
+## 4. 그리드 스펙이 두 개인 이유
 
 `projects/bev_gt/grid.py`에 두 개의 `OccupancyGridSpec`이 있다. 둘 다 cell 5 cm.
 
 | 스펙 | 범위 | 그리드 | 용도 |
 |---|---|---|---|
-| `ROBOT_GRID_SPEC` | 전방 3 m / 후방 1 m / 좌우 ±1 m | 80×40 | 자체 로봇 **fine-tuning** 타깃 |
-| `SYNWOODSCAPE_PRETRAIN_GRID_SPEC` | 전방 7 m / 후방 3 m / 좌우 ±5 m | 200×200 | SynWoodScape **pretraining** |
+| `ROBOT_GRID_SPEC` | 전방 4 m / 후방 2 m / 좌우 ±3 m (6m×6m) | 120×120 | 자체 로봇 **fine-tuning** 타깃 |
+| `SYNWOODSCAPE_PRETRAIN_GRID_SPEC` | 전방 5 m / 후방 3 m / 좌우 ±4 m (8m×8m) | 160×160 | SynWoodScape **pretraining** |
 
 `ROBOT_GRID_SPEC`은 자체 로봇(소형 플랫폼)의 실제 관심 영역이고 최종 타깃이므로 그대로 둔다.
-그러나 **SynWoodScape의 ego는 풀사이즈 승용차**(ego 프레임 박스 3.705 m × 1.789 m)라서
-4 m × 2 m 그리드의 절반 이상이 ego 자신의 차체에 덮인다. 그 결과 GT가 거의 상수가 된다.
+(구 값 전방3m/후방1m/좌우±1m=4m×2m/80×40은 2026-07-29 최초 설계 초안의 placeholder였고,
+아래 6m×6m 결정 이후에도 코드에 반영되지 않은 채 남아 있던 것을 뒤늦게 바로잡았다 — 로봇의
+물리적 크기가 아니라 학습 label의 커버리지/해상도를 정하는 값이라, 로봇 자체를 바꾼 게 아니다.)
+`SynWoodScape의 ego는 풀사이즈 승용차`(ego 프레임 박스 3.705 m × 1.789 m)라서, 이 그리드를
+그대로 SynWoodScape에 적용해 GT를 뽑아도(비교/추적용) 차체가 그리드 상당 부분을 덮는다.
+
+`SYNWOODSCAPE_PRETRAIN_GRID_SPEC`은 원래 전방7m/후방3m/좌우±5m(10m×10m, 200×200)였으나,
+로봇 쪽 최종 fine-tuning 타깃이 0.05m/cell × 120×120(=6m×6m, 전방4/후방2/좌우±3)으로 정해지면서
+8m×8m(160×160)로 좁혔다. 로봇이 실제로 마주할 근~중거리 스케일에 pretrain 거리 분포를
+맞추면서, ego 차체가 그리드를 덮는 비율은 ~10% 선(6m×6m로 그대로 맞췄을 때의 ~18%보다 낮음)으로
+유지하기 위한 절충점이다.
 
 실측 (500개 샘플 전부, `tools/build_occupancy_gt.py`의 변동성 요약):
 
 | 스펙 | drivable_fraction mean | std | min | max | 샘플 간 값이 바뀌는 셀 |
 |---|---:|---:|---:|---:|---:|
-| `robot` | 0.411 | 0.002 | 0.389 | 0.412 | 17.8% |
-| `synwoodscape_pretrain` | 0.843 | 0.084 | 0.575 | 0.937 | **87.4%** |
+| `robot` (6m×6m, 전방 편향 비대칭) | 0.814 | 0.029 | 0.547 | 0.826 | **65.7%** |
+| `synwoodscape_pretrain` (8m×8m) | 0.860 | 0.056 | 0.550 | 0.902 | **80.3%** |
 
-`robot`은 표준편차가 평균의 0.5%로, 500샘플 전체에서 사실상 같은 그림이다. 즉 이 그리드로
-SynWoodScape pretraining을 하면 모델이 "항상 이 모양"을 외우는 것으로 수렴한다.
-그래서 pretraining에는 차량 스케일에 맞는 넓은 그리드를 쓰고, `ROBOT_GRID_SPEC`은 자체 로봇
-데이터 fine-tuning 단계로 미룬다.
+참고로 이전 10m×10m 스펙에서는 87.4%였다 — coverage를 8m×8m로 좁혀도 변동 셀 비율은
+크게 줄지 않고(87.4% → 80.3%) 여전히 학습 신호로 충분한 수준을 유지한다.
+`robot`도 구 값(4m×2m, 17.8%)일 때는 표준편차가 평균의 0.5%로 사실상 상수 GT였으나, 실제
+결정값인 6m×6m로 바로잡은 뒤에는 변동 셀 비율이 65.7%로 크게 늘었다 — ego 차체가 차지하는
+면적 비율이 half_width 1m(그리드 폭 2m)에서 3m(그리드 폭 6m)로 넓어지며 상대적으로 작아졌기
+때문이다.
 
-**주의 — 이후 학습 단계에서 다룰 것:** 두 그리드의 크기(80×40 vs 200×200)가 다르므로,
+**주의 — 이후 학습 단계에서 다룰 것:** 두 그리드의 크기(120×120 vs 160×160)가 다르므로,
 pretrain → fine-tune 전이 시 head의 출력 해상도/좌표 정규화를 어떻게 맞출지는 다음 스펙
 (Simple-BEV 통합)에서 결정해야 한다. 이 노트는 GT 생성까지만 다룬다.
 
 ---
 
-## 4. 재현 방법
+## 5. 재현 방법
 
 ```bash
 conda activate bev-chamdog
@@ -264,16 +379,22 @@ python tools/verify_fisheye_projection.py --samples 00000 00001 00002
 # Phase 2-a: BEV 상수 검증 (원점 / 부호 / 스케일 sweep / 실루엣 편향 시연)
 python tools/calibrate_bev_scale.py
 
-# Phase 2-b: occupancy GT 생성 (두 그리드 스펙 + 변동성 요약)
-python tools/build_occupancy_gt.py --samples 00000 00001 00002
+# Phase 2.5: 현재 파이프라인 — occupancy(top-down label) + visible(raycast) 하이브리드 GT
+# 학습용 .npy까지 만들려면 --review-only를 빼고(기본이 이미 만듦), 500장 전부는 --num-samples 500
+python tools/build_hybrid_occupancy.py --samples 00000 00001 00002
 
 # 회귀 테스트 (데이터셋이 없으면 실데이터 테스트는 skip된다)
 pytest -q
 ```
 
+`tools/build_occupancy_gt.py`(§2, top-down label만·visibility 없음)와 `tools/
+build_visibility_mask.py`(§3.1)/`tools/build_raycast_occupancy.py`(§3.2)는 폐기된
+중간 단계 스크립트로 코드에는 남아 있지만 **더 이상 최종 GT를 만드는 데 쓰지 않는다** —
+재현·비교 목적이 아니면 `build_hybrid_occupancy.py`만 실행하면 된다.
+
 ---
 
-## 5. 남은 사실 관계 메모
+## 6. 남은 사실 관계 메모
 
 - **`_BEV.png` 카메라는 ego와 함께 회전한다** (world 고정이 아니다). world yaw가 0°/88°/91°/147°인
   샘플들에서 ego 차량 bbox가 항상 같은 크기·같은 위치(정중앙 66×132 px)로 나온다 → world yaw

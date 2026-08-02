@@ -141,10 +141,20 @@ Phase 1(§3.4)의 검증 방식에는 영향이 없다 — 투영 검증은 카�
 
 ### 4.1 그리드 정의 (2026-07-30 수정: 그리드 스펙이 **두 개**다)
 
+> ⚠️ **이 절의 수치도 그 뒤 다시 바뀌었다 (2026-07-30 재수정, `docs/dataset_analysis/
+> synwoodscape_geometry_findings.md` §4).** 아래 표의 80×40 / 200×200은 이 문서 최초
+> 수정 시점의 값이고, **현재 코드(`projects/bev_gt/grid.py`)의 확정값은 다르다**:
+> `ROBOT_GRID_SPEC` = 전방4m/후방2m/좌우±3m(6m×6m) **120×120**,
+> `SYNWOODSCAPE_PRETRAIN_GRID_SPEC` = 전방5m/후방3m/좌우±4m(8m×8m) **160×160**.
+> 또한 실제로 GT를 생성해 `dataset/synwoodscape_occupancy_gt/`에 저장하는 건 현재
+> **`synwoodscape_pretrain` 하나뿐**이다 — `robot`은 자체 로봇 fine-tuning 단계용으로
+> 코드에는 남아 있지만 SynWoodScape에 대해 생성하지 않는다. 최신 수치·이유는 findings
+> 노트를 참고할 것 — 아래는 이 문서가 처음 이 결정을 내렸을 때의 기록이라 그대로 둔다.
+
 초판은 로봇 스케일 그리드 하나만 두었는데, 실제로 생성해 보니 SynWoodScape에서는 그 그리드가
 **거의 상수 GT**를 만든다. 그래서 스펙을 둘로 나눴다 (`projects/bev_gt/grid.py`).
 
-| 상수 | 범위 | 그리드 | 용도 |
+| 상수 | 범위 (이 문서 작성 당시) | 그리드 | 용도 |
 |---|---|---|---|
 | `ROBOT_GRID_SPEC` | 전방 3m / 후방 1m / 좌우 ±1m | 80×40 | 자체 로봇 **fine-tuning** 타깃 (초판의 값, 그대로 유지) |
 | `SYNWOODSCAPE_PRETRAIN_GRID_SPEC` | 전방 7m / 후방 3m / 좌우 ±5m | 200×200 | SynWoodScape **pretraining** GT |
@@ -255,6 +265,13 @@ RV 0.978 @ 15/512). LiDAR 지면 리턴으로 따로 재도 같다(0.9800 @ 15/5
 
 ### 4.4 근접 occupancy GT 생성
 
+> ⚠️ **2026-08-02 추가.** 아래 3단계는 occupancy **class 값**을 top-down `_BEV.png` label에서
+> 뽑는 부분만 다룬다 — 이 문서를 쓸 당시엔 "관측됐는지(visible/observed)"를 판정하는 축이
+> 아예 없었다. 그 축은 이후 별도로 설계했고 시행착오를 거쳤다 (§4.6, `docs/dataset_analysis/
+> synwoodscape_geometry_findings.md` §3). **최종 파이프라인은 `tools/build_occupancy_gt.py`가
+> 아니라 `tools/build_hybrid_occupancy.py`다** — 아래 3단계(class 값 crop)는 그대로 재사용되고
+> (`bev_crop.crop_bev_occupancy`), 여기에 §4.6의 raycast 기반 observed mask가 추가된다.
+
 1. §4.3에서 확정한 스케일/원점/축으로 `semantic_annotations/gtLabels/*_BEV.png`에서 §4.1 ROI(전방3m/후방1m/좌우±1m)에 해당하는 픽셀 영역을 잘라낸다.
 2. §4.2의 class 매핑(road/road line → drivable, 나머지 → non-drivable)을 그대로 적용해 5cm 셀 그리드로 리샘플링한다.
 3. LiDAR는 이 근접 그리드 생성에 관여하지 않는다. LiDAR의 역할은 Phase 1(§3)의 fisheye project/unproject 검증으로 한정한다.
@@ -302,22 +319,55 @@ RV 0.978 @ 15/512). LiDAR 지면 리턴으로 따로 재도 같다(0.9800 @ 15/5
 - 최종 occupancy 그리드를 몇 개 샘플에 대해 시각화했을 때 도로 형태가 육안상 타당하고,
   같은 ROI로 자른 `rgb_images/*_BEV.png`와 방향이 일치함 (샘플 00300으로 확인).
 
+### 4.6 Visibility(관측 여부) 설계 (2026-08-02 추가)
+
+§4.1~4.5는 occupancy **class 값**만 다루고, "어안 카메라가 실제로 그 지점을 봤는가"는
+전혀 판정하지 않는다 — `crop_bev_occupancy`는 ROI 안 모든 cell에 항상 값을 채운다. ego
+차체 바로 아래나 다른 물체에 가려진 곳은 drivable/obstacle을 단정할 근거가 없으므로, 이를
+구분해 loss에서 제외(ignore)하는 축을 나중에 추가로 설계했다. 두 번 갈아엎었다:
+
+1. **가설검정** (`projects/bev_gt/visibility.py`) — grid cell을 z=0 점으로 각 카메라에
+   투영해 depth map과 5%/0.20m 오차 이내인지 검정. **폐기**: 근거리(2~4m)에서 잔여
+   캘리브레이션 오차(§3.3 roll 보정 후에도 남는 것)가 문턱을 근소하게 넘나들어, 진짜
+   가려짐과 캘리브레이션 오차를 구분하지 못했다.
+2. **어안 카메라 자신의 semantic label로 raycast** (`raycast_occupancy.
+   build_raycast_occupancy`) — 4대 카메라 depth map의 모든 픽셀을 실제 언프로젝션해 ego
+   3D 점을 얻고, 그 픽셀 자신의 label을 그 cell에 찍는다. visibility 판정은 문턱 없이
+   견고해졌지만, **occupancy class 값도 같은 소스에서 나오게 되어 새 버그가 생겼다**:
+   SynWoodScape FV 카메라의 semantic segmentation이 ego 차량 자신의 본네트를 "road"로
+   잘못 라벨링한다(§4.2 class 매핑은 원본 라벨이 맞다고 전제하는데, 이 전제가 깨진 사례).
+   **폐기.**
+3. **최종: 하이브리드** — class 값은 §4.4 그대로(top-down `_BEV.png`, FV 본네트 결함 없음
+   확인됨), observed 값만 라벨 없이 raycast(`raycast_occupancy.compute_observed_mask`)로
+   판정. `tools/build_hybrid_occupancy.py`가 현재 파이프라인이다.
+
+상세 근거(실측 수치, 왜 시도 1·2가 실패했는지, 남겨둔 잔여 노이즈와 그 이유)는
+`docs/dataset_analysis/synwoodscape_geometry_findings.md` §3에 있다 — 이 문서를 갱신하는
+대신 그쪽에 자세히 적었다(실험 성격이 강해 findings 노트 쪽이 더 맞는 자리라 판단).
+
 ## 5. 산출물
 
 - 코드
   - `projects/geometry/frames.py` — 동차좌표 변환 헬퍼, LiDAR 센서로컬→ego 변환(`lidar_points_to_ego`), CARLA↔ego 규약 변환, 좌표계 규약 회귀 테스트
   - `projects/geometry/reprojection.py` — ego 포인트 → fisheye 픽셀 투영, depth 기반 가시성 마스크
   - `projects/geometry/fisheye.py` — radial_poly project/unproject (WoodScape 공식 구현 wrapping)
-  - `projects/bev_gt/` — occupancy 변환(class remap, 그리드 스펙 2종, ego→BEV 픽셀 매핑
-    `ego_to_bev_pixel`, BEV 이미지 스케일/원점 보정, ROI crop)
+  - `projects/bev_gt/` — `grid.py`(class remap, 그리드 스펙), `bev_crop.py`(ego→BEV 픽셀
+    매핑 `ego_to_bev_pixel`, BEV 이미지 스케일/원점 보정, ROI crop, occupancy class 값),
+    `visibility.py`(§4.6 시도 1, 폐기), `raycast_occupancy.py`(§4.6 시도 2·최종 —
+    `build_raycast_occupancy`는 폐기, `compute_observed_mask`가 현재 observed 판정에 쓰임)
   - `tools/verify_fisheye_projection.py` — Phase 1 검증 스크립트 (LiDAR 재투영 오버레이 + semantic consistency rate)
   - `tools/calibrate_bev_scale.py` — §4.3의 스케일/원점 보정을 여러 샘플에 대해 수행하고 상수를 도출하는 스크립트
-  - `tools/build_occupancy_gt.py` — Phase 2 occupancy GT 배치 생성 + 시각화
+  - `tools/build_occupancy_gt.py` — Phase 2 초판 occupancy GT 배치 생성 + 시각화 (§4.6 이후 **폐기**, class crop 로직만 `bev_crop.py`로 남아 재사용됨)
+  - `tools/build_visibility_mask.py` — §4.6 시도 1 (폐기)
+  - `tools/build_raycast_occupancy.py` — §4.6 시도 2 (폐기)
+  - **`tools/build_hybrid_occupancy.py`** — §4.6 최종, 현재 GT 생성 파이프라인. 출력은
+    `dataset/synwoodscape_occupancy_gt/{sample}_{occupancy.npy,visible.npy,combined.png}`
 - 문서
   - 이 design doc
   - **[`docs/dataset_analysis/synwoodscape_geometry_findings.md`](../../dataset_analysis/synwoodscape_geometry_findings.md)**
-    — Phase 1/2 실행 결과 findings 노트 (2026-07-30 작성 완료): Phase 1에서 찾아 고친 3개 버그,
-    확정된 캘리브레이션 상수와 도출/교차검증 방법, 그리드 스펙 2종의 존재 이유, 재현 명령.
+    — Phase 1/2/2.5 실행 결과 findings 노트 (2026-07-30 작성, 2026-08-02 visibility 설계
+    추가): Phase 1에서 찾아 고친 3개 버그, 확정된 캘리브레이션 상수와 도출/교차검증 방법,
+    그리드 스펙 2종의 존재 이유, visibility 설계 3단계 변천사와 남겨둔 잔여 노이즈, 재현 명령.
 
 ## 6. 열린 질문 / 향후 확인 사항
 
@@ -332,8 +382,21 @@ RV 0.978 @ 15/512). LiDAR 지면 리턴으로 따로 재도 같다(0.9800 @ 15/5
   덧붙여 **출력 배열의 인덱스 순서는 부호와 별개 결정**이라는 점이 뒤늦게 드러났다(§4.5의
   "배열 방향" 항목). 부호가 맞아도 배열이 뒤집힐 수 있다.
 
+**해결됨** (2026-08-02):
+
+- ~~occupancy GT에 "관측됐는지(visible)" 축이 없다 — ego 차체 아래·다른 물체에 가려진 곳도
+  drivable/obstacle 값이 항상 채워진다.~~ → **하이브리드 설계로 해결** (§4.6): class 값은
+  top-down label(기존과 동일), observed는 4-cam raycast. 시행착오(가설검정 → raycast
+  단독의 FV 본네트 버그 → 하이브리드)와 남겨둔 잔여 노이즈(작은 vegetation/pole 조각,
+  ego 실루엣 salt-and-pepper — 둘 다 의도적으로 정리하지 않음)는 findings 노트 §3에 기록.
+- ~~그리드 스펙 수치(80×40 / 200×200)가 최종 확정인지 불명확.~~ → §4.1 상단 배너 참고 —
+  **120×120 / 160×160으로 다시 바뀌었고**, 실제 SynWoodScape GT 생성에는
+  `synwoodscape_pretrain`(160×160)만 쓴다. `robot`은 자체 로봇 fine-tuning용으로 보류.
+
 **유효**:
 
-- `_unuserd/instance_annotations`, `_unuserd/box_3d_annotations`는 보정 검증 단계에서만 참조하고, 최종 occupancy GT 파이프라인(`tools/build_occupancy_gt.py`)은 `semantic_annotations`만 사용한다.
-- 두 그리드 스펙의 크기가 다르므로(80×40 vs 200×200) pretrain → fine-tune 전이 시 head 출력
+- `_unuserd/instance_annotations`, `_unuserd/box_3d_annotations`는 보정 검증 단계에서만
+  참조하고, 최종 occupancy GT 파이프라인(`tools/build_hybrid_occupancy.py`)은
+  `semantic_annotations`(top-down label)와 `depth_maps`(어안 raycast)만 사용한다.
+- 두 그리드 스펙의 크기가 다르므로(120×120 vs 160×160) pretrain → fine-tune 전이 시 head 출력
   해상도/좌표 정규화를 맞추는 방법은 다음 스펙(Simple-BEV 통합)에서 결정한다 (§4.1).

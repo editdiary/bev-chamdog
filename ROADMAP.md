@@ -31,10 +31,16 @@
 
 ### 3.1 데이터 파이프라인
 
-- SynWoodScape를 Simple-BEV 입력 형태로 읽는 로더 작성 (`projects/`)
-- **BEV GT를 binary occupancy로 remap** — `road`(7) + `road line`(6) → **drivable**, 그 외는 non-drivable. `unlabeled`(0)과 `ego-vehicle`(24)은 loss에서 제외(ignore)할지 결정한다
-- **BEV GT의 미터/픽셀 스케일 확정** — `calibration_data/`에 BEV 카메라 json이 없다. readme에는 "높이 15 m, pitch −90°"만 적혀 있고 **FOV가 없어서 스케일이 문서로 확정되지 않는다.** LiDAR 또는 어안 depth로 실제 스케일을 역산해 확정한다
-- 학습에 쓸 BEV 범위(예: 자차 주변 ±m)와 격자 해상도 결정
+- **occupancy GT 생성 ✅ 완료** — `road`(7) + `road line`(6) → drivable, 그 외는 obstacle로
+  remap. `unlabeled`(0)·`ego-vehicle`(24) 등은 loss에서 제외(ignore)하기로 결정 — top-down
+  `_BEV.png` label(class 값) + 4-cam 어안 depth raycast(observed/visible mask)를 합친
+  하이브리드 방식(`tools/build_hybrid_occupancy.py`)으로 확정. BEV GT의 미터/픽셀 스케일도
+  `15/512 m/px`로 확정. 학습 범위·격자 해상도는 `SYNWOODSCAPE_PRETRAIN_GRID_SPEC`(전방5/후방3/
+  좌우±4m=8m×8m, 0.05m/cell, 160×160)로 확정. 500 samples 전체를 생성해
+  `dataset/synwoodscape_occupancy_gt/`에 `{sample}_occupancy.npy`/`_visible.npy`/
+  `_combined.png`로 저장 완료. 상세 근거·설계 변천사는 `docs/dataset_analysis/
+  synwoodscape_geometry_findings.md` §3~§4 참고.
+- SynWoodScape를 Simple-BEV 입력 형태로 읽는 로더 작성 (`projects/`) — 아직 미착수
 - 500 samples의 train / val split 정의 (시퀀스라 프레임이 인접하므로 무작위 분할은 누수 위험 — 구간 분할 검토)
 
 ### 3.2 어안 투영 주입

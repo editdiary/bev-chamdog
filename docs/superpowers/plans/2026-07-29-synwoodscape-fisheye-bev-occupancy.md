@@ -1152,6 +1152,13 @@ git commit -m "feat: add BEV image cropping into ego-relative occupancy grids"
 
 ### Task 10: Occupancy GT 배치 생성 스크립트
 
+> ⛔ **SUPERSEDED (2026-08-02):** 이 Task가 만드는 `tools/build_occupancy_gt.py`는 이후
+> visibility(관측 여부) 축이 추가되며 `tools/build_hybrid_occupancy.py`로 대체됐고, 출력
+> 위치도 `outputs/occupancy_gt/`에서 `dataset/synwoodscape_occupancy_gt/`로 옮겼다. 이
+> plan 문서는 실행 당시 기록이라 그대로 두고, 최신 설계·이유는
+> [`docs/dataset_analysis/synwoodscape_geometry_findings.md`](../../dataset_analysis/synwoodscape_geometry_findings.md) §3과
+> [design spec](../specs/2026-07-29-synwoodscape-fisheye-bev-occupancy-design.md) §4.6을 볼 것.
+
 **Files:**
 - Create: `tools/build_occupancy_gt.py`
 
