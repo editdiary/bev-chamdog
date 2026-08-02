@@ -54,7 +54,7 @@
 """
 import numpy as np
 
-from projects.bev_gt.grid import OccupancyGridSpec, remap_semantic_to_occupancy
+from projects.bev_gt.grid import OccupancyGridSpec, cell_centers_m, remap_semantic_to_occupancy
 
 # 지면(z=0) 스케일: 카메라 높이 15 m, FOV 90°, 폭 1024px(half-width 512px)
 # → 15·tan(45°)/512 = 15/512 m/px. 전체 1024px = 정확히 30.0 m.
@@ -110,8 +110,7 @@ def crop_bev_occupancy(
     """
     # row 0 이 가장 앞, col 0 이 가장 왼쪽이 되도록 미터 좌표를 **내림차순**으로 만든다.
     # (전방 +x가 row 0, 좌측 +y가 col 0 → 표시 방향 그대로.)
-    forward_m = grid_spec.front_m - (np.arange(grid_spec.n_rows) + 0.5) * grid_spec.cell_m
-    lateral_m = grid_spec.half_width_m - (np.arange(grid_spec.n_cols) + 0.5) * grid_spec.cell_m
+    forward_m, lateral_m = cell_centers_m(grid_spec)
 
     # 행/열이 서로 독립이므로 축별로 따로 매핑한다(다른 축은 0으로 두고 결과를 버린다).
     # 공유 헬퍼를 그대로 쓰기 위한 형태다 — 매핑 식이 여기서 다시 인라인되지 않게.
