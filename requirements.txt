@@ -32,6 +32,7 @@ matplotlib==3.11.1
 scikit-image==0.26.0
 scikit-learn==1.9.0
 imageio==2.37.4
+pytest==8.3.4
 
 # --- 의도적으로 제외한 것 --------------------------------------------------
 # nuscenes-devkit, lyft_dataset_sdk, pyquaternion
