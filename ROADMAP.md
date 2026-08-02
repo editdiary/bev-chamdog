@@ -18,6 +18,7 @@
   - 공개본은 2D 라벨만 제공하며 3D·depth GT가 없다
 - **SynWoodScape** 구조 파악 — 500 samples, 어안 4-cam(FV/RV/MVL/MVR) + BEV 1대, `semantic_annotations`(BEV 포함) · `depth_maps` · `lidar_data` · `box_3d_annotations` · `calibration_data`
 - **캘리브레이션 규약 확정** — WoodScape 공식 `calibration_readme.txt` 기준: vehicle 프레임은 **ISO 8855**(원점 = 뒷축 중점 아래 지면, X 전방 / Y 좌측 / Z 상방), camera 프레임은 **OpenCV**, extrinsic(translation + quaternion)은 **camera → vehicle** 변환, 렌즈는 `radial_poly`
+- **SynWoodScape 기하 실측 검증** (→ `docs/dataset_analysis/synwoodscape_geometry_findings.md`) — 어안 project/unproject 검증, extrinsic 보정(roll 부호·미러 카메라 translation 전치), LiDAR 좌표 규약, BEV 카메라 스케일(`15/512` m/px)과 occupancy GT 그리드 스펙 2종
 
 ## Phase 2 — 자체 BEV 데이터셋 구축 ✅ 완료 (별도 프로젝트)
 

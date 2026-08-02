@@ -865,6 +865,16 @@ git commit -m "feat: add BEV image scale/origin calibration via instance-to-3d-b
 
 ### Task 8: BEV 스케일 보정 스크립트 실행 (여러 샘플 집계 + 축 방향 확정)
 
+> ⚠️ **2026-07-30: 이 Task의 설계는 사후에 폐기·대체되었다.** 아래 계획대로 만든 실루엣 기반
+> 스케일 집계는 **구조적으로 편향**돼 있었고(BEV는 z=15 m 핀홀이라 높이 있는 면이 확대된다),
+> 아래 "Expected"의 `~0.028` / `표준편차 5% 이내` / `8개 부호 후보` 문구는 모두 틀렸다:
+> 실제 부호 후보는 **4개**(sign_forward × sign_lateral)이고, 실측 표준편차는 평균의 45~59%였다.
+> 확정된 값은 `BEV_METERS_PER_PIXEL = 15/512 = 0.029296875`, `SIGN_FORWARD = SIGN_LATERAL = -1`이다.
+> 최종 설계와 근거는
+> [design doc](../specs/2026-07-29-synwoodscape-fisheye-bev-occupancy-design.md) §4.3/§4.5와
+> [findings 노트](../../dataset_analysis/synwoodscape_geometry_findings.md) §2를 볼 것.
+> 아래 원문은 이력 보존용으로만 남긴다.
+
 **Files:**
 - Create: `tools/calibrate_bev_scale.py`
 
@@ -1022,6 +1032,13 @@ git commit -m "feat: add multi-sample BEV scale and forward-axis calibration scr
 ---
 
 ### Task 9: BEV 이미지 크롭 → occupancy 그리드 변환
+
+> ⚠️ **2026-07-30 정정: 아래 "row 0 = 가장 후방, row -1 = 가장 전방" 규약은 폐기했다.**
+> 그 순서로 만든 배열은 그대로 이미지로 저장하면 앞뒤·좌우가 뒤집혀 보였다. 최종 규약은
+> **row 0 = 최전방, row -1 = 최후방, col 0 = 차량 좌측, col -1 = 차량 우측**(표시용 그대로,
+> flip 불필요)이다. 부호 상수는 `SIGN_FORWARD = SIGN_LATERAL = -1`.
+> 자세한 내용은 `projects/bev_gt/bev_crop.py` 모듈 docstring과
+> [findings 노트](../../dataset_analysis/synwoodscape_geometry_findings.md) §2.4를 볼 것.
 
 **Files:**
 - Create: `projects/bev_gt/bev_crop.py`

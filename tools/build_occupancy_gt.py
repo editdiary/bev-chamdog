@@ -1,4 +1,15 @@
-"""Phase 2 실행: semantic_annotations의 _BEV.png로부터 로봇 기준 occupancy GT를 생성한다.
+"""Phase 2 실행: semantic_annotations의 _BEV.png로부터 BEV occupancy GT를 생성한다.
+
+두 개의 그리드 스펙에 대해 각각 생성한다 (`projects/bev_gt/grid.py` 참고).
+
+- `robot` (`ROBOT_GRID_SPEC`, 전방3m/후방1m/좌우±1m): 자체 로봇 fine-tuning 타깃 스펙.
+  SynWoodScape에서는 ego(풀사이즈 승용차) 차체가 그리드의 56%를 덮어 GT가 거의 상수다.
+  비교/추적용으로만 함께 뽑는다.
+- `synwoodscape_pretrain` (`SYNWOODSCAPE_PRETRAIN_GRID_SPEC`, 전방7m/후방3m/좌우±5m):
+  SynWoodScape pretraining에 실제로 쓸 스펙.
+
+출력 배열/이미지는 `crop_bev_occupancy`가 이미 표시용 방향(row 0=최전방, col 0=차량 좌측)으로
+돌려주므로 flip 없이 그대로 저장한다.
 
 Run: python tools/build_occupancy_gt.py --samples 00000 00001 00002
 """
@@ -16,24 +27,54 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from projects.bev_gt.bev_crop import crop_bev_occupancy  # noqa: E402
-from projects.bev_gt.grid import ROBOT_GRID_SPEC  # noqa: E402
+from projects.bev_gt.grid import (  # noqa: E402
+    ROBOT_GRID_SPEC,
+    SYNWOODSCAPE_PRETRAIN_GRID_SPEC,
+)
 
 DATASET_ROOT = Path("dataset/synwoodscape/SynWoodScape_V0.1.0")
 OUTPUT_DIR = Path("outputs/occupancy_gt")
 
+GRID_SPECS = {
+    "robot": ROBOT_GRID_SPEC,
+    "synwoodscape_pretrain": SYNWOODSCAPE_PRETRAIN_GRID_SPEC,
+}
 
-def build_sample(sample_idx: str) -> None:
+
+def build_sample(sample_idx: str) -> dict:
     semantic_bev = np.array(
         Image.open(DATASET_ROOT / "semantic_annotations/gtLabels" / f"{sample_idx}_BEV.png")
     )
-    occupancy = crop_bev_occupancy(semantic_bev, ROBOT_GRID_SPEC)
-
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    np.save(OUTPUT_DIR / f"{sample_idx}_occupancy.npy", occupancy)
 
-    visualization = (occupancy * 255).astype(np.uint8)
-    Image.fromarray(visualization).save(OUTPUT_DIR / f"{sample_idx}_occupancy.png")
-    print(f"[{sample_idx}] drivable_fraction={occupancy.mean():.3f} -> {OUTPUT_DIR}/{sample_idx}_occupancy.npy")
+    occupancies = {}
+    for spec_name, grid_spec in GRID_SPECS.items():
+        occupancy = crop_bev_occupancy(semantic_bev, grid_spec)
+        occupancies[spec_name] = occupancy
+
+        stem = f"{sample_idx}_{spec_name}_occupancy"
+        np.save(OUTPUT_DIR / f"{stem}.npy", occupancy)
+        # 방향 보정 없이 그대로 저장한다 — 배열이 이미 표시용 방향이다.
+        Image.fromarray((occupancy * 255).astype(np.uint8)).save(OUTPUT_DIR / f"{stem}.png")
+        print(
+            f"[{sample_idx}/{spec_name}] shape={occupancy.shape} "
+            f"drivable_fraction={occupancy.mean():.3f} -> {OUTPUT_DIR}/{stem}.npy"
+        )
+    return occupancies
+
+
+def report_variability(per_spec_stack: dict) -> None:
+    """샘플 간 변동성 요약 — 그리드가 학습 신호를 담고 있는지 확인용."""
+    print("\n=== 샘플 간 변동성 ===")
+    for spec_name, occupancies in per_spec_stack.items():
+        stack = np.stack(occupancies)
+        fractions = stack.reshape(len(stack), -1).mean(axis=1)
+        varying = (stack.min(axis=0) != stack.max(axis=0)).mean()
+        print(
+            f"{spec_name:>22}: drivable_fraction mean={fractions.mean():.3f} "
+            f"std={fractions.std():.3f} min={fractions.min():.3f} max={fractions.max():.3f} | "
+            f"샘플 간 값이 바뀌는 셀 비율={varying:.1%}"
+        )
 
 
 def main():
@@ -41,8 +82,13 @@ def main():
     parser.add_argument("--samples", nargs="+", default=["00000", "00001", "00002"])
     args = parser.parse_args()
 
+    per_spec_stack = {name: [] for name in GRID_SPECS}
     for sample_idx in args.samples:
-        build_sample(sample_idx)
+        for spec_name, occupancy in build_sample(sample_idx).items():
+            per_spec_stack[spec_name].append(occupancy)
+
+    if len(args.samples) > 1:
+        report_variability(per_spec_stack)
 
 
 if __name__ == "__main__":

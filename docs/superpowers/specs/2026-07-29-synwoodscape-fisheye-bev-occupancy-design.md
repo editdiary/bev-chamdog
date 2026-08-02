@@ -139,14 +139,34 @@ Phase 1(§3.4)의 검증 방식에는 영향이 없다 — 투영 검증은 카�
 
 ## 4. Phase 2 — BEV Occupancy GT 설계
 
-### 4.1 그리드 정의
+### 4.1 그리드 정의 (2026-07-30 수정: 그리드 스펙이 **두 개**다)
 
-- 종방향: 전방 3m + 후방 1m = 4m
-- 횡방향: 좌우 ±1m = 2m
-- cell size: 5cm × 5cm
-- 그리드 크기: 80(종방향) × 40(횡방향), ego 원점 기준 비대칭(전방 편향) 그리드
+초판은 로봇 스케일 그리드 하나만 두었는데, 실제로 생성해 보니 SynWoodScape에서는 그 그리드가
+**거의 상수 GT**를 만든다. 그래서 스펙을 둘로 나눴다 (`projects/bev_gt/grid.py`).
 
-이 범위는 이후 자체 로봇 데이터셋과 스케일을 맞추기 위한 값이며(README의 pretrain→fine-tune 전략), SynWoodScape(차량 스케일 도로 장면) 위에서의 투영 **검증**에는 §3.4의 5단계처럼 별도의 넓은 범위를 쓴다. 즉 검증용 범위와 최종 occupancy GT용 그리드 범위는 분리한다.
+| 상수 | 범위 | 그리드 | 용도 |
+|---|---|---|---|
+| `ROBOT_GRID_SPEC` | 전방 3m / 후방 1m / 좌우 ±1m | 80×40 | 자체 로봇 **fine-tuning** 타깃 (초판의 값, 그대로 유지) |
+| `SYNWOODSCAPE_PRETRAIN_GRID_SPEC` | 전방 7m / 후방 3m / 좌우 ±5m | 200×200 | SynWoodScape **pretraining** GT |
+
+둘 다 cell size 5cm × 5cm, ego 원점 기준 비대칭(전방 편향) 그리드다.
+
+**왜 나눴나** — SynWoodScape의 ego는 **풀사이즈 승용차**(ego 프레임 3D 박스 3.705 m × 1.789 m)라서
+4m × 2m 그리드의 절반 이상이 ego 자신의 차체에 덮인다. 500개 샘플 전부에 대한 실측:
+
+| 스펙 | drivable_fraction mean | std | min | max | 샘플 간 값이 바뀌는 셀 |
+|---|---:|---:|---:|---:|---:|
+| `robot` | 0.411 | 0.002 | 0.389 | 0.412 | 17.8% |
+| `synwoodscape_pretrain` | 0.843 | 0.084 | 0.575 | 0.937 | **87.4%** |
+
+`robot`은 표준편차가 평균의 0.5%로 사실상 같은 그림이 500번 반복된다 → pretraining 신호가 없다.
+`ROBOT_GRID_SPEC`은 로봇의 실제 관심 영역이자 최종 타깃이므로 **삭제하지 않고** fine-tuning
+단계용으로 남긴다. `tools/build_occupancy_gt.py`는 두 스펙에 대해 각각 GT를 생성한다.
+
+두 그리드의 크기가 다르므로(80×40 vs 200×200) pretrain → fine-tune 전이 시 head 출력
+해상도/좌표 정규화를 어떻게 맞출지는 다음 스펙(Simple-BEV 통합)에서 결정한다.
+
+이 범위들은 이후 자체 로봇 데이터셋과 스케일을 맞추기 위한 값이며(README의 pretrain→fine-tune 전략), SynWoodScape(차량 스케일 도로 장면) 위에서의 투영 **검증**에는 §3.4의 5단계처럼 별도의 넓은 범위를 쓴다. 즉 검증용 범위와 최종 occupancy GT용 그리드 범위는 분리한다.
 
 ### 4.2 Drivable class 정의
 
@@ -160,22 +180,78 @@ SynWoodScape semantic palette 기준:
 
 이 매핑은 `projects/bev_gt/`의 상수/설정으로 분리해, 추후 자체 로봇(보도 포함 등)에 맞게 바꾸기 쉽게 한다.
 
-### 4.3 BEV 이미지 스케일/원점 보정 (1회성)
+### 4.3 BEV 이미지 스케일/원점 보정 (1회성) — 2026-07-30 전면 수정
+
+> ⚠️ **이 절의 초판도 틀렸다.** "차량 실루엣 픽셀 bbox ÷ 3D 박스 치수"로 스케일을 역산하라고
+> 했고 그렇게 0.0284~0.0288을 얻었으나, 그 방법은 **구조적으로 과소추정**한다. 확정된 값은
+> **`15/512 = 0.029296875` m/px**다. 아래 "왜 실루엣 방법이 틀렸나"를 반드시 읽을 것.
+> 상세 기록: [`docs/dataset_analysis/synwoodscape_geometry_findings.md`](../../dataset_analysis/synwoodscape_geometry_findings.md) §2
 
 **문제**: `_BEV.png`(top-down semantic 라벨)를 만든 가상 BEV 카메라의 intrinsic(화각/스케일)이 `calibration_data`에도 `vehicle_data`에도 없다. readme.txt에는 위치(z=15, pitch=-90)만 명시돼 있다.
 
-**해결책 (실측으로 확인됨)**: LiDAR가 아니라, 데이터셋에 이미 있는 **instance-level BEV 라벨 + 3D 박스**로 직접 역산한다.
+#### 확정된 상수 (`projects/bev_gt/bev_crop.py`)
 
-- `_unuserd/instance_annotations/gtLabels/*_BEV.png` (1024×1024, grayscale)의 픽셀 값은 **instance id**다.
-- `_unuserd/box_3d_annotations/*.pkl`은 `{instance_id: (8,4) 3D 코너 좌표}`를 담고 있다.
-- 샘플 00000에서 instance id `24`가 **ego-vehicle 자신**이었고(semantic class 24=ego-vehicle과 픽셀 bbox 완전 일치, 66×132px, 중심 (511.5,511.5) = 이미지 정중앙), 그 3D 박스 치수(X=1.9m, Y=3.76m)로 스케일을 역산하면 **폭 기준 0.0288 m/px, 길이 기준 0.0285 m/px로 두 축이 거의 일치**한다 → 등방 스케일의 top-down 투영, 약 0.0286 m/px (1024px ≈ 29m 정사각형 커버리지).
-- 4개 샘플(world yaw 0°/88°/91°/147°, 서로 다른 헤딩)에서 ego-vehicle bbox가 **항상 정확히 같은 크기·같은 위치(이미지 정중앙)** 로 나옴을 확인했다 → 이 BEV 카메라는 world 고정이 아니라 **ego 차량과 함께 회전하는(ego-relative) 카메라**다. 따라서 world yaw 보정이 불필요하고, 이미지 축이 곧바로 ego의 전후/좌우 축이다.
+| 상수 | 값 | 도출 근거 |
+|---|---|---|
+| `BEV_METERS_PER_PIXEL` | **15/512 = 0.029296875** | 기하 도출: 카메라 높이 15 m, CARLA 기본 FOV 90°, 폭 1024px의 절반 512px → 15·tan45°/512. 전체 이미지 = 정확히 **30.0 m**. SynWoodScape 논문의 "~30 m" 기술과 일치. |
+| `BEV_ORIGIN_PX` | (511.5, 511.5) (col, row) | ego(class 24) bbox 중심이 여러 샘플에서 이미지 정중앙 |
+| `SIGN_FORWARD` | **−1** | ego +x(전방) → row 감소 (이미지 위쪽) |
+| `SIGN_LATERAL` | **−1** | ego +y(좌측) → col 감소 (이미지 왼쪽) |
+| 반환 배열 방향 | row 0 = 최전방, col 0 = 차량 좌측 | **표시용 그대로** — 저장 시 flip 불필요 |
 
-**절차**:
-1. 여러 샘플 × 여러 instance(3D 박스가 있는 것)에서 BEV 픽셀 bbox 크기와 3D 박스 치수를 짝지어 스케일(m/px)을 계산하고 평균·표준편차로 신뢰도를 확인한다.
-2. ego-vehicle(semantic class 24) bbox 중심이 여러 샘플에서 일관되게 이미지 정중앙인지 재확인해 원점을 확정한다.
-3. 이미지 축(가로=폭/좌우, 세로=길이/전후) 중 어느 쪽이 전방(+)인지는 `rgb_images/*_BEV.png`(컬러) 육안 확인 또는 `vehicle_data`의 velocity 벡터 방향과 대조해 부호를 정한다.
-4. 확정된 스케일·원점·축 매핑을 `projects/bev_gt/`의 상수로 고정한다(샘플마다 다시 계산하지 않음 — 동일 가상 카메라이므로 데이터셋 전체에 대해 한 번만 구하면 된다).
+즉 소스 `_BEV.png` 자체가 이미 일반적인 top-down 지도 방향(전방=위, 차량 좌측=왼쪽)이다.
+ego → 픽셀 매핑 식은 `bev_crop.ego_to_bev_pixel()` **한 곳에만** 두고, 파이프라인과 보정
+스크립트가 같은 함수를 쓴다 (Phase 1에서 같은 종류의 중복이 실제로 문제를 일으켰다).
+
+#### 왜 실루엣 방법이 틀렸나 (되돌리지 말 것)
+
+BEV 카메라는 정사영이 아니라 **z=15 m의 진짜 핀홀**이다(readme.txt: z=15, pitch=−90).
+따라서 높이 h인 면은 지면보다 `15/(15−h)`배 확대되어 찍힌다. 차량 실루엣은 지면이 아니라
+차체(ego 박스 z∈[0.009, 1.556] m)의 윤곽이므로 항상 크게 찍히고, m/px는 그만큼 **작게** 나온다.
+
+데이터 확인 — `depth_maps/raw_data/00000_BEV.npy`(BEV depth는 평면 z-depth다):
+노면(class 7) 중앙값 **14.994 m**, ego 차체(class 24) **13.678 m**(최소 13.443)
+→ 카메라 높이 15 m 확인 + 지붕 h ≈ 1.32~1.56 m에서 확대율 1.10~1.12배.
+
+실루엣 추정치를 ego 프레임 박스로 올바르게 재면 lateral 0.02710 / forward 0.02807이고,
+이는 참값 0.029297을 위 확대율 범위로 나눈 구간 [0.02626, 0.02930] 안에 정확히 들어간다.
+즉 편향의 방향과 크기가 핀홀 모델로 정량적으로 설명된다.
+
+추가로, 초판 절차 1(여러 instance에 걸쳐 평균)에는 별도의 구현 함정이 있었다:
+`_unuserd/box_3d_annotations`의 코너는 **world(CARLA) 좌표**이므로 축정렬 extent가 actor의
+world yaw에 오염된다. 같은 ego 박스가 샘플에 따라 (1.90, 3.76) ↔ (3.72, 1.83)로 뒤바뀌어,
+스크립트가 `scale_x ≈ 0.031 / scale_y ≈ 0.019`처럼 서로도 안 맞는 값을 출력했다.
+코너를 ego 프레임으로 되돌리면 (3.705, 1.789)로 모든 샘플에서 동일해진다
+(`bev_calibration.box_corners_to_ego`).
+
+#### 교차검증 절차 (실제로 수행한 것)
+
+Phase 1의 검증된 어안 파이프라인을 스케일 검증에 재사용한다.
+
+1. 4대 카메라 depth map에서 지면 class(6/7/8/14/20) 픽셀을 `unproject_depth_to_ego`로 ego
+   프레임에 되돌린다. `|z| < 0.15 m`, 반경 2.5~13 m인 점만 남긴다.
+2. m/px 후보를 0.0270~0.0320에서 sweep하며 `_BEV.png`의 class와 일치율을 잰다.
+3. 정점이 기하 도출값과 맞는지 확인한다.
+
+결과 (5샘플 218,859점): 0.0284 → **0.9442**, 0.0292 → **0.9792**, 15/512 → **0.9786**,
+0.0300 → 0.9469. 카메라별로도 전부 0.0292~0.0294에서 정점(FV 0.980 / MVL 0.983 / MVR 0.974 /
+RV 0.978 @ 15/512). LiDAR 지면 리턴으로 따로 재도 같다(0.9800 @ 15/512).
+격자를 0.00005로 좁혀 7샘플로 재면 경험적 정점이 **0.02925**(0.98355)이고 15/512에서 0.98294 —
+차이 0.16%로 격자 한 칸 수준이다. 즉 기하 도출값과 경험적 정점이 사실상 일치한다.
+
+부호는 4개 후보 전수 비교로 확정했다: (−1,−1) 0.9786 / (+1,−1) 0.9174 / (−1,+1) 0.7415 /
+(+1,+1) 0.7362 (어안 지면점 기준. LiDAR 기준도 순서 동일).
+
+원점은 유지된다 — 4개 이상 샘플(world yaw 0°/88°/91°/147°)에서 ego-vehicle bbox가 **항상
+정확히 같은 크기(66×132px)·같은 위치(정중앙)** 로 나온다 → 이 BEV 카메라는 world 고정이 아니라
+**ego 차량과 함께 회전하는(ego-relative) 카메라**다. 따라서 world yaw 보정이 불필요하고,
+이미지 축이 곧바로 ego의 전후/좌우 축이다.
+
+#### 도구의 역할
+
+`tools/calibrate_bev_scale.py`는 이제 상수를 **제안하지 않고 검증한다**: 원점 일관성, 4개 부호
+후보 랭킹, 지면 포인트 스케일 sweep, 그리고 실루엣 추정치를 **"쓰면 안 되는 반례"로만** 출력한다.
+회귀 테스트는 `tests/bev_gt/test_bev_crop.py`와 `tests/bev_gt/test_bev_calibration.py`에 있다.
 
 ### 4.4 근접 occupancy GT 생성
 
@@ -195,11 +271,36 @@ SynWoodScape semantic palette 기준:
    즉 "불가능해서"가 아니라 **"BEV 이미지가 같은 목적에 더 dense하고 단순해서"** 쓰지 않는다.
    향후 높이 정보나 occlusion 추론이 필요해지면 LiDAR를 다시 검토할 수 있다.
 
-### 4.5 완료 기준 (제안, 조정 가능)
+### 4.5 완료 기준 (2026-07-30 수정)
 
-- §4.3의 스케일 추정이 서로 다른 샘플/instance에서 일관됨(예: 표준편차가 평균의 5% 이내)
-- ego-vehicle bbox 중심이 여러 샘플에서 이미지 중앙 ±1px 이내로 일관됨
-- 최종 occupancy 그리드를 몇 개 샘플에 대해 시각화했을 때 도로 형태가 육안상 타당함
+> ⚠️ 초판의 "스케일 추정의 표준편차가 평균의 5% 이내"는 **폐기했다.** 실측 표준편차는 평균의
+> 45~59%였고(여러 instance × world yaw 오염 때문, §4.3 참고), 애초에 스케일을 실루엣 추정의
+> **분산**으로 검증한다는 발상 자체가 틀렸다 — 그 방법은 분산이 작아도 **편향**되어 있다.
+
+실제로 채택·달성한 기준:
+
+- **스케일**: 기하 도출값(15/512)이 **지면 포인트 교차검증의 정점**과 일치할 것.
+  기준: Phase 1 파이프라인으로 복원한 지면 점(4대 카메라, `|z|<0.15 m`, 반경 2.5~13 m)에 대해
+  (a) `15/512`에서 BEV semantic class 일치율 **≥ 0.95**이고,
+  (b) sweep 정점이 `15/512`와 **0.0003 m/px 이내**이고,
+  (c) 실루엣 추정치(0.0284)보다 일치율이 **0.02 이상** 높을 것.
+  실측: 일치율 0.9786(0.0284는 0.9442), 정점 0.0292. → 충족.
+  회귀: `tests/bev_gt/test_bev_crop.py::test_bev_scale_beats_the_biased_vehicle_silhouette_estimate_on_ground_points`
+- **축 부호**: 4개 후보 중 `(SIGN_FORWARD, SIGN_LATERAL) = (−1, −1)`이 최고이고 차순위와
+  **0.02 이상** 벌어질 것. 실측 0.9786 vs 0.9174. → 충족.
+  회귀: `..._test_bev_sign_convention_beats_all_three_alternatives_on_ground_points`
+- **배열 방향**: `crop_bev_occupancy`의 출력이 소스 `_BEV.png`를 같은 ROI로 자른 부분영상과
+  **뒤집힘 없이 일치**할 것(전/후, 좌/우 모두). 합성 이미지 테스트는 **두 축을 각각 따로**
+  깨뜨릴 수 있어야 한다 — 초판 테스트는 모든 열이 균일한 이미지로 행 축만 확인해서 좌우 뒤집힘을
+  원리적으로 잡을 수 없었다(실제로 놓쳤다).
+  회귀: `..._test_crop_bev_occupancy_col0_is_vehicle_left`,
+  `..._test_crop_bev_occupancy_matches_a_plain_slice_of_the_real_source_image`
+- **원점**: ego-vehicle bbox 중심이 여러 샘플에서 이미지 중앙 ±1px 이내로 일관됨. 실측 ±0.5px.
+- **GT가 학습 신호를 담고 있을 것**: 그리드가 샘플 간에 실제로 변해야 한다. 실측: `robot`은
+  std/mean = 0.5%(사실상 상수) → pretraining 부적합, `synwoodscape_pretrain`은 std/mean = 10%,
+  셀 87.4%가 변동 → 적합 (§4.1).
+- 최종 occupancy 그리드를 몇 개 샘플에 대해 시각화했을 때 도로 형태가 육안상 타당하고,
+  같은 ROI로 자른 `rgb_images/*_BEV.png`와 방향이 일치함 (샘플 00300으로 확인).
 
 ## 5. 산출물
 
@@ -207,16 +308,32 @@ SynWoodScape semantic palette 기준:
   - `projects/geometry/frames.py` — 동차좌표 변환 헬퍼, LiDAR 센서로컬→ego 변환(`lidar_points_to_ego`), CARLA↔ego 규약 변환, 좌표계 규약 회귀 테스트
   - `projects/geometry/reprojection.py` — ego 포인트 → fisheye 픽셀 투영, depth 기반 가시성 마스크
   - `projects/geometry/fisheye.py` — radial_poly project/unproject (WoodScape 공식 구현 wrapping)
-  - `projects/bev_gt/` — occupancy 변환(class remap, 그리드 스펙, BEV 이미지 스케일/원점 보정, ROI crop)
+  - `projects/bev_gt/` — occupancy 변환(class remap, 그리드 스펙 2종, ego→BEV 픽셀 매핑
+    `ego_to_bev_pixel`, BEV 이미지 스케일/원점 보정, ROI crop)
   - `tools/verify_fisheye_projection.py` — Phase 1 검증 스크립트 (LiDAR 재투영 오버레이 + semantic consistency rate)
   - `tools/calibrate_bev_scale.py` — §4.3의 스케일/원점 보정을 여러 샘플에 대해 수행하고 상수를 도출하는 스크립트
   - `tools/build_occupancy_gt.py` — Phase 2 occupancy GT 배치 생성 + 시각화
 - 문서
   - 이 design doc
-  - Phase 1/2 실행 결과를 기록할 짧은 findings 노트(`docs/dataset_analysis/` 또는 `docs/study/`에 추가 — 실행 후 작성)
+  - **[`docs/dataset_analysis/synwoodscape_geometry_findings.md`](../../dataset_analysis/synwoodscape_geometry_findings.md)**
+    — Phase 1/2 실행 결과 findings 노트 (2026-07-30 작성 완료): Phase 1에서 찾아 고친 3개 버그,
+    확정된 캘리브레이션 상수와 도출/교차검증 방법, 그리드 스펙 2종의 존재 이유, 재현 명령.
 
 ## 6. 열린 질문 / 향후 확인 사항
 
-- §4.3의 스케일은 샘플 00000의 instance 1개로 처음 확인했다. 더 많은 샘플/instance로 평균을 내 견고성을 확인해야 한다.
-- 이미지 축의 전방(+) 방향 부호는 아직 육안/velocity 대조로 확정하지 않았다 — `tools/calibrate_bev_scale.py` 실행 시 확정한다.
-- `_unuserd/instance_annotations`, `_unuserd/box_3d_annotations`는 이 보정 단계에서만 참조하고, 최종 occupancy GT 파이프라인(`tools/build_occupancy_gt.py`)은 `semantic_annotations`만 사용한다.
+**해결됨** (2026-07-30):
+
+- ~~§4.3의 스케일은 샘플 00000의 instance 1개로 처음 확인했다. 더 많은 샘플/instance로 평균을 내 견고성을 확인해야 한다.~~
+  → **평균을 내는 접근 자체가 틀렸다.** 실루엣 방법은 분산이 아니라 **편향**이 문제였다.
+  확정값은 기하 도출 `15/512`이고, 지면 포인트 교차검증으로 확인했다 (§4.3, §4.5).
+- ~~이미지 축의 전방(+) 방향 부호는 아직 육안/velocity 대조로 확정하지 않았다.~~
+  → **`(SIGN_FORWARD, SIGN_LATERAL) = (−1, −1)` 확정.** 4개 후보를 어안 지면점과 LiDAR
+  지면점 두 소스로 각각 전수 비교했고, 두 소스·4대 카메라 모두에서 동일한 결론이다 (§4.3).
+  덧붙여 **출력 배열의 인덱스 순서는 부호와 별개 결정**이라는 점이 뒤늦게 드러났다(§4.5의
+  "배열 방향" 항목). 부호가 맞아도 배열이 뒤집힐 수 있다.
+
+**유효**:
+
+- `_unuserd/instance_annotations`, `_unuserd/box_3d_annotations`는 보정 검증 단계에서만 참조하고, 최종 occupancy GT 파이프라인(`tools/build_occupancy_gt.py`)은 `semantic_annotations`만 사용한다.
+- 두 그리드 스펙의 크기가 다르므로(80×40 vs 200×200) pretrain → fine-tune 전이 시 head 출력
+  해상도/좌표 정규화를 맞추는 방법은 다음 스펙(Simple-BEV 통합)에서 결정한다 (§4.1).
