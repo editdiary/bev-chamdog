@@ -134,7 +134,22 @@ git commit -m "feat: add homogeneous transform helpers and pytest setup"
 
 ---
 
-### Task 2: LiDAR world→ego 변환 + 좌표계 규약 회귀 테스트
+### Task 2: LiDAR → ego 변환 + 좌표계 규약 회귀 테스트
+
+> 🛑 **이 Task의 전제가 틀렸었다 (2026-07-30 Task 5에서 발견·수정 완료).**
+> 아래 브리핑은 "`lidar_data/*.pkl`의 `points`가 world 좌표계에 있다"고 가정하고
+> `world_points_to_ego(points_world, world_T_lidar)`를 만들라고 지시했다. **`points`는
+> 이미 LiDAR 센서 로컬 좌표**이고, 축 규약도 ego와 같은 오른손(Y=좌측)이다. `inverse(transform)`을
+> 곱하면 포인트 클라우드가 차량의 world yaw만큼 잘못 회전한다.
+>
+> **실제 구현된 API (이것을 쓸 것):**
+> ```python
+> from projects.geometry.frames import lidar_points_to_ego
+> points_ego = lidar_points_to_ego(lidar["points"])   # transform 인자 없음
+> ```
+> 아래 Step 1~3의 코드 블록은 **폐기된 기록**이다. 그대로 복사하면 안 된다.
+> 근거와 수정 내역: 스펙 §3.3, `projects/geometry/frames.py` docstring,
+> `.superpowers/sdd/2026-07-29-synwoodscape-fisheye-bev-occupancy/task-5-investigation-report.md`
 
 **Files:**
 - Modify: `projects/geometry/frames.py`
@@ -143,16 +158,20 @@ git commit -m "feat: add homogeneous transform helpers and pytest setup"
 **Interfaces:**
 - Consumes: `apply_4x4`, `invert_4x4` (Task 1)
 - Produces: `LIDAR_MOUNT_OFFSET_EGO: np.ndarray` — ego frame 기준 LiDAR 장착 오프셋 `(0.0, 0.0, 2.0)`
-- Produces: `world_points_to_ego(points_world: np.ndarray, world_T_lidar: np.ndarray) -> np.ndarray`
-- Produces: `parse_vehicle_location(vehicle_data_txt_path) -> np.ndarray` — `vehicle_data/rgb_images/*.txt`의 `Location(x=...,y=...,z=...)`를 파싱
+- Produces: ~~`world_points_to_ego(points_world, world_T_lidar)`~~ →
+  **`lidar_points_to_ego(points_lidar: np.ndarray) -> np.ndarray`** (장착 오프셋만 더한다)
+- Produces: `carla_frame_to_ego`, `carla_rotation_matrix`, `parse_vehicle_transform`
+  — CARLA(왼손, Y=우측) ↔ ego(오른손, Y=좌측) 규약 변환과 vehicle pose 파싱
 
-이 Task는 스펙 §3.3에서 확인한 "`lidar_data/*.pkl`의 `transform` = world_T_lidar" 관계를 자동화된 회귀 테스트로 고정한다.
+이 Task는 "`lidar_data/*.pkl`의 `transform` = world_T_lidar" 관계(이 부분은 맞다)를 회귀 테스트로 고정한다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
-`tests/geometry/test_frames.py`에 추가:
+`tests/geometry/test_frames.py`에 추가 (⛔ 아래 블록은 폐기됨 — 위 배너 참고):
 
 ```python
+# ⛔ SUPERSEDED (2026-07-30): world_points_to_ego는 존재하지 않는다.
+# 실제 구현/테스트는 tests/geometry/test_frames.py를 직접 볼 것.
 import pickle
 import re
 from pathlib import Path
@@ -204,9 +223,11 @@ Expected: FAIL (`ImportError: cannot import name 'world_points_to_ego'`)
 
 - [ ] **Step 3: 구현**
 
-`projects/geometry/frames.py`에 추가:
+`projects/geometry/frames.py`에 추가 (⛔ 아래 블록은 폐기됨 — 위 배너 참고):
 
 ```python
+# ⛔ SUPERSEDED (2026-07-30): 이 구현이 바로 Task 5에서 고친 버그다.
+# points는 이미 센서 로컬 좌표이므로 inverse(world_T_lidar)를 곱하면 안 된다.
 LIDAR_MOUNT_OFFSET_EGO = np.array([0.0, 0.0, 2.0])  # readme.txt: LiDAR is mounted at ego (x=0, y=0, z=2.0)
 
 
@@ -464,7 +485,7 @@ git commit -m "feat: add shared class-consistency-rate metric helper"
 - Create: `tools/verify_fisheye_projection.py`
 
 **Interfaces:**
-- Consumes: `projects.geometry.frames.world_points_to_ego`, `projects.geometry.fisheye.load_camera`, `projects.common.metrics.class_consistency_rate`
+- Consumes: `projects.geometry.frames.lidar_points_to_ego`, `projects.geometry.fisheye.load_camera`, `projects.common.metrics.class_consistency_rate`
 
 **동작**: 지정한 샘플 인덱스 각각에 대해, LiDAR 포인트(+label)를 ego frame으로 옮기고 4대 카메라(FV/MVL/MVR/RV) 각각에 투영해 (a) 실제 RGB 이미지 위에 라벨 색상 오버레이 PNG를 `outputs/fisheye_verification/`에 저장하고 (b) `semantic_annotations/gtLabels`와의 class 일치율을 출력한다.
 
@@ -487,7 +508,7 @@ import numpy as np
 
 from projects.common.metrics import class_consistency_rate
 from projects.geometry.fisheye import load_camera
-from projects.geometry.frames import world_points_to_ego
+from projects.geometry.frames import lidar_points_to_ego
 
 DATASET_ROOT = Path("dataset/synwoodscape/SynWoodScape_V0.1.0")
 CAMERAS = ["FV", "MVL", "MVR", "RV"]
@@ -504,7 +525,7 @@ DEFAULT_COLOR_BGR = (128, 128, 128)
 def verify_sample(sample_idx: str) -> None:
     with open(DATASET_ROOT / "lidar_data" / f"{sample_idx}.pkl", "rb") as f:
         lidar = pickle.load(f)
-    points_ego = world_points_to_ego(lidar["points"], np.asarray(lidar["transform"]))
+    points_ego = lidar_points_to_ego(lidar["points"])
     labels = lidar["labels"]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -848,7 +869,7 @@ git commit -m "feat: add BEV image scale/origin calibration via instance-to-3d-b
 - Create: `tools/calibrate_bev_scale.py`
 
 **Interfaces:**
-- Consumes: `projects.bev_gt.bev_calibration.*` (Task 7), `projects.geometry.frames.world_points_to_ego` (Task 2)
+- Consumes: `projects.bev_gt.bev_calibration.*` (Task 7), `projects.geometry.frames.lidar_points_to_ego` (Task 2)
 
 **목적**: Task 7의 단일-샘플 계산을 여러 샘플로 확장해 스케일 추정의 안정성을 확인하고, BEV 이미지 축이 ego의 전방/좌우 중 어디에 대응하는지(부호)까지 확정한다. §4.3에서 이미 확인했듯 `ego-vehicle` bbox가 66(가로)×132(세로)px이고 3D 박스가 X=1.9m(폭)/Y=3.76m(길이)이므로 **세로(행) 축 = 전후(ego X), 가로(열) 축 = 좌우(ego Y)** 로 이미 확정되어 있다 — 이 스크립트는 나머지 **부호**(어느 쪽이 전방(+)인지, 어느 쪽이 좌/우(+)인지)를 데이터로 찾는다.
 
@@ -874,7 +895,7 @@ from projects.bev_gt.bev_calibration import (
     load_box_3d_annotations,
     load_instance_bev_image,
 )
-from projects.geometry.frames import world_points_to_ego
+from projects.geometry.frames import lidar_points_to_ego
 
 DATASET_ROOT = Path("dataset/synwoodscape/SynWoodScape_V0.1.0")
 
@@ -917,7 +938,7 @@ def find_axis_sign(sample_indices, meters_per_pixel, origin_px, image_shape):
     for idx in sample_indices:
         with open(DATASET_ROOT / f"lidar_data/{idx}.pkl", "rb") as f:
             lidar = pickle.load(f)
-        points_ego = world_points_to_ego(lidar["points"], np.asarray(lidar["transform"]))
+        points_ego = lidar_points_to_ego(lidar["points"])
         labels = lidar["labels"]
 
         radius_xy = np.linalg.norm(points_ego[:, :2], axis=1)
@@ -1187,4 +1208,4 @@ git commit -m "feat: add Phase 2 occupancy GT batch generation script"
 
 ## 실행 순서 요약
 
-Task 1→2(좌표계) → 3(fisheye) → 4(지표) → 5(Phase 1 실행) 은 순차 의존. Task 6(그리드 스펙)은 Task 1~5와 독립적으로 아무 때나 먼저 해도 된다. Task 7→8→9→10(Phase 2)은 Task 6 완료 후 순차 진행하며, Task 2의 `world_points_to_ego`를 Task 8에서 재사용한다.
+Task 1→2(좌표계) → 3(fisheye) → 4(지표) → 5(Phase 1 실행) 은 순차 의존. Task 6(그리드 스펙)은 Task 1~5와 독립적으로 아무 때나 먼저 해도 된다. Task 7→8→9→10(Phase 2)은 Task 6 완료 후 순차 진행하며, Task 2의 `lidar_points_to_ego`를 Task 8에서 재사용한다 (구 `world_points_to_ego`는 2026-07-30에 제거됨 — Task 2 상단의 정정 배너 참고).
