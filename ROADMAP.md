@@ -40,8 +40,19 @@
   `dataset/synwoodscape_occupancy_gt/`에 `{sample}_occupancy.npy`/`_visible.npy`/
   `_combined.png`로 저장 완료. 상세 근거·설계 변천사는 `docs/dataset_analysis/
   synwoodscape_geometry_findings.md` §3~§4 참고.
-- SynWoodScape를 Simple-BEV 입력 형태로 읽는 로더 작성 (`projects/`) — 아직 미착수
-- 500 samples의 train / val split 정의 (시퀀스라 프레임이 인접하므로 무작위 분할은 누수 위험 — 구간 분할 검토)
+- **SynWoodScape → Simple-BEV 데이터로더 ✅ 완료** — `projects/datasets/`. 캘리브레이션에서
+  임시 핀홀 `pix_T_cams`(k1을 focal length로 근사, 실제 `radial_poly` 교체는 3.2), 검증된
+  ego 카메라 pose를 Simple-BEV `Z/Y/X` 기준 프레임으로 회전시킨 `cam0_T_camXs`(`Y=1`, 지면
+  높이 한 bin), `SynWoodScapeSimpleBEVDataset`을 구현. 4-cam(FV/MVL/MVR/RV) 그대로 사용 —
+  Simple-BEV는 카메라별 전용 파라미터가 없어(encoder 공유 + masked-mean fusion) 이후 자체
+  로봇 3-cam(후면 제외) fine-tuning으로 전환해도 구조적으로 문제 없음.
+  `tools/smoke_test_simplebev_dataloader.py`로 `Segnet.forward()`+`backward()`가 실제
+  데이터에서 shape 에러 없이 도는 것과, 카메라별 BEV grid 커버리지가 실제 장착 방향과
+  맞는지(기하 정합성)를 확인 완료.
+- **500 samples train/val split ✅ 완료** — `projects/datasets/synwoodscape_split.py`.
+  `vehicle_data`의 ego 위치를 실측한 결과 500장은 **하나의 연속 시퀀스가 아니라** 맵 전역에
+  흩어진 길이 1~5의 짧은 버스트(64개, 인접 인덱스 간 거리 중앙값 12.7m)였다. 버스트를
+  통째로 train/val 중 한쪽에만 배정하는 근접도 기반 클러스터 분할로 근접 프레임 누수를 막음.
 
 ### 3.2 어안 투영 주입
 
