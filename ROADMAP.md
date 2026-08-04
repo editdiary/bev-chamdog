@@ -70,11 +70,27 @@
   shape 에러 없이 도는 것을 batch_size=1(peak GPU 메모리 2.73 GiB)로 확인 — 다른 연구실이
   같은 GPU를 쓰고 있어 메모리를 가볍게 유지함.
 
-### 3.3 학습 & 평가
+### 3.3 학습 & 평가 — 스크립트 준비 ✅, 본 학습 실행은 다음 단계
 
-- 하드웨어: RTX PRO 6000 96GB. VRAM 제약이 없으므로 batch size 축소·gradient accumulation은 불필요하고, **데이터 로딩(`num_workers`)과 GPU 활용률**을 먼저 살핀다. bf16 AMP는 검토 대상
-- 지표: **drivable IoU**를 주지표로 사용
-- 성공 기준: 학습이 수렴하고, 예측 BEV가 GT와 육안으로도 정합한다
+- **`tools/train_synwoodscape.py` ✅ 완료** — Simple-BEV 원본(`train_nuscenes.py`) 관례(Fire
+  키워드 인자 + `configs/train_synwoodscape_baseline.sh` 셸 스크립트)를 따름. AdamW +
+  OneCycleLR, BCE(자동 계산 `pos_weight`) + `saverloader` 체크포인트 + tensorboard 로깅.
+  `--use_fisheye`로 Phase 3.2 실제 어안 투영(`FisheyeVoxUtil`)과 3.1 핀홀 근사를 전환 가능.
+- **지표를 drivable IoU 하나에서 drivable+obstacle IoU 둘로 확장.** 실측 결과 500 samples
+  전체 기준 drivable 비율이 93%대라 "항상 drivable로 예측"만 해도 drivable IoU가 0.93을
+  넘는다(trivial baseline) — obstacle IoU를 함께 보지 않으면 trivial 해와 실제 학습을
+  구분할 수 없다. 체크포인트 선정도 `(drivable_iou+obstacle_iou)/2` 최고 시점 기준으로 변경.
+  상세 근거·튜닝 가이드는 **`docs/training_guide.md`**.
+- 학습 루프(옵티마이저 스텝·스케줄러·val 루프·체크포인트 저장·tensorboard 기록)를
+  8-sample/2-epoch smoke run으로 GPU에서 실제 검증 완료. **500 samples 전체로 실제 학습을
+  돌리고 결과(수렴 여부, 최종 IoU, 예측 BEV 육안 확인)를 보는 것은 아직 안 함 — 다음 단계.**
+- `rand_flip`은 껐다(고정) — `SYNWOODSCAPE_PRETRAIN_GRID_SPEC`이 전후 비대칭이라 Simple-BEV의
+  Z축 flip 증강이 물리적으로 안 맞음(`docs/training_guide.md` §6).
+- 하드웨어: RTX PRO 6000 96GB, 단 현재 다른 연구실 job과 공유 중(여유 ~25GB) — 배치
+  크기·encoder 선택 시 이 여유를 고려(`docs/training_guide.md` §5). VRAM이 완전히 여유로워지면
+  batch size 확대·gradient accumulation 불필요 원칙(CLAUDE.md)으로 돌아간다.
+- 성공 기준: 학습이 수렴하고(특히 obstacle IoU가 trivial baseline인 0을 유의미하게 넘김),
+  예측 BEV가 GT와 육안으로도 정합한다
 
 ## Phase 4 — 자체 데이터셋 fine-tuning
 
