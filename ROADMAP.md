@@ -54,11 +54,21 @@
   흩어진 길이 1~5의 짧은 버스트(64개, 인접 인덱스 간 거리 중앙값 12.7m)였다. 버스트를
   통째로 train/val 중 한쪽에만 배정하는 근접도 기반 클러스터 분할로 근접 프레임 누수를 막음.
 
-### 3.2 어안 투영 주입
+### 3.2 어안 투영 주입 ✅ 완료
 
-- Simple-BEV의 lifting은 **BEV 격자 → 픽셀 정방향 project만** 사용하므로, 핀홀 project를 `radial_poly` project로 교체하면 어안을 그대로 입력할 수 있다 (undistort 불필요)
-- **submodule은 수정하지 않는다** — `projects/`에서 래핑해 투영 함수를 주입한다
-- 투영 정합성 검증. **단, 규약은 위 Phase 1의 공식 문서 내용으로 확정하고, 검증 지표를 세우기 전에 known-good 대조군으로 그 지표가 무엇에 민감/둔감한지 먼저 확인한다** (지표를 먼저 만들고 결론을 낸 탓에 잘못된 결론을 반복한 전례가 있다)
+- **`projects/models/fisheye_vox.py`** — Simple-BEV `Vox_util`을 서브클래싱해 `unproject_image_to_mem`
+  하나만 오버라이드(`FisheyeVoxUtil`). 원본은 외파라미터+내파라미터를 합친 4x4 행렬에
+  원근분할을 적용해 픽셀 좌표를 얻는데(핀홀 전용), 별도 인자로 들어오는 `camB_T_camA`(외파라미터만,
+  강체변환)는 그대로 재사용하고 그 카메라좌표계 3D 점에 실제 WoodScape `radial_poly`(theta/rho
+  다항식)를 적용해 픽셀을 계산하도록 바꿨다. **submodule(`nets/segnet.py`, `utils/vox.py`)은
+  한 줄도 수정하지 않음** — `Segnet.forward()`가 이 `FisheyeVoxUtil` 인스턴스를 그대로 받아 쓴다.
+- **검증**: torch 재구현이 WoodScape 공식 numpy `RadialPolyCamProjection`과 1e-6 오차로 일치
+  (`tests/models/test_fisheye_vox.py`). 3.1의 핀홀 근사 대비 BEV grid 이미지-경계 커버리지가
+  기대대로 크게 늘어남을 확인(FV 0.29→0.45, MVL/MVR 0.24→0.77, RV 0.07→0.25 — 광각 미러
+  카메라일수록 핀홀이 화각을 심하게 과소평가했던 만큼 개선폭이 큼).
+  `tools/smoke_test_fisheye_segnet.py`로 실제 데이터에서 `Segnet.forward()`+`backward()`가
+  shape 에러 없이 도는 것을 batch_size=1(peak GPU 메모리 2.73 GiB)로 확인 — 다른 연구실이
+  같은 GPU를 쓰고 있어 메모리를 가볍게 유지함.
 
 ### 3.3 학습 & 평가
 
