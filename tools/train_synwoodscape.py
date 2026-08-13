@@ -49,6 +49,52 @@ def _print_banner(lines) -> None:
         print(_c(_Ansi.BOLD + _Ansi.CYAN, line))
     print(_c(_Ansi.BOLD + _Ansi.CYAN, rule))
 
+def format_epoch_log(
+    *,
+    epoch,
+    num_epochs,
+    epoch_time,
+    train_loss,
+    train_occ_loss,
+    train_vis_loss,
+    train_d_iou,
+    train_o_iou,
+    train_v_false_high,
+    train_v_false_low,
+    val_loss,
+    val_occ_loss,
+    val_vis_loss,
+    val_d_iou,
+    val_o_iou,
+    val_v_false_high,
+    val_v_false_low,
+    val_score,
+    best_val_score,
+    is_new_best,
+):
+    displayed_best = val_score if is_new_best else best_val_score
+    checkpoint_note = "new best" if is_new_best else "-"
+    return "\n".join([
+        (
+            f"epoch {epoch:03d}/{num_epochs} | time {epoch_time:6.1f}s | "
+            f"val_iou_mean↑ {val_score:.3f} | best_val_iou_mean↑ {displayed_best:.3f} | "
+            f"checkpoint: {checkpoint_note}"
+        ),
+        (
+            f"  train | loss_total↓ {train_loss:.4f} | loss_occ↓ {train_occ_loss:.4f} | "
+            f"loss_vis↓ {train_vis_loss:.4f} | iou_drivable↑ {train_d_iou:.3f} | "
+            f"iou_obstacle↑ {train_o_iou:.3f} | vis_false_high↓ {train_v_false_high:.3f} | "
+            f"vis_false_low↓ {train_v_false_low:.3f}"
+        ),
+        (
+            f"  val   | loss_total↓ {val_loss:.4f} | loss_occ↓ {val_occ_loss:.4f} | "
+            f"loss_vis↓ {val_vis_loss:.4f} | iou_drivable↑ {val_d_iou:.3f} | "
+            f"iou_obstacle↑ {val_o_iou:.3f} | vis_false_high↓ {val_v_false_high:.3f} | "
+            f"vis_false_low↓ {val_v_false_low:.3f}"
+        ),
+    ])
+
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
@@ -326,21 +372,28 @@ def main(
             val_score = 0.5 * (val_d_iou + val_o_iou)
             is_new_best = val_score > best_val_score  # NaN > x is always False -- val을 안 돌린 epoch은 자동으로 제외됨
 
-            epoch_label = _c(_Ansi.BOLD, f"epoch {epoch:03d}/{num_epochs}")
-            train_part = _c(
-                _Ansi.CYAN,
-                f"train loss {train_loss:.4f} occ {train_occ_loss:.4f} vis {train_vis_loss:.4f} "
-                f"drivable {train_d_iou:.3f} obstacle {train_o_iou:.3f} "
-                f"visFH {train_v_false_high:.3f} visFL {train_v_false_low:.3f}",
-            )
-            val_part = _c(
-                _Ansi.MAGENTA,
-                f"val loss {val_loss:.4f} occ {val_occ_loss:.4f} vis {val_vis_loss:.4f} "
-                f"drivable {val_d_iou:.3f} obstacle {val_o_iou:.3f} "
-                f"visFH {val_v_false_high:.3f} visFL {val_v_false_low:.3f}",
-            )
-            marker = _c(_Ansi.GREEN + _Ansi.BOLD, "  * new best") if is_new_best else ""
-            print(f"{epoch_label} | time {epoch_time:5.1f}s | {train_part} | {val_part}{marker}")
+            print(format_epoch_log(
+                epoch=epoch,
+                num_epochs=num_epochs,
+                epoch_time=epoch_time,
+                train_loss=train_loss,
+                train_occ_loss=train_occ_loss,
+                train_vis_loss=train_vis_loss,
+                train_d_iou=train_d_iou,
+                train_o_iou=train_o_iou,
+                train_v_false_high=train_v_false_high,
+                train_v_false_low=train_v_false_low,
+                val_loss=val_loss,
+                val_occ_loss=val_occ_loss,
+                val_vis_loss=val_vis_loss,
+                val_d_iou=val_d_iou,
+                val_o_iou=val_o_iou,
+                val_v_false_high=val_v_false_high,
+                val_v_false_low=val_v_false_low,
+                val_score=val_score,
+                best_val_score=best_val_score,
+                is_new_best=is_new_best,
+            ))
 
             if epoch % save_freq_epochs == 0 or epoch == num_epochs:
                 saverloader.save(str(ckpt_path), optimizer, model, epoch, keep_latest=3)
