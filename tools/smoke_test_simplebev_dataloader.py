@@ -7,16 +7,19 @@ import sys
 from pathlib import Path
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
-from nets.segnet import Segnet  # noqa: E402  (simple_bev submodule; see docs/project_structure.md)
 
 from projects.datasets.simplebev_vox import build_vox_util  # noqa: E402
+from projects.models.simplebev_two_head import (  # noqa: E402
+    TwoHeadSegnet,
+    compute_two_head_loss,
+    split_two_head_logits,
+)
 from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
     GRID_SPEC,
     SynWoodScapeSimpleBEVDataset,
@@ -32,7 +35,7 @@ def main():
     vox_util = build_vox_util(GRID_SPEC, device=device)
     Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
 
-    model = Segnet(
+    model = TwoHeadSegnet(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type="res101",
@@ -44,6 +47,7 @@ def main():
     pix_T_cams = batch["pix_T_cams"].to(device)
     cam0_T_camXs = batch["cam0_T_camXs"].to(device)
     seg_bev_g = batch["seg_bev_g"].to(device)
+    vis_bev_g = batch["vis_bev_g"].to(device)
     valid_bev_g = batch["valid_bev_g"].to(device)
 
     print("input  rgb_camXs   :", tuple(rgb_camXs.shape))
@@ -51,13 +55,17 @@ def main():
     print("input  cam0_T_camXs:", tuple(cam0_T_camXs.shape))
     print("target seg_bev_g   :", tuple(seg_bev_g.shape))
 
-    raw_e, feat_e, seg_e, center_e, offset_e = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
-    print("output seg_e       :", tuple(seg_e.shape))
-    assert seg_e.shape == seg_bev_g.shape, f"shape mismatch: {seg_e.shape} vs {seg_bev_g.shape}"
+    raw_e, feat_e, two_head_e, center_e, offset_e = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
+    occ_e, vis_e = split_two_head_logits(two_head_e)
+    print("output occ_e       :", tuple(occ_e.shape))
+    print("output vis_e       :", tuple(vis_e.shape))
+    assert occ_e.shape == seg_bev_g.shape, f"shape mismatch: {occ_e.shape} vs {seg_bev_g.shape}"
+    assert vis_e.shape == vis_bev_g.shape, f"shape mismatch: {vis_e.shape} vs {vis_bev_g.shape}"
 
-    loss = F.binary_cross_entropy_with_logits(seg_e, seg_bev_g, reduction="none")
-    loss = (loss * valid_bev_g).sum() / valid_bev_g.sum().clamp(min=1.0)
+    loss, parts = compute_two_head_loss(occ_e, vis_e, seg_bev_g, vis_bev_g, valid_bev_g)
     print("loss               :", loss.item())
+    print("loss_occ           :", parts["loss_occ"].item())
+    print("loss_vis           :", parts["loss_vis"].item())
 
     loss.backward()
     grad_norm = sum(p.grad.norm().item() for p in model.parameters() if p.grad is not None)

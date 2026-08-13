@@ -10,6 +10,8 @@
 set -e
 cd "$(dirname "$0")/.."
 
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
+
 python tools/train_synwoodscape.py \
     --exp_name=baseline \
     --num_epochs=3 \
@@ -21,6 +23,8 @@ python tools/train_synwoodscape.py \
     --split_seed=0 \
     --encoder_type=res101 \
     --use_fisheye=True \
+    --lambda_vis=0.5 \
+    --vis_neg_weight=3.0 \
     --val_freq_epochs=1 \
     --save_freq_epochs=5 \
     --log_dir=runs/temp_train/logs \

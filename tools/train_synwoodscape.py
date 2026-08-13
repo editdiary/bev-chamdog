@@ -17,7 +17,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from fire import Fire
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
@@ -55,9 +54,6 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 import saverloader  # noqa: E402  (simple_bev submodule; see docs/project_structure.md)
-import utils.basic  # noqa: E402
-from nets.segnet import Segnet  # noqa: E402
-
 from projects.datasets.simplebev_vox import build_vox_util  # noqa: E402
 from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
     CAMERA_NAMES,
@@ -69,6 +65,12 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
 from projects.datasets.synwoodscape_split import discover_all_sample_ids, train_val_split  # noqa: E402
 from projects.geometry.fisheye import load_camera  # noqa: E402
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
+from projects.models.simplebev_two_head import (  # noqa: E402
+    TwoHeadSegnet,
+    compute_two_head_loss,
+    split_two_head_logits,
+    visibility_error_rates,
+)
 
 
 def compute_pos_weight(sample_ids, occupancy_gt_root: Path) -> float:
@@ -115,21 +117,30 @@ def compute_drivable_and_obstacle_iou(seg_e_logits, seg_g, valid_g):
     return drivable_iou, obstacle_iou
 
 
-def run_batch(model, batch, vox_util, pos_weight_tensor, device):
+def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight):
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5  # nuScenes 관례: [0,1] -> [-0.5,0.5]
     pix_T_cams = batch["pix_T_cams"].to(device)
     cam0_T_camXs = batch["cam0_T_camXs"].to(device)
     seg_bev_g = batch["seg_bev_g"].to(device)
+    vis_bev_g = batch["vis_bev_g"].to(device)
     valid_bev_g = batch["valid_bev_g"].to(device)
 
-    _, _, seg_bev_e, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
+    _, _, two_head_bev_e, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
+    occ_bev_e, vis_bev_e = split_two_head_logits(two_head_bev_e)
 
-    loss = F.binary_cross_entropy_with_logits(
-        seg_bev_e, seg_bev_g, pos_weight=pos_weight_tensor, reduction="none"
+    loss, loss_parts = compute_two_head_loss(
+        occ_bev_e,
+        vis_bev_e,
+        seg_bev_g,
+        vis_bev_g,
+        valid_bev_g,
+        lambda_vis=lambda_vis,
+        vis_neg_weight=vis_neg_weight,
+        occ_pos_weight=pos_weight_tensor,
     )
-    loss = utils.basic.reduce_masked_mean(loss, valid_bev_g)
-    drivable_iou, obstacle_iou = compute_drivable_and_obstacle_iou(seg_bev_e, seg_bev_g, valid_bev_g)
-    return loss, drivable_iou, obstacle_iou
+    drivable_iou, obstacle_iou = compute_drivable_and_obstacle_iou(occ_bev_e, seg_bev_g, valid_bev_g)
+    vis_metrics = visibility_error_rates(torch.sigmoid(vis_bev_e), vis_bev_g, valid_bev_g)
+    return loss, loss_parts, drivable_iou, obstacle_iou, vis_metrics
 
 
 def main(
@@ -144,6 +155,8 @@ def main(
     encoder_type="res101",
     use_fisheye=True,
     pos_weight=None,
+    lambda_vis=0.5,
+    vis_neg_weight=3.0,
     val_freq_epochs=1,
     save_freq_epochs=5,
     log_dir="work_dirs/logs_synwoodscape",
@@ -171,6 +184,7 @@ def main(
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
         f" train={len(train_ids)} | val={len(val_ids)}",
         f" pos_weight (neg/pos on train) = {pos_weight:.3f}",
+        f" lambda_vis={lambda_vis:.3f} | vis_neg_weight={vis_neg_weight:.3f}",
         f" trivial 'always predict drivable' baseline IoU on val = {trivial_iou:.3f}  <- compare against this",
     ])
 
@@ -192,9 +206,8 @@ def main(
         vox_util = build_vox_util(GRID_SPEC, device=device)
 
     # rand_flip=False로 고정한다: Simple-BEV의 forward/backward(Z축) flip 증강은 대칭 grid를
-    # 전제하는데 SYNWOODSCAPE_PRETRAIN_GRID_SPEC은 전방5m/후방3m로 비대칭이라 물리적으로
-    # 성립하지 않는다 (docs/training_guide.md 참고).
-    model = Segnet(
+    # 전제하는데 SynWoodScape pretrain grid는 전후 비대칭이라 물리적으로 성립하지 않는다.
+    model = TwoHeadSegnet(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
@@ -236,53 +249,96 @@ def main(
         for epoch in range(1, num_epochs + 1):
             model.train()
             epoch_start = time.time()
-            train_losses, train_d_ious, train_o_ious = [], [], []
+            train_losses, train_occ_losses, train_vis_losses = [], [], []
+            train_d_ious, train_o_ious, train_v_false_highs, train_v_false_lows = [], [], [], []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, d_iou, o_iou = run_batch(model, batch, vox_util, pos_weight_tensor, device)
+                loss, loss_parts, d_iou, o_iou, vis_metrics = run_batch(
+                    model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
+                )
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
                 optimizer.step()
                 scheduler.step()
 
                 train_losses.append(loss.item())
+                train_occ_losses.append(loss_parts["loss_occ"].item())
+                train_vis_losses.append(loss_parts["loss_vis"].item())
                 train_d_ious.append(d_iou.item())
                 train_o_ious.append(o_iou.item())
+                train_v_false_highs.append(vis_metrics["false_high"])
+                train_v_false_lows.append(vis_metrics["false_low"])
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
+                writer.add_scalar("train/loss_occ_step", loss_parts["loss_occ"].item(), global_step)
+                writer.add_scalar("train/loss_vis_step", loss_parts["loss_vis"].item(), global_step)
                 writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
                 global_step += 1
 
             train_loss = float(np.mean(train_losses)) if train_losses else float("nan")
+            train_occ_loss = float(np.mean(train_occ_losses)) if train_occ_losses else float("nan")
+            train_vis_loss = float(np.mean(train_vis_losses)) if train_vis_losses else float("nan")
             train_d_iou = float(np.mean(train_d_ious)) if train_d_ious else float("nan")
             train_o_iou = float(np.mean(train_o_ious)) if train_o_ious else float("nan")
+            train_v_false_high = float(np.mean(train_v_false_highs)) if train_v_false_highs else float("nan")
+            train_v_false_low = float(np.mean(train_v_false_lows)) if train_v_false_lows else float("nan")
             writer.add_scalar("train/loss_epoch", train_loss, epoch)
+            writer.add_scalar("train/loss_occ_epoch", train_occ_loss, epoch)
+            writer.add_scalar("train/loss_vis_epoch", train_vis_loss, epoch)
             writer.add_scalar("train/iou_drivable_epoch", train_d_iou, epoch)
             writer.add_scalar("train/iou_obstacle_epoch", train_o_iou, epoch)
+            writer.add_scalar("train/visibility_false_high_epoch", train_v_false_high, epoch)
+            writer.add_scalar("train/visibility_false_low_epoch", train_v_false_low, epoch)
 
-            val_loss = val_d_iou = val_o_iou = float("nan")
+            val_loss = val_occ_loss = val_vis_loss = val_d_iou = val_o_iou = float("nan")
+            val_v_false_high = val_v_false_low = float("nan")
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
-                val_losses, val_d_ious, val_o_ious = [], [], []
+                val_losses, val_occ_losses, val_vis_losses = [], [], []
+                val_d_ious, val_o_ious, val_v_false_highs, val_v_false_lows = [], [], [], []
                 with torch.no_grad():
                     for batch in val_loader:
-                        loss, d_iou, o_iou = run_batch(model, batch, vox_util, pos_weight_tensor, device)
+                        loss, loss_parts, d_iou, o_iou, vis_metrics = run_batch(
+                            model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
+                        )
                         val_losses.append(loss.item())
+                        val_occ_losses.append(loss_parts["loss_occ"].item())
+                        val_vis_losses.append(loss_parts["loss_vis"].item())
                         val_d_ious.append(d_iou.item())
                         val_o_ious.append(o_iou.item())
+                        val_v_false_highs.append(vis_metrics["false_high"])
+                        val_v_false_lows.append(vis_metrics["false_low"])
                 val_loss = float(np.mean(val_losses))
+                val_occ_loss = float(np.mean(val_occ_losses))
+                val_vis_loss = float(np.mean(val_vis_losses))
                 val_d_iou = float(np.mean(val_d_ious))
                 val_o_iou = float(np.mean(val_o_ious))
+                val_v_false_high = float(np.mean(val_v_false_highs))
+                val_v_false_low = float(np.mean(val_v_false_lows))
                 writer.add_scalar("val/loss_epoch", val_loss, epoch)
+                writer.add_scalar("val/loss_occ_epoch", val_occ_loss, epoch)
+                writer.add_scalar("val/loss_vis_epoch", val_vis_loss, epoch)
                 writer.add_scalar("val/iou_drivable_epoch", val_d_iou, epoch)
                 writer.add_scalar("val/iou_obstacle_epoch", val_o_iou, epoch)
+                writer.add_scalar("val/visibility_false_high_epoch", val_v_false_high, epoch)
+                writer.add_scalar("val/visibility_false_low_epoch", val_v_false_low, epoch)
 
             epoch_time = time.time() - epoch_start
             val_score = 0.5 * (val_d_iou + val_o_iou)
             is_new_best = val_score > best_val_score  # NaN > x is always False -- val을 안 돌린 epoch은 자동으로 제외됨
 
             epoch_label = _c(_Ansi.BOLD, f"epoch {epoch:03d}/{num_epochs}")
-            train_part = _c(_Ansi.CYAN, f"train loss {train_loss:.4f} drivable {train_d_iou:.3f} obstacle {train_o_iou:.3f}")
-            val_part = _c(_Ansi.MAGENTA, f"val loss {val_loss:.4f} drivable {val_d_iou:.3f} obstacle {val_o_iou:.3f}")
+            train_part = _c(
+                _Ansi.CYAN,
+                f"train loss {train_loss:.4f} occ {train_occ_loss:.4f} vis {train_vis_loss:.4f} "
+                f"drivable {train_d_iou:.3f} obstacle {train_o_iou:.3f} "
+                f"visFH {train_v_false_high:.3f} visFL {train_v_false_low:.3f}",
+            )
+            val_part = _c(
+                _Ansi.MAGENTA,
+                f"val loss {val_loss:.4f} occ {val_occ_loss:.4f} vis {val_vis_loss:.4f} "
+                f"drivable {val_d_iou:.3f} obstacle {val_o_iou:.3f} "
+                f"visFH {val_v_false_high:.3f} visFL {val_v_false_low:.3f}",
+            )
             marker = _c(_Ansi.GREEN + _Ansi.BOLD, "  * new best") if is_new_best else ""
             print(f"{epoch_label} | time {epoch_time:5.1f}s | {train_part} | {val_part}{marker}")
 

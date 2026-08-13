@@ -47,6 +47,11 @@ SYNWOODSCAPE_PRETRAIN_GRID_SPEC = OccupancyGridSpec(
     front_m=5.0, rear_m=3.0, half_width_m=4.0, cell_m=0.05
 )
 
+# Finalized two-head SynWoodScape pretraining grid for manual occupancy + H=0.8 visibility labels.
+SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC = OccupancyGridSpec(
+    front_m=8.0, rear_m=4.0, half_width_m=6.0, cell_m=0.05
+)
+
 
 def remap_semantic_to_occupancy(semantic_labels: np.ndarray, drivable_class_ids=DRIVABLE_CLASS_IDS) -> np.ndarray:
     """Map semantic class ids to binary occupancy (1=drivable, 0=non-drivable)."""
