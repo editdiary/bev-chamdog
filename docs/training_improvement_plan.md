@@ -18,7 +18,7 @@
 
 ## Step 1: More Diagnostic Occupancy Metrics
 
-Status: first implementation target.
+Status: implemented in `tools/train_synwoodscape.py`; next action is to run a full diagnostic baseline and interpret the new metrics.
 
 Add metrics that explain why obstacle IoU changes:
 
@@ -36,6 +36,8 @@ Expected benefit:
 
 - Low obstacle IoU samples become interpretable: no-obstacle samples, tiny-obstacle samples, and genuinely hard obstacle-rich samples are separated.
 - Future loss experiments can be judged by `missed_obstacle` and bin-wise obstacle IoU, not only global mean IoU.
+
+Implemented TensorBoard keys include `occupancy_obstacle_fraction_epoch`, `occupancy_false_obstacle_epoch`, `occupancy_missed_obstacle_epoch`, and `occupancy_obstacle_iou_{empty,tiny,small,medium,large}_epoch` under both `train/` and `val/`.
 
 ## Step 2: Occupancy Loss Experiment
 
