@@ -64,7 +64,7 @@ epoch 012/60 | time  8.3s | train loss 0.0512 drivable 0.941 obstacle 0.301 | va
 | obstacle IoU가 0 근처에 정체, drivable IoU는 §1의 trivial 값 근처 | 모델이 trivial 해(항상 drivable)로 수렴 | `--pos_weight`를 자동 계산값(약 0.075)보다 **낮춰서**(예: 0.03~0.05) obstacle class 가중치를 상대적으로 높이거나, lr을 낮춰 학습을 더 안정화. `pos_weight`는 `BCEWithLogitsLoss`의 **양성(=drivable) class** 가중치라 값을 낮출수록 obstacle 쪽에 더 민감해진다 |
 | train obstacle IoU는 계속 오르는데 val obstacle IoU는 정체/하락 | overfitting (500장은 매우 작은 데이터셋) | epoch 수를 줄이거나(`model_best-*.pth`가 이미 최적 시점을 저장해 둠) `--weight_decay`를 1e-7→1e-4~1e-3으로 올리기. `--encoder_type=res50` 또는 `effb0`로 모델 용량을 줄여보는 것도 방법 |
 | GPU OOM | batch_size나 encoder가 지금 여유 메모리에 비해 큼 | `--batch_size`를 절반으로, 그래도 안 되면 `--encoder_type=res50` 또는 `effb0`로. §5 참고 |
-| epoch 하나가 너무 오래 걸림, `nvidia-smi`로 보면 GPU 활용률이 낮음 | 데이터 로딩이 병목(디스크 I/O) | `--num_workers`를 8~16 범위에서 올려보기(CLAUDE.md 권장치) |
+| epoch 하나가 너무 오래 걸림, `nvidia-smi`로 보면 GPU 활용률이 낮음 | 데이터 로딩이 병목(디스크 I/O) | `--num_workers`를 8~16 범위에서 올려보기(프로젝트 지침 권장치) |
 | `--split_seed`를 바꾸니 val IoU가 크게 달라짐 | val이 51장뿐이라 분산이 큼(클러스터 단위라 사실상 몇 개 안 되는 "장면") | 한 seed의 값을 과신하지 말 것. 2~3개 seed로 돌려 평균/분산을 같이 보고하는 걸 권장 |
 
 ## 4. 하이퍼파라미터별 권장 시작값과 조정 방향

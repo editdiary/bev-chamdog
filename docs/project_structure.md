@@ -5,7 +5,8 @@
 ```
 bev-chamdog/
 ├── README.md              # 프로젝트 개요
-├── CLAUDE.md              # 개발 핵심 지침
+├── AGENTS.md              # AI agent 협업 핵심 지침
+├── CLAUDE.md              # Claude 호환용 포인터 (정본은 AGENTS.md)
 ├── ROADMAP.md             # 단계별 로드맵
 ├── constraints.txt        # 패키지 버전 상한 고정 (numpy<2, opencv<5)
 ├── requirements.txt       # Simple-BEV 학습에 실제로 필요한 의존성
