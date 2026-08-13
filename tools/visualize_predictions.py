@@ -1,12 +1,11 @@
-"""학습된 SynWoodScape `Segnet` 체크포인트로 추론하고, GT occupancy와 나란히 시각화한다.
+"""학습된 SynWoodScape `TwoHeadSegnet` 체크포인트로 추론하고, occupancy/visibility를 시각화한다.
 
 ROADMAP Phase 3.3 성공 기준("예측 BEV가 GT와 육안으로도 정합한다")을 실제로 확인하는
 스크립트 -- 지금까지는 IoU 숫자만 봤고 육안 비교 코드는 없었다.
 
-카메라 썸네일(4-cam) + [GT occupancy | 예측 occupancy] BEV 지도를 나란히 붙인 PNG를
-`<sample_id>_compare.png`로 저장한다. 색은 `tools/build_hybrid_occupancy.py`의
-`_combined.png`와 같은 팔레트를 쓴다(회색=미관측, 초록=drivable, 빨강=obstacle) --
-`dataset/synwoodscape_occupancy_gt/<sample_id>_combined.png`와 바로 비교 가능하다.
+카메라 썸네일(4-cam) + GT/pred occupancy, GT/pred visibility, pred occupancy masked by
+pred visibility를 나란히 붙인 PNG를 `<sample_id>_compare.png`로 저장한다. 개별 확인을 위해
+pred occupancy/visibility/combined PNG도 함께 저장한다.
 
 Run:
     python tools/visualize_predictions.py \\
@@ -31,8 +30,6 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 import saverloader  # noqa: E402  (simple_bev submodule; see docs/project_structure.md)
-from nets.segnet import Segnet  # noqa: E402
-
 from projects.datasets.simplebev_vox import build_vox_util  # noqa: E402
 from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
     CAMERA_NAMES,
@@ -43,22 +40,35 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
 from projects.datasets.synwoodscape_split import discover_all_sample_ids, train_val_split  # noqa: E402
 from projects.geometry.fisheye import load_camera  # noqa: E402
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
+from projects.models.simplebev_two_head import (  # noqa: E402
+    TwoHeadSegnet,
+    split_two_head_logits,
+    visibility_error_rates,
+)
 
 # tools/build_hybrid_occupancy.py의 GT combined.png와 같은 팔레트 -- 나란히 비교하기 쉽게 유지.
 COLOR_UNKNOWN = (128, 128, 128)
 COLOR_DRIVABLE = (76, 175, 80)
 COLOR_OBSTACLE = (192, 57, 43)
+COLOR_VISIBLE = (33, 150, 243)
 
-CELL_UPSCALE = 3  # 160x160 grid -> 480x480 (NEAREST라 셀 경계가 흐려지지 않음)
+CELL_UPSCALE = 2  # 240x240 grid -> 480x480 (NEAREST라 셀 경계가 흐려지지 않음)
 CAM_THUMB_W, CAM_THUMB_H = 220, 166
 
 
-def occupancy_to_image(occupancy: np.ndarray, observed: np.ndarray) -> Image.Image:
+def occupancy_to_image(occupancy: np.ndarray, observed: np.ndarray, upscale: int = CELL_UPSCALE) -> Image.Image:
     image = np.full(occupancy.shape + (3,), COLOR_UNKNOWN, dtype=np.uint8)
     image[observed & (occupancy == 1)] = COLOR_DRIVABLE
     image[observed & (occupancy == 0)] = COLOR_OBSTACLE
     h, w = occupancy.shape
-    return Image.fromarray(image).resize((w * CELL_UPSCALE, h * CELL_UPSCALE), Image.NEAREST)
+    return Image.fromarray(image).resize((w * upscale, h * upscale), Image.NEAREST)
+
+
+def visibility_to_image(visible: np.ndarray, upscale: int = CELL_UPSCALE) -> Image.Image:
+    image = np.full(visible.shape + (3,), COLOR_UNKNOWN, dtype=np.uint8)
+    image[visible] = COLOR_VISIBLE
+    h, w = visible.shape
+    return Image.fromarray(image).resize((w * upscale, h * upscale), Image.NEAREST)
 
 
 def compute_iou(pred: np.ndarray, target: np.ndarray, valid: np.ndarray) -> float:
@@ -67,7 +77,7 @@ def compute_iou(pred: np.ndarray, target: np.ndarray, valid: np.ndarray) -> floa
     return float(intersection / max(union.sum(), 1e-4))
 
 
-def build_panel(rgb_camXs_01: np.ndarray, camera_names, gt_image, pred_image, title_lines) -> Image.Image:
+def build_panel(rgb_camXs_01: np.ndarray, camera_names, bev_images, title_lines) -> Image.Image:
     cams_row = Image.new("RGB", (CAM_THUMB_W * len(camera_names), CAM_THUMB_H))
     draw_cams = ImageDraw.Draw(cams_row)
     for i, name in enumerate(camera_names):
@@ -76,15 +86,17 @@ def build_panel(rgb_camXs_01: np.ndarray, camera_names, gt_image, pred_image, ti
         cams_row.paste(thumb, (i * CAM_THUMB_W, 0))
         draw_cams.text((i * CAM_THUMB_W + 5, 5), name, fill=(255, 255, 0))
 
-    gap = 20
-    bev_row_w = gt_image.width + pred_image.width + gap
-    bev_row_h = max(gt_image.height, pred_image.height)
+    gap = 12
+    label_h = 22
+    bev_row_w = sum(image.width for _, image in bev_images) + gap * (len(bev_images) - 1)
+    bev_row_h = max(image.height for _, image in bev_images) + label_h
     bev_row = Image.new("RGB", (bev_row_w, bev_row_h), (255, 255, 255))
-    bev_row.paste(gt_image, (0, 0))
-    bev_row.paste(pred_image, (gt_image.width + gap, 0))
     draw_bev = ImageDraw.Draw(bev_row)
-    draw_bev.text((5, 5), "GT", fill=(255, 255, 0))
-    draw_bev.text((gt_image.width + gap + 5, 5), "prediction", fill=(255, 255, 0))
+    x = 0
+    for label, image in bev_images:
+        draw_bev.text((x + 5, 4), label, fill=(0, 0, 0))
+        bev_row.paste(image, (x, label_h))
+        x += image.width + gap
 
     text_h = 20 * (len(title_lines) + 1)
     total_w = max(cams_row.width, bev_row.width)
@@ -135,7 +147,7 @@ def main(
     else:
         vox_util = build_vox_util(GRID_SPEC, device=device)
 
-    model = Segnet(
+    model = TwoHeadSegnet(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
@@ -154,26 +166,56 @@ def main(
         cam0_T_camXs = item["cam0_T_camXs"].unsqueeze(0).to(device)
 
         with torch.no_grad():
-            _, _, seg_bev_e, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
-        pred_np = torch.sigmoid(seg_bev_e)[0, 0].round().cpu().numpy().astype(np.uint8)
+            _, _, two_head_bev_e, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
+            occ_bev_e, vis_bev_e = split_two_head_logits(two_head_bev_e)
+        pred_occ_np = torch.sigmoid(occ_bev_e)[0, 0].round().cpu().numpy().astype(np.uint8)
+        pred_vis_prob = torch.sigmoid(vis_bev_e)
+        pred_vis_np = pred_vis_prob[0, 0].round().cpu().numpy().astype(bool)
 
         occupancy_np = item["seg_bev_g"][0].numpy().astype(np.uint8)
-        visible_np = item["valid_bev_g"][0].numpy().astype(bool)
+        visible_np = item["vis_bev_g"][0].numpy().astype(bool)
+        valid_np = item["valid_bev_g"][0].numpy().astype(bool)
 
-        d_iou = compute_iou(pred_np, occupancy_np, visible_np)
-        o_iou = compute_iou(1 - pred_np, 1 - occupancy_np, visible_np)
+        d_iou = compute_iou(pred_occ_np, occupancy_np, valid_np)
+        o_iou = compute_iou(1 - pred_occ_np, 1 - occupancy_np, valid_np)
+        vis_metrics = visibility_error_rates(
+            pred_vis_prob,
+            item["vis_bev_g"].unsqueeze(0).to(device),
+            item["valid_bev_g"].unsqueeze(0).to(device),
+        )
 
-        gt_image = occupancy_to_image(occupancy_np, visible_np)
-        # 예측도 GT와 같은 관측 마스크로 그린다 -- 모델이 실제로 "관측된" 영역에서 얼마나
-        # 맞는지를 GT와 동일 조건으로 비교하기 위함(미관측 영역 예측은 회색으로 가림).
-        pred_image = occupancy_to_image(pred_np, visible_np)
+        all_cells = np.ones_like(visible_np, dtype=bool)
+        gt_occ_image = occupancy_to_image(occupancy_np, visible_np)
+        pred_occ_image = occupancy_to_image(pred_occ_np, all_cells)
+        gt_vis_image = visibility_to_image(visible_np)
+        pred_vis_image = visibility_to_image(pred_vis_np)
+        pred_combined_image = occupancy_to_image(pred_occ_np, pred_vis_np)
+
+        pred_occ_image.save(output_dir / f"{sample_id}_pred_occupancy.png")
+        pred_vis_image.save(output_dir / f"{sample_id}_pred_visibility.png")
+        pred_combined_image.save(output_dir / f"{sample_id}_pred_combined.png")
 
         panel = build_panel(
-            item["rgb_camXs"].numpy(), CAMERA_NAMES, gt_image, pred_image,
-            [f"{sample_id}   drivable IoU {d_iou:.3f}   obstacle IoU {o_iou:.3f}"],
+            item["rgb_camXs"].numpy(),
+            CAMERA_NAMES,
+            [
+                ("GT occupancy", gt_occ_image),
+                ("pred occupancy", pred_occ_image),
+                ("GT visibility", gt_vis_image),
+                ("pred visibility", pred_vis_image),
+                ("pred occ x vis", pred_combined_image),
+            ],
+            [
+                f"{sample_id}   occ drivable IoU {d_iou:.3f}   obstacle IoU {o_iou:.3f}",
+                f"visibility false_high {vis_metrics['false_high']:.3f}   false_low {vis_metrics['false_low']:.3f}",
+            ],
         )
         panel.save(output_dir / f"{sample_id}_compare.png")
-        print(f"{sample_id}: drivable IoU {d_iou:.3f} obstacle IoU {o_iou:.3f} -> {output_dir}/{sample_id}_compare.png")
+        print(
+            f"{sample_id}: drivable IoU {d_iou:.3f} obstacle IoU {o_iou:.3f} "
+            f"vis false_high {vis_metrics['false_high']:.3f} false_low {vis_metrics['false_low']:.3f} "
+            f"-> {output_dir}/{sample_id}_compare.png"
+        )
 
 
 if __name__ == "__main__":
