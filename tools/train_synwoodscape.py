@@ -49,6 +49,7 @@ def _print_banner(lines) -> None:
         print(_c(_Ansi.BOLD + _Ansi.CYAN, line))
     print(_c(_Ansi.BOLD + _Ansi.CYAN, rule))
 
+
 def format_epoch_log(
     *,
     epoch,
@@ -61,6 +62,7 @@ def format_epoch_log(
     train_o_iou,
     train_v_false_high,
     train_v_false_low,
+    train_occ_metrics=None,
     val_loss,
     val_occ_loss,
     val_vis_loss,
@@ -68,6 +70,7 @@ def format_epoch_log(
     val_o_iou,
     val_v_false_high,
     val_v_false_low,
+    val_occ_metrics=None,
     val_score,
     best_val_score,
     is_new_best,
@@ -79,18 +82,21 @@ def format_epoch_log(
             f"epoch {epoch:03d}/{num_epochs} | time {epoch_time:6.1f}s | "
             f"val_iou_mean↑ {val_score:.3f} | best_val_iou_mean↑ {displayed_best:.3f} | "
             f"checkpoint: {checkpoint_note}"
+            f"{_format_obstacle_bin_summary(val_occ_metrics)}"
         ),
         (
             f"  train | loss_total↓ {train_loss:.4f} | loss_occ↓ {train_occ_loss:.4f} | "
             f"loss_vis↓ {train_vis_loss:.4f} | iou_drivable↑ {train_d_iou:.3f} | "
             f"iou_obstacle↑ {train_o_iou:.3f} | vis_false_high↓ {train_v_false_high:.3f} | "
             f"vis_false_low↓ {train_v_false_low:.3f}"
+            f"{_format_occupancy_diag(train_occ_metrics)}"
         ),
         (
             f"  val   | loss_total↓ {val_loss:.4f} | loss_occ↓ {val_occ_loss:.4f} | "
             f"loss_vis↓ {val_vis_loss:.4f} | iou_drivable↑ {val_d_iou:.3f} | "
             f"iou_obstacle↑ {val_o_iou:.3f} | vis_false_high↓ {val_v_false_high:.3f} | "
             f"vis_false_low↓ {val_v_false_low:.3f}"
+            f"{_format_occupancy_diag(val_occ_metrics)}"
         ),
     ])
 
@@ -163,6 +169,136 @@ def compute_drivable_and_obstacle_iou(seg_e_logits, seg_g, valid_g):
     return drivable_iou, obstacle_iou
 
 
+OBSTACLE_FRACTION_BINS = (
+    ("empty", 0.0, 0.0),
+    ("tiny", 0.0, 0.01),
+    ("small", 0.01, 0.05),
+    ("medium", 0.05, 0.15),
+    ("large", 0.15, 1.0),
+)
+
+
+def _bin_name_for_obstacle_fraction(value: float) -> str:
+    if value == 0.0:
+        return "empty"
+    for name, lo, hi in OBSTACLE_FRACTION_BINS[1:]:
+        if lo < value <= hi:
+            return name
+    return "large"
+
+
+def compute_occupancy_diagnostics(seg_e_logits, seg_g, valid_g):
+    """Occupancy IoU를 해석하기 위한 error 방향과 GT obstacle 비율별 통계를 계산한다."""
+    pred_drivable = torch.sigmoid(seg_e_logits).round()
+    pred_obstacle = 1.0 - pred_drivable
+    target_obstacle = 1.0 - seg_g
+
+    false_obstacle_num = float((pred_obstacle * seg_g * valid_g).sum().item())
+    false_obstacle_den = float((seg_g * valid_g).sum().item())
+    missed_obstacle_num = float((pred_drivable * target_obstacle * valid_g).sum().item())
+    missed_obstacle_den = float((target_obstacle * valid_g).sum().item())
+    obstacle_cells = missed_obstacle_den
+    valid_cells = float(valid_g.sum().item())
+
+    metrics = {
+        "obstacle_frac": obstacle_cells / valid_cells if valid_cells > 0 else float("nan"),
+        "false_obstacle": false_obstacle_num / false_obstacle_den if false_obstacle_den > 0 else float("nan"),
+        "missed_obstacle": missed_obstacle_num / missed_obstacle_den if missed_obstacle_den > 0 else float("nan"),
+        "false_obstacle_num": false_obstacle_num,
+        "false_obstacle_den": false_obstacle_den,
+        "missed_obstacle_num": missed_obstacle_num,
+        "missed_obstacle_den": missed_obstacle_den,
+        "obstacle_cells": obstacle_cells,
+        "valid_cells": valid_cells,
+    }
+    for name, _, _ in OBSTACLE_FRACTION_BINS:
+        metrics[f"obstacle_iou_{name}"] = float("nan")
+        metrics[f"obstacle_iou_{name}_sum"] = 0.0
+        metrics[f"obstacle_count_{name}"] = 0
+
+    batch_size = seg_g.shape[0]
+    for i in range(batch_size):
+        valid_i = valid_g[i : i + 1]
+        target_i = target_obstacle[i : i + 1]
+        pred_i = pred_obstacle[i : i + 1]
+        valid_count = float(valid_i.sum().item())
+        if valid_count <= 0:
+            continue
+        frac = float((target_i * valid_i).sum().item()) / valid_count
+        bin_name = _bin_name_for_obstacle_fraction(frac)
+        sample_iou = float(compute_iou(pred_i, target_i, valid_i).item())
+        metrics[f"obstacle_iou_{bin_name}_sum"] += sample_iou
+        metrics[f"obstacle_count_{bin_name}"] += 1
+
+    for name, _, _ in OBSTACLE_FRACTION_BINS:
+        count = metrics[f"obstacle_count_{name}"]
+        if count > 0:
+            metrics[f"obstacle_iou_{name}"] = metrics[f"obstacle_iou_{name}_sum"] / count
+    return metrics
+
+
+def summarize_occupancy_diagnostics(metric_dicts):
+    if not metric_dicts:
+        result = {
+            "obstacle_frac": float("nan"),
+            "false_obstacle": float("nan"),
+            "missed_obstacle": float("nan"),
+        }
+        for name, _, _ in OBSTACLE_FRACTION_BINS:
+            result[f"obstacle_iou_{name}"] = float("nan")
+            result[f"obstacle_count_{name}"] = 0
+        return result
+
+    false_num = sum(m["false_obstacle_num"] for m in metric_dicts)
+    false_den = sum(m["false_obstacle_den"] for m in metric_dicts)
+    missed_num = sum(m["missed_obstacle_num"] for m in metric_dicts)
+    missed_den = sum(m["missed_obstacle_den"] for m in metric_dicts)
+    obstacle_cells = sum(m["obstacle_cells"] for m in metric_dicts)
+    valid_cells = sum(m["valid_cells"] for m in metric_dicts)
+    result = {
+        "obstacle_frac": obstacle_cells / valid_cells if valid_cells > 0 else float("nan"),
+        "false_obstacle": false_num / false_den if false_den > 0 else float("nan"),
+        "missed_obstacle": missed_num / missed_den if missed_den > 0 else float("nan"),
+    }
+    for name, _, _ in OBSTACLE_FRACTION_BINS:
+        count = sum(m[f"obstacle_count_{name}"] for m in metric_dicts)
+        iou_sum = sum(m[f"obstacle_iou_{name}"] * m[f"obstacle_count_{name}"] for m in metric_dicts if m[f"obstacle_count_{name}"] > 0)
+        result[f"obstacle_iou_{name}"] = iou_sum / count if count > 0 else float("nan")
+        result[f"obstacle_count_{name}"] = count
+    return result
+
+
+def _format_occupancy_diag(metrics) -> str:
+    if metrics is None:
+        return ""
+    return (
+        f" | obst_frac {metrics['obstacle_frac']:.3f} | false_obstacle↓ {metrics['false_obstacle']:.3f} | "
+        f"missed_obstacle↓ {metrics['missed_obstacle']:.3f}"
+    )
+
+
+def _format_obstacle_bin_summary(metrics) -> str:
+    if metrics is None:
+        return ""
+    parts = []
+    for name, _, _ in OBSTACLE_FRACTION_BINS:
+        value = metrics[f"obstacle_iou_{name}"]
+        count = metrics[f"obstacle_count_{name}"]
+        value_text = f"{value:.3f}" if count > 0 else "-"
+        parts.append(f"{name}:{value_text}/n{count}")
+    return " | val_obst_iou_bins " + " ".join(parts)
+
+
+def write_occupancy_diagnostics(writer, split: str, metrics, epoch: int) -> None:
+    writer.add_scalar(f"{split}/occupancy_obstacle_fraction_epoch", metrics["obstacle_frac"], epoch)
+    writer.add_scalar(f"{split}/occupancy_false_obstacle_epoch", metrics["false_obstacle"], epoch)
+    writer.add_scalar(f"{split}/occupancy_missed_obstacle_epoch", metrics["missed_obstacle"], epoch)
+    for name, _, _ in OBSTACLE_FRACTION_BINS:
+        if metrics[f"obstacle_count_{name}"] > 0:
+            writer.add_scalar(f"{split}/occupancy_obstacle_iou_{name}_epoch", metrics[f"obstacle_iou_{name}"], epoch)
+        writer.add_scalar(f"{split}/occupancy_obstacle_count_{name}_epoch", metrics[f"obstacle_count_{name}"], epoch)
+
+
 def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight):
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5  # nuScenes 관례: [0,1] -> [-0.5,0.5]
     pix_T_cams = batch["pix_T_cams"].to(device)
@@ -186,7 +322,8 @@ def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis
     )
     drivable_iou, obstacle_iou = compute_drivable_and_obstacle_iou(occ_bev_e, seg_bev_g, valid_bev_g)
     vis_metrics = visibility_error_rates(torch.sigmoid(vis_bev_e), vis_bev_g, valid_bev_g)
-    return loss, loss_parts, drivable_iou, obstacle_iou, vis_metrics
+    occ_metrics = compute_occupancy_diagnostics(occ_bev_e, seg_bev_g, valid_bev_g)
+    return loss, loss_parts, drivable_iou, obstacle_iou, vis_metrics, occ_metrics
 
 
 def main(
@@ -297,9 +434,10 @@ def main(
             epoch_start = time.time()
             train_losses, train_occ_losses, train_vis_losses = [], [], []
             train_d_ious, train_o_ious, train_v_false_highs, train_v_false_lows = [], [], [], []
+            train_occ_metric_dicts = []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, loss_parts, d_iou, o_iou, vis_metrics = run_batch(
+                loss, loss_parts, d_iou, o_iou, vis_metrics, occ_metrics = run_batch(
                     model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                 )
                 loss.backward()
@@ -314,6 +452,7 @@ def main(
                 train_o_ious.append(o_iou.item())
                 train_v_false_highs.append(vis_metrics["false_high"])
                 train_v_false_lows.append(vis_metrics["false_low"])
+                train_occ_metric_dicts.append(occ_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/loss_occ_step", loss_parts["loss_occ"].item(), global_step)
                 writer.add_scalar("train/loss_vis_step", loss_parts["loss_vis"].item(), global_step)
@@ -327,6 +466,7 @@ def main(
             train_o_iou = float(np.mean(train_o_ious)) if train_o_ious else float("nan")
             train_v_false_high = float(np.mean(train_v_false_highs)) if train_v_false_highs else float("nan")
             train_v_false_low = float(np.mean(train_v_false_lows)) if train_v_false_lows else float("nan")
+            train_occ_metrics = summarize_occupancy_diagnostics(train_occ_metric_dicts)
             writer.add_scalar("train/loss_epoch", train_loss, epoch)
             writer.add_scalar("train/loss_occ_epoch", train_occ_loss, epoch)
             writer.add_scalar("train/loss_vis_epoch", train_vis_loss, epoch)
@@ -334,16 +474,19 @@ def main(
             writer.add_scalar("train/iou_obstacle_epoch", train_o_iou, epoch)
             writer.add_scalar("train/visibility_false_high_epoch", train_v_false_high, epoch)
             writer.add_scalar("train/visibility_false_low_epoch", train_v_false_low, epoch)
+            write_occupancy_diagnostics(writer, "train", train_occ_metrics, epoch)
 
             val_loss = val_occ_loss = val_vis_loss = val_d_iou = val_o_iou = float("nan")
             val_v_false_high = val_v_false_low = float("nan")
+            val_occ_metrics = summarize_occupancy_diagnostics([])
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
                 val_losses, val_occ_losses, val_vis_losses = [], [], []
                 val_d_ious, val_o_ious, val_v_false_highs, val_v_false_lows = [], [], [], []
+                val_occ_metric_dicts = []
                 with torch.no_grad():
                     for batch in val_loader:
-                        loss, loss_parts, d_iou, o_iou, vis_metrics = run_batch(
+                        loss, loss_parts, d_iou, o_iou, vis_metrics, occ_metrics = run_batch(
                             model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                         )
                         val_losses.append(loss.item())
@@ -353,6 +496,7 @@ def main(
                         val_o_ious.append(o_iou.item())
                         val_v_false_highs.append(vis_metrics["false_high"])
                         val_v_false_lows.append(vis_metrics["false_low"])
+                        val_occ_metric_dicts.append(occ_metrics)
                 val_loss = float(np.mean(val_losses))
                 val_occ_loss = float(np.mean(val_occ_losses))
                 val_vis_loss = float(np.mean(val_vis_losses))
@@ -360,6 +504,7 @@ def main(
                 val_o_iou = float(np.mean(val_o_ious))
                 val_v_false_high = float(np.mean(val_v_false_highs))
                 val_v_false_low = float(np.mean(val_v_false_lows))
+                val_occ_metrics = summarize_occupancy_diagnostics(val_occ_metric_dicts)
                 writer.add_scalar("val/loss_epoch", val_loss, epoch)
                 writer.add_scalar("val/loss_occ_epoch", val_occ_loss, epoch)
                 writer.add_scalar("val/loss_vis_epoch", val_vis_loss, epoch)
@@ -367,6 +512,7 @@ def main(
                 writer.add_scalar("val/iou_obstacle_epoch", val_o_iou, epoch)
                 writer.add_scalar("val/visibility_false_high_epoch", val_v_false_high, epoch)
                 writer.add_scalar("val/visibility_false_low_epoch", val_v_false_low, epoch)
+                write_occupancy_diagnostics(writer, "val", val_occ_metrics, epoch)
 
             epoch_time = time.time() - epoch_start
             val_score = 0.5 * (val_d_iou + val_o_iou)
@@ -383,6 +529,7 @@ def main(
                 train_o_iou=train_o_iou,
                 train_v_false_high=train_v_false_high,
                 train_v_false_low=train_v_false_low,
+                train_occ_metrics=train_occ_metrics,
                 val_loss=val_loss,
                 val_occ_loss=val_occ_loss,
                 val_vis_loss=val_vis_loss,
@@ -390,6 +537,7 @@ def main(
                 val_o_iou=val_o_iou,
                 val_v_false_high=val_v_false_high,
                 val_v_false_low=val_v_false_low,
+                val_occ_metrics=val_occ_metrics,
                 val_score=val_score,
                 best_val_score=best_val_score,
                 is_new_best=is_new_best,
