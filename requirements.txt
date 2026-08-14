@@ -27,6 +27,11 @@ fire==0.7.1
 tensorboard==2.21.0
 tensorboardX==2.6.5
 
+# --- 자체 데이터셋 캘리브레이션 (projects/geometry/double_sphere.py) ---
+# Double Sphere 리그의 calib.yaml 파싱용. simple_bev 자체는 쓰지 않지만
+# fine-tuning 경로(tools/train_robot_bev.py)에는 필수다.
+pyyaml==6.0.3
+
 # --- 시각화 / 지표 (utils/improc.py 등) ---
 matplotlib==3.11.1
 scikit-image==0.26.0
