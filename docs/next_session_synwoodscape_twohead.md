@@ -4,306 +4,270 @@ Last updated: 2026-08-14
 
 ## One-Line State
 
-SynWoodScape ROI 8/4/±6 m labels are packaged, Simple-BEV is running as a two-head occupancy/visibility model, the first 60-epoch pretrain completed successfully, and diagnostic occupancy metrics were added for the next full run.
+SynWoodScape ROI 8/4/±6 m two-head pretraining runs end to end; three metric defects were found
+and fixed on 2026-08-14, so occupancy numbers finally mean what they claim, and the remaining
+open work is loss/augmentation experiments aimed at small obstacles and the train/val gap.
 
 ## Current Branch and Git State
-
-Working branch:
 
 ```bash
 git branch --show-current
 # feat/synwoodscape-two-head-training
 ```
 
-Important recent commits:
+Recent commits:
 
 ```text
+d0e089a Separate valid mask from visibility, add deployment metrics
+45bec64 Exclude obstacle-free samples from occupancy IoU
+ec5484e Document two-head training handoff
 0294373 Add occupancy diagnostic training metrics
 539b918 Add two-head prediction visualization
-4f44183 Improve SynWoodScape training logs
-c4dc6a2 feat: add SynWoodScape two-head training
-5e200cb feat: package SynWoodScape two-head labels
 ```
 
 Do not merge or push without explicit user action.
 
-## Key Files
+## What Was Fixed on 2026-08-14 (read this before comparing any runs)
 
-Training/data:
+Three defects, all in metrics rather than in the model. None of them changed the occupancy
+training signal, so earlier checkpoints are still usable — but earlier *numbers* are not
+comparable with current ones.
 
-- `configs/train_synwoodscape_twohead_pretrain.sh`: main long-run pretrain command.
-- `tools/train_synwoodscape.py`: two-head training loop, losses, logging, diagnostic metrics.
-- `tools/visualize_predictions.py`: two-head checkpoint inference visualization.
-- `projects/models/simplebev_two_head.py`: `TwoHeadSegnet`, split logits, two-head loss, visibility metrics.
-- `projects/datasets/synwoodscape_simplebev.py`: dataset contract for `seg_bev_g`, `vis_bev_g`, `valid_bev_g`.
-- `projects/bev_gt/grid.py`: ROI/grid spec, including 8/4/±6 m two-head pretrain spec.
+### 1. Obstacle-free samples scored 0 in obstacle IoU (commit 45bec64)
 
-Documentation:
+`compute_iou` returns `intersection / (1e-4 + union)`. A sample whose GT has no obstacle cell
+has `intersection = 0` always, so it scored 0 even when the model correctly predicted no
+obstacle. That is 14 of 100 val samples and 81 of 400 train samples.
 
-- `docs/training_guide.md`: current training command, metric interpretation, inference command.
-- `docs/training_improvement_plan.md`: ordered improvement plan.
-- `docs/BEV_loss_and_metrics_design.md`: fine-tuning-oriented loss/metric reference from earlier design discussion.
-- `docs/dataset_analysis/synwoodscape_manual_labeling_roi_8_4_6.md`: label construction and manual review context.
-- `docs/next_session_synwoodscape_twohead.md`: this handoff document.
+Proof it was an artifact: train `missed_obstacle` was 0.0003 and `false_obstacle` 0.0014 —
+essentially perfect — while the empty bin still read 0.000.
 
-Tests:
+Effect of the fix (same model, same weights, only measurement changed):
 
-- `tests/tools/test_train_synwoodscape_logging.py`: log formatting and occupancy diagnostic metrics.
-- `tests/tools/test_visualize_predictions.py`: occupancy/visibility image conversion.
-- `tests/models/test_simplebev_two_head.py`: model/loss/visibility metric contract.
-- `tests/datasets/test_synwoodscape_two_head_contract.py`: dataset shape/key contract.
+| | reported before | actual |
+|---|---|---|
+| train obstacle IoU | 0.777 | 0.969 |
+| val obstacle IoU | 0.749 | 0.854 |
 
-## Dataset State
+This also exposed a real 0.115 train/val gap that the artifact had been masking.
 
-Final reviewed source labels:
+Obstacle IoU is now averaged over samples that contain obstacles. Obstacle-free samples are
+reported as `empty_false_alarm` instead — the fraction of valid cells wrongly predicted as
+obstacle on scenes that have none.
 
-```text
-dataset/annotated_roi_8-4-6_semantic_crop/
-```
+### 2. `valid_bev_g` was the visibility mask, which killed the visibility head (commit d0e089a)
 
-Important subpaths:
+The dataset returned the same array for `vis_bev_g` and `valid_bev_g`. `compute_two_head_loss`
+weights the visibility term by `asymmetric_weight * valid`, so every invisible cell had weight
+zero: the visibility head saw only positives and "predict visible everywhere" was the exact
+global optimum.
 
-- `final_rgb/`: 500 reviewed RGB label PNGs.
-- `binary_non_drivable/`: binary non-drivable masks.
-- `visibility_h08/visible/`: final H=0.8 visibility labels with ego excluded for training.
-- `visibility_h08/raw_visible/`: raw visibility before ego exclusion.
-
-Training-ready package:
+Verified on real data:
 
 ```text
-dataset/synwoodscape_2head_roi_8_4_6_h08/
+vis_neg_weight=   0.0 -> loss_vis=0.805862
+vis_neg_weight=   3.0 -> loss_vis=0.805862     # parameter had no effect whatsoever
+vis_neg_weight= 100.0 -> loss_vis=0.805862
+always-visible logit -> loss_vis=0.00000000    # trivial solution is exactly optimal
+(not gt_visible) and valid cell count: 0       # false_high denominator was empty
 ```
 
-Contents:
+So `vis_neg_weight` was dead, `vis_false_high` was structurally 0.000 regardless of prediction,
+and the near-zero visibility errors reported in the first three long runs mean nothing.
 
-- `*_occupancy.npy`: 500 files, `uint8`, shape `240x240`, drivable `1`, obstacle `0`.
-- `*_visible.npy`: 500 files, `bool`, shape `240x240`, H=0.8 visibility, ego excluded.
-- `metadata.json`, `README.md`.
-- total files: 1002.
+The mask contract is now:
 
-## First Long Training Run
+| mask | meaning | used by |
+|---|---|---|
+| `valid_bev_g` | the cell has a label (ROI / annotatable range); all ones for SynWoodScape | outer bound of every loss and metric |
+| `vis_bev_g` | the cell is actually observable | restricts where occupancy is judged |
 
-Command used:
+Occupancy loss and occupancy metrics use `vis * valid`; visibility loss and metrics use `valid`.
+`projects/models/simplebev_two_head.py` was already written for this contract and did not
+change — only the dataset was violating it.
+
+### 3. No deployment-condition metric existed (commit d0e089a)
+
+`iou_obstacle` masks by GT visibility, which measures the occupancy head in isolation. A robot
+has no GT and can only trust the region the model itself claims to see. `deploy_iou_*` evaluates
+occupancy inside **predicted**-visible cells against full GT occupancy, so hallucinated
+visibility is punished instead of masked away. Always read it together with
+`deploy_visible_coverage` — a model that declares a small visible region gets an easy score.
+
+## Run Inventory
+
+| run | metric convention | best epoch | val_iou_mean | val obstacle IoU |
+|---|---|---:|---:|---:|
+| `twohead_pretrain_res101_..._260813_224942` | old | 41 | 0.870 | 0.751 |
+| `twohead_pretrain_diag_baseline_..._260814_130110` | old | 52 | 0.869 | 0.749 |
+| `twohead_pretrain_fixed_iou_..._260814_134525` | fix 1 only | 53 | 0.921 | 0.854 |
+| `twohead_pretrain_vis_fixed_..._260814_140932` | fix 1+2+3 | 47 | 0.921 | 0.854 |
+
+The first two are on the old convention and must not be compared numerically against the last
+two. The jump from 0.749 to 0.854 is the measurement fix, not a model improvement.
+
+**Run-to-run noise floor: about 0.002 on val obstacle IoU**, established from the first two runs
+which had identical configuration. Any experiment must move the metric by more than that to
+count as signal.
+
+## Current Numbers (`vis_fixed`, best epoch 47)
+
+```text
+val_iou_drivable                 0.9884
+val_iou_obstacle                 0.8544
+train_iou_obstacle               0.9575
+missed_obstacle                  0.0402
+false_obstacle                   0.0058
+empty_false_alarm                0.0001
+vis_false_high                   0.0245
+vis_false_low                    0.0028
+deploy_iou_drivable              0.9881
+deploy_iou_obstacle              0.8540
+deploy_visible_coverage          0.9370
+obstacle IoU by bin: tiny 0.566/n7  small 0.637/n10  medium 0.836/n20  large 0.948/n49
+```
+
+### A/B result: reviving the visibility head costs occupancy nothing
+
+`fixed_iou` (visibility head degenerate) vs `vis_fixed` (visibility head actually trained), with
+identical occupancy settings: val obstacle IoU 0.8539 vs 0.8544, inside the noise floor. The
+train/val gap even narrowed slightly (0.116 → 0.103), so the revived visibility task acts as a
+mild regularizer. There is no reason to drop the two-head structure.
+
+### Deployment performance matches development performance
+
+`deploy_iou_obstacle` 0.8540 vs GT-masked 0.8544, at coverage 0.9370 against a true visible
+fraction of about 0.946. Predicted visibility is accurate enough that masking by the model's own
+estimate loses nothing. This is the direct answer to "does this design serve the actual goal" —
+and it does.
+
+## Remaining Weaknesses
+
+1. **Small obstacles.** `tiny 0.566` / `small 0.637` vs `large 0.948`.
+2. **Missed obstacles dominate.** `missed_obstacle` 0.040 vs `false_obstacle` 0.006, roughly 7x.
+   This is the safety-critical direction.
+3. **Overfitting.** train 0.958 / val 0.854 with 400 training samples and **zero augmentation**.
+
+## Augmentation Status: There Is None
+
+`SynWoodScapeSimpleBEVDataset.__getitem__` only resizes to 512x384 bilinear and normalizes to
+`[-0.5, 0.5]`. No flip, crop, rotation, color jitter, or noise. `shuffle=True` only affects
+sample order.
+
+`TwoHeadSegnet` inherits Simple-BEV's `Segnet.forward(x, bev_flip_indices=None)` but the repo
+never passes flip indices.
+
+### Which augmentations are safe here
+
+| class | example | calibration risk | verdict |
+|---|---|---|---|
+| image-space geometric | flip/crop/rotate the camera image | **breaks projection** — `pix_T_cams` no longer matches the pixels, and for fisheye `radial_poly` a horizontal flip is not expressible as a simple intrinsic change | avoid |
+| photometric | brightness, contrast, gamma, noise, blur | none — geometry untouched | safest and highest value, since SynWoodScape is synthetic and the greenhouse target is not |
+| BEV-space geometric | flip the BEV feature map + all BEV GT together | none — the flip happens after projection | usable, see caveat |
+
+BEV flip caveat: only **left-right** is valid. A mirrored feature map corresponds to a mirrored
+world, which is in-distribution only if the camera rig is symmetric about that axis. FV/MVL/MVR/RV
+is roughly left-right symmetric but not front-back, and the ROI itself is asymmetric (front 8 m,
+rear 4 m). It also augments the decoder only, since the encoder and projection see original data.
+
+## Dice Loss and the Fine-Tuning Distribution Flip
+
+Pretraining has `obst_frac 0.125` — obstacle is the minority class. The greenhouse fine-tuning
+target is the opposite: obstacle-heavy, with drivable and visible regions smaller.
+
+This matters for how Dice is written:
+
+- Dice's benefit comes from the imbalance itself. An obstacle-only Dice term helps the minority
+  class now, but after the flip it would be attached to the **easy majority** class, where
+  per-sample Dice saturates near 1 and the gradient vanishes.
+- The class that would then need help is **drivable**.
+- BCE does not have this problem: `compute_pos_weight` measures `neg/pos` on the train split at
+  runtime, so it re-balances automatically when the distribution changes. A single-class Dice
+  term does not.
+
+**Therefore: if Dice is added, make it class-symmetric** (mean of drivable Dice and obstacle
+Dice), so whichever class is the minority automatically dominates the term. That is the version
+that survives pretrain → fine-tune transfer.
+
+Broader point worth weighing before spending runs here: the job of pretraining is to learn
+geometry (image → BEV projection, where surfaces are), not the class prior of a dataset that
+will be abandoned. Over-tuning the pretrain loss to SynWoodScape's ratio is work that
+fine-tuning has to undo. What actually transfers is encoder robustness — which argues for
+augmentation ahead of loss shaping.
+
+## Suggested Next Steps
+
+Ordered by expected value for the real downstream task:
+
+1. **Photometric augmentation.** Zero calibration risk, directly targets the 0.10 train/val gap
+   and the synthetic → real domain shift. See `docs/training_improvement_plan.md` Step 4.
+2. **BEV left-right flip** using the existing `bev_flip_indices` hook, flipping
+   `seg_bev_g`/`vis_bev_g`/`valid_bev_g` to match.
+3. **Class-symmetric Dice** on occupancy, judged by `missed_obstacle` and the `tiny`/`small`
+   bins rather than by global IoU.
+4. `lambda_vis` 0.5 → 0.2. Only now a live parameter, but visibility is already accurate and is
+   not competing with occupancy, so expect little.
+
+## Commands
+
+Training (edit `--exp_name` per experiment):
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 bash configs/train_synwoodscape_twohead_pretrain.sh
+PYTHONUNBUFFERED=1 CUDA_VISIBLE_DEVICES=1 conda run --no-capture-output -n bev-chamdog \
+  bash configs/train_synwoodscape_twohead_pretrain.sh 2>&1 | tee runs/synwoodscape_twohead/train_<name>.log
 ```
 
-Run name:
+`conda run` buffers stdout unless `--no-capture-output` is passed, so without it the log file
+stays empty until the run ends. A 60-epoch run takes about 24 minutes on GPU 1.
 
-```text
-twohead_pretrain_res101_bs16_lr3e-04_260813_224942
-```
-
-Outputs:
-
-```text
-runs/synwoodscape_twohead/logs/twohead_pretrain_res101_bs16_lr3e-04_260813_224942/
-runs/synwoodscape_twohead/ckpt/twohead_pretrain_res101_bs16_lr3e-04_260813_224942/
-```
-
-Best checkpoint:
-
-```text
-runs/synwoodscape_twohead/ckpt/twohead_pretrain_res101_bs16_lr3e-04_260813_224942/model_best-000000041.pth
-```
-
-Summary:
-
-- best epoch: 41
-- best `val_iou_mean`: about 0.870
-- epoch 41 `val_drivable_iou`: about 0.989
-- epoch 41 `val_obstacle_iou`: about 0.751
-- epoch 60 remained close but slightly below best by score.
-- val loss minimum occurred earlier than best IoU, so `model_best` should remain the default checkpoint.
-
-## Inference Visualization State
-
-Generated validation preview:
-
-```text
-runs/synwoodscape_twohead/viz_best_epoch41/
-```
-
-Command:
+Visualization:
 
 ```bash
 CUDA_VISIBLE_DEVICES=1 conda run -n bev-chamdog python tools/visualize_predictions.py \
-  --ckpt_dir=runs/synwoodscape_twohead/ckpt/twohead_pretrain_res101_bs16_lr3e-04_260813_224942 \
-  --model_name=model_best \
-  --step=41 \
-  --num_samples=20 \
-  --encoder_type=res101 \
-  --use_fisheye=True \
-  --output_dir=runs/synwoodscape_twohead/viz_best_epoch41
+  --ckpt_dir=runs/synwoodscape_twohead/ckpt/<RUN_NAME> \
+  --model_name=model_best --step=<BEST_EPOCH> --num_samples=20 \
+  --encoder_type=res101 --use_fisheye=True \
+  --output_dir=runs/synwoodscape_twohead/viz_<RUN_NAME>_best
 ```
 
-Each sample has:
+Latest preview: `runs/synwoodscape_twohead/viz_vis_fixed_best_epoch47/`
 
-- `*_compare.png`: RGB 4-cam + GT/pred occupancy + GT/pred visibility + pred occupancy masked by pred visibility.
-- `*_pred_occupancy.png`
-- `*_pred_visibility.png`
-- `*_pred_combined.png`
-
-Qualitative observation:
-
-- Overall predictions are better than expected for a first full pretrain.
-- Some low obstacle IoU samples have very small obstacle regions, so a few wrong cells can sharply reduce IoU.
-- This motivated adding diagnostic metrics before changing loss.
-
-## Current Metrics to Watch
-
-Primary:
-
-- `val/iou_obstacle_epoch`: main occupancy quality indicator.
-- `val/iou_drivable_epoch`: useful but can be misleadingly high.
-- `val_iou_mean`: current best checkpoint score, `0.5 * (drivable + obstacle)`.
-
-Diagnostics added after first run:
-
-- `val/occupancy_obstacle_fraction_epoch`: GT obstacle fraction in valid cells.
-- `val/occupancy_false_obstacle_epoch`: drivable GT predicted as obstacle.
-- `val/occupancy_missed_obstacle_epoch`: obstacle GT predicted as drivable.
-- `val/occupancy_obstacle_iou_empty_epoch`
-- `val/occupancy_obstacle_iou_tiny_epoch`
-- `val/occupancy_obstacle_iou_small_epoch`
-- `val/occupancy_obstacle_iou_medium_epoch`
-- `val/occupancy_obstacle_iou_large_epoch`
-
-Console bin format:
-
-```text
-val_obst_iou_bins empty:-/n0 tiny:.../nN small:.../nN medium:.../nN large:.../nN
-```
-
-Interpretation:
-
-- `missed_obstacle` is the safety-critical error. Lower is better.
-- `false_obstacle` is conservative error. Lower is better, but it is usually less dangerous than missed obstacles.
-- `tiny`/`small` bins explain whether poor obstacle IoU is caused by very small obstacle regions.
-- Empty bins are shown as `-/n0`; their IoU scalar is not written to TensorBoard to avoid NaN warnings.
-
-Visibility:
-
-- `vis_false_high`: invisible predicted visible; risky.
-- `vis_false_low`: visible predicted invisible; conservative.
-- In the first run both quickly went near zero, so visibility is probably easy with current binary labels.
-
-## Recommended Next Run
-
-Run the same baseline again first, now with the new diagnostic metrics:
-
-```bash
-CUDA_VISIBLE_DEVICES=1 bash configs/train_synwoodscape_twohead_pretrain.sh
-```
-
-Why repeat before changing loss:
-
-- The first run did not have `false_obstacle`, `missed_obstacle`, or bin-wise obstacle IoU logged.
-- A repeat run gives a comparable diagnostic baseline.
-- After that, loss/score experiments can be judged by error direction, not only global IoU.
-
-Suggested run name adjustment:
-
-Edit `configs/train_synwoodscape_twohead_pretrain.sh` and change:
-
-```bash
---exp_name=twohead_pretrain
-```
-
-to something like:
-
-```bash
---exp_name=twohead_pretrain_diag_baseline
-```
-
-This is not required because timestamped run folders prevent overwrite, but it makes TensorBoard easier to read.
-
-## TensorBoard Command
+TensorBoard:
 
 ```bash
 conda run -n bev-chamdog tensorboard --logdir runs/synwoodscape_twohead/logs --port 6006
 ```
 
-Open:
-
-```text
-http://localhost:6006
-```
-
-If running remotely, use SSH port forwarding from your local machine.
-
-## After Next Full Run
-
-1. Identify the new run folder under `runs/synwoodscape_twohead/logs/` and `ckpt/`.
-2. Compare against first baseline:
-   - best epoch
-   - `val_iou_obstacle_epoch`
-   - `val/occupancy_missed_obstacle_epoch`
-   - `val/occupancy_false_obstacle_epoch`
-   - `val/occupancy_obstacle_iou_small_epoch`
-   - `val/occupancy_obstacle_iou_medium_epoch`
-3. Generate visualization from the new best checkpoint:
+Verification:
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 conda run -n bev-chamdog python tools/visualize_predictions.py \
-  --ckpt_dir=runs/synwoodscape_twohead/ckpt/<NEW_RUN_NAME> \
-  --model_name=model_best \
-  --step=<BEST_EPOCH> \
-  --num_samples=20 \
-  --encoder_type=res101 \
-  --use_fisheye=True \
-  --output_dir=runs/synwoodscape_twohead/viz_<NEW_RUN_NAME>_best
+git status --short && git log --oneline -8
+conda run -n bev-chamdog pytest -q          # 118 tests
 ```
 
-4. If diagnostics confirm the issue is missed obstacles, proceed to the next planned experiment:
-   - lower `lambda_vis` from `0.5` to `0.2`
-   - add occupancy Dice loss in a separate commit/experiment
+GPU policy: use GPU 1. GPU 0 is often occupied by other work.
 
-## Useful Verification Commands
+## Key Files
 
-Before starting work:
+- `configs/train_synwoodscape_twohead_pretrain.sh`: main pretrain command.
+- `tools/train_synwoodscape.py`: training loop, losses, logging, occupancy/deployment metrics.
+- `tools/visualize_predictions.py`: checkpoint inference visualization.
+- `projects/models/simplebev_two_head.py`: `TwoHeadSegnet`, two-head loss, visibility metrics.
+- `projects/datasets/synwoodscape_simplebev.py`: mask contract for `seg`/`vis`/`valid`.
+- `projects/bev_gt/grid.py`: ROI/grid spec.
+- `docs/training_guide.md`: metric definitions and how to read them.
+- `docs/training_improvement_plan.md`: ordered improvement plan.
 
-```bash
-git status --short
-git log --oneline -8
-```
-
-Before/after code changes:
-
-```bash
-conda run -n bev-chamdog pytest -q
-```
-
-Training smoke test after changing training code:
-
-```bash
-CUDA_VISIBLE_DEVICES=1 conda run -n bev-chamdog python tools/train_synwoodscape.py \
-  --exp_name=smoke \
-  --num_epochs=1 \
-  --batch_size=1 \
-  --num_workers=0 \
-  --max_samples=4 \
-  --encoder_type=res101 \
-  --use_fisheye=True \
-  --val_freq_epochs=1 \
-  --save_freq_epochs=1 \
-  --log_dir=/tmp/bev_chamdog_smoke/logs \
-  --ckpt_dir=/tmp/bev_chamdog_smoke/ckpt
-```
-
-## Suggested Prompt for the Next Session
-
-Paste this to continue efficiently:
-
-```text
-지난 세션에서 SynWoodScape two-head pretraining을 정리했고, docs/next_session_synwoodscape_twohead.md에 핸드오프를 남겼어. 그 문서를 먼저 읽고 현재 git 상태를 확인한 뒤 이어서 작업해줘. 다음 목표는 새 diagnostic metric이 포함된 baseline full run을 돌리고, TensorBoard/로그 기준으로 first run과 비교한 다음, 필요하면 lambda_vis=0.2 또는 BCE+Dice loss 실험 설계를 진행하는 거야. GPU는 1번을 사용해줘.
-```
+Tests: `tests/tools/test_train_synwoodscape_logging.py`,
+`tests/tools/test_visualize_predictions.py`, `tests/models/test_simplebev_two_head.py`,
+`tests/datasets/test_synwoodscape_two_head_contract.py`.
 
 ## Known Caveats
 
 - `runs/` and `dataset/` are local artifacts and ignored by git.
 - Do not edit `third_party/` or `mmdetection3d/`.
-- Current fine-tuning target may use a smaller ROI; pretraining uses larger ROI because SynWoodScape has sparse near-ego obstacle coverage.
-- `docs/BEV_loss_and_metrics_design.md` is fine-tuning-oriented and includes concepts not fully implemented in SynWoodScape pretrain yet, such as soft visibility and greenhouse-specific metrics.
+- Fine-tuning may use a smaller ROI; pretraining uses a larger one because SynWoodScape has
+  sparse near-ego obstacle coverage.
+- `docs/BEV_loss_and_metrics_design.md` is fine-tuning-oriented and includes concepts not
+  implemented in the pretrain yet, such as soft visibility.
 - Merge and push are user-controlled actions.
