@@ -77,6 +77,15 @@ def compute_iou(pred: np.ndarray, target: np.ndarray, valid: np.ndarray) -> floa
     return float(intersection / max(union.sum(), 1e-4))
 
 
+def format_obstacle_iou(pred_obstacle: np.ndarray, target_obstacle: np.ndarray, valid: np.ndarray) -> str:
+    """GT에 obstacle이 없는 샘플은 IoU가 0으로 고정되므로(완벽히 맞혀도 0) 숫자를 감춘다.
+    학습 쪽 `tools/train_synwoodscape.py`가 이런 샘플을 평균에서 빼는 것과 같은 이유다.
+    """
+    if (target_obstacle * valid).sum() == 0:
+        return "n/a (GT obstacle 없음)"
+    return f"{compute_iou(pred_obstacle, target_obstacle, valid):.3f}"
+
+
 def build_panel(rgb_camXs_01: np.ndarray, camera_names, bev_images, title_lines) -> Image.Image:
     cams_row = Image.new("RGB", (CAM_THUMB_W * len(camera_names), CAM_THUMB_H))
     draw_cams = ImageDraw.Draw(cams_row)
@@ -177,7 +186,7 @@ def main(
         valid_np = item["valid_bev_g"][0].numpy().astype(bool)
 
         d_iou = compute_iou(pred_occ_np, occupancy_np, valid_np)
-        o_iou = compute_iou(1 - pred_occ_np, 1 - occupancy_np, valid_np)
+        o_iou_text = format_obstacle_iou(1 - pred_occ_np, 1 - occupancy_np, valid_np)
         vis_metrics = visibility_error_rates(
             pred_vis_prob,
             item["vis_bev_g"].unsqueeze(0).to(device),
@@ -206,13 +215,13 @@ def main(
                 ("pred occ x vis", pred_combined_image),
             ],
             [
-                f"{sample_id}   occ drivable IoU {d_iou:.3f}   obstacle IoU {o_iou:.3f}",
+                f"{sample_id}   occ drivable IoU {d_iou:.3f}   obstacle IoU {o_iou_text}",
                 f"visibility false_high {vis_metrics['false_high']:.3f}   false_low {vis_metrics['false_low']:.3f}",
             ],
         )
         panel.save(output_dir / f"{sample_id}_compare.png")
         print(
-            f"{sample_id}: drivable IoU {d_iou:.3f} obstacle IoU {o_iou:.3f} "
+            f"{sample_id}: drivable IoU {d_iou:.3f} obstacle IoU {o_iou_text} "
             f"vis false_high {vis_metrics['false_high']:.3f} false_low {vis_metrics['false_low']:.3f} "
             f"-> {output_dir}/{sample_id}_compare.png"
         )

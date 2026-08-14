@@ -122,7 +122,7 @@ Do not switch the score until the new diagnostic metrics have been observed on a
 Current epoch log shape:
 
 ```text
-epoch 001/60 | time   23.1s | val_iou_mean↑ 0.753 | best_val_iou_mean↑ 0.753 | checkpoint: new best | val_obst_iou_bins empty:-/n0 tiny:.../nN small:.../nN medium:.../nN large:.../nN
+epoch 001/60 | time   23.1s | val_iou_mean↑ 0.753 | best_val_iou_mean↑ 0.753 | checkpoint: new best | val_obst_iou_bins empty:fa .../nN tiny:.../nN small:.../nN medium:.../nN large:.../nN
   train | loss_total↓ ... | loss_occ↓ ... | loss_vis↓ ... | iou_drivable↑ ... | iou_obstacle↑ ... | vis_false_high↓ ... | vis_false_low↓ ... | obst_frac ... | false_obstacle↓ ... | missed_obstacle↓ ...
   val   | loss_total↓ ... | loss_occ↓ ... | loss_vis↓ ... | iou_drivable↑ ... | iou_obstacle↑ ... | vis_false_high↓ ... | vis_false_low↓ ... | obst_frac ... | false_obstacle↓ ... | missed_obstacle↓ ...
 ```
@@ -141,8 +141,21 @@ Direction markers:
 Primary metrics:
 
 - `iou_drivable`: IoU of predicted drivable cells.
-- `iou_obstacle`: IoU of predicted obstacle cells.
+- `iou_obstacle`: IoU of predicted obstacle cells, averaged over samples that actually contain
+  obstacles in GT. See "Samples without obstacles" below.
 - `val_iou_mean`: checkpoint score input, currently average of drivable/obstacle IoU.
+
+### Samples without obstacles
+
+A sample whose GT has no obstacle cell always has `intersection = 0`, so its obstacle IoU is `0`
+even when the model correctly predicts no obstacle at all. Such samples are therefore excluded
+from `iou_obstacle` and from the bin IoUs, and their error is reported separately as a false
+alarm rate. In the ROI 8/4/±6 m val split this is 14 of 100 samples, so including them dragged
+the reported obstacle IoU down by roughly 0.10.
+
+Because of this, `val_iou_mean` from runs before this change is **not** comparable with runs
+after it. Runs `twohead_pretrain_res101_..._260813_224942` and
+`twohead_pretrain_diag_baseline_..._260814_130110` are on the old convention.
 
 Diagnostic metrics added after the first run:
 
@@ -150,7 +163,8 @@ Diagnostic metrics added after the first run:
 - `false_obstacle`: among GT drivable valid cells, fraction predicted as obstacle.
 - `missed_obstacle`: among GT obstacle valid cells, fraction predicted as drivable.
 - `val_obst_iou_bins`: obstacle IoU grouped by GT obstacle fraction:
-  - `empty`: exactly 0 obstacle fraction
+  - `empty`: exactly 0 obstacle fraction. Shows `fa <rate>` — the fraction of valid cells wrongly
+    predicted as obstacle on these samples — instead of a meaningless IoU.
   - `tiny`: `0 < fraction <= 0.01`
   - `small`: `0.01 < fraction <= 0.05`
   - `medium`: `0.05 < fraction <= 0.15`
@@ -159,6 +173,8 @@ Diagnostic metrics added after the first run:
 How to read them:
 
 - Low obstacle IoU with `tiny` obstacle fraction can be metric sensitivity, not necessarily a severe visual failure.
+- `empty:fa` rising means the model invents obstacles on clean scenes; it is the false-alarm
+  counterpart to `missed_obstacle`.
 - High `missed_obstacle` is more safety-critical than high `false_obstacle`.
 - High `false_obstacle` makes the model conservative and may block drivable space.
 - Improvements should reduce `missed_obstacle` without causing a large `false_obstacle` increase.
@@ -168,14 +184,19 @@ TensorBoard scalar names:
 - `train/occupancy_obstacle_fraction_epoch`
 - `train/occupancy_false_obstacle_epoch`
 - `train/occupancy_missed_obstacle_epoch`
-- `train/occupancy_obstacle_iou_empty_epoch`
 - `train/occupancy_obstacle_iou_tiny_epoch`
 - `train/occupancy_obstacle_iou_small_epoch`
 - `train/occupancy_obstacle_iou_medium_epoch`
 - `train/occupancy_obstacle_iou_large_epoch`
+- `train/occupancy_empty_false_alarm_epoch`: false alarm rate on obstacle-free samples.
+- `train/occupancy_empty_false_alarm_samples_epoch`: how many obstacle-free samples had any
+  obstacle predicted.
+- `train/occupancy_obstacle_count_<bin>_epoch`: sample count per bin.
 - same keys under `val/`
 
-Empty bins are shown as `-/n0` in console and skipped for IoU scalar writing to avoid TensorBoard NaN warnings.
+There is no `occupancy_obstacle_iou_empty_epoch` scalar — that bin reports false alarm instead.
+Bins with no samples are shown as `-/n0` in console and their IoU scalar is skipped to avoid
+TensorBoard NaN warnings.
 
 ## Visibility Metrics
 

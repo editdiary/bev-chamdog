@@ -149,24 +149,48 @@ def compute_trivial_baseline_iou(sample_ids, occupancy_gt_root: Path) -> float:
     return pos / max(valid, 1)
 
 
-def compute_iou(pred, target, valid_g):
+def compute_iou_per_sample(pred, target, valid_g):
     """`pred`/`target`은 이미 0/1(같은 class를 가리키는 binary mask)이어야 한다."""
     intersection = (pred * target * valid_g).sum(dim=[1, 2, 3])
     union = ((pred + target) * valid_g).clamp(0, 1).sum(dim=[1, 2, 3])
-    return (intersection / (1e-4 + union)).mean()
+    return intersection / (1e-4 + union)
+
+
+def compute_iou(pred, target, valid_g):
+    return compute_iou_per_sample(pred, target, valid_g).mean()
+
+
+def weighted_mean(values, weights):
+    """weight가 0인 항목은 값이 NaN일 수 있으므로(= 셀 수 있는 샘플이 없던 batch) 건너뛴다."""
+    total = sum(weights)
+    if total <= 0:
+        return float("nan")
+    return sum(v * w for v, w in zip(values, weights) if w > 0) / total
 
 
 def compute_drivable_and_obstacle_iou(seg_e_logits, seg_g, valid_g):
     """drivable(다수 클래스) IoU만 보면 "항상 drivable" 트리비얼 해와 구분이 안 된다
     (`docs/training_guide.md` 참고) — obstacle(비주행가능, 소수 클래스) IoU를 항상 같이 본다.
+
+    GT에 obstacle이 하나도 없는 샘플은 intersection이 항상 0이라 IoU가 0으로 고정된다.
+    "obstacle 없음"을 완벽하게 맞혀도 0점이라 지표를 왜곡하므로 평균에서 제외하고, 그런
+    샘플의 오탐은 `compute_occupancy_diagnostics`의 `empty_false_alarm`으로 따로 본다.
+    반환하는 count는 epoch 단위로 batch 간 가중평균을 내기 위한 것이다.
     """
     pred_drivable = torch.sigmoid(seg_e_logits).round()
     pred_obstacle = 1.0 - pred_drivable
     target_obstacle = 1.0 - seg_g
 
     drivable_iou = compute_iou(pred_drivable, seg_g, valid_g)
-    obstacle_iou = compute_iou(pred_obstacle, target_obstacle, valid_g)
-    return drivable_iou, obstacle_iou
+
+    per_sample_iou = compute_iou_per_sample(pred_obstacle, target_obstacle, valid_g)
+    has_obstacle = (target_obstacle * valid_g).sum(dim=[1, 2, 3]) > 0
+    obstacle_count = int(has_obstacle.sum().item())
+    if obstacle_count == 0:
+        obstacle_iou = torch.tensor(float("nan"), device=per_sample_iou.device)
+    else:
+        obstacle_iou = per_sample_iou[has_obstacle].mean()
+    return drivable_iou, obstacle_iou, obstacle_count
 
 
 OBSTACLE_FRACTION_BINS = (
@@ -210,6 +234,9 @@ def compute_occupancy_diagnostics(seg_e_logits, seg_g, valid_g):
         "missed_obstacle_den": missed_obstacle_den,
         "obstacle_cells": obstacle_cells,
         "valid_cells": valid_cells,
+        "empty_false_alarm_num": 0.0,
+        "empty_false_alarm_den": 0.0,
+        "empty_false_alarm_samples": 0,
     }
     for name, _, _ in OBSTACLE_FRACTION_BINS:
         metrics[f"obstacle_iou_{name}"] = float("nan")
@@ -226,14 +253,25 @@ def compute_occupancy_diagnostics(seg_e_logits, seg_g, valid_g):
             continue
         frac = float((target_i * valid_i).sum().item()) / valid_count
         bin_name = _bin_name_for_obstacle_fraction(frac)
-        sample_iou = float(compute_iou(pred_i, target_i, valid_i).item())
-        metrics[f"obstacle_iou_{bin_name}_sum"] += sample_iou
         metrics[f"obstacle_count_{bin_name}"] += 1
+        if bin_name == "empty":
+            # GT obstacle이 없으면 IoU는 예측과 무관하게 0이다 -- 대신 오탐량을 센다.
+            false_cells = float((pred_i * valid_i).sum().item())
+            metrics["empty_false_alarm_num"] += false_cells
+            metrics["empty_false_alarm_den"] += valid_count
+            metrics["empty_false_alarm_samples"] += int(false_cells > 0)
+            continue
+        metrics[f"obstacle_iou_{bin_name}_sum"] += float(compute_iou(pred_i, target_i, valid_i).item())
 
     for name, _, _ in OBSTACLE_FRACTION_BINS:
         count = metrics[f"obstacle_count_{name}"]
-        if count > 0:
+        if name != "empty" and count > 0:
             metrics[f"obstacle_iou_{name}"] = metrics[f"obstacle_iou_{name}_sum"] / count
+    metrics["empty_false_alarm"] = (
+        metrics["empty_false_alarm_num"] / metrics["empty_false_alarm_den"]
+        if metrics["empty_false_alarm_den"] > 0
+        else float("nan")
+    )
     return metrics
 
 
@@ -247,6 +285,8 @@ def summarize_occupancy_diagnostics(metric_dicts):
         for name, _, _ in OBSTACLE_FRACTION_BINS:
             result[f"obstacle_iou_{name}"] = float("nan")
             result[f"obstacle_count_{name}"] = 0
+        result["empty_false_alarm"] = float("nan")
+        result["empty_false_alarm_samples"] = 0
         return result
 
     false_num = sum(m["false_obstacle_num"] for m in metric_dicts)
@@ -262,9 +302,17 @@ def summarize_occupancy_diagnostics(metric_dicts):
     }
     for name, _, _ in OBSTACLE_FRACTION_BINS:
         count = sum(m[f"obstacle_count_{name}"] for m in metric_dicts)
+        result[f"obstacle_count_{name}"] = count
+        if name == "empty":  # IoU가 구조적으로 0인 bin -- 아래 false alarm으로 대신 본다
+            result[f"obstacle_iou_{name}"] = float("nan")
+            continue
         iou_sum = sum(m[f"obstacle_iou_{name}"] * m[f"obstacle_count_{name}"] for m in metric_dicts if m[f"obstacle_count_{name}"] > 0)
         result[f"obstacle_iou_{name}"] = iou_sum / count if count > 0 else float("nan")
-        result[f"obstacle_count_{name}"] = count
+
+    false_alarm_num = sum(m["empty_false_alarm_num"] for m in metric_dicts)
+    false_alarm_den = sum(m["empty_false_alarm_den"] for m in metric_dicts)
+    result["empty_false_alarm"] = false_alarm_num / false_alarm_den if false_alarm_den > 0 else float("nan")
+    result["empty_false_alarm_samples"] = sum(m["empty_false_alarm_samples"] for m in metric_dicts)
     return result
 
 
@@ -282,9 +330,12 @@ def _format_obstacle_bin_summary(metrics) -> str:
         return ""
     parts = []
     for name, _, _ in OBSTACLE_FRACTION_BINS:
-        value = metrics[f"obstacle_iou_{name}"]
         count = metrics[f"obstacle_count_{name}"]
-        value_text = f"{value:.3f}" if count > 0 else "-"
+        if name == "empty":  # IoU 대신 오탐률(false alarm)을 보여준다
+            value_text = f"fa {metrics['empty_false_alarm']:.3f}" if count > 0 else "fa -"
+        else:
+            value = metrics[f"obstacle_iou_{name}"]
+            value_text = f"{value:.3f}" if count > 0 else "-"
         parts.append(f"{name}:{value_text}/n{count}")
     return " | val_obst_iou_bins " + " ".join(parts)
 
@@ -294,9 +345,12 @@ def write_occupancy_diagnostics(writer, split: str, metrics, epoch: int) -> None
     writer.add_scalar(f"{split}/occupancy_false_obstacle_epoch", metrics["false_obstacle"], epoch)
     writer.add_scalar(f"{split}/occupancy_missed_obstacle_epoch", metrics["missed_obstacle"], epoch)
     for name, _, _ in OBSTACLE_FRACTION_BINS:
-        if metrics[f"obstacle_count_{name}"] > 0:
+        if name != "empty" and metrics[f"obstacle_count_{name}"] > 0:
             writer.add_scalar(f"{split}/occupancy_obstacle_iou_{name}_epoch", metrics[f"obstacle_iou_{name}"], epoch)
         writer.add_scalar(f"{split}/occupancy_obstacle_count_{name}_epoch", metrics[f"obstacle_count_{name}"], epoch)
+    if metrics["obstacle_count_empty"] > 0:
+        writer.add_scalar(f"{split}/occupancy_empty_false_alarm_epoch", metrics["empty_false_alarm"], epoch)
+    writer.add_scalar(f"{split}/occupancy_empty_false_alarm_samples_epoch", metrics["empty_false_alarm_samples"], epoch)
 
 
 def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight):
@@ -320,10 +374,12 @@ def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis
         vis_neg_weight=vis_neg_weight,
         occ_pos_weight=pos_weight_tensor,
     )
-    drivable_iou, obstacle_iou = compute_drivable_and_obstacle_iou(occ_bev_e, seg_bev_g, valid_bev_g)
+    drivable_iou, obstacle_iou, obstacle_count = compute_drivable_and_obstacle_iou(
+        occ_bev_e, seg_bev_g, valid_bev_g
+    )
     vis_metrics = visibility_error_rates(torch.sigmoid(vis_bev_e), vis_bev_g, valid_bev_g)
     occ_metrics = compute_occupancy_diagnostics(occ_bev_e, seg_bev_g, valid_bev_g)
-    return loss, loss_parts, drivable_iou, obstacle_iou, vis_metrics, occ_metrics
+    return loss, loss_parts, drivable_iou, obstacle_iou, obstacle_count, vis_metrics, occ_metrics
 
 
 def main(
@@ -434,10 +490,11 @@ def main(
             epoch_start = time.time()
             train_losses, train_occ_losses, train_vis_losses = [], [], []
             train_d_ious, train_o_ious, train_v_false_highs, train_v_false_lows = [], [], [], []
+            train_o_iou_counts = []
             train_occ_metric_dicts = []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, loss_parts, d_iou, o_iou, vis_metrics, occ_metrics = run_batch(
+                loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics = run_batch(
                     model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                 )
                 loss.backward()
@@ -450,6 +507,7 @@ def main(
                 train_vis_losses.append(loss_parts["loss_vis"].item())
                 train_d_ious.append(d_iou.item())
                 train_o_ious.append(o_iou.item())
+                train_o_iou_counts.append(o_count)
                 train_v_false_highs.append(vis_metrics["false_high"])
                 train_v_false_lows.append(vis_metrics["false_low"])
                 train_occ_metric_dicts.append(occ_metrics)
@@ -463,7 +521,7 @@ def main(
             train_occ_loss = float(np.mean(train_occ_losses)) if train_occ_losses else float("nan")
             train_vis_loss = float(np.mean(train_vis_losses)) if train_vis_losses else float("nan")
             train_d_iou = float(np.mean(train_d_ious)) if train_d_ious else float("nan")
-            train_o_iou = float(np.mean(train_o_ious)) if train_o_ious else float("nan")
+            train_o_iou = weighted_mean(train_o_ious, train_o_iou_counts)
             train_v_false_high = float(np.mean(train_v_false_highs)) if train_v_false_highs else float("nan")
             train_v_false_low = float(np.mean(train_v_false_lows)) if train_v_false_lows else float("nan")
             train_occ_metrics = summarize_occupancy_diagnostics(train_occ_metric_dicts)
@@ -483,10 +541,11 @@ def main(
                 model.eval()
                 val_losses, val_occ_losses, val_vis_losses = [], [], []
                 val_d_ious, val_o_ious, val_v_false_highs, val_v_false_lows = [], [], [], []
+                val_o_iou_counts = []
                 val_occ_metric_dicts = []
                 with torch.no_grad():
                     for batch in val_loader:
-                        loss, loss_parts, d_iou, o_iou, vis_metrics, occ_metrics = run_batch(
+                        loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics = run_batch(
                             model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                         )
                         val_losses.append(loss.item())
@@ -494,6 +553,7 @@ def main(
                         val_vis_losses.append(loss_parts["loss_vis"].item())
                         val_d_ious.append(d_iou.item())
                         val_o_ious.append(o_iou.item())
+                        val_o_iou_counts.append(o_count)
                         val_v_false_highs.append(vis_metrics["false_high"])
                         val_v_false_lows.append(vis_metrics["false_low"])
                         val_occ_metric_dicts.append(occ_metrics)
@@ -501,7 +561,7 @@ def main(
                 val_occ_loss = float(np.mean(val_occ_losses))
                 val_vis_loss = float(np.mean(val_vis_losses))
                 val_d_iou = float(np.mean(val_d_ious))
-                val_o_iou = float(np.mean(val_o_ious))
+                val_o_iou = weighted_mean(val_o_ious, val_o_iou_counts)
                 val_v_false_high = float(np.mean(val_v_false_highs))
                 val_v_false_low = float(np.mean(val_v_false_lows))
                 val_occ_metrics = summarize_occupancy_diagnostics(val_occ_metric_dicts)
