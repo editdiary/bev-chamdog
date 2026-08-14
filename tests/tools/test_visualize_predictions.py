@@ -14,7 +14,7 @@ from tools.visualize_predictions import (
 def test_format_obstacle_iou_marks_samples_without_obstacle_in_gt():
     valid = np.ones((1, 2), dtype=bool)
     # GT에 obstacle이 없으면 IoU는 예측과 무관하게 0이라 숫자를 보여주면 오해를 부른다.
-    assert format_obstacle_iou(np.zeros((1, 2)), np.zeros((1, 2)), valid) == "n/a (GT obstacle 없음)"
+    assert format_obstacle_iou(np.zeros((1, 2)), np.zeros((1, 2)), valid) == "n/a (no GT obstacle)"
     assert format_obstacle_iou(np.array([[1, 0]]), np.array([[1, 0]]), valid) == "1.000"
 
 

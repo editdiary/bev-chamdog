@@ -51,6 +51,7 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     build_bev_masks,
     load_masked_labels,
     split_samples_by_sequence,
+    split_samples_within_sequences,
 )
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
@@ -134,6 +135,7 @@ def main(
     exp_name="robot_finetune",
     train_sequences="raws1",
     val_sequences="",
+    val_tail_fraction=0.0,  # val 시퀀스가 없을 때만 쓰는 임시 holdout (시퀀스 뒤쪽 연속 구간)
     init_checkpoint=None,
     num_epochs=60,
     batch_size=8,
@@ -164,7 +166,18 @@ def main(
         if not (root / "occupancy_npy").exists():
             raise FileNotFoundError(f"시퀀스를 찾을 수 없다: {root}")
 
-    train_samples, val_samples = split_samples_by_sequence(sequence_roots, val_names)
+    if val_names:
+        train_samples, val_samples = split_samples_by_sequence(sequence_roots, val_names)
+        split_note = f"시퀀스 단위 holdout: {','.join(val_names)}"
+    elif val_tail_fraction > 0:
+        train_samples, val_samples = split_samples_within_sequences(
+            sequence_roots, val_tail_fraction
+        )
+        split_note = (f"시퀀스 뒤쪽 {100 * val_tail_fraction:.0f}% holdout"
+                      " (임시 -- 경계가 인접해 낙관적인 숫자다)")
+    else:
+        train_samples, val_samples = split_samples_by_sequence(sequence_roots, [])
+        split_note = "없음"
     permanent_blind, invalid = build_bev_masks(common_root, GRID_SPEC, FINETUNE_CAMERA_NAMES)
     stats = compute_label_statistics(train_samples, permanent_blind, invalid)
     if pos_weight is None:
@@ -175,7 +188,7 @@ def main(
         f" exp_name={exp_name} | encoder={encoder_type} | cameras={','.join(FINETUNE_CAMERA_NAMES)}",
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
         f" train sequences={','.join(names) or '-'} ({len(train_samples)} samples)",
-        f" val   sequences={','.join(val_names) or '-'} ({len(val_samples)} samples)",
+        f" val   split={split_note} ({len(val_samples)} samples)",
         f" init_checkpoint={init_checkpoint or 'none (from scratch)'}",
         f" masks: vis=0 on {permanent_blind.sum()} cells | valid=0 on {invalid.sum()} cells",
         f" occupancy loss covers {100 * stats['supervised_fraction']:.2f}% of cells"

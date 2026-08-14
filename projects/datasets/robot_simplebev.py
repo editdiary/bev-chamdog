@@ -85,6 +85,35 @@ def split_samples_by_sequence(sequence_roots, val_sequence_names) -> tuple:
     return train, val
 
 
+def split_samples_within_sequences(sequence_roots, tail_fraction: float) -> tuple:
+    """시퀀스 하나뿐일 때의 임시 split -- 각 시퀀스의 **뒤쪽 연속 구간**을 val로 뗀다.
+
+    시퀀스가 둘 이상이면 `split_samples_by_sequence`를 쓰는 게 맞다. 이건 그때까지의
+    임시방편이고, 숫자를 낙관적으로 만든다는 걸 알고 써야 한다:
+
+    - sample_id 순서는 주행 순서이므로 뒤쪽 구간은 **공간적으로 연속된 한 덩어리**다.
+      무작위 분할처럼 val 프레임 바로 옆 프레임이 train에 들어가는 일은 없다.
+    - 다만 경계에 걸친 두 프레임(train 마지막 / val 첫)은 여전히 인접하고, 같은 온실
+      통로를 같은 조명에서 찍은 것이라 도메인이 완전히 분리되지는 않는다.
+
+    그래서 이 split의 val 숫자는 "학습이 망가지지 않았나"를 보는 sanity check이지
+    일반화 성능이 아니다. 실험 A/B를 이 숫자로 판정하면 안 된다.
+    """
+    if not 0.0 <= tail_fraction < 1.0:
+        raise ValueError(f"tail_fraction은 [0, 1)이어야 한다: {tail_fraction}")
+    train, val = [], []
+    for root in sequence_roots:
+        samples = list_sequence_samples(root)
+        n_val = int(round(len(samples) * tail_fraction))
+        n_val = min(n_val, max(len(samples) - 1, 0))  # train이 비지 않도록
+        if n_val:
+            train.extend(samples[:-n_val])
+            val.extend(samples[-n_val:])
+        else:
+            train.extend(samples)
+    return train, val
+
+
 def _load_bev_png_mask(path, grid_spec) -> np.ndarray:
     mask = np.asarray(Image.open(path).convert("L")) > 127
     expected = (grid_spec.n_rows, grid_spec.n_cols)

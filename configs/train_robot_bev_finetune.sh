@@ -21,6 +21,10 @@ AUGMENT="${AUGMENT:-False}"
 TRAIN_SEQUENCES="${TRAIN_SEQUENCES:-raws1}"
 VAL_SEQUENCES="${VAL_SEQUENCES:-}"
 
+# VAL_SEQUENCES가 비어 있을 때만 쓰이는 임시 holdout -- 각 시퀀스의 뒤쪽 연속 구간을 뗀다.
+# 경계 프레임이 인접해 있어 숫자가 낙관적이므로 sanity check 용도로만 본다.
+VAL_TAIL_FRACTION="${VAL_TAIL_FRACTION:-0.2}"
+
 # pretrain에서 나온 best 체크포인트. 240x240 -> 120x120, 4-cam -> 3-cam 모두 그대로 로드된다
 # (Segnet은 (Z, X)에 대해 완전 합성곱이고 카메라별 전용 파라미터가 없다).
 INIT_CHECKPOINT="${INIT_CHECKPOINT:-runs/synwoodscape_twohead/ckpt/twohead_pretrain_photo_aug_res101_bs16_lr3e-04_260814_150556/model_best-000000046.pth}"
@@ -29,6 +33,7 @@ python tools/train_robot_bev.py \
     --exp_name="${EXP_NAME}" \
     --train_sequences="${TRAIN_SEQUENCES}" \
     --val_sequences="${VAL_SEQUENCES}" \
+    --val_tail_fraction="${VAL_TAIL_FRACTION}" \
     --init_checkpoint="${INIT_CHECKPOINT}" \
     --num_epochs=60 \
     --batch_size=8 \
