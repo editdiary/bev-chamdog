@@ -112,6 +112,19 @@ def build_bev_masks(common_root, grid_spec=GRID_SPEC, camera_names=FINETUNE_CAME
     return (~coverage) | table, invalid
 
 
+def load_masked_labels(sequence_root, sample_id, permanent_blind, invalid) -> tuple:
+    """`(occupancy, vis, valid)` -- 전부 (n_rows, n_cols) bool. 마스킹 규약의 단일 출처.
+
+    `RobotBEVDataset.__getitem__`과 학습 스크립트의 클래스 비율 실측(`pos_weight`)이 같은
+    정의를 봐야 한다. 예전에 SynWoodScape 쪽에서 `pos_weight`가 마스크를 무시하고 원본
+    라벨을 세는 바람에 클래스 보정이 통째로 어긋난 적이 있다.
+    """
+    sequence_root = Path(sequence_root)
+    occupancy = np.load(sequence_root / "occupancy_npy" / f"{sample_id}.npy").astype(bool)
+    visible = np.load(sequence_root / "visibility_npy" / f"{sample_id}.npy").astype(bool)
+    return occupancy, visible & ~permanent_blind, ~invalid
+
+
 class RobotBEVDataset(Dataset):
     def __init__(
         self,
@@ -135,9 +148,9 @@ class RobotBEVDataset(Dataset):
         # `Segnet.forward`/`Vox_util`에 넘길 카메라 순서 -- rgb를 쌓는 순서와 반드시 같아야 한다.
         self.cameras = [cameras[name] for name in self.camera_names]
 
-        permanent_blind, invalid = build_bev_masks(self.common_root, grid_spec, self.camera_names)
-        self._permanent_blind = torch.from_numpy(permanent_blind)
-        self._valid_bev_g = torch.from_numpy(~invalid).float().unsqueeze(0)
+        self.permanent_blind, self.invalid = build_bev_masks(
+            self.common_root, grid_spec, self.camera_names
+        )
 
         # 캘리브레이션은 샘플과 무관하게 고정이므로 한 번만 만든다.
         self._cam0_T_camXs = torch.from_numpy(
@@ -167,18 +180,19 @@ class RobotBEVDataset(Dataset):
             # 광도만 바꾸므로 BEV GT는 손대지 않는다. 카메라들은 같은 파라미터를 공유한다.
             rgb_tensor = apply_photometric(rgb_tensor, sample_photometric_params())
 
-        occupancy = np.load(sequence_root / "occupancy_npy" / f"{sample_id}.npy")
-        visible = np.load(sequence_root / "visibility_npy" / f"{sample_id}.npy")
+        occupancy, vis, valid = load_masked_labels(
+            sequence_root, sample_id, self.permanent_blind, self.invalid
+        )
 
-        vis = torch.from_numpy(visible.astype(np.float32)).unsqueeze(0)
-        vis = vis * (~self._permanent_blind).float().unsqueeze(0)
+        def as_tensor(mask):
+            return torch.from_numpy(mask.astype(np.float32)).unsqueeze(0)
 
         return {
             "sample_id": f"{sequence_root.name}/{sample_id}",
             "rgb_camXs": rgb_tensor,
             "pix_T_cams": self._pix_T_cams,
             "cam0_T_camXs": self._cam0_T_camXs,
-            "seg_bev_g": torch.from_numpy(occupancy.astype(np.float32)).unsqueeze(0),
-            "vis_bev_g": vis,
-            "valid_bev_g": self._valid_bev_g.clone(),
+            "seg_bev_g": as_tensor(occupancy),
+            "vis_bev_g": as_tensor(vis),
+            "valid_bev_g": as_tensor(valid),
         }
