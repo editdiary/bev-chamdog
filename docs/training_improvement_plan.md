@@ -200,18 +200,34 @@ Note: samples with no obstacle in GT must be excluded from a "lowest obstacle Io
 they will fill the entire list. `tools/visualize_predictions.py` already labels them
 `n/a (GT obstacle 없음)` rather than printing a misleading 0.000.
 
+## Step 6: Regularization (weight decay) — done, negative
+
+`weight_decay` was 1e-7, inherited from Simple-BEV's nuScenes configuration. Swept to 1e-4 and
+1e-3 on top of `photo_aug`, everything else identical:
+
+| | 1e-7 | 1e-4 | 1e-3 |
+|---|---:|---:|---:|
+| val obstacle IoU | 0.8607 | 0.8583 | 0.8601 |
+| train obstacle IoU | 0.9556 | 0.9529 | 0.9521 |
+| train/val gap | 0.0949 | 0.0946 | 0.0920 |
+
+No effect beyond the noise floor. Left at 1e-7. The remaining overfitting is scene-layout
+memorization at 400 samples, not a weight-norm problem.
+
 ## Priority after 2026-08-14
 
-Ordered by expected value for the greenhouse fine-tuning target, not for the SynWoodScape score:
+Pretraining is treated as close to done. Its job is a usable initialization for greenhouse
+fine-tuning, not a maximized SynWoodScape score.
 
-1. **Step 4 augmentation** — photometric first, then BEV left-right flip. Zero calibration risk,
-   directly attacks the 0.10 train/val gap, and encoder robustness is what actually transfers.
-2. **Step 2 class-symmetric Dice** — targets the `tiny`/`small` bins and `missed_obstacle`.
-3. **Step 5 worst-case visualization** — cheap, and makes every later experiment easier to judge.
-4. **Step 3 checkpoint score reweighting** — leave until the loss and augmentation are settled;
-   changing the selection rule while the loss is also changing makes runs hard to compare.
+Steps 1, 4 (photometric) and 6 are done. Step 2 (Dice) is **ruled out**: its mechanism is to
+up-weight small regions in the training objective, but that objective is already saturated
+(train `missed_obstacle` 0.0008), so there is no training error left to redistribute. The
+`tiny`/`small` weakness is generalization, not optimization. The pretrain → fine-tune class
+ratio flip is a second, independent reason not to shape the pretrain loss around SynWoodScape.
 
-Rationale for putting augmentation ahead of loss shaping: the point of pretraining is to learn
-geometry (image → BEV projection, where surfaces are), not the class prior of a dataset that
-will be abandoned at fine-tuning. Tuning the pretrain loss to SynWoodScape's obstacle ratio is
-work that fine-tuning then has to undo, whereas a more robust encoder carries over directly.
+Remaining, only if pretraining is revisited:
+
+1. **Step 5 worst-case visualization** — cheap, and makes any later experiment easier to judge.
+2. **Full-scene mirroring** (Step 4, geometric part). Deferred by user decision: augmentation
+   strategy will be chosen at the fine-tuning stage after a literature review.
+3. **Step 3 checkpoint score reweighting** — low value while nothing else is moving.

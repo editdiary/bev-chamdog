@@ -7,17 +7,23 @@
 # 각 값의 의미와 튜닝 기준은 `docs/training_guide.md` 참고.
 #
 # 실행: CUDA_VISIBLE_DEVICES=1 bash configs/train_synwoodscape_twohead_pretrain.sh
+#
+# 한 값만 바꿔보는 스윕은 파일을 복사하는 대신 환경변수로 덮어쓴다 -- 나머지 인자가
+# 한 곳에만 있어야 두 런이 정말 같은 조건인지 확인하기 쉽다:
+#   EXP_NAME=twohead_pretrain_wd1e-4 WEIGHT_DECAY=1e-4 bash configs/train_synwoodscape_twohead_pretrain.sh
 set -e
 cd "$(dirname "$0")/.."
 
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
+EXP_NAME="${EXP_NAME:-twohead_pretrain_photo_aug}"
+WEIGHT_DECAY="${WEIGHT_DECAY:-1e-7}"
 
 python tools/train_synwoodscape.py \
-    --exp_name=twohead_pretrain_photo_aug \
+    --exp_name="${EXP_NAME}" \
     --num_epochs=60 \
     --batch_size=16 \
     --lr=3e-4 \
-    --weight_decay=1e-7 \
+    --weight_decay="${WEIGHT_DECAY}" \
     --num_workers=8 \
     --val_fraction=0.2 \
     --split_seed=0 \

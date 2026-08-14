@@ -103,6 +103,8 @@ visibility is punished instead of masked away. Always read it together with
 | `twohead_pretrain_fixed_iou_..._260814_134525` | fix 1 only | 53 | 0.921 | 0.854 |
 | `twohead_pretrain_vis_fixed_..._260814_140932` | fix 1+2+3 | 47 | 0.921 | 0.854 |
 | `twohead_pretrain_photo_aug_..._260814_150556` | fix 1+2+3, `--augment=True` | 46 | 0.925 | 0.861 |
+| `twohead_pretrain_wd1e-4_..._260814_154937` | as above, `weight_decay=1e-4` | 47 | 0.924 | 0.858 |
+| `twohead_pretrain_wd1e-3_..._260814_161441` | as above, `weight_decay=1e-3` | 43 | 0.925 | 0.860 |
 
 The first two are on the old convention and must not be compared numerically against the last
 two. The jump from 0.749 to 0.854 is the measurement fix, not a model improvement.
@@ -155,6 +157,30 @@ On `photo_aug` the two diverge slightly: GT-masked 0.8607 but deploy 0.8510 at t
 coverage. Since coverage and `vis_false_high` are unchanged, the difference sits in cells the
 model wrongly believes it can see. The magnitude is small and the deploy metric's own noise
 floor is not yet measured, so do not read anything into it before a repeat seed.
+
+### Negative result: weight decay does nothing here
+
+`weight_decay` was 1e-7, inherited from Simple-BEV's nuScenes setup (28k samples), which is
+effectively no regularization for 400 samples. Raising it by four orders of magnitude changed
+nothing measurable:
+
+| | 1e-7 | 1e-4 | 1e-3 |
+|---|---:|---:|---:|
+| val obstacle IoU | 0.8607 | 0.8583 | 0.8601 |
+| train obstacle IoU | 0.9556 | 0.9529 | 0.9521 |
+| train/val gap | 0.0949 | 0.0946 | 0.0920 |
+
+The 0.0024 spread in val obstacle IoU is at the noise floor. **The remaining overfitting is not
+the kind L2 regularization addresses** — it is scene-layout memorization at 400 training
+samples, i.e. a data coverage problem. `weight_decay` was left at 1e-7 because there is no
+evidence for changing it.
+
+### The deploy metric is noisier than the GT-masked one
+
+Across the three runs above, `deploy_iou_obstacle` vs GT-masked `iou_obstacle` was -0.0097,
+-0.0004 and 0.0000. The first run's gap was an outlier, not a real effect of augmentation as
+was briefly suspected. Treat moves under roughly 0.01 in the deploy metric as noise; the
+GT-masked metric's floor is about 0.002.
 
 ### A/B result: photometric augmentation helps the weakest bin
 
@@ -232,23 +258,43 @@ augmentation ahead of loss shaping.
 
 ## Suggested Next Steps
 
-Ordered by expected value for the real downstream task:
+**Pretraining is close to done.** The goal here is a usable initialization for greenhouse
+fine-tuning, not a maximized SynWoodScape score, and the remaining gap is data-limited rather
+than fixable by loss or regularization tuning. Three separate probes now point the same way:
 
-1. **Class-symmetric Dice** on occupancy, judged by `missed_obstacle` and the `tiny`/`small`
-   bins rather than by global IoU. Now the top remaining lever, since small obstacles are still
-   the dominant weakness.
-2. **Repeat the `photo_aug` config with a different seed.** Two things need confirming: that the
-   +0.006 obstacle IoU gain reproduces, and whether the -0.003 `deploy_iou_obstacle` move is
-   noise. The deploy metric has only one prior run, so its noise floor is unmeasured.
-3. **BEV left-right flip** using the existing `bev_flip_indices` hook, flipping
-   `seg_bev_g`/`vis_bev_g`/`valid_bev_g` to match. Lower confidence than it looked: upstream
-   never exercises the hook, and it augments the decoder only.
-4. `lambda_vis` 0.5 → 0.2. Only now a live parameter, but visibility is already accurate and is
-   not competing with occupancy, so expect little.
+- Photometric augmentation moved the gap only 0.103 → 0.095, so the model is not memorizing
+  appearance.
+- Weight decay across four orders of magnitude did nothing, so it is not a weight-norm problem.
+- Train small-obstacle IoU is 0.909 with `missed_obstacle` 0.0008, so the model *can* fit small
+  obstacles — it just does not generalize to unseen layouts.
 
-Note on the overfitting gap: photometric augmentation barely moved it, which is evidence that
-appearance is not what the model is memorizing. Stronger augmentation of the same kind is
-unlikely to help much; more scenes would.
+### Ruled out, with reasons
+
+- **Dice loss.** Its mechanism is to up-weight small regions in the training objective, but that
+  objective is already saturated (train `missed_obstacle` 0.0008, train `loss_occ` 0.0013 vs val
+  0.029). There is essentially no training error left to redistribute. The `tiny`/`small` bin
+  weakness is a generalization gap (train 0.909 vs val 0.646 on `small`), not an optimization
+  failure. The pretrain → fine-tune class-ratio flip is a second, independent reason to avoid
+  shaping the pretrain loss around SynWoodScape's ratio.
+- **BEV flip via `bev_flip_indices`.** The hook applies the flip *after* all decoder upsampling,
+  immediately before the heads (`nets/segnet.py:136-139`). Encoder, projection and the decoder
+  body all see unmodified activations, so only the final head convolutions are augmented. That
+  is far too small a surface to matter, which likely explains why no upstream Simple-BEV
+  training script uses it.
+- **Weight decay.** See the negative result above.
+
+### Still open, if pretraining is revisited
+
+1. **Full-scene left-right mirroring**, done consistently: flip all four images, set
+   `cx' = W - cx`, swap the MVL/MVR slots, mirror the extrinsics laterally, and flip the BEV GT.
+   Unlike the `bev_flip_indices` hook this augments the whole network including the encoder, and
+   unlike photometric augmentation it adds *layout* diversity, which is what the diagnosis points
+   at. Valid because the rig is left-right symmetric. Costs real implementation and verification
+   effort. **Deferred by user decision — augmentation strategy will be revisited at the
+   fine-tuning stage, informed by literature.**
+2. Encoder capacity: ResNet-101 on 400 samples is oversized. res50 or partial freezing.
+3. `lambda_vis` 0.5 → 0.2. Now a live parameter, but visibility is already accurate and is not
+   competing with occupancy, so expect little.
 
 ## Commands
 
