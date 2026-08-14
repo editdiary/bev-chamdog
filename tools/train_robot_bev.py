@@ -180,6 +180,7 @@ def main(
         split_note = "없음"
     permanent_blind, invalid = build_bev_masks(common_root, GRID_SPEC, FINETUNE_CAMERA_NAMES)
     stats = compute_label_statistics(train_samples, permanent_blind, invalid)
+    val_stats = compute_label_statistics(val_samples, permanent_blind, invalid)
     if pos_weight is None:
         pos_weight = stats["pos_weight"]
 
@@ -193,6 +194,15 @@ def main(
         f" masks: vis=0 on {permanent_blind.sum()} cells | valid=0 on {invalid.sum()} cells",
         f" occupancy loss covers {100 * stats['supervised_fraction']:.2f}% of cells"
         f" (obstacle {100 * stats['obstacle_fraction']:.2f}% inside it)",
+        # val 분포를 같이 찍는다 -- 한 시퀀스 안에서도 구간마다 관측 면적과 장애물 비율이
+        # 몇 배씩 차이 나므로(raws1은 앞 30장 11.7%/7.4% vs 뒤 8장 36.5%/3.1%), 이게 안
+        # 보이면 "val이 안 오른다"의 원인이 모델인지 분포 불일치인지 구분할 수 없다.
+        f" val   distribution: covers {100 * val_stats['supervised_fraction']:.2f}%"
+        f" (obstacle {100 * val_stats['obstacle_fraction']:.2f}% inside it)"
+        + ("  <- train과 크게 다르다" if val_samples and (
+            abs(val_stats["supervised_fraction"] - stats["supervised_fraction"]) > 0.05
+            or abs(val_stats["obstacle_fraction"] - stats["obstacle_fraction"]) > 0.02
+        ) else ""),
         f" pos_weight (neg/pos, masked) = {pos_weight:.3f}",
         f" photometric augment (train only) = {bool(augment)}",
         f" trivial 'always drivable' baseline IoU = {stats['trivial_iou']:.3f}  <- compare against this",

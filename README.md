@@ -49,8 +49,12 @@ bev-chamdog/
 - [x] **개발 환경 세팅** — conda 환경 및 버전 고정 (→ [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md))
 - [x] **벤치마크 분석** — WoodScape 분석 완료 (→ [`docs/dataset_analysis/`](docs/dataset_analysis/)), SynWoodScape 구조 파악
 - [x] **자체 데이터셋 구축** — 별도 프로젝트에서 수집·캘리브레이션·라벨링 마무리
-- [ ] **SynWoodScape + Simple-BEV 학습** ← *현재 단계*
-- [ ] **자체 데이터셋 fine-tuning**
+- [x] **SynWoodScape + Simple-BEV 학습** — two-head(occupancy + visibility) pretraining 완료.
+      val obstacle IoU 0.861 / drivable 0.989
+      (→ [`docs/synwoodscape_pretrain_experiment_log.md`](docs/synwoodscape_pretrain_experiment_log.md))
+- [ ] **자체 데이터셋 fine-tuning** ← *현재 단계* — 파이프라인은 완성·검증됐고
+      (Double Sphere 3-cam, 마스킹, 학습·시각화 도구) **어노테이션 물량을 기다리는 중**.
+      실행 방법은 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)
 
 ## 🚀 시작하기
 

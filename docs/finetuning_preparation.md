@@ -2,6 +2,14 @@
 
 작성: 2026-08-14
 
+> **[상태: 완료 — 기록용 문서다]**
+>
+> 이 문서는 데이터 실물을 받기 **전에** 쓴 계획서다. 여기서 "만들어야 한다"고 적은 것은
+> 같은 날 전부 구현·검증됐고, §6의 미결 질문도 모두 답이 나왔다(§8 참고).
+>
+> **실제로 fine-tuning을 돌릴 때는 [`docs/finetuning_guide.md`](finetuning_guide.md)를 본다.**
+> 이 문서는 "왜 그렇게 만들었는지"의 근거로만 남긴다.
+
 SynWoodScape pretraining(Phase 3)에서 자체 온실 데이터셋 fine-tuning(Phase 4)으로 넘어가기 위해
 **무엇이 준비돼 있고, 무엇을 만들어야 하며, 무엇을 결정해야 하는지**를 정리한다.
 
@@ -142,6 +150,13 @@ visible   = np.load(...).astype(bool)   # 0.01 -> True (거의 안 보이는 셀
 
 추가로 필요한 인자: `--init_ckpt`(pretrain 가중치 경로), `--freeze_encoder`(선택).
 
+> **구현 결과:** 별도 스크립트 **`tools/train_robot_bev.py`**로 만들었다(이 문서가 제안한
+> `train_robot_finetune.py`가 아니다). 중복을 피하려고 지표·로깅은
+> `projects/common/two_head_metrics.py`로 추출해 양쪽이 공유한다 — 스크립트끼리 import하면
+> pretrain 쪽을 손댈 때 fine-tune이 깨지기 때문이다.
+> 인자는 `--init_checkpoint`로 이름이 바뀌었고, **`--freeze_encoder`는 아직 없다**
+> (`docs/finetuning_guide.md` §9).
+
 ### 4.5 온실 기준 지표 (권장)
 
 현재 지표는 대부분 그대로 유효하지만, **클래스 비율이 뒤집힌다**는 점을 감안해야 한다.
@@ -214,10 +229,37 @@ pretrain은 `obst_frac 0.125`(obstacle 소수), 온실은 반대다.
 | soft visibility loss | ✅ 대부분 동작, 가중 방식만 결정 필요 |
 | two-head 구조 유지 근거 | ✅ A/B로 확보 (occupancy 손해 0) |
 | 지표 인프라 | ✅ 재사용 가능, 클래스 역전 대응만 필요 |
-| 데이터셋 어댑터 | ❌ 미작성 |
-| `pos_weight` soft/255 대응 | ❌ 미수정 |
-| 렌즈 모델 교체 가능화 | ⚠️ 자체 카메라 모델 확인 후 판단 |
-| fine-tune 학습 스크립트 | ❌ 미작성 |
+| 데이터셋 어댑터 | ✅ `projects/datasets/robot_simplebev.py` |
+| `pos_weight` 마스킹 대응 | ✅ `compute_label_statistics` (마스킹 후 실측) |
+| 렌즈 모델 교체 가능화 | ✅ DS 전용 모듈 신설 (아래 §8) |
+| fine-tune 학습 스크립트 | ✅ `tools/train_robot_bev.py` |
 
-**코드 쪽 병목은 §6의 답이다.** 데이터 실물과 라벨 규약이 확인되면 4.1~4.4는 하루 안에
-끝나는 분량이다.
+---
+
+## 8. §6 질문에 대한 답 (2026-08-14 확정)
+
+데이터 실물(`dataset/sj_datasets/`)과 어노테이션 프로젝트 코드를 받아 전부 해소됐다.
+
+| # | 질문 | 답 |
+|---|---|---|
+| 1 | 데이터 위치·포맷 | `dataset/sj_datasets/<시퀀스>/`, 공유 자산은 `common/` |
+| 2 | 샘플 수 | raws1 38장. 시퀀스 단위로 계속 추가 예정 |
+| 3 | 카메라 수 | **3개** (front/left/right). rear는 캘리에만 있고 라벨 생성에 안 쓰였다 |
+| 4 | 렌즈 모델 | **Double Sphere.** `radial_poly`가 아니라 별도 모듈을 신설했다 |
+| 5 | `occ_gt`에 255 | **없다.** 전 격자가 `{0,1}`로 라벨돼 있다 |
+| 6 | `vis_gt` soft 여부 | **binary.** soft 대응 코드는 불필요했다 |
+| 7 | `ego_mask` / `static_fov_mask` | 라벨에는 없다. `common/`의 두 PNG + 캘리브레이션에서 계산한 화각 원반으로 학습 코드가 만든다. **`vis`에 곱하는 것과 `valid`에 곱하는 것을 구분**했다(가이드 §3) |
+| 8 | 온실 drivable 정의 | 수동 어노테이션 기준. `0=obstacle / 1=drivable` |
+| 9 | fine-tuning ROI | `ROBOT_GRID_SPEC` 그대로. 라벨이 이미 120×120으로 같은 ROI다 |
+| 10 | encoder freeze | **미결.** 옵션이 아직 없다(가이드 §9) |
+| 11 | soft visibility 가중 | 해당 없음 — `vis_gt`가 binary라 논점이 사라졌다 |
+
+가장 영향이 컸던 것은 4번과 7번이다. 4번 때문에 `projects/geometry/double_sphere.py`와
+`projects/models/double_sphere_vox.py`를 새로 만들었고, 7번 때문에 마스킹을 두 종류로
+나누는 설계가 나왔다.
+
+이 문서를 쓸 때 예상하지 못했던 것도 있다: **클래스 비율이 예상과 반대**였다. 그리드 전체
+obstacle 비율은 pretrain 17% → 자체 23%로 늘지만, loss가 실제로 보는 마스킹 영역
+안에서는 12.4% → 5.4%로 **줄어든다**(온실 통로에서 raycast visibility가 장애물에 닿으며
+멈춰 장애물 대부분이 경계 바깥에 놓인다). §4.2가 전제했던 "클래스 역전 대응"은 방향이
+반대였던 셈이다.

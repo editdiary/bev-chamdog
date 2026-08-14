@@ -2,6 +2,15 @@
 
 Last updated: 2026-08-14
 
+> **[상태: pretraining 종료. Phase 4로 넘어갔다.]**
+>
+> 이 문서는 **pretraining(Phase 3) 시점의 핸드오프**다. 그 뒤 자체 데이터셋 fine-tuning
+> 파이프라인이 완성됐으므로, 지금 무엇을 하면 되는지는
+> [`docs/finetuning_guide.md`](finetuning_guide.md)를 본다.
+>
+> 여기 적힌 "Not tried yet" 항목들은 **pretraining을 다시 손댈 때만** 유효하다. 현재
+> 병목은 pretrain 성능이 아니라 자체 데이터셋의 어노테이션 물량이다.
+
 ## One-Line State
 
 SynWoodScape ROI 8/4/±6 m two-head pretraining runs end to end; three metric defects were found

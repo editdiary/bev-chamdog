@@ -69,16 +69,25 @@ Candidate:
 **Make the Dice term class-symmetric, not obstacle-only.**
 
 Pretraining has `obst_frac 0.125`, so obstacle is the minority class and an obstacle-only Dice
-term helps it. The greenhouse fine-tuning target inverts this: obstacle-heavy, with drivable and
-visible regions smaller. After that flip, an obstacle-only Dice term would be attached to the
-easy majority class, where per-sample Dice saturates near 1 and contributes almost no gradient,
-while the class actually needing help — drivable — gets nothing.
+term helps it.
+
+> **[2026-08-14 정정] 이 문단이 원래 예측했던 "온실에서는 obstacle이 다수가 된다"는 틀렸다.**
+> 자체 데이터셋 실물을 측정한 결과는 반대다. 그리드 **전체** obstacle 비율은 17% → 23%로
+> 늘지만, **loss가 실제로 보는 마스킹 영역 안에서는 12.4% → 5.4%로 오히려 줄어든다.**
+> 온실 통로에서는 raycast visibility가 첫 장애물에 닿으면서 멈추므로 장애물 대부분이
+> 관측 영역 경계 **바깥**에 놓이기 때문이다. 즉 obstacle은 fine-tuning에서도 (더 극단적인)
+> 소수 클래스다.
+>
+> 그래도 **결론은 그대로다**: 클래스 대칭 Dice가 여전히 안전한 형태이고, Dice 자체는 아래
+> "Priority" 절의 첫 번째 이유(학습 목적함수가 이미 포화)로 기각된 상태다. 바뀐 것은
+> "분포가 뒤집히므로"라는 **부차적 논거뿐**이며, 그 논거는 이제 성립하지 않는다.
 
 BCE does not have this failure mode because `compute_pos_weight` measures `neg/pos` on the train
-split at runtime and re-balances automatically. A single-class Dice term does not.
+split at runtime and re-balances automatically. A single-class Dice term does not. (자체 데이터셋
+쪽에서는 이 실측이 **마스킹을 적용한 뒤** 이뤄져야 한다 — `compute_label_statistics`.)
 
 Averaging drivable Dice and obstacle Dice makes whichever class is currently the minority the
-dominant term, so the same loss definition keeps working across the distribution flip.
+dominant term, so the same loss definition keeps working whichever way the ratio moves.
 
 Success criteria:
 

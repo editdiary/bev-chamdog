@@ -25,7 +25,7 @@
 - 수집 → 카메라 캘리브레이션 → 라벨링을 거쳐 **BEV occupancy GT까지 완성**된 상태
 - 이 저장소에서는 Phase 4에서 포맷만 맞춰 가져다 쓴다
 
-## Phase 3 — SynWoodScape로 Simple-BEV 학습 ⬅️ 현재 단계
+## Phase 3 — SynWoodScape로 Simple-BEV 학습 ✅ 완료
 
 목적은 성능 최적화가 아니라, **어안 4-cam 입력 → BEV occupancy 예측 파이프라인이 실제로 동작함을 증명**하는 것이다.
 
@@ -92,13 +92,25 @@
 - 성공 기준: 학습이 수렴하고(특히 obstacle IoU가 trivial baseline인 0을 유의미하게 넘김),
   예측 BEV가 GT와 육안으로도 정합한다
 
-## Phase 4 — 자체 데이터셋 fine-tuning
+## Phase 4 — 자체 데이터셋 fine-tuning ⬅️ 현재 단계
 
-- Phase 3의 체크포인트를 **pre-trained weight**로 사용
-- 자체 데이터셋의 BEV occupancy GT를 Phase 3 로더와 **같은 인터페이스**로 변환
-- 자체 카메라의 어안 모델(캘리브레이션 결과)을 투영 모듈에 연결. `radial_poly`가 아닐 수 있으므로 투영 함수를 교체 가능한 형태로 둔다
-- drivable 정의는 **온실 환경 기준으로 새로 정의**한다 (Phase 3의 road/road line 기준은 CARLA 도시 장면용)
-- sim → real 도메인 갭(CARLA 도시 → 온실) 대응
+**파이프라인 ✅ 완료 (2026-08-14).** 실행 방법·지표 해석·문제 대응은
+[`docs/finetuning_guide.md`](docs/finetuning_guide.md)를 정본으로 본다.
+설계 근거는 [`docs/finetuning_preparation.md`](docs/finetuning_preparation.md).
+
+- Phase 3의 체크포인트를 **pre-trained weight**로 사용 ✅ — 240×240 4-cam → 120×120 3-cam으로
+  0 missing / 0 unexpected 로드 확인
+- 자체 데이터셋 GT를 Phase 3 로더와 **같은 인터페이스**로 변환 ✅ —
+  `projects/datasets/robot_simplebev.py`. 시퀀스 단위 split
+- 자체 카메라의 어안 모델을 투영 모듈에 연결 ✅ — **Double Sphere**였다.
+  `projects/geometry/double_sphere.py` + `projects/models/double_sphere_vox.py`.
+  extrinsic 체인은 IPM을 어노테이션 프로젝트 출력과 대조해 검증
+- drivable 정의는 **온실 환경 기준으로 새로 정의** ✅ — 수동 어노테이션 기준
+  (`0=obstacle / 1=drivable`)
+- 관측 불가 영역 마스킹 ✅ — 배포에도 남는 가림은 `vis=0`, 수집 아티팩트는 `valid=0`으로
+  분리 (가이드 §3)
+- sim → real 도메인 갭 대응 ⬅️ **남은 작업.** 현재 병목은 코드가 아니라 어노테이션 물량이다.
+  raws1 38장에서는 best checkpoint가 pretrain 초기값 그 자체였다
 
 ## Phase 5 — 분석 · 개선 · 문서화
 

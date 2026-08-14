@@ -67,11 +67,20 @@ bev-chamdog/
 
 Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코드다. 따라서 `projects/`도 특별한 등록 절차 없이 **일반 파이썬 패키지**로 쓴다.
 
-1. `projects/` 아래에 모듈을 작성한다. 예상 구성:
-   - 데이터 로더 — SynWoodScape / 자체 데이터셋을 Simple-BEV 입력 형태로 변환
-   - BEV GT 변환 — semantic label → binary occupancy(drivable / non-drivable) remap
-   - 어안 투영 — `radial_poly` project / unproject
-   - 모델 래퍼 — submodule을 건드리지 않고 Simple-BEV의 lifting 투영을 어안으로 교체
+1. `projects/` 아래에 모듈을 작성한다. 현재 구성:
+
+   | 하위 패키지 | 역할 | 주요 모듈 |
+   |---|---|---|
+   | `datasets/` | Simple-BEV 입력 텐서로 변환 | `synwoodscape_simplebev.py`(pretrain), `robot_simplebev.py`(자체 데이터셋), `simplebev_vox.py`(그리드↔ref 프레임), `photometric.py` |
+   | `geometry/` | 카메라 모델과 좌표 프레임 | `fisheye.py`(SynWoodScape `radial_poly`), `double_sphere.py`(자체 리그 DS + ego extrinsic 체인), `frames.py`, `reprojection.py` |
+   | `models/` | submodule을 건드리지 않는 래퍼 | `fisheye_vox.py`·`double_sphere_vox.py`(`Vox_util` 서브클래싱), `simplebev_two_head.py` |
+   | `bev_gt/` | BEV GT 생성·판정 | `grid.py`(ROI 스펙), `visibility.py`(depth 기반 가림), `camera_coverage.py`(화각 커버리지), `ipm.py`(시각화용) |
+   | `common/` | 데이터셋 비의존 공용 | `two_head_metrics.py`(지표·로깅), `bev_panels.py`(시각화 패널), `metrics.py` |
+
+   **두 데이터셋은 렌즈 모델과 캘리브레이션 포맷이 달라 로더·투영을 분리했다**
+   (SynWoodScape는 `radial_poly`, 자체 리그는 Double Sphere). 대신 그 뒤 단계인 지표·로깅·
+   시각화는 `common/`에서 공유해 pretrain과 fine-tune 숫자를 나란히 읽을 수 있게 했다.
+   스크립트끼리 import하지 않는 이유도 같다 — 한쪽을 고칠 때 다른 쪽이 깨지지 않도록.
 2. submodule 코드를 임포트할 때는 경로를 추가한다:
    ```python
    import sys

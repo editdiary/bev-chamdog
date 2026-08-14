@@ -247,11 +247,22 @@ two-head 구조를 유지할 근거가 실측으로 확보됐다.
 **재분배할 학습 오차가 남아 있지 않다.** `tiny`/`small`의 약점은 최적화 실패가 아니라 일반화
 격차다.
 
-**두 번째 독립적 이유**: pretrain은 `obst_frac 0.125`로 obstacle이 소수 클래스지만, 온실
-fine-tuning은 반대다(obstacle 다수, drivable 소수). obstacle 전용 Dice는 분포가 뒤집히면
-**쉬운 다수 클래스**에 붙어 gradient가 사라진다. BCE는 `compute_pos_weight`가 split마다
-`neg/pos`를 실측하므로 자동으로 따라가지만 단일 클래스 Dice는 못 따라간다. 굳이 넣는다면
-클래스 대칭 형태여야 하지만, 첫 번째 이유 때문에 지금은 넣을 근거 자체가 없다.
+**두 번째 독립적 이유**: pretrain은 `obst_frac 0.125`로 obstacle이 소수 클래스인데, 온실
+fine-tuning에서 분포가 달라지면 obstacle 전용 Dice는 따라가지 못한다. BCE는
+`compute_pos_weight`가 split마다 `neg/pos`를 실측하므로 자동으로 따라가지만 단일 클래스
+Dice는 못 따라간다. 굳이 넣는다면 클래스 대칭 형태여야 하지만, 첫 번째 이유 때문에 지금은
+넣을 근거 자체가 없다.
+
+> **[2026-08-14 정정]** 이 문단은 원래 "온실 fine-tuning은 반대다(obstacle 다수, drivable
+> 소수)"라고 적었는데 **틀렸다.** 자체 데이터셋 실물 측정 결과, 그리드 전체 obstacle 비율은
+> 17% → 23%로 늘지만 **loss가 보는 마스킹 영역 안에서는 12.4% → 5.4%로 줄어든다.** 온실
+> 통로에서 raycast visibility가 첫 장애물에 닿으며 멈추므로 장애물 대부분이 관측 영역 바깥에
+> 놓이기 때문이다. Dice 기각 결론과 "단일 클래스 Dice는 분포 변화를 못 따라간다"는 논지는
+> 그대로지만, **방향에 대한 예측은 반대였다.**
+>
+> 교훈 하나가 더 붙는다: **"분포가 어떻게 바뀔 것이다"는 예측은 실측 전까지 논거로 쓰지 말
+> 것.** 그리고 클래스 비율은 **loss가 실제로 보는 마스크 안에서** 재야 한다 — 그리드 전체로
+> 재면 이 경우처럼 부호가 뒤집힌다.
 
 ### BEV flip — 기각했다가 **정정**, 현재는 미시도 상태의 유효한 선택지
 
@@ -351,6 +362,22 @@ val: obstacle IoU 0.8607 / drivable IoU 0.9889 / `missed_obstacle` 0.0380 /
 
 런 7(`wd1e-3`, epoch 43)도 노이즈 범위 내 동률이라 어느 쪽을 써도 무방하다. 근거 없는 변경을
 피하는 원칙에 따라 런 5를 기본으로 둔다.
+
+**후속 — 이 체크포인트가 실제로 어떻게 전이됐나 (2026-08-14)**
+
+`configs/train_robot_bev_finetune.sh`의 기본 `INIT_CHECKPOINT`가 이것이다.
+
+- **이식은 무손실이다.** 240×240 4-cam → 120×120 3-cam 모델에 0 missing / 0 unexpected /
+  0 shape mismatch로 로드된다. `Segnet`이 (Z, X)에 대해 완전 합성곱이고 카메라별 전용
+  파라미터가 없어서다.
+- **zero-shot 성능은 낮다.** 자체 데이터셋에서 fine-tuning 없이 drivable IoU 0.532 /
+  obstacle IoU 0.051. 도메인 갭이 크다 — 시각화를 보면 **온실 바닥을 통째로 장애물로
+  예측**한다. SynWoodScape의 drivable은 아스팔트 도로이고 흰색 온실 바닥은 그렇게 보이지
+  않기 때문이다.
+- 그럼에도 **38장 fine-tuning에서는 이 초기값 자체가 best checkpoint였다**(epoch 1).
+  물량이 부족해 학습할수록 val이 나빠지는 구간이라, 초기 가중치의 품질이 그대로 남았다.
+
+자세한 내용은 `docs/finetuning_guide.md` §8.
 
 **커밋**:
 

@@ -13,9 +13,13 @@
 
 ## Task & 모델
 
-- Task: 어안 4-cam 이미지 → **BEV occupancy map** (drivable / non-drivable). 3D bbox 검출과 세밀 semantic 구분은 **이후 확장 과제**로 분리.
+- Task: 어안 이미지 → **BEV occupancy map** (drivable / non-drivable). 3D bbox 검출과 세밀 semantic 구분은 **이후 확장 과제**로 분리.
 - baseline: **Simple-BEV** (`third_party/models/simple_bev`) — mmdet3d에 의존하지 않는 standalone PyTorch 구현.
 - 학습 순서: **SynWoodScape로 먼저 학습·검증 → pre-training → 자체 데이터셋 fine-tuning.**
+  - pretraining ✅ 완료 (SynWoodScape 4-cam, `radial_poly`, 240×240 그리드)
+  - fine-tuning ⬅️ 현재 단계 — **자체 리그는 3-cam(front/left/right), Double Sphere,
+    120×120 그리드다.** 리그에 카메라는 4대지만 rear는 라벨 생성에 쓰이지 않았다.
+    실행 방법은 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)가 정본.
 - **MMDetection3D는 현재 학습 경로에서 사용하지 않는다.** `mmdetection3d/` submodule은 이후 3D 검출로 확장할 경우를 위해 남겨둔 것일 뿐이다.
 - 상세: [`README.md`](README.md)
 

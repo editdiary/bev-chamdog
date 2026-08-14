@@ -2,6 +2,12 @@
 
 이 문서는 현재 구현된 SynWoodScape 2-head pretraining을 실행하고 해석하는 기준을 정리한다. fine-tuning 환경을 기준으로 작성된 별도 설계 참고 문서는 `docs/BEV_loss_and_metrics_design.md`이고, 현재 pretrain 구현에서 실제로 쓰는 설정과 지표는 이 문서를 우선한다.
 
+> **이 문서는 pretraining(SynWoodScape) 전용이다.** 자체 데이터셋 fine-tuning은
+> [`docs/finetuning_guide.md`](finetuning_guide.md)를 본다 — 데이터셋·렌즈 모델·마스킹 규약이
+> 달라서 실행 방법과 지표 해석 기준이 따로 있다. 다만 **지표 구현 자체는 두 경로가 공유하므로**
+> (`projects/common/two_head_metrics.py`), 아래 "Occupancy Metrics" 이후의 해석은 양쪽에 그대로
+> 적용된다.
+
 ## Current Training Setup
 
 - Model: `projects.models.simplebev_two_head.TwoHeadSegnet`
@@ -322,10 +328,14 @@ Warning signs:
 
 ## Next Experiments
 
-Follow `docs/training_improvement_plan.md` in order:
+**Pretraining is treated as done** (val obstacle IoU 0.861 / drivable 0.989). Its job was a usable
+initialization for greenhouse fine-tuning, not a maximized SynWoodScape score, and the project has
+moved to Phase 4 — see `docs/finetuning_guide.md`.
 
-1. Run one full baseline again with the new diagnostic metrics, same hyperparameters.
-2. Compare new metrics against the first epoch-41 baseline.
-3. Try `lambda_vis=0.2` and BCE+Dice occupancy loss.
-4. Consider changing best score to `0.3 * drivable + 0.7 * obstacle` only after metrics show the tradeoff clearly.
-5. Add photometric-only augmentation after metric/loss experiments are stable.
+Of the original list: the diagnostic-metric baseline and photometric augmentation are **done**,
+weight decay was swept and had **no effect**, and BCE+Dice is **ruled out** (the training objective
+is already saturated at `missed_obstacle` 0.0008, so there is no training error left for Dice to
+redistribute). Full results and reasoning: `docs/synwoodscape_pretrain_experiment_log.md`.
+
+If pretraining is revisited, `docs/training_improvement_plan.md` keeps the remaining candidates —
+worst-case visualization, `Segnet(rand_flip=True)` mirroring, and the 0.3/0.7 best-score reweighting.
