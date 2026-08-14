@@ -276,24 +276,39 @@ than fixable by loss or regularization tuning. Three separate probes now point t
   weakness is a generalization gap (train 0.909 vs val 0.646 on `small`), not an optimization
   failure. The pretrain → fine-tune class-ratio flip is a second, independent reason to avoid
   shaping the pretrain loss around SynWoodScape's ratio.
-- **BEV flip via `bev_flip_indices`.** The hook applies the flip *after* all decoder upsampling,
-  immediately before the heads (`nets/segnet.py:136-139`). Encoder, projection and the decoder
-  body all see unmodified activations, so only the final head convolutions are augmented. That
-  is far too small a surface to matter, which likely explains why no upstream Simple-BEV
-  training script uses it.
+- ~~**BEV flip via `bev_flip_indices`.**~~ **This entry was wrong and is retracted** — see
+  "Not tried yet" below. The hook is the *undo* half of a flip applied much earlier, not a
+  standalone augmentation.
 - **Weight decay.** See the negative result above.
 
-### Still open, if pretraining is revisited
+### Not tried yet
 
-1. **Full-scene left-right mirroring**, done consistently: flip all four images, set
-   `cx' = W - cx`, swap the MVL/MVR slots, mirror the extrinsics laterally, and flip the BEV GT.
-   Unlike the `bev_flip_indices` hook this augments the whole network including the encoder, and
-   unlike photometric augmentation it adds *layout* diversity, which is what the diagnosis points
-   at. Valid because the rig is left-right symmetric. Costs real implementation and verification
-   effort. **Deferred by user decision — augmentation strategy will be revisited at the
-   fine-tuning stage, informed by literature.**
-2. Encoder capacity: ResNet-101 on 400 samples is oversized. res50 or partial freezing.
-3. `lambda_vis` 0.5 → 0.2. Now a live parameter, but visibility is already accurate and is not
+1. **`Segnet(rand_flip=True)`** — one flag, and it is the option that best matches the
+   diagnosis. `tools/train_synwoodscape.py:529` currently passes `rand_flip=False`; upstream
+   `train_nuscenes.py:272` defaults it to `True`.
+
+   What it actually does is flip → process → unflip, spanning the whole network:
+   the RGB is mirrored before the encoder and the encoder's output feature is mirrored back
+   (`segnet.py:401-406`), so projection sees original coordinates and calibration is never
+   involved; `feat_mem` is mirrored before `bev_compressor` (`segnet.py:428-431`); and the
+   decoder undoes it at the end (`segnet.py:136-139`), so the GT needs no change. Effectively a
+   mirror-equivariance regularizer over encoder, compressor and decoder body.
+
+   Two things to handle before adopting it:
+   - `feat_mem` is flipped along **Z (front-back) as well as X**. Our rig is not front-back
+     symmetric (FV vs RV) and the ROI is 8 m front / 4 m rear, so Z-flip equivariance is a
+     stronger assumption than X-flip. Can be restricted to X by overriding in `TwoHeadSegnet`.
+   - `self.rand_flip` is not gated on `self.training`, so val would flip too. Geometrically it
+     cancels, but the network is not exactly equivariant, so val metrics would pick up noise.
+     Gate it on `self.training`.
+
+2. **Full-scene left-right mirroring** — flip all four images, set `cx' = W - cx`, swap the
+   MVL/MVR slots, mirror the extrinsics laterally, flip the BEV GT. Heavier than `rand_flip`
+   because it recomputes calibration rather than cancelling it out. Try `rand_flip` first.
+   **Deferred by user decision — augmentation strategy will be revisited at the fine-tuning
+   stage, informed by literature.**
+3. Encoder capacity: ResNet-101 on 400 samples is oversized. res50 or partial freezing.
+4. `lambda_vis` 0.5 → 0.2. Now a live parameter, but visibility is already accurate and is not
    competing with occupancy, so expect little.
 
 ## Commands

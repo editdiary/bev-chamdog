@@ -154,19 +154,31 @@ the train split only. Ranges are deliberately conservative: brightness/contrast/
 same parameters, because per-camera color jitter would teach a camera-to-camera color
 difference that the real rig does not have.
 
-### Safe: BEV-space left-right flip
+### Safe: `Segnet(rand_flip=True)` — already implemented upstream, not yet enabled
 
-Simple-BEV's `Segnet.forward(x, bev_flip_indices=...)` flips the BEV feature map inside the
-decoder (`third_party/models/simple_bev/nets/segnet.py:137-139`). The repo currently never
-passes it. Because the flip happens *after* projection, calibration is not involved at all.
-Flip `seg_bev_g`, `vis_bev_g` and `valid_bev_g` to match.
+`tools/train_synwoodscape.py:529` passes `rand_flip=False`. Upstream `train_nuscenes.py:272`
+defaults it to `True`.
 
-Two caveats:
+It is a flip → process → unflip scheme spanning the whole network, not just the decoder hook:
 
-- **Left-right only.** A mirrored feature map corresponds to a mirrored world, which is
-  in-distribution only if the camera rig is symmetric about that axis. FV/MVL/MVR/RV is roughly
-  left-right symmetric but not front-back, and the ROI is asymmetric (front 8 m, rear 4 m).
-- It augments the decoder only — the encoder and the projection still see original data.
+| location | action |
+|---|---|
+| `segnet.py:401-404` | mirror the RGB before the encoder |
+| `segnet.py:405-406` | mirror the encoder's output feature back, so projection sees original coordinates |
+| `segnet.py:428-431` | mirror `feat_mem` before `bev_compressor` |
+| `segnet.py:136-139` | undo it at the end of the decoder |
+
+Calibration is never involved, because the image-space flip is cancelled before projection.
+The GT needs no change, because the output is unflipped. Functionally it is a mirror-equivariance
+regularizer over the encoder, the compressor and the decoder body.
+
+Two things to handle before adopting:
+
+- `feat_mem` is flipped along **Z (front-back) as well as X**. FV/MVL/MVR/RV is roughly
+  left-right symmetric but not front-back, and the ROI is asymmetric (front 8 m, rear 4 m), so
+  restrict to X by overriding in `TwoHeadSegnet`.
+- `self.rand_flip` is not gated on `self.training`, so validation would flip too and pick up
+  noise. Gate it.
 
 ### Avoid: image-space geometric
 
