@@ -7,7 +7,10 @@
 Label contract:
 - `seg_bev_g`: occupancy target, drivable=1/non-drivable=0
 - `vis_bev_g`: visibility target, H=0.8 gather-column visibility with ego excluded
-- `valid_bev_g`: occupancy loss mask. 현재 SynWoodScape pretrain에서는 `vis_bev_g`와 같다.
+- `valid_bev_g`: 라벨이 존재하는 셀(= loss/metric의 바깥 경계). `vis_bev_g`와는 다른 개념이다.
+  SynWoodScape는 ROI 전체가 라벨링돼 있으므로 전부 1이다. 관측 가능 영역으로 좁히는 건
+  `vis_bev_g`의 역할이고, occupancy loss는 `vis * valid`로 마스킹된다. 둘을 같은 배열로
+  주면 visibility loss가 positive 셀만 보게 되어 "전부 visible"이 전역 최적해가 된다.
 
 4-cam(FV/MVL/MVR/RV)을 그대로 쓴다. Simple-BEV는 카메라별 전용 파라미터가 없어 pretrain
 4-cam과 fine-tune 3-cam 전환이 구조적으로 막히지는 않는다.
@@ -95,5 +98,5 @@ class SynWoodScapeSimpleBEVDataset(Dataset):
             "cam0_T_camXs": self._cam0_T_camXs,
             "seg_bev_g": torch.from_numpy(occupancy.astype(np.float32)).unsqueeze(0),
             "vis_bev_g": torch.from_numpy(visible.astype(np.float32)).unsqueeze(0),
-            "valid_bev_g": torch.from_numpy(visible.astype(np.float32)).unsqueeze(0),
+            "valid_bev_g": torch.ones_like(torch.from_numpy(occupancy.astype(np.float32))).unsqueeze(0),
         }

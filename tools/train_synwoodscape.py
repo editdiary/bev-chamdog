@@ -9,6 +9,7 @@ CLI에서 받는다 — config 파일 체계 대신 실행 스크립트(`configs
 실행 예:
     python tools/train_synwoodscape.py --exp_name=baseline --num_epochs=60 --batch_size=4
 """
+import math
 import sys
 import time
 import warnings
@@ -50,6 +51,21 @@ def _print_banner(lines) -> None:
     print(_c(_Ansi.BOLD + _Ansi.CYAN, rule))
 
 
+def _format_deployment_line(metrics):
+    """예측 visibility로 마스킹한 occupancy 성능. coverage 없이 IoU만 보면 안 된다 --
+    모델이 시야를 좁게 부를수록 IoU는 쉬워지기 때문이다.
+    """
+    if metrics is None:
+        return []
+    return [
+        (
+            f"  deploy| (pred visibility 기준) iou_drivable↑ {metrics['iou_drivable']:.3f} | "
+            f"iou_obstacle↑ {metrics['iou_obstacle']:.3f} | "
+            f"visible_coverage {metrics['visible_coverage']:.3f}"
+        )
+    ]
+
+
 def format_epoch_log(
     *,
     epoch,
@@ -63,6 +79,7 @@ def format_epoch_log(
     train_v_false_high,
     train_v_false_low,
     train_occ_metrics=None,
+    val_deploy_metrics=None,
     val_loss,
     val_occ_loss,
     val_vis_loss,
@@ -98,6 +115,7 @@ def format_epoch_log(
             f"vis_false_low↓ {val_v_false_low:.3f}"
             f"{_format_occupancy_diag(val_occ_metrics)}"
         ),
+        *_format_deployment_line(val_deploy_metrics),
     ])
 
 
@@ -275,6 +293,45 @@ def compute_occupancy_diagnostics(seg_e_logits, seg_g, valid_g):
     return metrics
 
 
+def compute_deployment_occupancy_metrics(occ_logits, vis_logits, seg_g, valid_g):
+    """배포 조건 그대로의 occupancy 성능: GT visibility가 아니라 **예측** visibility로 마스킹한다.
+
+    개발용 `iou_obstacle`은 GT로 가려진 영역을 빼주므로 occupancy head 자체의 품질을 본다.
+    실제 로봇은 GT를 못 쓰고 모델이 "보인다"고 한 영역만 신뢰하게 되므로, 가려진 곳을
+    보인다고 착각하면 그 영역의 틀린 occupancy가 그대로 반영돼야 한다.
+    시야를 좁게 부를수록 점수는 쉬워지니 `visible_coverage`와 항상 같이 봐야 한다.
+    """
+    valid = valid_g.float()
+    pred_visible = (torch.sigmoid(vis_logits) > 0.5).float() * valid
+    drivable_iou, obstacle_iou, obstacle_count = compute_drivable_and_obstacle_iou(
+        occ_logits, seg_g, pred_visible
+    )
+    return {
+        "iou_drivable": float(drivable_iou.item()),
+        "iou_obstacle": float(obstacle_iou.item()),
+        "obstacle_count": obstacle_count,
+        "sample_count": int(seg_g.shape[0]),
+        "claimed_visible_cells": float(pred_visible.sum().item()),
+        "valid_cells": float(valid.sum().item()),
+    }
+
+
+def summarize_deployment_metrics(metric_dicts):
+    if not metric_dicts:
+        return {"iou_drivable": float("nan"), "iou_obstacle": float("nan"), "visible_coverage": float("nan")}
+    claimed = sum(m["claimed_visible_cells"] for m in metric_dicts)
+    valid = sum(m["valid_cells"] for m in metric_dicts)
+    return {
+        "iou_drivable": weighted_mean(
+            [m["iou_drivable"] for m in metric_dicts], [m["sample_count"] for m in metric_dicts]
+        ),
+        "iou_obstacle": weighted_mean(
+            [m["iou_obstacle"] for m in metric_dicts], [m["obstacle_count"] for m in metric_dicts]
+        ),
+        "visible_coverage": claimed / valid if valid > 0 else float("nan"),
+    }
+
+
 def summarize_occupancy_diagnostics(metric_dicts):
     if not metric_dicts:
         result = {
@@ -353,6 +410,12 @@ def write_occupancy_diagnostics(writer, split: str, metrics, epoch: int) -> None
     writer.add_scalar(f"{split}/occupancy_empty_false_alarm_samples_epoch", metrics["empty_false_alarm_samples"], epoch)
 
 
+def write_deployment_metrics(writer, split: str, metrics, epoch: int) -> None:
+    for key in ("iou_drivable", "iou_obstacle", "visible_coverage"):
+        if not math.isnan(metrics[key]):
+            writer.add_scalar(f"{split}/deploy_{key}_epoch", metrics[key], epoch)
+
+
 def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight):
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5  # nuScenes 관례: [0,1] -> [-0.5,0.5]
     pix_T_cams = batch["pix_T_cams"].to(device)
@@ -374,12 +437,24 @@ def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis
         vis_neg_weight=vis_neg_weight,
         occ_pos_weight=pos_weight_tensor,
     )
+    # occupancy는 "라벨이 있고(valid) 실제로 보이는(vis)" 셀에서만 평가한다 -- loss의 w_occ와 동일.
+    occ_eval_mask = vis_bev_g * valid_bev_g
     drivable_iou, obstacle_iou, obstacle_count = compute_drivable_and_obstacle_iou(
-        occ_bev_e, seg_bev_g, valid_bev_g
+        occ_bev_e, seg_bev_g, occ_eval_mask
     )
     vis_metrics = visibility_error_rates(torch.sigmoid(vis_bev_e), vis_bev_g, valid_bev_g)
-    occ_metrics = compute_occupancy_diagnostics(occ_bev_e, seg_bev_g, valid_bev_g)
-    return loss, loss_parts, drivable_iou, obstacle_iou, obstacle_count, vis_metrics, occ_metrics
+    occ_metrics = compute_occupancy_diagnostics(occ_bev_e, seg_bev_g, occ_eval_mask)
+    deploy_metrics = compute_deployment_occupancy_metrics(occ_bev_e, vis_bev_e, seg_bev_g, valid_bev_g)
+    return (
+        loss,
+        loss_parts,
+        drivable_iou,
+        obstacle_iou,
+        obstacle_count,
+        vis_metrics,
+        occ_metrics,
+        deploy_metrics,
+    )
 
 
 def main(
@@ -491,10 +566,10 @@ def main(
             train_losses, train_occ_losses, train_vis_losses = [], [], []
             train_d_ious, train_o_ious, train_v_false_highs, train_v_false_lows = [], [], [], []
             train_o_iou_counts = []
-            train_occ_metric_dicts = []
+            train_occ_metric_dicts, train_deploy_metric_dicts = [], []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics = run_batch(
+                loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy_metrics = run_batch(
                     model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                 )
                 loss.backward()
@@ -511,6 +586,7 @@ def main(
                 train_v_false_highs.append(vis_metrics["false_high"])
                 train_v_false_lows.append(vis_metrics["false_low"])
                 train_occ_metric_dicts.append(occ_metrics)
+                train_deploy_metric_dicts.append(deploy_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/loss_occ_step", loss_parts["loss_occ"].item(), global_step)
                 writer.add_scalar("train/loss_vis_step", loss_parts["loss_vis"].item(), global_step)
@@ -525,6 +601,7 @@ def main(
             train_v_false_high = float(np.mean(train_v_false_highs)) if train_v_false_highs else float("nan")
             train_v_false_low = float(np.mean(train_v_false_lows)) if train_v_false_lows else float("nan")
             train_occ_metrics = summarize_occupancy_diagnostics(train_occ_metric_dicts)
+            train_deploy_metrics = summarize_deployment_metrics(train_deploy_metric_dicts)
             writer.add_scalar("train/loss_epoch", train_loss, epoch)
             writer.add_scalar("train/loss_occ_epoch", train_occ_loss, epoch)
             writer.add_scalar("train/loss_vis_epoch", train_vis_loss, epoch)
@@ -533,19 +610,21 @@ def main(
             writer.add_scalar("train/visibility_false_high_epoch", train_v_false_high, epoch)
             writer.add_scalar("train/visibility_false_low_epoch", train_v_false_low, epoch)
             write_occupancy_diagnostics(writer, "train", train_occ_metrics, epoch)
+            write_deployment_metrics(writer, "train", train_deploy_metrics, epoch)
 
             val_loss = val_occ_loss = val_vis_loss = val_d_iou = val_o_iou = float("nan")
             val_v_false_high = val_v_false_low = float("nan")
             val_occ_metrics = summarize_occupancy_diagnostics([])
+            val_deploy_metrics = summarize_deployment_metrics([])
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
                 val_losses, val_occ_losses, val_vis_losses = [], [], []
                 val_d_ious, val_o_ious, val_v_false_highs, val_v_false_lows = [], [], [], []
                 val_o_iou_counts = []
-                val_occ_metric_dicts = []
+                val_occ_metric_dicts, val_deploy_metric_dicts = [], []
                 with torch.no_grad():
                     for batch in val_loader:
-                        loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics = run_batch(
+                        loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy_metrics = run_batch(
                             model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                         )
                         val_losses.append(loss.item())
@@ -557,6 +636,7 @@ def main(
                         val_v_false_highs.append(vis_metrics["false_high"])
                         val_v_false_lows.append(vis_metrics["false_low"])
                         val_occ_metric_dicts.append(occ_metrics)
+                        val_deploy_metric_dicts.append(deploy_metrics)
                 val_loss = float(np.mean(val_losses))
                 val_occ_loss = float(np.mean(val_occ_losses))
                 val_vis_loss = float(np.mean(val_vis_losses))
@@ -565,6 +645,7 @@ def main(
                 val_v_false_high = float(np.mean(val_v_false_highs))
                 val_v_false_low = float(np.mean(val_v_false_lows))
                 val_occ_metrics = summarize_occupancy_diagnostics(val_occ_metric_dicts)
+                val_deploy_metrics = summarize_deployment_metrics(val_deploy_metric_dicts)
                 writer.add_scalar("val/loss_epoch", val_loss, epoch)
                 writer.add_scalar("val/loss_occ_epoch", val_occ_loss, epoch)
                 writer.add_scalar("val/loss_vis_epoch", val_vis_loss, epoch)
@@ -573,6 +654,7 @@ def main(
                 writer.add_scalar("val/visibility_false_high_epoch", val_v_false_high, epoch)
                 writer.add_scalar("val/visibility_false_low_epoch", val_v_false_low, epoch)
                 write_occupancy_diagnostics(writer, "val", val_occ_metrics, epoch)
+                write_deployment_metrics(writer, "val", val_deploy_metrics, epoch)
 
             epoch_time = time.time() - epoch_start
             val_score = 0.5 * (val_d_iou + val_o_iou)
@@ -598,6 +680,7 @@ def main(
                 val_v_false_high=val_v_false_high,
                 val_v_false_low=val_v_false_low,
                 val_occ_metrics=val_occ_metrics,
+                val_deploy_metrics=val_deploy_metrics,
                 val_score=val_score,
                 best_val_score=best_val_score,
                 is_new_best=is_new_best,

@@ -4,9 +4,11 @@ import pytest
 import torch
 
 from tools.train_synwoodscape import (
+    compute_deployment_occupancy_metrics,
     compute_drivable_and_obstacle_iou,
     compute_occupancy_diagnostics,
     format_epoch_log,
+    summarize_deployment_metrics,
     summarize_occupancy_diagnostics,
     weighted_mean,
 )
@@ -152,6 +154,61 @@ def test_epoch_log_shows_false_alarm_instead_of_iou_for_empty_bin():
     )
 
     assert "empty:fa 0.250/n1" in text.splitlines()[0]
+
+
+# 배포 시에는 GT visibility가 없다. 모델이 "보인다"고 예측한 영역에서만 occupancy를 믿게
+# 되므로, 그 영역 기준 IoU가 실제로 쓰이는 성능이다.
+DEPLOY_GT_DRIVABLE = torch.tensor([[[[1.0, 1.0], [0.0, 0.0]]]])  # 아래 줄이 obstacle
+ALWAYS_DRIVABLE_OCC_LOGITS = torch.tensor([[[[10.0, 10.0], [10.0, 10.0]]]])  # obstacle을 통째로 놓침
+
+
+def test_deployment_metrics_evaluate_occupancy_only_where_model_claims_visibility():
+    vis_logits = torch.tensor([[[[10.0, 10.0], [-10.0, -10.0]]]])  # 윗줄만 보인다고 예측
+    valid = torch.ones_like(DEPLOY_GT_DRIVABLE)
+
+    metrics = compute_deployment_occupancy_metrics(
+        ALWAYS_DRIVABLE_OCC_LOGITS, vis_logits, DEPLOY_GT_DRIVABLE, valid
+    )
+
+    # 놓친 obstacle이 전부 "안 보인다"고 선언한 영역에 있어서 IoU에는 안 잡힌다.
+    assert metrics["iou_drivable"] == pytest.approx(1.0, abs=1e-3)
+    assert metrics["obstacle_count"] == 0
+    # 그래서 coverage를 같이 봐야 한다 -- 시야를 좁게 부르면 점수는 쉽게 올라간다.
+    assert metrics["claimed_visible_cells"] == pytest.approx(2.0)
+    assert metrics["valid_cells"] == pytest.approx(4.0)
+
+
+def test_deployment_metrics_penalize_occupancy_error_inside_claimed_visibility():
+    vis_logits = torch.full_like(DEPLOY_GT_DRIVABLE, 10.0)  # 전부 보인다고 예측
+    valid = torch.ones_like(DEPLOY_GT_DRIVABLE)
+
+    metrics = compute_deployment_occupancy_metrics(
+        ALWAYS_DRIVABLE_OCC_LOGITS, vis_logits, DEPLOY_GT_DRIVABLE, valid
+    )
+
+    assert metrics["iou_drivable"] == pytest.approx(0.5, abs=1e-3)
+    assert metrics["iou_obstacle"] == pytest.approx(0.0, abs=1e-3)
+    assert metrics["obstacle_count"] == 1
+
+
+def test_summarize_deployment_metrics_reports_visible_coverage():
+    valid = torch.ones_like(DEPLOY_GT_DRIVABLE)
+    narrow = compute_deployment_occupancy_metrics(
+        ALWAYS_DRIVABLE_OCC_LOGITS,
+        torch.tensor([[[[10.0, 10.0], [-10.0, -10.0]]]]),
+        DEPLOY_GT_DRIVABLE,
+        valid,
+    )
+    wide = compute_deployment_occupancy_metrics(
+        ALWAYS_DRIVABLE_OCC_LOGITS, torch.full_like(DEPLOY_GT_DRIVABLE, 10.0), DEPLOY_GT_DRIVABLE, valid
+    )
+
+    summary = summarize_deployment_metrics([narrow, wide])
+
+    assert summary["visible_coverage"] == pytest.approx(6 / 8)
+    assert summary["iou_drivable"] == pytest.approx(0.75, abs=1e-3)
+    # obstacle IoU는 obstacle이 실제로 평가된 샘플만으로 평균낸다.
+    assert summary["iou_obstacle"] == pytest.approx(0.0, abs=1e-3)
 
 
 def test_weighted_mean_skips_batches_without_valid_samples():

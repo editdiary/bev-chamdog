@@ -198,6 +198,32 @@ There is no `occupancy_obstacle_iou_empty_epoch` scalar — that bin reports fal
 Bins with no samples are shown as `-/n0` in console and their IoU scalar is skipped to avoid
 TensorBoard NaN warnings.
 
+## Mask Contract: `valid` vs `vis`
+
+These are different concepts and must not be the same array:
+
+| mask | meaning | role |
+|---|---|---|
+| `valid_bev_g` | the cell has a label at all (ROI / annotatable range) | outer bound of every loss and metric |
+| `vis_bev_g` | the cell is actually observable (H=0.8 visibility) | restricts *where occupancy is judged* |
+
+- occupancy loss and occupancy metrics use `vis * valid`.
+- visibility loss and visibility metrics use `valid` only.
+
+SynWoodScape labels the whole ROI, so `valid_bev_g` is all ones.
+
+**Why this matters.** Runs before 2026-08-14 had `valid_bev_g = vis_bev_g`. That made the
+visibility loss weight `asymmetric_weight * valid` zero on every invisible cell, so the
+visibility head only ever saw positives and "predict visible everywhere" was the exact global
+optimum (`loss_vis = 0.0`). Two consequences, both verified on real data:
+
+- `vis_neg_weight` had **no effect at all** — the loss was bit-identical for 0.0, 3.0 and 100.0.
+- `vis_false_high`'s denominator `(~gt_visible) & valid` was the empty set, so it read `0.000`
+  no matter what the model predicted.
+
+So the near-zero visibility errors in the first two long runs mean nothing. Occupancy numbers
+from those runs are still valid, because occupancy masking was correct.
+
 ## Visibility Metrics
 
 Visibility is a separate head and is trained with asymmetric BCE:
@@ -211,7 +237,27 @@ Metrics:
 - `vis_false_high`: invisible GT predicted visible. This is the risky visibility error.
 - `vis_false_low`: visible GT predicted invisible. This is conservative/information loss.
 
-The first long run showed `vis_false_high` and `vis_false_low` quickly near zero. That means visibility may be too easy on the current binary labels. Future experiments can lower `lambda_vis` from `0.5` to `0.2` to let occupancy dominate more.
+Roughly 5% of ROI cells are invisible on average, and about 90% of those are obstacle cells in
+the occupancy GT — the invisible region is essentially obstacles plus the shadow behind them.
+
+## Deployment Metrics
+
+`iou_obstacle` masks by **GT** visibility, which measures the occupancy head in isolation. At
+deployment there is no GT: the robot can only trust the region the model itself claims to see.
+The `deploy` console line and `*/deploy_*_epoch` scalars evaluate occupancy under exactly that
+condition — masked by **predicted** visibility.
+
+```text
+  deploy| (pred visibility 기준) iou_drivable↑ 0.861 | iou_obstacle↑ 0.414 | visible_coverage 0.944
+```
+
+- `deploy_iou_drivable` / `deploy_iou_obstacle`: occupancy IoU inside predicted-visible cells,
+  scored against full GT occupancy. Hallucinated visibility is punished here, because the wrong
+  occupancy behind an occluder is no longer masked away.
+- `deploy_visible_coverage`: fraction of valid cells the model claims to see.
+
+**Always read the two together.** A model that declares a tiny visible region gets an easy
+`deploy_iou_*`. Rising IoU with falling coverage is not an improvement.
 
 ## TensorBoard
 
