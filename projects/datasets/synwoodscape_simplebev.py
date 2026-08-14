@@ -23,6 +23,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 from projects.bev_gt.grid import SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC
+from projects.datasets.photometric import apply_photometric, sample_photometric_params
 from projects.datasets.simplebev_calib import ego_T_cam_from_camera, pinhole_pix_T_cam_from_camera
 from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
 from projects.geometry.fisheye import load_camera
@@ -44,12 +45,14 @@ class SynWoodScapeSimpleBEVDataset(Dataset):
         occupancy_gt_root=DEFAULT_OCCUPANCY_GT_ROOT,
         camera_names=CAMERA_NAMES,
         resize_wh=(RESIZE_WIDTH, RESIZE_HEIGHT),
+        augment=False,
     ):
         self.sample_ids = list(sample_ids)
         self.dataset_root = Path(dataset_root)
         self.occupancy_gt_root = Path(occupancy_gt_root)
         self.camera_names = tuple(camera_names)
         self.resize_wh = resize_wh
+        self.augment = augment  # train split에서만 True -- val은 항상 원본이어야 비교가 된다
 
         cameras = {
             name: load_camera(self.dataset_root / "calibration_data" / f"{name}.json")
@@ -91,9 +94,14 @@ class SynWoodScapeSimpleBEVDataset(Dataset):
         occupancy = np.load(self.occupancy_gt_root / f"{sample_id}_occupancy.npy")
         visible = np.load(self.occupancy_gt_root / f"{sample_id}_visible.npy")
 
+        rgb_tensor = torch.from_numpy(rgb_camXs).float()
+        if self.augment:
+            # 광도만 바꾸므로 BEV GT는 손대지 않는다. 4개 카메라는 같은 파라미터를 공유한다.
+            rgb_tensor = apply_photometric(rgb_tensor, sample_photometric_params())
+
         return {
             "sample_id": sample_id,
-            "rgb_camXs": torch.from_numpy(rgb_camXs).float(),
+            "rgb_camXs": rgb_tensor,
             "pix_T_cams": self._pix_T_cams,
             "cam0_T_camXs": self._cam0_T_camXs,
             "seg_bev_g": torch.from_numpy(occupancy.astype(np.float32)).unsqueeze(0),

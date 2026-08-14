@@ -69,3 +69,36 @@ def test_valid_mask_covers_whole_roi_and_is_not_the_visibility_mask(tmp_path):
     assert item["valid_bev_g"].min() == 1
     assert item["valid_bev_g"].max() == 1
     assert not np.array_equal(item["valid_bev_g"].numpy(), item["vis_bev_g"].numpy())
+
+
+def test_photometric_augmentation_never_touches_the_bev_labels(tmp_path):
+    """광도 augmentation은 기하를 안 바꾸므로 BEV GT는 그대로여야 한다."""
+    dataset_root = tmp_path / "synwoodscape"
+    (dataset_root / "rgb_images").mkdir(parents=True)
+    (dataset_root / "calibration_data").mkdir(parents=True)
+    occupancy_root = tmp_path / "labels"
+    occupancy_root.mkdir()
+    shape = (
+        SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC.n_rows,
+        SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC.n_cols,
+    )
+    occupancy = np.zeros(shape, dtype=np.uint8)
+    occupancy[20:40] = 1
+    visible = np.ones(shape, dtype=bool)
+    visible[:10] = False
+    np.save(occupancy_root / "00000_occupancy.npy", occupancy)
+    np.save(occupancy_root / "00000_visible.npy", visible)
+
+    def build(augment):
+        return SynWoodScapeSimpleBEVDataset(
+            ["00000"],
+            dataset_root=dataset_root,
+            occupancy_gt_root=occupancy_root,
+            camera_names=(),
+            augment=augment,
+        )[0]
+
+    plain, augmented = build(False), build(True)
+
+    for key in ("seg_bev_g", "vis_bev_g", "valid_bev_g"):
+        assert np.array_equal(plain[key].numpy(), augmented[key].numpy())

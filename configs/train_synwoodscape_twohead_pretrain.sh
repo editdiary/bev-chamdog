@@ -13,7 +13,7 @@ cd "$(dirname "$0")/.."
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
 
 python tools/train_synwoodscape.py \
-    --exp_name=twohead_pretrain_vis_fixed \
+    --exp_name=twohead_pretrain_photo_aug \
     --num_epochs=60 \
     --batch_size=16 \
     --lr=3e-4 \
@@ -23,6 +23,7 @@ python tools/train_synwoodscape.py \
     --split_seed=0 \
     --encoder_type=res101 \
     --use_fisheye=True \
+    --augment=True \
     --lambda_vis=0.5 \
     --vis_neg_weight=3.0 \
     --val_freq_epochs=1 \

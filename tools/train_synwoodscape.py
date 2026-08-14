@@ -468,6 +468,7 @@ def main(
     split_seed=0,
     encoder_type="res101",
     use_fisheye=True,
+    augment=False,
     pos_weight=None,
     lambda_vis=0.5,
     vis_neg_weight=3.0,
@@ -499,11 +500,12 @@ def main(
         f" train={len(train_ids)} | val={len(val_ids)}",
         f" pos_weight (neg/pos on train) = {pos_weight:.3f}",
         f" lambda_vis={lambda_vis:.3f} | vis_neg_weight={vis_neg_weight:.3f}",
+        f" photometric augment (train only) = {bool(augment)}",
         f" trivial 'always predict drivable' baseline IoU on val = {trivial_iou:.3f}  <- compare against this",
     ])
 
-    train_ds = SynWoodScapeSimpleBEVDataset(train_ids)
-    val_ds = SynWoodScapeSimpleBEVDataset(val_ids)
+    train_ds = SynWoodScapeSimpleBEVDataset(train_ids, augment=augment)
+    val_ds = SynWoodScapeSimpleBEVDataset(val_ids)  # val은 항상 원본 -- 증강하면 비교가 흔들린다
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True
     )

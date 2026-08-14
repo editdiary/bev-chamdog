@@ -105,10 +105,38 @@ Rationale:
 
 ## Step 4: Augmentation
 
-Status: proposed, and now the highest-value remaining step.
+Status: photometric **implemented and measured**. BEV flip still proposed.
 
-There is currently **no augmentation of any kind**. The dataset only resizes to 512x384 bilinear
-and normalizes. With 400 training samples that leaves train obstacle IoU 0.958 against val 0.854.
+Before this step there was no augmentation of any kind — the dataset only resized to 512x384
+bilinear and normalized.
+
+### Result of photometric augmentation
+
+`twohead_pretrain_photo_aug_..._260814_150556` vs `twohead_pretrain_vis_fixed_..._260814_140932`:
+
+| | vis_fixed | photo_aug | delta |
+|---|---:|---:|---:|
+| val obstacle IoU | 0.8544 | 0.8607 | +0.0063 |
+| train obstacle IoU | 0.9575 | 0.9556 | -0.0019 |
+| train/val gap | 0.1031 | 0.0949 | -0.0082 |
+| `tiny` bin | 0.5661 | 0.5935 | +0.0274 |
+| `small` bin | 0.6371 | 0.6458 | +0.0087 |
+| `medium` bin | 0.8361 | 0.8448 | +0.0087 |
+| `missed_obstacle` | 0.0402 | 0.0380 | -0.0022 |
+| `false_obstacle` | 0.0058 | 0.0056 | -0.0002 |
+| `deploy_iou_obstacle` | 0.8540 | 0.8510 | -0.0030 |
+
+Reading:
+
+- The primary metric gain is about 3x the noise floor, so it is real, and it is concentrated in
+  the `tiny` bin — the weakest bin improved the most, which is what was wanted.
+- `missed_obstacle` improved without `false_obstacle` worsening, so the model did not simply
+  become more conservative.
+- **It did not solve overfitting.** The gap moved only 0.103 → 0.095. Whatever drives the
+  remaining gap is not appearance variation, most likely scene diversity at 400 samples.
+- `deploy_iou_obstacle` moved slightly the other way at identical coverage. The magnitude is
+  close to noise, and the deploy metric has only one prior run so its own noise floor is
+  unmeasured. Worth confirming with a repeat seed before drawing any conclusion from it.
 
 ### Safe: photometric
 
@@ -119,6 +147,12 @@ and normalizes. With 400 training samples that leaves train obstacle IoU 0.958 a
 Geometry is untouched, so there is no calibration risk. This is also the augmentation that
 targets the synthetic → real domain shift, which is what actually has to transfer to the
 greenhouse dataset.
+
+Implemented in `projects/datasets/photometric.py`, enabled with `--augment=True` and applied to
+the train split only. Ranges are deliberately conservative: brightness/contrast/saturation
+±20%, gamma 0.8–1.25, gaussian noise sigma up to 0.02. All four cameras of a sample share the
+same parameters, because per-camera color jitter would teach a camera-to-camera color
+difference that the real rig does not have.
 
 ### Safe: BEV-space left-right flip
 

@@ -102,6 +102,7 @@ visibility is punished instead of masked away. Always read it together with
 | `twohead_pretrain_diag_baseline_..._260814_130110` | old | 52 | 0.869 | 0.749 |
 | `twohead_pretrain_fixed_iou_..._260814_134525` | fix 1 only | 53 | 0.921 | 0.854 |
 | `twohead_pretrain_vis_fixed_..._260814_140932` | fix 1+2+3 | 47 | 0.921 | 0.854 |
+| `twohead_pretrain_photo_aug_..._260814_150556` | fix 1+2+3, `--augment=True` | 46 | 0.925 | 0.861 |
 
 The first two are on the old convention and must not be compared numerically against the last
 two. The jump from 0.749 to 0.854 is the measurement fix, not a model improvement.
@@ -110,22 +111,31 @@ two. The jump from 0.749 to 0.854 is the measurement fix, not a model improvemen
 which had identical configuration. Any experiment must move the metric by more than that to
 count as signal.
 
-## Current Numbers (`vis_fixed`, best epoch 47)
+## Current Numbers (`photo_aug`, best epoch 46 — current best run)
 
 ```text
-val_iou_drivable                 0.9884
-val_iou_obstacle                 0.8544
-train_iou_obstacle               0.9575
-missed_obstacle                  0.0402
-false_obstacle                   0.0058
+val_iou_drivable                 0.9889
+val_iou_obstacle                 0.8607
+train_iou_obstacle               0.9556
+missed_obstacle                  0.0380
+false_obstacle                   0.0056
 empty_false_alarm                0.0001
-vis_false_high                   0.0245
-vis_false_low                    0.0028
-deploy_iou_drivable              0.9881
-deploy_iou_obstacle              0.8540
-deploy_visible_coverage          0.9370
-obstacle IoU by bin: tiny 0.566/n7  small 0.637/n10  medium 0.836/n20  large 0.948/n49
+vis_false_high                   0.0238
+vis_false_low                    0.0029
+deploy_iou_drivable              0.9885
+deploy_iou_obstacle              0.8510
+deploy_visible_coverage          0.9369
+obstacle IoU by bin: tiny 0.594/n7  small 0.646/n10  medium 0.845/n20  large 0.949/n49
 ```
+
+Best checkpoint:
+
+```text
+runs/synwoodscape_twohead/ckpt/twohead_pretrain_photo_aug_res101_bs16_lr3e-04_260814_150556/model_best-000000046.pth
+```
+
+`vis_fixed` (best epoch 47) is the no-augmentation control for this run: val obstacle IoU
+0.8544, train 0.9575, `tiny` 0.5661, `missed_obstacle` 0.0402, `deploy_iou_obstacle` 0.8540.
 
 ### A/B result: reviving the visibility head costs occupancy nothing
 
@@ -136,26 +146,51 @@ mild regularizer. There is no reason to drop the two-head structure.
 
 ### Deployment performance matches development performance
 
-`deploy_iou_obstacle` 0.8540 vs GT-masked 0.8544, at coverage 0.9370 against a true visible
-fraction of about 0.946. Predicted visibility is accurate enough that masking by the model's own
-estimate loses nothing. This is the direct answer to "does this design serve the actual goal" —
-and it does.
+On `vis_fixed`, `deploy_iou_obstacle` 0.8540 vs GT-masked 0.8544, at coverage 0.9370 against a
+true visible fraction of about 0.946. Predicted visibility is accurate enough that masking by
+the model's own estimate loses nothing. This is the direct answer to "does this design serve the
+actual goal" — and it does.
+
+On `photo_aug` the two diverge slightly: GT-masked 0.8607 but deploy 0.8510 at the same
+coverage. Since coverage and `vis_false_high` are unchanged, the difference sits in cells the
+model wrongly believes it can see. The magnitude is small and the deploy metric's own noise
+floor is not yet measured, so do not read anything into it before a repeat seed.
+
+### A/B result: photometric augmentation helps the weakest bin
+
+`vis_fixed` vs `photo_aug`, identical apart from `--augment=True`: val obstacle IoU 0.8544 →
+0.8607, about 3x the noise floor, and the gain is concentrated in `tiny` (0.5661 → 0.5935).
+`missed_obstacle` improved without `false_obstacle` worsening, so the model did not just become
+more conservative. But the train/val gap moved only 0.103 → 0.095 — appearance variation is not
+what the model was memorizing, so more of the same augmentation is unlikely to close it.
 
 ## Remaining Weaknesses
 
-1. **Small obstacles.** `tiny 0.566` / `small 0.637` vs `large 0.948`.
-2. **Missed obstacles dominate.** `missed_obstacle` 0.040 vs `false_obstacle` 0.006, roughly 7x.
+Numbers below are from `photo_aug`, the current best run.
+
+1. **Small obstacles.** `tiny 0.594` / `small 0.646` vs `large 0.949`. Improved by augmentation
+   but still the dominant weakness.
+2. **Missed obstacles dominate.** `missed_obstacle` 0.038 vs `false_obstacle` 0.006, roughly 6x.
    This is the safety-critical direction.
-3. **Overfitting.** train 0.958 / val 0.854 with 400 training samples and **zero augmentation**.
+3. **Overfitting persists.** train 0.956 / val 0.861. Photometric augmentation moved the gap
+   only 0.103 → 0.095, so the remaining gap is not driven by appearance variation — most likely
+   scene diversity at 400 training samples.
 
-## Augmentation Status: There Is None
+## Augmentation Status
 
-`SynWoodScapeSimpleBEVDataset.__getitem__` only resizes to 512x384 bilinear and normalizes to
-`[-0.5, 0.5]`. No flip, crop, rotation, color jitter, or noise. `shuffle=True` only affects
-sample order.
+Photometric augmentation is implemented in `projects/datasets/photometric.py`, enabled with
+`--augment=True`, and applied to the **train split only**. Before this, the pipeline had no
+augmentation at all.
+
+Simple-BEV itself has no photometric augmentation to borrow. Its `data_aug_conf` only does
+random resize + crop — with the intrinsics updated to match (`nuscenesdataset.py:773-784`,
+a good illustration of why image-space geometric augmentation needs calibration bookkeeping) —
+plus camera shuffling and camera dropout. `albumentations` and `kornia` are not installed;
+`torchvision` already is, via the ResNet encoder, so no new dependency was added.
 
 `TwoHeadSegnet` inherits Simple-BEV's `Segnet.forward(x, bev_flip_indices=None)` but the repo
-never passes flip indices.
+never passes flip indices — and neither does any upstream Simple-BEV training script, so that
+hook is untested in the reference implementation too.
 
 ### Which augmentations are safe here
 
@@ -199,14 +234,21 @@ augmentation ahead of loss shaping.
 
 Ordered by expected value for the real downstream task:
 
-1. **Photometric augmentation.** Zero calibration risk, directly targets the 0.10 train/val gap
-   and the synthetic → real domain shift. See `docs/training_improvement_plan.md` Step 4.
-2. **BEV left-right flip** using the existing `bev_flip_indices` hook, flipping
-   `seg_bev_g`/`vis_bev_g`/`valid_bev_g` to match.
-3. **Class-symmetric Dice** on occupancy, judged by `missed_obstacle` and the `tiny`/`small`
-   bins rather than by global IoU.
+1. **Class-symmetric Dice** on occupancy, judged by `missed_obstacle` and the `tiny`/`small`
+   bins rather than by global IoU. Now the top remaining lever, since small obstacles are still
+   the dominant weakness.
+2. **Repeat the `photo_aug` config with a different seed.** Two things need confirming: that the
+   +0.006 obstacle IoU gain reproduces, and whether the -0.003 `deploy_iou_obstacle` move is
+   noise. The deploy metric has only one prior run, so its noise floor is unmeasured.
+3. **BEV left-right flip** using the existing `bev_flip_indices` hook, flipping
+   `seg_bev_g`/`vis_bev_g`/`valid_bev_g` to match. Lower confidence than it looked: upstream
+   never exercises the hook, and it augments the decoder only.
 4. `lambda_vis` 0.5 → 0.2. Only now a live parameter, but visibility is already accurate and is
    not competing with occupancy, so expect little.
+
+Note on the overfitting gap: photometric augmentation barely moved it, which is evidence that
+appearance is not what the model is memorizing. Stronger augmentation of the same kind is
+unlikely to help much; more scenes would.
 
 ## Commands
 
@@ -219,6 +261,9 @@ PYTHONUNBUFFERED=1 CUDA_VISIBLE_DEVICES=1 conda run --no-capture-output -n bev-c
 
 `conda run` buffers stdout unless `--no-capture-output` is passed, so without it the log file
 stays empty until the run ends. A 60-epoch run takes about 24 minutes on GPU 1.
+
+The script currently sets `--exp_name=twohead_pretrain_photo_aug` and `--augment=True`. Set
+`--augment=False` to reproduce the no-augmentation control.
 
 Visualization:
 
