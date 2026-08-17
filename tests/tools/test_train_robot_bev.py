@@ -3,7 +3,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tools.train_robot_bev import compute_label_statistics
+from tools.train_robot_bev import (
+    _baseline_iou_free,
+    _write_free_space_scalars,
+    compute_label_statistics,
+)
 
 DATASET_ROOT = Path("dataset/sj_datasets")
 SEQUENCE_ROOT = DATASET_ROOT / "raws1"
@@ -71,6 +75,56 @@ def test_label_statistics_handles_a_fully_masked_sample(tmp_path):
     )
     assert stats["supervised_fraction"] == 0.0
     assert np.isfinite(stats["pos_weight"])
+
+
+def test_constant_map_baseline_scores_masked_validation_free_space_on_cpu(tmp_path):
+    """NaN baseline은 epoch 로그의 모델-vs-layout 비교를 무력화한다."""
+    _write_sample(tmp_path, "sample_000000", np.array([[1, 0], [0, 0]], bool), np.ones((2, 2), bool))
+    _write_sample(tmp_path, "sample_000001", np.ones((2, 2), bool), np.ones((2, 2), bool))
+
+    score = _baseline_iou_free(
+        [(tmp_path, "sample_000000"), (tmp_path, "sample_000001")],
+        permanent_blind=np.zeros((2, 2), bool),
+        invalid=np.zeros((2, 2), bool),
+        constant_map=np.array([[1, 0], [0, 0]], bool),
+        device="cpu",
+    )
+
+    assert score == pytest.approx(0.625)
+
+
+class _ScalarWriter:
+    def __init__(self):
+        self.scalars = []
+
+    def add_scalar(self, tag, value, step):
+        self.scalars.append((tag, value, step))
+
+
+def test_free_space_scalars_include_train_free_and_validation_range_and_rings():
+    """free/range/ring metrics가 writer 경로에서 빠지면 TensorBoard에 관측값이 없다."""
+    writer = _ScalarWriter()
+    free = {"iou_free": 0.8, "fatal_rate": 0.1, "free_miss_rate": 0.2}
+    range_metrics = {"abs_p50": 0.3, "abs_p90": 0.6, "over_mean": 0.2, "under_mean": 0.1}
+    rings = {"0-1m": {"iou_free": 0.9}}
+
+    _write_free_space_scalars(writer, "train", free, epoch=4)
+    _write_free_space_scalars(writer, "val", free, epoch=4,
+                              range_metrics=range_metrics, ring_metrics=rings)
+
+    assert writer.scalars == [
+        ("train/iou_free_epoch", 0.8, 4),
+        ("train/fatal_rate_epoch", 0.1, 4),
+        ("train/free_miss_rate_epoch", 0.2, 4),
+        ("val/iou_free_epoch", 0.8, 4),
+        ("val/fatal_rate_epoch", 0.1, 4),
+        ("val/free_miss_rate_epoch", 0.2, 4),
+        ("val/range_abs_p50_epoch", 0.3, 4),
+        ("val/range_abs_p90_epoch", 0.6, 4),
+        ("val/range_over_epoch", 0.2, 4),
+        ("val/range_under_epoch", 0.1, 4),
+        ("val/ring_0-1m_iou_free_epoch", 0.9, 4),
+    ]
 
 
 @requires_dataset

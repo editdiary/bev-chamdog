@@ -31,13 +31,25 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 import saverloader  # noqa: E402  (simple_bev submodule; see docs/project_structure.md)
+from projects.common.baselines import as_batch, constant_free_map  # noqa: E402
+from projects.common.free_space_metrics import (  # noqa: E402
+    build_ring_masks,
+    iou_free,
+    metrics_per_ring,
+    range_error,
+    summarize_range_error,
+)
+from projects.common.polar import build_ray_index  # noqa: E402
 from projects.common.two_head_metrics import (  # noqa: E402
     _Ansi,
     _c,
     _print_banner,
+    append_free_metrics,
     format_epoch_log,
     run_batch,
+    select_checkpoint_score,
     summarize_deployment_metrics,
+    summarize_free_metrics,
     summarize_occupancy_diagnostics,
     weighted_mean,
     write_deployment_metrics,
@@ -103,13 +115,58 @@ def load_initial_weights(model, checkpoint_path, device) -> None:
     model.to(device)
 
 
-def _evaluate(model, loader, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight):
+def _baseline_iou_free(val_samples, permanent_blind, invalid, constant_map, device):
+    """학습 split의 셀별 다수결 free map을 validation 라벨에 한 번만 채점한다."""
+    if constant_map is None or not val_samples:
+        return float("nan")
+    values, counts = [], []
+    for sequence_root, sample_id in val_samples:
+        occ, vis, valid = load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
+        free_gt = torch.from_numpy(occ & vis & valid).view(1, 1, *occ.shape).to(device)
+        valid_t = torch.from_numpy(valid).view(1, 1, *valid.shape).to(device)
+        value, count = iou_free(as_batch(constant_map, 1, device), free_gt, valid_t)
+        values.append(value)
+        counts.append(count)
+    return weighted_mean(values, counts)
+
+
+def _write_free_space_scalars(writer, split, free_metrics, epoch, *,
+                              range_metrics=None, ring_metrics=None):
+    """free-space epoch scalar를 기록한다; range/ring은 validation에서만 넘긴다."""
+    for key, tb in (("iou_free", "iou_free_epoch"),
+                    ("fatal_rate", "fatal_rate_epoch"),
+                    ("free_miss_rate", "free_miss_rate_epoch")):
+        writer.add_scalar(f"{split}/{tb}", free_metrics[key], epoch)
+    if range_metrics is not None:
+        for key, tb in (("abs_p50", "range_abs_p50_epoch"),
+                        ("abs_p90", "range_abs_p90_epoch"),
+                        ("over_mean", "range_over_epoch"),
+                        ("under_mean", "range_under_epoch")):
+            writer.add_scalar(f"{split}/{tb}", range_metrics[key], epoch)
+    for name, values in (ring_metrics or {}).items():
+        writer.add_scalar(f"{split}/ring_{name}_iou_free_epoch", values["iou_free"], epoch)
+
+
+def _summarize_ring_metrics(ring_dicts, ring_masks):
+    return {
+        name: {
+            "iou_free": weighted_mean([d[name]["iou_free"] for d in ring_dicts],
+                                      [d[name]["iou_free_count"] for d in ring_dicts]),
+            "fatal_rate": weighted_mean([d[name]["fatal_rate"] for d in ring_dicts],
+                                         [d[name]["fatal_denom"] for d in ring_dicts]),
+        }
+        for name, _ in ring_masks
+    }
+
+
+def _evaluate(model, loader, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight,
+              rays, ring_masks):
     losses, occ_losses, vis_losses = [], [], []
     d_ious, o_ious, o_counts, false_highs, false_lows = [], [], [], [], []
-    occ_dicts, deploy_dicts = [], []
+    occ_dicts, deploy_dicts, free_dicts, range_dicts, ring_dicts = [], [], [], [], []
     with torch.no_grad():
         for batch in loader:
-            loss, parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy = run_batch(
+            loss, parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy, free_metrics = run_batch(
                 model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
             )
             losses.append(loss.item())
@@ -122,6 +179,14 @@ def _evaluate(model, loader, vox_util, pos_weight_tensor, device, lambda_vis, vi
             false_lows.append(vis_metrics["false_low"])
             occ_dicts.append(occ_metrics)
             deploy_dicts.append(deploy)
+            valid = batch["valid_bev_g"].to(device)
+            range_dicts.append(range_error(
+                free_metrics["pred_free"], free_metrics["gt_free"], valid, rays
+            ))
+            ring_dicts.append(metrics_per_ring(
+                free_metrics["pred_free"], free_metrics["gt_free"], valid, ring_masks
+            ))
+            append_free_metrics(free_dicts, free_metrics)
     mean = lambda xs: float(np.mean(xs)) if xs else float("nan")  # noqa: E731
     return {
         "loss": mean(losses), "loss_occ": mean(occ_losses), "loss_vis": mean(vis_losses),
@@ -129,6 +194,9 @@ def _evaluate(model, loader, vox_util, pos_weight_tensor, device, lambda_vis, vi
         "false_high": mean(false_highs), "false_low": mean(false_lows),
         "occ": summarize_occupancy_diagnostics(occ_dicts),
         "deploy": summarize_deployment_metrics(deploy_dicts),
+        "free": summarize_free_metrics(free_dicts),
+        "range": summarize_range_error(range_dicts),
+        "rings": _summarize_ring_metrics(ring_dicts, ring_masks),
     }
 
 
@@ -155,6 +223,7 @@ def main(
     log_dir="runs/robot_bev/logs",
     ckpt_dir="runs/robot_bev/ckpt",
     device="cuda",
+    n_theta=None,
 ):
     torch.manual_seed(0)
     np.random.seed(0)
@@ -182,6 +251,16 @@ def main(
     permanent_blind, invalid = build_bev_masks(common_root, GRID_SPEC, FINETUNE_CAMERA_NAMES)
     stats = compute_label_statistics(train_samples, permanent_blind, invalid)
     val_stats = compute_label_statistics(val_samples, permanent_blind, invalid)
+    train_free_masks = []
+    for sequence_root, sample_id in train_samples:
+        occ, vis, valid = load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
+        train_free_masks.append(occ & vis & valid)
+    constant_map = constant_free_map(train_free_masks) if train_free_masks else None
+    baseline_iou_free = _baseline_iou_free(
+        val_samples, permanent_blind, invalid, constant_map, device
+    )
+    rays = build_ray_index(GRID_SPEC) if n_theta is None else build_ray_index(GRID_SPEC, n_theta=n_theta)
+    ring_masks = build_ring_masks(GRID_SPEC)
     if pos_weight is None:
         pos_weight = stats["pos_weight"]
 
@@ -207,6 +286,7 @@ def main(
         f" pos_weight (neg/pos, masked) = {pos_weight:.3f}",
         f" photometric augment (train only) = {bool(augment)}",
         f" trivial 'always drivable' baseline IoU = {stats['trivial_iou']:.3f}  <- compare against this",
+        f" constant-map baseline iou_free = {baseline_iou_free:.3f}  <- compare against this",
     ])
     if not val_samples:
         print(_c(_Ansi.YELLOW + _Ansi.BOLD,
@@ -265,10 +345,10 @@ def main(
             epoch_start = time.time()
             losses, occ_losses, vis_losses = [], [], []
             d_ious, o_ious, o_counts, false_highs, false_lows = [], [], [], [], []
-            occ_dicts, deploy_dicts = [], []
+            occ_dicts, deploy_dicts, free_dicts = [], [], []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy = run_batch(
+                loss, parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy, free_metrics = run_batch(
                     model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                 )
                 loss.backward()
@@ -286,6 +366,7 @@ def main(
                 false_lows.append(vis_metrics["false_low"])
                 occ_dicts.append(occ_metrics)
                 deploy_dicts.append(deploy)
+                append_free_metrics(free_dicts, free_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
                 global_step += 1
@@ -297,6 +378,7 @@ def main(
                 "false_high": mean(false_highs), "false_low": mean(false_lows),
                 "occ": summarize_occupancy_diagnostics(occ_dicts),
                 "deploy": summarize_deployment_metrics(deploy_dicts),
+                "free": summarize_free_metrics(free_dicts),
             }
             for key, tb in (("loss", "loss_epoch"), ("loss_occ", "loss_occ_epoch"),
                             ("loss_vis", "loss_vis_epoch"), ("d_iou", "iou_drivable_epoch"),
@@ -306,6 +388,7 @@ def main(
                 writer.add_scalar(f"train/{tb}", train[key], epoch)
             write_occupancy_diagnostics(writer, "train", train["occ"], epoch)
             write_deployment_metrics(writer, "train", train["deploy"], epoch)
+            _write_free_space_scalars(writer, "train", train["free"], epoch)
 
             val = {
                 "loss": float("nan"), "loss_occ": float("nan"), "loss_vis": float("nan"),
@@ -313,11 +396,14 @@ def main(
                 "false_high": float("nan"), "false_low": float("nan"),
                 "occ": summarize_occupancy_diagnostics([]),
                 "deploy": summarize_deployment_metrics([]),
+                "free": summarize_free_metrics([]),
+                "range": summarize_range_error([]),
+                "rings": {},
             }
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
                 val = _evaluate(model, val_loader, vox_util, pos_weight_tensor, device,
-                                lambda_vis, vis_neg_weight)
+                                lambda_vis, vis_neg_weight, rays, ring_masks)
                 for key, tb in (("loss", "loss_epoch"), ("loss_occ", "loss_occ_epoch"),
                                 ("loss_vis", "loss_vis_epoch"), ("d_iou", "iou_drivable_epoch"),
                                 ("o_iou", "iou_obstacle_epoch"),
@@ -326,8 +412,14 @@ def main(
                     writer.add_scalar(f"val/{tb}", val[key], epoch)
                 write_occupancy_diagnostics(writer, "val", val["occ"], epoch)
                 write_deployment_metrics(writer, "val", val["deploy"], epoch)
+                _write_free_space_scalars(
+                    writer, "val", val["free"], epoch,
+                    range_metrics=val["range"], ring_metrics=val["rings"],
+                )
 
-            val_score = 0.5 * (val["d_iou"] + val["o_iou"])
+            val_score = select_checkpoint_score(
+                d_iou=val["d_iou"], o_iou=val["o_iou"], free_metrics=val["free"]
+            )
             is_new_best = val_score > best_val_score  # NaN > x는 항상 False
             print(format_epoch_log(
                 epoch=epoch, num_epochs=num_epochs, epoch_time=time.time() - epoch_start,
@@ -339,6 +431,8 @@ def main(
                 val_d_iou=val["d_iou"], val_o_iou=val["o_iou"],
                 val_v_false_high=val["false_high"], val_v_false_low=val["false_low"],
                 val_occ_metrics=val["occ"], val_deploy_metrics=val["deploy"],
+                train_free_metrics=train["free"], val_free_metrics=val["free"],
+                val_range_metrics=val["range"], baseline_iou_free=baseline_iou_free,
                 val_score=val_score, best_val_score=best_val_score, is_new_best=is_new_best,
             ))
 

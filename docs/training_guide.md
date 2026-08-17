@@ -101,42 +101,36 @@ Interpretation:
 
 ## Checkpoint Selection
 
-Current best score:
+Checkpoint score:
 
 ```text
-val_score = 0.5 * (val_iou_drivable + val_iou_obstacle)
+val_score = val_iou_free
 ```
 
 This is not validation loss. `model_best-*.pth` is saved when this score improves.
 
 Rationale:
 
-- `drivable` dominates the map, so drivable IoU alone is misleading.
-- `obstacle` is sparse but safety-critical.
-- The current 0.5/0.5 mean keeps both classes visible during pretraining.
-
-Future experiment documented in `docs/training_improvement_plan.md`:
-
-```text
-val_score = 0.3 * val_iou_drivable + 0.7 * val_iou_obstacle
-```
-
-Do not switch the score until the new diagnostic metrics have been observed on a real full run.
+`iou_free` evaluates the deployable free space, combining occupancy and visibility. It penalizes
+both calling occupied or unknown cells free and missing truly free cells, so an all-drivable or
+otherwise degenerate map cannot win merely through a high legacy class IoU.
 
 ## Console Log Interpretation
 
 Current epoch log shape:
 
 ```text
-epoch 001/60 | time   23.1s | val_iou_mean↑ 0.753 (+0.004) | best_val_iou_mean↑ 0.753 | checkpoint: new best
+epoch 001/60 | time   23.1s | val_iou_free↑ 0.753 (+0.004) (+0.080 vs baseline) | best_val_iou_free↑ 0.753 | checkpoint: new best
   bins  | val_obst_iou_bins empty:fa .../nN tiny:.../nN small:.../nN medium:.../nN large:.../nN
   train | loss_total↓ ... | loss_occ↓ ... | loss_vis↓ ... | iou_drivable↑ ... | iou_obstacle↑ ... | vis_false_high↓ ... | vis_false_low↓ ... | obst_frac ... | false_obstacle↓ ... | missed_obstacle↓ ...
   val   | loss_total↓ ... | loss_occ↓ ... | loss_vis↓ ... | iou_drivable↑ ... | iou_obstacle↑ ... | vis_false_high↓ ... | vis_false_low↓ ... | obst_frac ... | false_obstacle↓ ... | missed_obstacle↓ ...
   deploy| (pred visibility 기준) iou_drivable↑ ... | iou_obstacle↑ ... | visible_coverage ...
 ```
 
-`(+0.004)` next to `val_iou_mean` is the change against the previous best (green when positive,
+`(+0.004)` next to `val_iou_free` is the change against the previous best (green when positive,
 red when negative). It is omitted on the first scored epoch, where there is no previous best yet.
+`(+0.080 vs baseline)` is the validation `iou_free` gap to the constant-map baseline; it is also
+green when positive and red when negative.
 
 The rows are colour-coded when the output is a terminal: metric names are dimmed so only the
 numbers stand out, and the two IoU values are bold. Colour is disabled automatically when stdout
@@ -155,12 +149,16 @@ Direction markers:
 
 ## Occupancy Metrics
 
-Primary metrics:
+Primary metric:
+
+- `val_iou_free`: checkpoint score input. It evaluates free space under the valid BEV mask.
+
+Reference metrics:
 
 - `iou_drivable`: IoU of predicted drivable cells.
 - `iou_obstacle`: IoU of predicted obstacle cells, averaged over samples that actually contain
-  obstacles in GT. See "Samples without obstacles" below.
-- `val_iou_mean`: checkpoint score input, currently average of drivable/obstacle IoU.
+  obstacles in GT. See "Samples without obstacles" below. These legacy IoUs remain useful for
+  diagnosis but do not select `model_best-*.pth`.
 
 ### Samples without obstacles
 
@@ -170,8 +168,8 @@ from `iou_obstacle` and from the bin IoUs, and their error is reported separatel
 alarm rate. In the ROI 8/4/±6 m val split this is 14 of 100 samples, so including them dragged
 the reported obstacle IoU down by roughly 0.10.
 
-Because of this, `val_iou_mean` from runs before this change is **not** comparable with runs
-after it. Runs `twohead_pretrain_res101_..._260813_224942` and
+Because of this, legacy occupancy IoUs from runs before this change are **not** directly comparable
+with the `iou_free` checkpoint score. Runs `twohead_pretrain_res101_..._260813_224942` and
 `twohead_pretrain_diag_baseline_..._260814_130110` are on the old convention.
 
 Diagnostic metrics added after the first run:

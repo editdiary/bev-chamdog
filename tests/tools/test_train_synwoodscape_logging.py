@@ -5,7 +5,13 @@ import re
 import pytest
 import torch
 
-from projects.common.two_head_metrics import _color_enabled
+from projects.common import two_head_metrics
+from projects.common.two_head_metrics import (
+    _color_enabled,
+    append_free_metrics,
+    run_batch,
+    summarize_free_metrics,
+)
 from tools.train_synwoodscape import (
     compute_deployment_occupancy_metrics,
     compute_drivable_and_obstacle_iou,
@@ -15,6 +21,19 @@ from tools.train_synwoodscape import (
     summarize_occupancy_diagnostics,
     weighted_mean,
 )
+
+
+def test_checkpoint_score_uses_iou_free_when_legacy_iou_mean_prefers_another_model():
+    """기존 평균은 free-space가 더 나쁜 모델을 best로 고르는 퇴행을 만든다."""
+    better_free_space = two_head_metrics.select_checkpoint_score(
+        d_iou=0.60, o_iou=0.20, free_metrics={"iou_free": 0.85}
+    )
+    better_legacy_mean = two_head_metrics.select_checkpoint_score(
+        d_iou=0.95, o_iou=0.80, free_metrics={"iou_free": 0.70}
+    )
+
+    assert better_free_space == pytest.approx(0.85)
+    assert better_free_space > better_legacy_mean
 
 
 def test_format_epoch_log_separates_epoch_train_and_val_with_metric_directions():
@@ -45,8 +64,8 @@ def test_format_epoch_log_separates_epoch_train_and_val_with_metric_directions()
     assert len(lines) == 3
     # 직전 best 대비 증감을 같이 보여준다 -- 숫자 두 개를 눈으로 빼지 않아도 되도록.
     assert lines[0] == (
-        "epoch 012/60 | time  138.2s | val_iou_mean↑ 0.624 (+0.014) | "
-        "best_val_iou_mean↑ 0.624 | checkpoint: new best"
+        "epoch 012/60 | time  138.2s | val_iou_free↑ 0.624 (+0.014) | "
+        "best_val_iou_free↑ 0.624 | checkpoint: new best"
     )
     assert lines[1] == (
         "  train | loss_total↓ 0.4821 | loss_occ↓ 0.1032 | loss_vis↓ 0.7578 | "
@@ -196,7 +215,7 @@ def test_epoch_log_shows_false_alarm_instead_of_iou_for_empty_bin():
         is_new_best=True,
     )
 
-    # bin 요약은 헤더에 붙이면 줄이 터미널 폭을 넘겨 val_iou_mean이 묻히므로 별도 줄이다.
+    # bin 요약은 헤더에 붙이면 줄이 터미널 폭을 넘겨 val_iou_free가 묻히므로 별도 줄이다.
     assert text.splitlines()[1].startswith("  bins  | val_obst_iou_bins ")
     assert "empty:fa 0.250/n1" in text.splitlines()[1]
 
@@ -260,3 +279,138 @@ def test_weighted_mean_skips_batches_without_valid_samples():
     assert weighted_mean([0.8, float("nan")], [4, 0]) == pytest.approx(0.8)
     assert math.isnan(weighted_mean([], []))
     assert weighted_mean([0.9, 0.5], [1, 3]) == pytest.approx(0.6)
+
+
+def test_summarize_free_metrics_weights_iou_by_sample_count():
+    dicts = [
+        {"iou_free": 0.8, "iou_free_count": 3, "fatal_rate": 0.1, "fatal_denom": 100,
+         "free_miss_rate": 0.2, "free_miss_denom": 10, "partition_defects": 0},
+        {"iou_free": 0.4, "iou_free_count": 1, "fatal_rate": 0.5, "fatal_denom": 100,
+         "free_miss_rate": 0.6, "free_miss_denom": 90, "partition_defects": 0},
+    ]
+
+    merged = summarize_free_metrics(dicts)
+
+    assert merged["iou_free"] == pytest.approx((0.8 * 3 + 0.4 * 1) / 4)
+    assert merged["fatal_rate"] == pytest.approx(0.3)
+    assert merged["free_miss_rate"] == pytest.approx((0.2 * 10 + 0.6 * 90) / 100)
+
+
+def test_summarize_free_metrics_of_an_empty_epoch_is_nan():
+    merged = summarize_free_metrics([])
+
+    assert math.isnan(merged["iou_free"])
+
+
+def test_append_free_metrics_drops_batch_masks_before_epoch_accumulation():
+    pred_free = torch.ones(1, 1, 2, 2, dtype=torch.bool)
+    gt_free = torch.zeros_like(pred_free)
+    batches = []
+
+    append_free_metrics(batches, {
+        "iou_free": 0.5, "iou_free_count": 1,
+        "fatal_rate": 0.25, "fatal_denom": 4,
+        "free_miss_rate": 0.75, "free_miss_denom": 2,
+        "partition_defects": 0,
+        "pred_free": pred_free, "gt_free": gt_free,
+    })
+
+    assert batches == [{
+        "iou_free": 0.5, "iou_free_count": 1,
+        "fatal_rate": 0.25, "fatal_denom": 4,
+        "free_miss_rate": 0.75, "free_miss_denom": 2,
+        "partition_defects": 0,
+    }]
+
+
+def test_epoch_log_shows_iou_free_with_the_baseline_delta():
+    """baseline 없이 free IoU만 표시하면 트리비얼 해와의 비교를 놓친다."""
+    text = format_epoch_log(
+        epoch=46, num_epochs=60, epoch_time=41.0,
+        train_loss=0.03, train_occ_loss=0.003, train_vis_loss=0.06,
+        train_d_iou=0.98, train_o_iou=0.78, train_v_false_high=0.001, train_v_false_low=0.02,
+        val_loss=0.27, val_occ_loss=0.20, val_vis_loss=0.14,
+        val_d_iou=0.89, val_o_iou=0.31, val_v_false_high=0.016, val_v_false_low=0.10,
+        train_free_metrics={"iou_free": 0.97, "fatal_rate": 0.01,
+                            "free_miss_rate": 0.02, "partition_defects": 0},
+        val_free_metrics={"iou_free": 0.850, "fatal_rate": 0.0587,
+                          "free_miss_rate": 0.0998, "partition_defects": 0},
+        baseline_iou_free=0.673,
+        val_score=0.850, best_val_score=0.840, is_new_best=True,
+    )
+
+    assert "iou_free" in text
+    assert "0.850" in text
+    assert "+0.177" in text
+    assert "fatal" in text
+
+
+def test_epoch_log_uses_free_iou_for_checkpoint_and_baseline_comparison():
+    """checkpoint와 baseline 비교가 같은 free-space 목표를 가리켜야 한다."""
+    text = format_epoch_log(
+        epoch=1, num_epochs=60, epoch_time=1.0,
+        train_loss=0.1, train_occ_loss=0.1, train_vis_loss=0.1,
+        train_d_iou=0.9, train_o_iou=0.3, train_v_false_high=0.1, train_v_false_low=0.1,
+        val_loss=0.1, val_occ_loss=0.1, val_vis_loss=0.1,
+        val_d_iou=0.9, val_o_iou=0.3, val_v_false_high=0.1, val_v_false_low=0.1,
+        train_free_metrics={"iou_free": 0.9, "fatal_rate": 0.1,
+                            "free_miss_rate": 0.1, "partition_defects": 0},
+        val_free_metrics={"iou_free": 0.850, "fatal_rate": 0.1,
+                          "free_miss_rate": 0.1, "partition_defects": 0},
+        baseline_iou_free=0.673,
+        val_score=0.600, best_val_score=0.500, is_new_best=True,
+    )
+
+    assert "val_iou_free" in text
+    assert "iou_free↑ 0.850" in text
+    assert "+0.177 vs baseline" in text
+
+
+def test_epoch_log_flags_a_broken_partition_loudly():
+    """free/occupied/unknown 분할 결함은 epoch 로그에서 눈에 띄어야 한다."""
+    text = format_epoch_log(
+        epoch=1, num_epochs=60, epoch_time=1.0,
+        train_loss=0.1, train_occ_loss=0.1, train_vis_loss=0.1,
+        train_d_iou=0.1, train_o_iou=0.1, train_v_false_high=0.1, train_v_false_low=0.1,
+        val_loss=0.1, val_occ_loss=0.1, val_vis_loss=0.1,
+        val_d_iou=0.1, val_o_iou=0.1, val_v_false_high=0.1, val_v_false_low=0.1,
+        train_free_metrics={"iou_free": 0.1, "fatal_rate": 0.1,
+                            "free_miss_rate": 0.1, "partition_defects": 7},
+        val_free_metrics={"iou_free": 0.1, "fatal_rate": 0.1,
+                          "free_miss_rate": 0.1, "partition_defects": 0},
+        val_score=0.1, best_val_score=0.0, is_new_best=True,
+    )
+
+    assert "partition" in text.lower()
+
+
+class _CpuRunBatchModel:
+    def __call__(self, rgb_camxs, pix_t_cams, cam0_t_camxs, vox_util):
+        logits = torch.tensor([[[[3.0, -3.0], [3.0, 3.0]],
+                               [[3.0, 3.0], [-3.0, 3.0]]]])
+        return None, None, logits, None, None
+
+
+def test_run_batch_returns_free_metrics_as_ninth_result_on_cpu():
+    dummy = torch.zeros(1, 1, 1, 1, 1)
+    batch = {
+        "rgb_camXs": dummy,
+        "pix_T_cams": dummy,
+        "cam0_T_camXs": dummy,
+        "seg_bev_g": torch.tensor([[[[1.0, 1.0], [0.0, 1.0]]]]),
+        "vis_bev_g": torch.ones(1, 1, 2, 2),
+        "valid_bev_g": torch.ones(1, 1, 2, 2),
+    }
+
+    result = run_batch(
+        _CpuRunBatchModel(), batch, vox_util=None, pos_weight_tensor=torch.tensor(1.0),
+        device="cpu", lambda_vis=0.5, vis_neg_weight=3.0,
+    )
+
+    assert len(result) == 9
+    free_metrics = result[-1]
+    assert {"iou_free", "iou_free_count", "fatal_rate", "fatal_denom",
+            "free_miss_rate", "free_miss_denom", "partition_defects",
+            "pred_free", "gt_free"} <= free_metrics.keys()
+    assert free_metrics["pred_free"].dtype == torch.bool
+    assert free_metrics["pred_free"].shape == (1, 1, 2, 2)

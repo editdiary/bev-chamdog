@@ -47,6 +47,7 @@ from projects.common.two_head_metrics import (  # noqa: E402
     _Ansi,
     _c,
     _print_banner,
+    append_free_metrics,
     compute_deployment_occupancy_metrics,
     compute_drivable_and_obstacle_iou,
     compute_iou,
@@ -54,7 +55,9 @@ from projects.common.two_head_metrics import (  # noqa: E402
     compute_occupancy_diagnostics,
     format_epoch_log,
     run_batch,
+    select_checkpoint_score,
     summarize_deployment_metrics,
+    summarize_free_metrics,
     summarize_occupancy_diagnostics,
     weighted_mean,
     write_deployment_metrics,
@@ -189,7 +192,7 @@ def main(
     print(f"train/val sample id lists saved to: {log_path}/split_{{train,val}}_ids.txt")
 
     global_step = 0
-    best_val_score = 0.0  # (drivable_iou + obstacle_iou)/2 -- 트리비얼 해로는 못 올라간다
+    best_val_score = 0.0  # iou_free; free 영역을 과대/과소 예측한 퇴행 해를 벌한다
     interrupted = False
     try:
         for epoch in range(1, num_epochs + 1):
@@ -198,10 +201,10 @@ def main(
             train_losses, train_occ_losses, train_vis_losses = [], [], []
             train_d_ious, train_o_ious, train_v_false_highs, train_v_false_lows = [], [], [], []
             train_o_iou_counts = []
-            train_occ_metric_dicts, train_deploy_metric_dicts = [], []
+            train_occ_metric_dicts, train_deploy_metric_dicts, train_free_metric_dicts = [], [], []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy_metrics = run_batch(
+                loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy_metrics, free_metrics = run_batch(
                     model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                 )
                 loss.backward()
@@ -219,6 +222,7 @@ def main(
                 train_v_false_lows.append(vis_metrics["false_low"])
                 train_occ_metric_dicts.append(occ_metrics)
                 train_deploy_metric_dicts.append(deploy_metrics)
+                append_free_metrics(train_free_metric_dicts, free_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/loss_occ_step", loss_parts["loss_occ"].item(), global_step)
                 writer.add_scalar("train/loss_vis_step", loss_parts["loss_vis"].item(), global_step)
@@ -234,6 +238,7 @@ def main(
             train_v_false_low = float(np.mean(train_v_false_lows)) if train_v_false_lows else float("nan")
             train_occ_metrics = summarize_occupancy_diagnostics(train_occ_metric_dicts)
             train_deploy_metrics = summarize_deployment_metrics(train_deploy_metric_dicts)
+            train_free_metrics = summarize_free_metrics(train_free_metric_dicts)
             writer.add_scalar("train/loss_epoch", train_loss, epoch)
             writer.add_scalar("train/loss_occ_epoch", train_occ_loss, epoch)
             writer.add_scalar("train/loss_vis_epoch", train_vis_loss, epoch)
@@ -248,15 +253,16 @@ def main(
             val_v_false_high = val_v_false_low = float("nan")
             val_occ_metrics = summarize_occupancy_diagnostics([])
             val_deploy_metrics = summarize_deployment_metrics([])
+            val_free_metrics = summarize_free_metrics([])
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
                 val_losses, val_occ_losses, val_vis_losses = [], [], []
                 val_d_ious, val_o_ious, val_v_false_highs, val_v_false_lows = [], [], [], []
                 val_o_iou_counts = []
-                val_occ_metric_dicts, val_deploy_metric_dicts = [], []
+                val_occ_metric_dicts, val_deploy_metric_dicts, val_free_metric_dicts = [], [], []
                 with torch.no_grad():
                     for batch in val_loader:
-                        loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy_metrics = run_batch(
+                        loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy_metrics, free_metrics = run_batch(
                             model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
                         )
                         val_losses.append(loss.item())
@@ -269,6 +275,7 @@ def main(
                         val_v_false_lows.append(vis_metrics["false_low"])
                         val_occ_metric_dicts.append(occ_metrics)
                         val_deploy_metric_dicts.append(deploy_metrics)
+                        append_free_metrics(val_free_metric_dicts, free_metrics)
                 val_loss = float(np.mean(val_losses))
                 val_occ_loss = float(np.mean(val_occ_losses))
                 val_vis_loss = float(np.mean(val_vis_losses))
@@ -278,6 +285,7 @@ def main(
                 val_v_false_low = float(np.mean(val_v_false_lows))
                 val_occ_metrics = summarize_occupancy_diagnostics(val_occ_metric_dicts)
                 val_deploy_metrics = summarize_deployment_metrics(val_deploy_metric_dicts)
+                val_free_metrics = summarize_free_metrics(val_free_metric_dicts)
                 writer.add_scalar("val/loss_epoch", val_loss, epoch)
                 writer.add_scalar("val/loss_occ_epoch", val_occ_loss, epoch)
                 writer.add_scalar("val/loss_vis_epoch", val_vis_loss, epoch)
@@ -289,7 +297,9 @@ def main(
                 write_deployment_metrics(writer, "val", val_deploy_metrics, epoch)
 
             epoch_time = time.time() - epoch_start
-            val_score = 0.5 * (val_d_iou + val_o_iou)
+            val_score = select_checkpoint_score(
+                d_iou=val_d_iou, o_iou=val_o_iou, free_metrics=val_free_metrics
+            )
             is_new_best = val_score > best_val_score  # NaN > x is always False -- val을 안 돌린 epoch은 자동으로 제외됨
 
             print(format_epoch_log(
@@ -313,6 +323,8 @@ def main(
                 val_v_false_low=val_v_false_low,
                 val_occ_metrics=val_occ_metrics,
                 val_deploy_metrics=val_deploy_metrics,
+                train_free_metrics=train_free_metrics,
+                val_free_metrics=val_free_metrics,
                 val_score=val_score,
                 best_val_score=best_val_score,
                 is_new_best=is_new_best,
@@ -336,11 +348,11 @@ def main(
     if not interrupted:
         _print_banner([
             " done.",
-            f" best val (drivable+obstacle)/2 IoU = {best_val_score:.3f}",
+            f" best val iou_free = {best_val_score:.3f}",
             f" trivial 'always predict drivable' baseline was drivable IoU {trivial_iou:.3f}, obstacle IoU 0.0",
         ])
     else:
-        print(f"best val (drivable+obstacle)/2 IoU so far = {best_val_score:.3f}")
+        print(f"best val iou_free so far = {best_val_score:.3f}")
 
 
 if __name__ == "__main__":

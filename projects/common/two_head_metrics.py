@@ -25,6 +25,8 @@ from projects.models.simplebev_two_head import (  # noqa: E402
     split_two_head_logits,
     visibility_error_rates,
 )
+from projects.common.free_space import decompose  # noqa: E402
+from projects.common.free_space_metrics import free_metrics_from_masks  # noqa: E402
 
 
 class _Ansi:
@@ -95,14 +97,22 @@ def _format_row(tag: str, tag_color: str, fields) -> str:
 
 
 def _format_metric_row(tag, tag_color, loss, occ_loss, vis_loss, d_iou, o_iou,
-                       v_false_high, v_false_low, occ_metrics):
-    """train/val 한 줄. IoU 두 개만 굵게 -- 나머지는 그 둘을 해석하기 위한 보조 지표다."""
-    fields = [
+                       v_false_high, v_false_low, occ_metrics, free_metrics=None):
+    """train/val 한 줄. `iou_free`가 주 지표이고, 기존 IoU는 해석용 참고 지표다."""
+    fields = []
+    if free_metrics is not None:
+        fields += [
+            _field("iou_free↑", free_metrics["iou_free"], emphasis=_Ansi.BOLD),
+            _field("fatal↓", free_metrics["fatal_rate"]),
+            _field("free_miss↓", free_metrics["free_miss_rate"]),
+        ]
+    fields += [
         _field("loss_total↓", loss, ".4f"),
         _field("loss_occ↓", occ_loss, ".4f"),
         _field("loss_vis↓", vis_loss, ".4f"),
-        _field("iou_drivable↑", d_iou, emphasis=_Ansi.BOLD),
-        _field("iou_obstacle↑", o_iou, emphasis=_Ansi.BOLD),
+        ((_c(_Ansi.DIM, "(ref)") + " ") if free_metrics is not None else "")
+        + _field("iou_drivable↑", d_iou),
+        _field("iou_obstacle↑", o_iou),
         _field("vis_false_high↓", v_false_high),
         _field("vis_false_low↓", v_false_low),
     ]
@@ -113,6 +123,31 @@ def _format_metric_row(tag, tag_color, loss, occ_loss, vis_loss, d_iou, o_iou,
             _field("missed_obstacle↓", occ_metrics["missed_obstacle"]),
         ]
     return _format_row(tag, tag_color, fields)
+
+
+def _format_range_line(metrics):
+    """광선 통계는 train/val 행을 과도하게 넓히지 않도록 별도 줄에 표시한다."""
+    if metrics is None:
+        return []
+    fields = [
+        _field("abs_p50↓", metrics["abs_p50"], emphasis=_Ansi.BOLD),
+        _field("abs_p90↓", metrics["abs_p90"]),
+        _field("over↓", metrics["over_mean"]),
+        _field("under", metrics["under_mean"]),
+        _c(_Ansi.DIM, f"rays {metrics['n_paired_rays']} censored {metrics['censored_gt']}"),
+    ]
+    return [_format_row("range", _Ansi.BLUE, fields)]
+
+
+def _format_partition_warning(train_free, val_free):
+    """free/occupied/unknown 분할이 valid를 덮지 못하면 epoch 로그에서 즉시 경고한다."""
+    defects = (train_free or {}).get("partition_defects", 0) + \
+              (val_free or {}).get("partition_defects", 0)
+    if defects == 0:
+        return []
+    return [_c(_Ansi.BOLD + _Ansi.RED,
+               f"  [BUG] partition defect on {defects} cells"
+               " -- free/occupied/unknown does not cover valid exactly")]
 
 
 def _format_deployment_line(metrics):
@@ -143,6 +178,7 @@ def format_epoch_log(
     train_v_false_high,
     train_v_false_low,
     train_occ_metrics=None,
+    train_free_metrics=None,
     val_deploy_metrics=None,
     val_loss,
     val_occ_loss,
@@ -152,6 +188,9 @@ def format_epoch_log(
     val_v_false_high,
     val_v_false_low,
     val_occ_metrics=None,
+    val_free_metrics=None,
+    val_range_metrics=None,
+    baseline_iou_free=None,
     val_score,
     best_val_score,
     is_new_best,
@@ -163,26 +202,47 @@ def format_epoch_log(
     if best_val_score > 0 and not math.isnan(val_score):
         diff = val_score - best_val_score
         delta = " " + _c(_Ansi.GREEN if diff > 0 else _Ansi.RED, f"({diff:+.3f})")
+    baseline_delta = ""
+    val_free_iou = (val_free_metrics or {}).get("iou_free")
+    if baseline_iou_free is not None and val_free_iou is not None and not math.isnan(val_free_iou):
+        gap = val_free_iou - baseline_iou_free
+        baseline_delta = " " + _c(
+            _Ansi.GREEN if gap > 0 else _Ansi.RED, f"({gap:+.3f} vs baseline)"
+        )
     return "\n".join([
         (
             _c(_Ansi.BOLD + _Ansi.CYAN, f"epoch {epoch:03d}/{num_epochs}") + _sep()
             + _c(_Ansi.DIM, f"time {epoch_time:6.1f}s") + _sep()
-            + _field("val_iou_mean↑", val_score, emphasis=_Ansi.BOLD) + delta + _sep()
-            + _field("best_val_iou_mean↑", displayed_best) + _sep()
+            + _field("val_iou_free↑", val_score, emphasis=_Ansi.BOLD) + delta + baseline_delta + _sep()
+            + _field("best_val_iou_free↑", displayed_best) + _sep()
             + (_c(_Ansi.BOLD + _Ansi.GREEN, "checkpoint: new best") if is_new_best
                else _c(_Ansi.DIM, "checkpoint: -"))
         ),
+        *_format_partition_warning(train_free_metrics, val_free_metrics),
         *_format_obstacle_bin_summary(val_occ_metrics),
         _format_metric_row(
             "train", _Ansi.YELLOW, train_loss, train_occ_loss, train_vis_loss,
-            train_d_iou, train_o_iou, train_v_false_high, train_v_false_low, train_occ_metrics,
+            train_d_iou, train_o_iou, train_v_false_high, train_v_false_low,
+            train_occ_metrics, train_free_metrics,
         ),
         _format_metric_row(
             "val", _Ansi.CYAN, val_loss, val_occ_loss, val_vis_loss,
-            val_d_iou, val_o_iou, val_v_false_high, val_v_false_low, val_occ_metrics,
+            val_d_iou, val_o_iou, val_v_false_high, val_v_false_low,
+            val_occ_metrics, val_free_metrics,
         ),
+        *_format_range_line(val_range_metrics),
         *_format_deployment_line(val_deploy_metrics),
     ])
+
+
+def select_checkpoint_score(*, d_iou, o_iou, free_metrics):
+    """Return the checkpoint ranking metric, independent of legacy occupancy IoUs.
+
+    ``d_iou`` and ``o_iou`` remain explicit inputs at the selection boundary so callers
+    cannot silently substitute their historical mean for the free-space objective.
+    """
+    del d_iou, o_iou
+    return free_metrics["iou_free"]
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -355,6 +415,48 @@ def summarize_deployment_metrics(metric_dicts):
     }
 
 
+def compute_free_metrics(occ_logits, vis_logits, seg_g, vis_g, valid_g) -> dict:
+    """2-head 출력 -> free-space 지표.
+
+    `free`는 두 head의 결합 결과다. 지금까지의 지표는 두 head를 따로 채점해서, 정작
+    로봇이 쓰는 결합 결과를 아무도 보지 않았다.
+
+    집계 자체는 `free_metrics_from_masks`에 있다 -- 3-class 경로와 같은 집계기를 써야
+    Phase 3의 A/B가 공정하다. 여기서 하는 일은 예측을 free 마스크로 바꾸는 것뿐이다.
+    """
+    gt = decompose(seg_g, vis_g, valid_g)
+    pred = decompose(torch.sigmoid(occ_logits), torch.sigmoid(vis_logits), valid_g)
+    return free_metrics_from_masks(pred["free"], gt, valid_g)
+
+
+_FREE_METRIC_SCALAR_KEYS = (
+    "iou_free", "iou_free_count",
+    "fatal_rate", "fatal_denom",
+    "free_miss_rate", "free_miss_denom",
+    "partition_defects",
+)
+
+
+def append_free_metrics(metric_dicts, free_metrics) -> None:
+    """epoch 집계에는 스칼라만 보관한다; free mask는 val 배치에서 즉시 소비한다."""
+    metric_dicts.append({key: free_metrics[key] for key in _FREE_METRIC_SCALAR_KEYS})
+
+
+def summarize_free_metrics(dicts) -> dict:
+    if not dicts:
+        return {"iou_free": float("nan"), "fatal_rate": float("nan"),
+                "free_miss_rate": float("nan"), "partition_defects": 0}
+    return {
+        "iou_free": weighted_mean([d["iou_free"] for d in dicts],
+                                  [d["iou_free_count"] for d in dicts]),
+        "fatal_rate": weighted_mean([d["fatal_rate"] for d in dicts],
+                                    [d["fatal_denom"] for d in dicts]),
+        "free_miss_rate": weighted_mean([d["free_miss_rate"] for d in dicts],
+                                        [d["free_miss_denom"] for d in dicts]),
+        "partition_defects": sum(d["partition_defects"] for d in dicts),
+    }
+
+
 def summarize_occupancy_diagnostics(metric_dicts):
     if not metric_dicts:
         result = {
@@ -398,7 +500,7 @@ def summarize_occupancy_diagnostics(metric_dicts):
 
 def _format_obstacle_bin_summary(metrics):
     """GT obstacle 비율 bin별 val IoU. epoch 헤더에 붙이면 헤더가 터미널 폭을 넘겨 줄바꿈되고,
-    그러면 정작 중요한 val_iou_mean이 묻힌다 -- 별도 줄로 뺀다. 샘플이 없는 bin(n0)은 흐리게.
+    그러면 정작 중요한 val_iou_free가 묻힌다 -- 별도 줄로 뺀다. 샘플이 없는 bin(n0)은 흐리게.
     """
     if metrics is None:
         return []
@@ -463,6 +565,7 @@ def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis
     vis_metrics = visibility_error_rates(torch.sigmoid(vis_bev_e), vis_bev_g, valid_bev_g)
     occ_metrics = compute_occupancy_diagnostics(occ_bev_e, seg_bev_g, occ_eval_mask)
     deploy_metrics = compute_deployment_occupancy_metrics(occ_bev_e, vis_bev_e, seg_bev_g, valid_bev_g)
+    free_metrics = compute_free_metrics(occ_bev_e, vis_bev_e, seg_bev_g, vis_bev_g, valid_bev_g)
     return (
         loss,
         loss_parts,
@@ -472,5 +575,5 @@ def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis
         vis_metrics,
         occ_metrics,
         deploy_metrics,
+        free_metrics,
     )
-

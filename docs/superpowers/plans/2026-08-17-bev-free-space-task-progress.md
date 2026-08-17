@@ -4,10 +4,10 @@
 > 기록한다. 계획 자체가 무엇을 할지 정하고, 이 문서는 어디까지 했고 그 과정에서 계획에 없던
 > 무엇이 정해졌는지를 정한다. 다른 세션·다른 에이전트가 이어받을 때 이 문서를 먼저 읽는다.
 
-- 브랜치: **`feat/bev-free-space-task`** (main 대비 43 커밋)
-- 마지막 커밋: **`d575c4b`**
-- 테스트: **208 passed**, 실패 0
-- 진행: **Task 1–8 완료. Phase 0·Phase 1 게이트 통과. 다음은 Task 9 (Phase 2 시작).**
+- 브랜치: **`feat/bev-free-space-task`** (main 대비 52 커밋)
+- 마지막 구현 커밋: **`a0a3e53`** (이후 문서 갱신 커밋 예정)
+- 테스트: **220 passed**, 실패 0
+- 진행: **Task 1–11 완료. Phase 0·Phase 1 게이트 통과. 다음은 Task 12.**
 - 실행 방식: `superpowers:subagent-driven-development` (태스크마다 구현자 → 리뷰 → fix 루프 → 재리뷰)
 
 ---
@@ -16,15 +16,15 @@
 
 ```bash
 git checkout feat/bev-free-space-task
-python -m pytest tests/ -q          # 208 passed 확인
+python -m pytest tests/ -q          # 220 passed 확인
 ```
 
-`superpowers:subagent-driven-development` 스킬로 **Task 9부터** 이어간다. BASE는 `d575c4b`.
+`superpowers:subagent-driven-development` 스킬로 **Task 12부터** 이어간다. BASE는 현재 HEAD다.
 
 태스크 브리프는 계획에서 기계적으로 추출한다:
 
 ```bash
-<skill>/scripts/task-brief docs/superpowers/plans/2026-08-17-bev-free-space-task.md 9
+<skill>/scripts/task-brief docs/superpowers/plans/2026-08-17-bev-free-space-task.md 12
 ```
 
 실행 중 ledger는 `.superpowers/sdd/2026-08-17-bev-free-space-task/progress.md`에 있다.
@@ -51,8 +51,12 @@ python -m pytest tests/ -q          # 208 passed 확인
 | 6 | 라벨 무결성 테스트 + `tools/measure_label_geometry.py` **[Phase 0 게이트]** | `a0b3705..2f702c2` | 197 passed |
 | 7 | `baselines.py` — 이미지를 보지 않는 예측기 | `2f702c2..72b756e` | 201 passed |
 | 8 | `tools/rescore_checkpoints.py` + 마이그레이션 결과표 **[Phase 1 게이트]** | `72b756e..d575c4b` | 208 passed |
+| 9 | 2-head `run_batch` free-space 지표 배선 | `8d2d31d..acaf1eb` | 212 passed |
+| 10 | 로그·배너·TensorBoard에 `iou_free`와 baseline 배선 | `3efb297..d996c9a` | 217 passed |
+| 11 | checkpoint 선택 기준을 `iou_free`로 교체 | `de630ea..a0a3e53` | 220 passed + GPU0 smoke |
 
-`a6ddbaa`(문서 커밋)는 Task 4와 5 사이에 들어갔다.
+`a6ddbaa`(문서 커밋)는 Task 4와 5 사이에 들어갔다. `8d2d31d`(인수인계 문서 커밋)는
+Task 8과 9 사이에 들어갔다.
 
 ### 게이트 통과 기록
 
@@ -121,6 +125,31 @@ Phase 3의 A/B가 조용히 서로 다른 것을 비교하게 되므로 Task 2�
 셀의 4.97 %가 어긋나고, `permanent_blind`를 구워 넣어도 `valid`(rear_self_box)는 3-class로
 표현할 수 없다. 라벨 정본은 `occupancy_npy` 하나다.
 
+### 3.6 epoch 누적에는 free-space mask 텐서를 저장하지 않는다 (Task 9 리뷰에서 고정)
+
+Task 9에서 `run_batch`는 Task 10의 val-only M3/M4 계산을 위해 batch 단위 `free_metrics`에
+`pred_free`/`gt_free`를 포함한다. 그러나 epoch 집계 리스트에는 이 dict를 그대로 append하지
+않고 `append_free_metrics`로 scalar/count 키만 복사한다. 그렇지 않으면 epoch 동안 batch별
+마스크 텐서를 붙잡아 메모리가 새고, 계획의 "`pred_free`/`gt_free`는 집계하지 않는다" 계약을
+위반한다.
+
+### 3.7 Task 10 로깅과 Task 11 checkpoint 선택은 분리한다
+
+Task 10은 epoch log/TensorBoard에 `iou_free`와 baseline delta를 보이게 하는 작업이다.
+Task 10 리뷰에서 `model_best` 선택까지 `iou_free`로 바꾼 것이 scope 위반으로 판정돼 되돌렸다.
+따라서 Task 10 완료 시점의 두 trainer는 여전히 `val_score = 0.5 * (d_iou + o_iou)`로
+checkpoint를 고른다. 단, `format_epoch_log`의 baseline delta는 checkpoint용 `val_score`가
+아니라 `val_free_metrics["iou_free"] - baseline_iou_free`로 계산한다. Task 11이 이
+선택 기준을 정식으로 바꾼다.
+
+### 3.8 GPU 실행은 당분간 GPU0을 쓴다 (사용자 지시, Task 11)
+
+Task 11 smoke에서 GPU1은 다른 프로세스가 점유해 OOM이 났다. 사용자가 "GPU1이 누가 쓰고
+있어서 GPU0으로 계속 실행"하라고 지시했다. 이후 GPU 명령은 별도 지시가 없으면
+`CUDA_VISIBLE_DEVICES=0`을 사용한다. Task 11의 1-epoch smoke는 GPU0에서 통과했다:
+`constant-map baseline iou_free = 0.673`, `val_iou_free↑ 0.730 (+0.057 vs baseline)`,
+`partition` 경고 없음, `model_best-000000001.pth` 저장.
+
 ---
 
 ## 4. 이후 태스크가 알아야 할 발견사항
@@ -174,9 +203,6 @@ Phase 1 게이트 조건 2가 그것과 비교하기 때문이다. 바꾸면 비
 
 | Task | 내용 | 비고 |
 |---|---|---|
-| 9 | `run_batch`에 free-space 지표를 배선 | Phase 2 시작 |
-| 10 | epoch 로그에 `iou_free`를 넣고 옛 지표를 참고로 강등 | |
-| 11 | checkpoint 선택 기준을 `val_iou_mean` → `iou_free`로 교체 | |
 | 12 | 시각화를 4-way 분해로 교체 | |
 | 13 | 2-head 기준선 재학습 **[Phase 2 게이트]** | **GPU 학습 — 사용자 확인 필요** |
 | 14 | 3-class head (`TwoHeadDecoder` 패턴을 따른다) | |
@@ -192,7 +218,7 @@ Phase 3 결과를 보고 별도 스펙·계획으로 다룬다.
 
 ## 6. 실행에서 관찰된 것 — 리뷰를 어떻게 걸어야 하는가
 
-**Task 1–8에서 나온 리뷰 findings가 사실상 전부 "테스트는 통과하지만 그럴듯한 오류도 같이
+**Task 1–11에서 나온 리뷰 findings가 사실상 전부 "테스트는 통과하지만 그럴듯한 오류도 같이
 통과시킨다" 유형이었고, 구현 결함은 0건이었다.** 계획에 완성 코드를 넣는 방식은 구현 오류를
 잘 막지만 테스트 강도가 계획 작성자의 상한에 묶인다.
 
@@ -204,6 +230,9 @@ Phase 3 결과를 보고 별도 스펙·계획으로 다룬다.
 - Task 6 — `≥ 0.99`를 지킨다던 polar roundtrip 테스트가 구멍 없는 원반을 써서 검증하려던 효과를 볼 수 없었다.
 - Task 7 — `all_free_map`의 shape를 아무도 assert하지 않아 transpose가 통과.
 - Task 8 — `score_split`을 테스트하는 것이 하나도 없었다. `sigmoid`를 빼도 208개 통과하고 게이트 3조건도 통과하며 6개 값 중 5개가 허용 범위 안이었다.
+- Task 9 — `free_miss_rate` 분모를 `fatal_denom`으로 바꿔도, `run_batch` 반환을 8-튜플로 되돌려도 focused 테스트가 통과했다.
+- Task 10 — `_baseline_iou_free`가 항상 NaN을 반환해도 최초 focused 테스트가 통과했다.
+- Task 11 — 공용 `select_checkpoint_score` 테스트만으로는 두 trainer 호출부가 옛 평균식으로 되돌아가도 통과했다.
 
 **따라서 리뷰 프롬프트에 "구현을 실제로 망가뜨려서 테스트가 진짜 실패하는지 확인하라"를
 계속 명시 요구한다.** 추론만 한 mutation은 그렇게 표시하게 하고, 실행한 것과 구분한다.
