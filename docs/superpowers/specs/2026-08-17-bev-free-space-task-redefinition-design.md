@@ -85,7 +85,8 @@ SynWoodScape는 격자의 94 %가 보이고 obstacle이 넓은 면적이라 `iou
 
 ### 2.5 free 영역은 star-convex다 (polar 표현의 상한)
 
-`free`를 방위각별 거리 `r(θ)` 하나로 표현했다가 되돌린 IoU:
+`free`를 방위각별 거리 `r(θ)`**와 이미 알려진 정적 마스크(`permanent_blind`/`invalid`, §7)의
+조합**으로 표현했다가 되돌린 IoU (마스크를 제외하고 잰 값 -- 이유는 §12):
 
 | 각도 해상도 | raws1 | raws2 |
 |---|---|---|
@@ -94,6 +95,12 @@ SynWoodScape는 격자의 94 %가 보이고 obstacle이 넓은 면적이라 `iou
 | **0.5° (720 bin)** | **0.993** | **0.994** |
 
 `vis`가 단일 원점 raycast이므로 `free`는 사실상 star-convex이며 polar 표현으로 거의 손실 없이 담긴다. 다만 4 m 지점에서 셀 하나가 0.7°를 차지하므로 **720 bin이 필요하다** (360으로는 5 % 손실).
+
+**`r(θ)` 하나만으로 원점부터 채워 복원하면 이 표에 없는 또 다른 오차가 더해진다(§12).**
+`permanent_blind`/`invalid`는 원점 부근의 정적 영역이라 `r(θ)`가 애초에 담지 않는데,
+원점부터 채우는 복원(`reconstruct_free`)은 그 영역을 항상 거짓양성으로 되살린다. 위 표의
+값은 그 효과를 제외한, polar 표현 자체의 손실이다. `reconstruct_free`를 그대로 쓴 마스크
+포함 실측치와 두 정의가 왜 다른지는 §12를 본다.
 
 ---
 
@@ -136,14 +143,28 @@ unknown  = ~vis             # 그 너머
 | **M1** | `iou_free` | `IoU(free_pred, free_gt)` over `valid`, per-sample 후 평균 | **주 지표.** checkpoint 선택 기준 |
 | **M2** | `fatal_rate` | `\|free_pred ∧ ¬free_gt\| / \|free_pred\|` | "갈 수 있다고 믿은 곳 중 틀린 비율" = planner 위험 |
 | **M2b** | `free_miss_rate` | `\|¬free_pred ∧ free_gt\| / \|free_gt\|` | 보수성(정보 낭비). M2와 **합치지 않는다** |
-| **M3** | `range_err` | 방위각 **1° = 360 bin**마다 원점→첫 non-free 셀 거리 `r`의 오차 `Δr = r_pred − r_gt`. `p50(\|Δr\|)`, `p90(\|Δr\|)`, `over`(과대=위험) / `under`(보수적) 분리 | occupied를 **거리**로 잰다. 통로 폭·정지거리로 직결 |
+| **M3** | `range_err` | 방위각 **0.5° = 720 bin**마다 원점→첫 non-free 셀 거리 `r`의 오차 `Δr = r_pred − r_gt`. `p50(\|Δr\|)`, `p90(\|Δr\|)`, `over`(과대=위험) / `under`(보수적) 분리 | occupied를 **거리**로 잰다. 통로 폭·정지거리로 직결 |
 | **M4** | M1·M2의 **거리 링 분해** | 0–1.5 / 1.5–3 / 3–4 m | 근거리의 쉬운 성능이 원거리 실패를 가리는 것 차단 |
 
 `fatal_rate`의 분모를 `|free_pred|`로 잡는 이유: `|¬free_gt|`로 잡으면 분모가 격자의 83 %라 값이 항상 작게 나와 변별력이 없다(같은 체크포인트에서 0.0113 vs 0.0587). planner 관점에서도 "내가 신뢰한 영역의 오류율"이 직접적인 위험량이다.
 
 ### 5.2 M3 구현 메모
 
-**bin 수를 360으로 잡는 이유** — §2.5에서 손실 없는 *복원*에는 720 bin이 필요하다고 측정했는데 모순이 아니다. M3는 영역을 복원하지 않고 bin별 `r` 값을 비교할 뿐이므로 복원 충실도가 요구되지 않는다. 360이면 4 m 지점에서 인접 bin이 같은 셀을 가리키는 경우가 생기지만, 그것은 표본이 약간 중복되는 것일 뿐 오차를 만들지 않는다. 720 bin으로 올리는 것은 비용이 거의 없으므로 Phase 0에서 두 값의 지표 차이를 확인하고 큰 차이가 없으면 360을 유지한다.
+**bin 수: 720 (§12에서 확정. 이 절의 최초 초안은 360이었다)** — 원래 논증의 방향은
+맞았지만 결론이 틀렸다: M3는 영역을 복원하지 않고 bin별 `r` 값을 비교할 뿐이므로,
+§2.5/§12가 재는 **복원(roundtrip) 충실도는 애초에 M3의 bin 수를 결정할 근거가 아니다.**
+그런데도 초안은 "360과 720의 roundtrip IoU 차이가 0.02 미만이면 360을 유지한다"는,
+M3와 무관한 기준을 M3의 bin 수 결정에 그대로 적용했다. §12에서 실측한 결과 그 차이는
+raw 정의에서 0.0319, mask-excluded 정의에서는 오히려 더 큰 0.0401로 — 어느 정의로도
+"360이면 충분하다"는 결론이 나오지 않았다. 즉 **틀린 시험을 적용해서 우연히 원하는
+결론에 도달하려던 것**이었고, roundtrip 기준 자체가 M3에 옳은 잣대였던 적은 없다.
+
+720으로 올리는 실제 근거는 다르다: 비용이 사실상 0이고(광선 캐시를 한 번 더 만드는 것뿐,
+M3는 여전히 원점→첫 non-free 거리 하나만 본다), 이 기본값으로 아직 채점된 run이 없어
+지금이 바꾸기 가장 싼 시점이며, 720에서는 이 절의 원래 질문(360으로 충분한가) 자체가
+무의미해진다 — 4 m 지점에서도 인접 bin이 같은 셀을 가리키는 표본 중복이 §2.5 수준(0.7 %
+미만 손실)으로 줄기 때문이다. `projects/common/polar.py`의 `DEFAULT_N_THETA = 720`이
+`build_ray_index`의 기본값이다.
 
 - ego 원점 주변은 `permanent_blind`(반경 약 0.5 m 원반)라 원점에서 바로 쏘면 즉시 non-free를 만난다. **광선을 따라 첫 free 셀을 찾은 뒤, 그 다음 첫 non-free 셀까지를 `r`로 한다.**
 - 광선에 free 셀이 하나도 없으면 그 bin은 undefined → 제외.
@@ -234,7 +255,12 @@ label3 = np.where(visible & ~permanent_blind,
 1. 손으로 만든 작은 격자(원점에서 뻗은 wedge)에서 `iou_free`·`fatal_rate`·`range_err`를 손계산과 대조
 2. degenerate: `pred == GT` → `iou_free`=1, `fatal_rate`=0, `range_err`=0. "전부 free", "전부 not-free"의 값도 고정. 분모 0인 경우 NaN 처리 확인
 3. **분할 불변식**: `free`+`occupied`+`unknown`이 `valid` 안에서 정확한 분할(합=`valid`, 쌍별 교집합=∅) — 매 batch assert
-4. **polar 왕복 회귀 테스트**: 0.5° bin 왕복 IoU ≥ 0.99 (§2.5의 0.993이 기준값)
+4. **polar 왕복 회귀 테스트**: `permanent_blind ∪ invalid`를 제외한 정의(§12)로 0.5° bin
+   왕복 IoU ≥ 0.99 (§2.5의 0.993, §12의 마스크 제외 실측 0.9920이 기준값). 이 마스크를
+   포함한 raw 값(`reconstruct_free`가 그대로 돌려주는 값, §12에서 0.5°=720 bin 기준
+   0.8061)은 이 기준을 만족하지 않는다 — `reconstruct_free`가 원점부터 채워 그 정적
+   마스크를 거짓양성으로 되살리기 때문이며, 이는 정의상 그런 것이지 라벨이나 polar
+   표현의 결함이 아니다(§12).
 
 ### (B) 라벨 무결성 — §2에서 확인한 성질을 테스트로 고정
 
@@ -302,4 +328,42 @@ label3 = np.where(visible & ~permanent_blind,
 
 **`occupied` 클래스의 얇음은 남는다.** 3-class로 가도 `occupied`는 여전히 1셀 껍질이므로 클래스 가중치 없이는 학습이 어렵다. 다만 이제 그 사실이 지표에 정직하게 드러나며(M3), `iou_free`가 주 지표라 `occupied` 실패가 전체 판정을 왜곡하지 않는다.
 
-**M3의 censored 광선 비율을 아직 측정하지 않았다.** 전방 4 m 격자에서 통로를 따라 쏜 광선이 격자를 벗어나는 비율이 높으면 M3의 유효 표본이 줄어든다. Phase 0에서 측정하고, 비율이 크면 격자 확장 또는 censored를 별도 지표로 승격하는 것을 검토한다.
+**M3의 censored 광선 비율 실측, 그리고 이 절이 §2.5와 다른 숫자를 보였던 이유
+(2026-08-17, 154 프레임 전수, `python tools/measure_label_geometry.py`).**
+
+```
+frames = 154
+permanent_blind ∪ invalid area = 1071/14400 = 0.0744
+n_theta= 180  ok 0.390  no_free 0.490  censored 0.120  |  raw roundtrip IoU 0.5944  |  mask-excluded roundtrip IoU 0.7228  |  FP in mask 99.8%
+n_theta= 360  ok 0.390  no_free 0.488  censored 0.122  |  raw roundtrip IoU 0.7742  |  mask-excluded roundtrip IoU 0.9519  |  FP in mask 99.8%
+n_theta= 720  ok 0.389  no_free 0.490  censored 0.121  |  raw roundtrip IoU 0.8061  |  mask-excluded roundtrip IoU 0.9920  |  FP in mask 99.7%
+```
+
+censored 비율은 0.120~0.122로 기준(0.3)에 못 미친다 — 격자 확장은 이번 과제에서 필요하지 않다.
+
+**이전 초안의 raw roundtrip IoU(360 → 0.7742, 720 → 0.8061)와 §2.5의 값(360 →
+0.948/0.955, 720 → 0.993/0.994)은 서로 다른 양을 재고 있었다 — 이것은 라벨의 결함도
+`polar.py`의 버그도 아니다.** `reconstruct_free`(`projects/common/polar.py:94-`)는
+**원점(반지름 0)부터** 채우는 반면 `first_free_range`(같은 파일 `:61-`)는 **첫 free 셀
+부터** 잰다. 그래서 `r(θ)`는 free 영역의 바깥쪽 경계만 담고, 원점 부근의
+`permanent_blind`(약 0.5 m 반경 원반)와 `invalid`(`rear_self_box`) 영역은 측정에서는
+건너뛰지만 복원에서는 원점부터 채우는 바람에 거짓양성으로 되살아난다. 위 표의 `FP in
+mask` 열이 그 증거다: `reconstruct_free`가 만드는 거짓양성의 **99.7~99.8 %가
+`permanent_blind ∪ invalid`(격자의 7.44 %) 안에 있다.** 이 두 마스크를 양쪽에서 제외하고
+다시 재면(`mask-excluded roundtrip IoU`) 360 → 0.9519, 720 → 0.9920으로 §2.5(154
+프레임을 raws1/raws2로만 좁혀 보면 360 → 0.9472/0.9547, 720 → 0.9925/0.9938 — 같은
+정의, 같은 범위)를 재현한다. **즉 §2.5의 star-convexity 결론은 그대로 유효하다:**
+`r(θ)` 자체는 거의 손실 없이 free를 담고, 결함은 `reconstruct_free`가 라벨이 아니라
+**이미 알고 있는 정적 마스크**(§7, 런타임 계산)를 원점-fill 때문에 다시 채워 넣는다는
+것뿐이며, 실제 파이프라인은 이 복원 함수를 학습·평가에 쓰지 않는다.
+
+360과 720의 gap은 raw 정의에서 0.0319, **mask-excluded 정의에서는 오히려 더 큰 0.0401**
+이다 — 어느 정의로 보아도 360이 충분하다는 결론은 나오지 않는다.
+
+**결정: M3의 bin 수를 720으로 올린다** (`projects/common/polar.py`의
+`DEFAULT_N_THETA = 720`, `build_ray_index`의 기본값). 이전 초안의 "360과 720의 차이가
+0.02 미만이면 360을 유지한다"는 기준은 두 정의 모두에서 성립하지 않았고(§5.2가 그
+기준이 애초 M3와 무관했다는 것도 정리한다), 720으로 올리는 비용은 사실상 0이며(광선
+캐시를 한 번 더 만드는 것뿐 — M3는 영역을 복원하지 않으므로 후속 코드에 영향이 없다),
+아직 이 기본값으로 채점된 run이 하나도 없어 지금이 바꾸기 가장 싼 시점이다. 360을
+잠정 유지하는 대신 지금 720으로 확정하고, 이 항목을 미해결에서 뺀다.

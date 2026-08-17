@@ -169,3 +169,34 @@ def summarize_range_error(dicts) -> dict:
     for key in _RANGE_COUNTS:
         result[key] = sum(d[key] for d in dicts)
     return result
+
+
+DEFAULT_RING_EDGES_M = (0.0, 1.5, 3.0, 4.0)
+
+
+def build_ring_masks(grid_spec, edges_m=DEFAULT_RING_EDGES_M):
+    """원점으로부터의 거리 링 마스크. 격자가 전후 비대칭이라 바깥 링은 격자에서 잘린다 --
+    그래도 "근거리는 맞는데 원거리에서 무너진다"를 보는 목적에는 충분하다."""
+    origin_row = grid_spec.front_m / grid_spec.cell_m - 0.5
+    origin_col = grid_spec.half_width_m / grid_spec.cell_m - 0.5
+    rows, cols = np.mgrid[0:grid_spec.n_rows, 0:grid_spec.n_cols]
+    distance_m = np.hypot(rows - origin_row, cols - origin_col) * grid_spec.cell_m
+    return [
+        (f"{lo}-{hi}m", (distance_m >= lo) & (distance_m < hi))
+        for lo, hi in zip(edges_m[:-1], edges_m[1:])
+    ]
+
+
+def metrics_per_ring(free_pred, free_gt, valid, ring_masks) -> dict:
+    """링마다 M1·M2를 다시 잰다. `valid`에 링 마스크를 곱해 같은 함수를 재사용한다."""
+    result = {}
+    for name, mask in ring_masks:
+        ring = torch.from_numpy(mask).to(valid.device).view(1, 1, *mask.shape)
+        ring_valid = valid.bool() & ring
+        iou, iou_count = iou_free(free_pred, free_gt, ring_valid)
+        rate, denom = fatal_rate(free_pred, free_gt, ring_valid)
+        result[name] = {
+            "iou_free": iou, "iou_free_count": iou_count,
+            "fatal_rate": rate, "fatal_denom": denom,
+        }
+    return result

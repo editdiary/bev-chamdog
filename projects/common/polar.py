@@ -16,6 +16,12 @@ RAY_OK = 0          # 첫 free 이후 첫 non-free를 격자 안에서 만났다
 RAY_NO_FREE = 1     # 광선 위에 free 셀이 하나도 없다 (정적 사각·후방 등) -> 지표에서 제외
 RAY_CENSORED = 2    # 격자 끝까지 free -> 회귀 통계에 섞지 않고 따로 센다
 
+# 스펙 §12(2026-08-17 재측정): `permanent_blind ∪ invalid`를 오차로 치지 않고 복원
+# 충실도만 보면 360→0.9519, 720→0.9920으로 §2.5를 재현하고 그 차이(0.0401)는 360에서
+# 오히려 더 크다. 720은 비용이 사실상 0이고 아직 이 기본값으로 채점된 run이 없어
+# 지금이 바꾸기 가장 싼 시점이므로 기본값을 720으로 올린다.
+DEFAULT_N_THETA = 720
+
 
 @dataclass(frozen=True)
 class RayIndex:
@@ -25,7 +31,7 @@ class RayIndex:
     inside: np.ndarray    # (n_theta, n_steps) bool, 격자 안인가
 
 
-def build_ray_index(grid_spec: OccupancyGridSpec, n_theta: int = 360,
+def build_ray_index(grid_spec: OccupancyGridSpec, n_theta: int = DEFAULT_N_THETA,
                     step_cells: float = 0.5) -> RayIndex:
     """`n_theta`개 방위각 × 반지름 표본의 (row, col) 인덱스를 미리 계산한다.
 
@@ -92,7 +98,16 @@ def first_free_range(free: np.ndarray, rays: RayIndex):
 
 
 def reconstruct_free(r_m, status, rays: RayIndex, shape) -> np.ndarray:
-    """`r(θ)`만으로 free 영역을 복원한다 -- polar 표현의 정보 손실을 재는 회귀 테스트용."""
+    """`r(θ)`만으로 free 영역을 복원한다.
+
+    **원점(반지름 0)부터 채운다.** 그래서 `first_free_range`가 (건너뛰고 측정하지 않은)
+    `permanent_blind`/`invalid` 같은 원점 부근 정적 마스크까지 복원 결과에 다시 채워
+    넣는다. `free` 자체는 그 마스크들을 이미 제외하고 있으므로(§7, `load_masked_labels`),
+    이 함수가 만드는 영역과 비교하면 그 마스크 넓이만큼 항상 거짓양성이 생긴다. 즉
+    **polar 표현 자체의 손실이 아니라 이 복원 방식의 성질이다** -- 표현 충실도를 재려면
+    호출자가 `permanent_blind ∪ invalid`를 both side에서 제외하고 비교해야 한다
+    (스펙 §12, `tools/measure_label_geometry.py`).
+    """
     restored = np.zeros(shape, bool)
     sampled_inside = rays.inside
     for i in range(rays.rows.shape[0]):

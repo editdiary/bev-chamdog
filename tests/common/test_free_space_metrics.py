@@ -261,3 +261,89 @@ def test_range_error_reports_over_and_under_counts():
     assert result["n_paired_rays"] == 1
     assert result["over_count"] == 1
     assert result["under_count"] == 0
+
+
+from projects.common.free_space_metrics import build_ring_masks, metrics_per_ring
+
+
+def test_ring_masks_partition_the_grid_by_distance_from_the_origin():
+    rings = build_ring_masks(RANGE_SPEC, edges_m=(0.0, 0.5, 1.0))
+
+    assert [name for name, _ in rings] == ["0.0-0.5m", "0.5-1.0m"]
+    inner, outer = rings[0][1], rings[1][1]
+    assert not (inner & outer).any()                      # 겹치지 않는다
+    assert inner[19, 20] and not outer[19, 20]            # 원점 바로 앞은 안쪽 링
+
+
+def test_metrics_per_ring_isolates_far_field_failure():
+    """근거리의 쉬운 성능이 원거리 실패를 가리는 것을 막는 것이 M4의 목적이다."""
+    gt = torch.ones((1, 1, RANGE_SPEC.n_rows, RANGE_SPEC.n_cols), dtype=torch.bool)
+    rings = build_ring_masks(RANGE_SPEC, edges_m=(0.0, 0.5, 1.0))
+    outer = torch.from_numpy(rings[1][1])
+    pred = gt.clone()
+    pred[0, 0][outer] = False                             # 바깥 링만 전부 틀린다
+    valid = torch.ones_like(gt)
+
+    per_ring = metrics_per_ring(pred, gt, valid, rings)
+
+    assert per_ring["0.0-0.5m"]["iou_free"] == pytest.approx(1.0)
+    assert per_ring["0.5-1.0m"]["iou_free"] == pytest.approx(0.0)
+
+
+def test_metrics_per_ring_isolates_far_field_fatal_rate():
+    """`fatal_rate`는 모듈 docstring이 말하는 "직접적인 위험량"이다. 위 테스트는 `iou_free`
+    만 링별로 확인하므로, `metrics_per_ring`이 `fatal_rate` 호출에도 실제로 링 마스크를
+    곱하는지(전체 `valid`가 아니라 `ring_valid`를 넘기는지)는 검출하지 못한다. 안쪽 링은
+    pred==gt(위험 없음), 바깥 링은 pred가 전부 잘못 free라고 주장(전부 위험)하도록 만들어
+    두 값이 0.0/1.0으로 뚜렷이 갈리게 한다."""
+    rings = build_ring_masks(RANGE_SPEC, edges_m=(0.0, 0.5, 1.0))
+    inner_mask, _ = rings[0][1], rings[1][1]
+
+    gt = torch.zeros((1, 1, RANGE_SPEC.n_rows, RANGE_SPEC.n_cols), dtype=torch.bool)
+    gt[0, 0][torch.from_numpy(inner_mask)] = True     # 안쪽 링만 실제 free, 바깥 링은 occupied
+    pred = torch.ones_like(gt)                        # 예측은 어디서나 free라고 주장
+    valid = torch.ones_like(gt)
+
+    per_ring = metrics_per_ring(pred, gt, valid, rings)
+
+    assert per_ring["0.0-0.5m"]["fatal_rate"] == pytest.approx(0.0)   # 안쪽: pred==gt, 위험 없음
+    assert per_ring["0.5-1.0m"]["fatal_rate"] == pytest.approx(1.0)   # 바깥: 전부 오탐(occupied인데 free라 함)
+
+
+def test_metrics_per_ring_reports_matching_count_and_denom_fields():
+    """`iou_free_count`/`fatal_denom`이 실제로 각자의 지표와 짝지어 나오는지 확인한다
+    (Task 2 리뷰가 잡아낸 것과 같은 부류의 배선 결함 -- 값이 그럴듯해서 아무도 눈치채지
+    못한다). 안쪽 링은 iou 평균에 배치 1개가 들어가 count=1이고, fatal 분모는 `|pred|`인
+    링 전체 칸 수라서 두 값이 (1 vs 수백) 크게 다르다 -- 뒤바뀌면 반드시 걸린다."""
+    gt = torch.ones((1, 1, RANGE_SPEC.n_rows, RANGE_SPEC.n_cols), dtype=torch.bool)
+    rings = build_ring_masks(RANGE_SPEC, edges_m=(0.0, 0.5, 1.0))
+    inner_mask, outer_mask = rings[0][1], rings[1][1]
+    outer = torch.from_numpy(outer_mask)
+    pred = gt.clone()
+    pred[0, 0][outer] = False
+    valid = torch.ones_like(gt)
+
+    per_ring = metrics_per_ring(pred, gt, valid, rings)
+
+    assert per_ring["0.0-0.5m"]["iou_free_count"] == 1
+    assert per_ring["0.0-0.5m"]["fatal_denom"] == int(inner_mask.sum())
+
+
+ASYMMETRIC_SPEC = OccupancyGridSpec(front_m=3.0, rear_m=1.0, half_width_m=1.0, cell_m=0.5)
+
+
+def test_ring_masks_assign_front_m_to_rows_and_half_width_m_to_cols():
+    """RANGE_SPEC은 `front_m == half_width_m == 1.0`이라 `origin_row`/`origin_col`이 어느
+    필드에서 오는지 바꿔도 결과가 같다 -- row/col 배정 버그를 검출할 수 없는 fixture다.
+    `front_m != half_width_m`인 ASYMMETRIC_SPEC으로 직접 검증한다. `build_ring_masks`가
+    존재하는 이유인 전후 비대칭이 바로 이 값이며, 실제 `ROBOT_GRID_SPEC`(front_m=4.0,
+    rear_m=2.0, half_width_m=3.0)도 이런 비대칭 케이스다."""
+    rings = build_ring_masks(ASYMMETRIC_SPEC, edges_m=(0.0, 0.5, 3.0))
+    inner_mask = rings[0][1]
+
+    # 올바른 배정: origin_row = front_m/cell_m - 0.5 = 5.5, origin_col = half_width_m/cell_m
+    # - 0.5 = 1.5. 셀 (5, 1)은 원점에서 대각선으로 0.5칸(0.5*sqrt(2)*0.5m ≈ 0.354m)
+    # 떨어져 있어 0.0-0.5m 링 안이다.
+    assert inner_mask[5, 1]
+    # row/col을 뒤바꾸면 origin이 (1.5, 5.5)가 되어 이 셀까지 거리가 ≈2.85m로 늘어나
+    # 0.0-0.5m 링 밖으로 밀려난다 -- 이 assert 하나로 뒤바뀜을 잡는다.

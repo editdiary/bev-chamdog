@@ -73,19 +73,41 @@ def test_ray_free_all_the_way_out_is_censored_not_a_range():
 
 
 def test_star_convex_region_survives_the_polar_roundtrip():
-    """free가 단일 원점 raycast 결과라 star-convex라는 성질의 회귀 테스트 (스펙 §2.5)."""
+    """free가 단일 원점 raycast 결과라 star-convex라는 성질의 회귀 테스트 (스펙 §2.5, §12).
+
+    이전 버전은 원점 중심 **꽉 찬** 원반(`radius < 12`)을 썼다. 그 fixture는 안쪽에
+    blind hole이 없어서 원점(반지름 0)부터 채우는 `reconstruct_free`가 손해 볼 것이
+    없고, 그래서 실제 라벨에서 raw roundtrip IoU가 0.99는커녕 ~0.80까지 떨어지는
+    원인(§12: `permanent_blind`/`invalid`처럼 원점 부근 정적 마스크를 원점-fill이
+    거짓양성으로 되살리는 것)을 원리적으로 재현할 수 없었다 -- 이 테스트는 그 결함이
+    있는 채로도 항상 통과했다.
+
+    안쪽에 구멍이 뚫린 **고리(annulus)**로 바꿔 그 효과를 직접 pin한다: `permanent_blind`
+    역할을 하는 원점 주변 hole을 만들고, (a) hole을 제외한 -- 즉 §12가 "의미 있는 기준"
+    이라고 정한 -- roundtrip IoU는 여전히 ≥0.99임을, (b) hole을 포함한 raw 값(=
+    `reconstruct_free`를 그대로 쓰는 호출자가 실제로 받는 값)은 실측상 뚜렷이 낮다는
+    것을 같은 테스트 안에서 함께 확인한다.
+    """
     rows, cols = np.mgrid[0:SPEC.n_rows, 0:SPEC.n_cols]
     origin_r, origin_c = SPEC.front_m / SPEC.cell_m - 0.5, SPEC.half_width_m / SPEC.cell_m - 0.5
     radius = np.hypot(rows - origin_r, cols - origin_c)
-    free = radius < 12                                    # 원점 중심 원반 = star-convex
+    hole = radius <= 5                                     # permanent_blind 역할의 원점 주변 hole
+    free = (radius > 5) & (radius < 12)                     # 고리 -- star-convex하되 안쪽이 비어 있다
 
     rays = build_ray_index(SPEC, n_theta=720)
     r_m, status = first_free_range(free, rays)
     restored = reconstruct_free(r_m, status, rays, free.shape)
 
-    intersection = (restored & free).sum()
+    # (a) hole 제외 -- polar 표현 자체의 손실만 남긴, §12가 의미 있다고 정한 정의.
+    restored_excl, free_excl = restored & ~hole, free & ~hole
+    union_excl = (restored_excl | free_excl).sum()
+    assert (restored_excl & free_excl).sum() / union_excl >= 0.99
+
+    # (b) hole 포함 raw 값 -- `reconstruct_free`는 원점부터 채우므로 hole을 거짓양성으로
+    # 되살린다. 실측(2026-08-17): 0.8214. "0.99에 한참 못 미친다"는 사실 자체가 §12의
+    # root cause(원점-fill이 정적 마스크를 되살린다)를 이 단위 테스트 안에서 재현한다.
     union = (restored | free).sum()
-    assert intersection / union >= 0.99
+    assert (restored & free).sum() / union <= 0.85
 
 
 def test_first_free_range_is_directionally_correct_left_vs_right():
