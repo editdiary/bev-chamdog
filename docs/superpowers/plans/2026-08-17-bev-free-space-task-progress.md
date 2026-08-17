@@ -5,9 +5,10 @@
 > 무엇이 정해졌는지를 정한다. 다른 세션·다른 에이전트가 이어받을 때 이 문서를 먼저 읽는다.
 
 - 브랜치: **`feat/bev-free-space-task`**
-- 마지막 완료 커밋: **`259b952`** (`--head` runtime switch)
+- 마지막 코드 커밋: **`259b952`** (`--head` runtime switch) — Task 17·18은 코드 변경이 없다
 - 테스트: **242 passed**, 실패 0
-- 진행: **Task 1–16 완료. Phase 0·Phase 1·Phase 2 게이트 통과. 다음은 Task 17 — 실행 전 사용자와 논의한다.**
+- 진행: **Task 1–18 전부 완료. Phase 0·1·2·3 게이트 통과 — 이 계획은 끝났다.** 다음은 Phase 4로, **별도 스펙·계획**으로 다룬다.
+- Phase 3 판정: 3-class가 통과. `iou_free` 0.774 대 0.765, 단 `fatal_rate`는 0.135 대 0.124로 후퇴. 근거와 한계는 [`docs/free_space_metric_migration.md`](../../free_space_metric_migration.md) §8.
 - 실행 방식: `superpowers:subagent-driven-development` (태스크마다 구현자 → 리뷰 → fix 루프 → 재리뷰)
 
 ---
@@ -19,15 +20,20 @@ git checkout feat/bev-free-space-task
 python -m pytest tests/ -q          # 242 passed 확인
 ```
 
-`superpowers:subagent-driven-development` 스킬로 **Task 17부터** 이어간다. BASE는 현재 HEAD다.
-Task 17은 GPU 학습이고 사용자가 그 전에 멈춰 논의하라고 지시했다. 즉, 자동으로 실행하지
-말고 먼저 사용자와 overfit gate의 목적·조건·실행 방식을 확인한다.
+**이 계획에는 이어갈 태스크가 없다.** Task 1–18이 전부 끝났고 게이트 4개가 모두 통과했다.
+이 문서는 이제 재개 지침이 아니라 **Phase 4를 시작할 사람이 읽는 인수인계 기록**이다.
+§3(실행 중 정해진 것)과 §4(발견사항), 그리고
+[`docs/free_space_metric_migration.md`](../../free_space_metric_migration.md) §7–8을 먼저 읽는다.
 
-태스크 브리프는 계획에서 기계적으로 추출한다:
+Phase 4 착수 전에 사용자가 밝힌 두 가지 후속 작업이 있다(2026-08-17):
 
-```bash
-<skill>/scripts/task-brief docs/superpowers/plans/2026-08-17-bev-free-space-task.md 17
-```
+1. **pretrain / fine-tuning 코드 파악** — 두 학습 경로가 어떤 데이터셋을 어떻게 읽어 어떤
+   과정으로 학습되고 무엇으로 평가되는지 구체적으로 확인한 뒤 본격 학습에 들어가겠다는 요구.
+2. **평가 지표 일부 수정** — 사용자가 손보고 싶은 부분이 있다고 밝혔다. **`iou_free`의 정의는
+   유지한다고 확인됐다.** 이것이 Task 18을 먼저 돌린 근거다 — `iou_free`는 Task 11에서
+   checkpoint 선택 기준이 되었으므로 그 정의가 바뀌면 어느 epoch이 best로 뽑히는지가 달라져
+   재학습이 필요하지만, 다른 지표 수정은 `tools/rescore_checkpoints.py`로 저장된 체크포인트를
+   재채점해 판정만 다시 하면 된다. 수정 내용은 아직 듣지 못했다.
 
 실행 중 ledger는 `.superpowers/sdd/2026-08-17-bev-free-space-task/progress.md`에 있다.
 **git-ignored 스크래치라 계획 완료 시 삭제된다** — 그래서 오래 남아야 하는 것은 전부 이
@@ -37,7 +43,7 @@ Task 17은 GPU 학습이고 사용자가 그 전에 멈춰 논의하라고 지�
 
 - **`merge`와 `push`는 사용자가 직접 한다.** 에이전트가 임의로 수행하지 않는다.
 - `third_party/`와 `mmdetection3d/`는 git submodule — 직접 수정하지 않는다.
-- **Task 13 · 17 · 18은 GPU 학습이다. 실행 전 사용자 확인을 받는다.**
+- **Task 13 · 17 · 18은 GPU 학습이다. 실행 전 사용자 확인을 받는다.** (13·17 완료)
 
 ---
 
@@ -61,6 +67,8 @@ Task 17은 GPU 학습이고 사용자가 그 전에 멈춰 논의하라고 지�
 | 14 | `ThreeClassSegnet` wrapper | `8a231a1..b0941b0` | 228 passed + reviewer mutation |
 | 15 | 3-class weighted CE + shared free metrics/run_batch | `b0941b0..25bc010` | 236 passed + reviewer mutation |
 | 16 | `--head` switch + `bev_occupancy_metrics.py` rename | `25bc010..259b952` | 242 passed + GPU0 two-head/three-class smoke |
+| 17 | 4샘플 3-class overfit **[Phase 3 게이트 조건 2]** | Task 17 문서 커밋 | train `iou_free` 1.000, 세 구성 전부 통과, 242 passed |
+| 18 | 3-class vs 2-head A/B **[Phase 3 게이트]** | Task 18 문서 커밋 | best `val_iou_free` 0.774 (2-head 0.765), `fatal_rate` 0.135 (2-head 0.124), 242 passed |
 
 `a6ddbaa`(문서 커밋)는 Task 4와 5 사이에 들어갔다. `8d2d31d`(인수인계 문서 커밋)는
 Task 8과 9 사이에 들어갔다.
@@ -196,6 +204,28 @@ Task 16 GPU0 smoke:
 
 ---
 
+### 3.12 Task 17은 계획서 원본 명령이 맞았다 — 내가 바꾼 판단이 틀렸다
+
+실행 전에 "4샘플 + `batch_size=4`면 epoch당 optimizer step이 1회라 계획서의 200 epoch은
+200 step뿐이고 도달 불가에 가깝다"고 보고 2000 epoch으로 올렸다. step 계산은 맞았지만
+결론은 틀렸다 — 200 epoch으로도 통과하고, from scratch가 pretrain trunk보다 오히려 빨리
+통과한다(epoch 50 대 82). 4장 암기에서는 pretrain 가중치가 제약으로 작동한다. Task 13의
+~1000 step은 190장 일반화 학습이라 4장 암기의 근거가 되지 못했다.
+
+**Task 17을 재실행할 일이 있으면 계획서 원본 명령 그대로가 맞다** (200 epoch, `--init_checkpoint=None`).
+단 `--num_workers`는 0으로 둔다 — epoch당 batch가 1개인데 `persistent_workers`가 아니라
+epoch마다 worker spawn 비용이 학습을 압도한다. 상세는
+[`docs/free_space_metric_migration.md`](../../free_space_metric_migration.md) §7.4.
+
+### 3.13 Task 17의 class weight는 Task 18과 다르다 (의도된 것)
+
+4샘플에서 유도된 가중치는 `[1.0, 7.476, 20.0]`, 190샘플 train split은 `[1.0, 3.878, 20.0]`이다.
+`free`가 약 2배 다르다(`occupied`는 양쪽 다 `MAX_CLASS_WEIGHT=20` 캡). class weight는 CLI
+플래그가 없어 맞추려면 코드 변경이 필요한데, Task 17이 묻는 것은 "이 4장을 외울 수 있는가"라서
+기본값을 그대로 뒀다. **따라서 Task 17의 loss 값을 Task 18의 loss와 나란히 읽지 않는다.**
+
+---
+
 ## 4. 이후 태스크가 알아야 할 발견사항
 
 ### 4.1 헤드라인 0.850은 거의 전부 visibility head의 공로다 (Task 8 리뷰에서 실측)
@@ -245,13 +275,22 @@ Phase 1 게이트 조건 2가 그것과 비교하기 때문이다. 바꾸면 비
 
 ## 5. 남은 태스크
 
-| Task | 내용 | 비고 |
-|---|---|---|
-| 17 | 과적합 게이트 | **GPU 학습 — 실행 전 중지하고 사용자와 논의** |
-| 18 | 2-head vs 3-class A/B **[Phase 3 게이트]** | **GPU 학습 — 사용자 확인 필요**, §4.1 해석 주의 |
+**없다 — Task 1–18이 전부 완료됐다.**
+
+Phase 3 게이트 4조건 전부 성립: 1) `pytest tests/ -q` 242 passed, 2) Task 17 overfit
+train `iou_free` 1.000 >= 0.98, 3) Task 18 A/B 결과와 판정이
+`docs/free_space_metric_migration.md` §8에 기록됨, 4) Phase 4는 별도 스펙으로 분리.
 
 Phase 4(SynWoodScape 3-class pretrain 재학습)와 Phase 5(polar head)는 이 계획 범위 밖이며,
-Phase 3 결과를 보고 별도 스펙·계획으로 다룬다.
+별도 스펙·계획으로 다룬다. Phase 4가 해소하는 것은 §8.4의 3번(head 전이 비대칭)이다 —
+2-head는 pretrain head까지 받고 3-class는 head를 랜덤 초기화로 시작했으므로, 이 A/B의
+가장 큰 교란이 그것이다.
+
+**Phase 4로 반드시 들고 갈 것**: `fatal_rate`를 `iou_free`와 함께 주 지표로 읽는다. Task 18에서
+유일하게 후퇴한 지표이고(0.124 -> 0.135), §4.1이 실측으로 확정한 대로 occupancy head가
+기여하는 유일한 지표다. 3-class pretrain으로 출력 head까지 전이됐을 때 이 후퇴가 사라지는지가
+핵심 확인 항목이다 — 사라지지 않으면 head 초기화 문제가 아니라 3-class 정식화가 occupancy
+경계에서 실제로 잃는 것이라는 뜻이다.
 
 ---
 
