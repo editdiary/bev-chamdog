@@ -44,6 +44,7 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_DATASET_ROOT,
     RobotBEVDataset,
     list_sequence_samples,
+    parse_sequence_names,
 )
 from projects.geometry.double_sphere import (  # noqa: E402
     FINETUNE_CAMERA_NAMES,
@@ -106,9 +107,8 @@ def main(
 
     dataset_root = Path(dataset_root)
     samples = []
-    for name in str(sequences).split(","):
-        if name:
-            samples.extend(list_sequence_samples(dataset_root / name))
+    for name in parse_sequence_names(sequences):
+        samples.extend(list_sequence_samples(dataset_root / name))
     if not samples:
         raise FileNotFoundError(f"샘플이 없다: {sequences}")
 

@@ -10,6 +10,7 @@ fine-tuning이 공유한다.
 규약에 의존하는 것(`compute_pos_weight` 등)은 각 스크립트에 남는다.
 """
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -31,22 +32,87 @@ class _Ansi:
 
     RESET = "\033[0m"
     BOLD = "\033[1m"
-    CYAN = "\033[36m"
+    DIM = "\033[2m"
+    RED = "\033[31m"
     GREEN = "\033[32m"
     YELLOW = "\033[33m"
+    BLUE = "\033[34m"
     MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+
+
+def _color_enabled() -> bool:
+    """색은 **터미널로 직접 출력할 때만** 켠다.
+
+    `... > train.log`나 `| tee`로 로그를 남기는 경우가 많은데, 그 파일에 escape sequence가
+    섞이면 나중에 grep/diff가 지저분해진다. 관례대로 `NO_COLOR`로 끄고 `FORCE_COLOR`로
+    강제할 수 있다(파이프로 넘기면서 색을 보고 싶을 때: `FORCE_COLOR=1 ... | less -R`).
+    """
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return sys.stdout.isatty()
 
 
 def _c(color: str, text: str) -> str:
+    if not _color_enabled():
+        return text
     return f"{color}{text}{_Ansi.RESET}"
 
 
 def _print_banner(lines) -> None:
+    """제목과 `<-`로 표시된 줄만 강조한다 -- 전부 같은 색으로 칠하면 강조가 아니라 벽이 된다.
+
+    `<-`는 두 학습 스크립트 모두 "이 숫자와 비교하라"는 뜻으로 쓰는 표시다.
+    """
     rule = "=" * 60
     print(_c(_Ansi.BOLD + _Ansi.CYAN, rule))
-    for line in lines:
-        print(_c(_Ansi.BOLD + _Ansi.CYAN, line))
+    for i, line in enumerate(lines):
+        if i == 0:
+            print(_c(_Ansi.BOLD + _Ansi.CYAN, line))
+        elif "<-" in line:
+            print(_c(_Ansi.BOLD + _Ansi.YELLOW, line))
+        else:
+            print(line)
     print(_c(_Ansi.BOLD + _Ansi.CYAN, rule))
+
+
+def _sep() -> str:
+    return _c(_Ansi.DIM, " | ")
+
+
+def _field(label: str, value, fmt: str = ".3f", *, emphasis: str = "") -> str:
+    """`라벨(흐리게) 값(또렷하게)`. 라벨은 매 epoch 똑같이 반복되는 부분이라 눈이 값만
+    따라가면 되도록 흐리게 깐다. NaN은 숫자처럼 안 보이게 `-`로 눕힌다."""
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return _c(_Ansi.DIM, f"{label} -")
+    return f"{_c(_Ansi.DIM, label)} {_c(emphasis, format(value, fmt)) if emphasis else format(value, fmt)}"
+
+
+def _format_row(tag: str, tag_color: str, fields) -> str:
+    return f"  {_c(_Ansi.BOLD + tag_color, tag.ljust(6))}{_c(_Ansi.DIM, '|')} " + _sep().join(fields)
+
+
+def _format_metric_row(tag, tag_color, loss, occ_loss, vis_loss, d_iou, o_iou,
+                       v_false_high, v_false_low, occ_metrics):
+    """train/val 한 줄. IoU 두 개만 굵게 -- 나머지는 그 둘을 해석하기 위한 보조 지표다."""
+    fields = [
+        _field("loss_total↓", loss, ".4f"),
+        _field("loss_occ↓", occ_loss, ".4f"),
+        _field("loss_vis↓", vis_loss, ".4f"),
+        _field("iou_drivable↑", d_iou, emphasis=_Ansi.BOLD),
+        _field("iou_obstacle↑", o_iou, emphasis=_Ansi.BOLD),
+        _field("vis_false_high↓", v_false_high),
+        _field("vis_false_low↓", v_false_low),
+    ]
+    if occ_metrics is not None:
+        fields += [
+            _field("obst_frac", occ_metrics["obstacle_frac"]),
+            _field("false_obstacle↓", occ_metrics["false_obstacle"]),
+            _field("missed_obstacle↓", occ_metrics["missed_obstacle"]),
+        ]
+    return _format_row(tag, tag_color, fields)
 
 
 def _format_deployment_line(metrics):
@@ -55,13 +121,13 @@ def _format_deployment_line(metrics):
     """
     if metrics is None:
         return []
-    return [
-        (
-            f"  deploy| (pred visibility 기준) iou_drivable↑ {metrics['iou_drivable']:.3f} | "
-            f"iou_obstacle↑ {metrics['iou_obstacle']:.3f} | "
-            f"visible_coverage {metrics['visible_coverage']:.3f}"
-        )
+    fields = [
+        _c(_Ansi.DIM, "(pred visibility 기준)") + " "
+        + _field("iou_drivable↑", metrics["iou_drivable"], emphasis=_Ansi.BOLD),
+        _field("iou_obstacle↑", metrics["iou_obstacle"], emphasis=_Ansi.BOLD),
+        _field("visible_coverage", metrics["visible_coverage"]),
     ]
+    return [_format_row("deploy", _Ansi.MAGENTA, fields)]
 
 
 def format_epoch_log(
@@ -91,27 +157,29 @@ def format_epoch_log(
     is_new_best,
 ):
     displayed_best = val_score if is_new_best else best_val_score
-    checkpoint_note = "new best" if is_new_best else "-"
+    # 직전 best 대비 증감. "이번 epoch이 나아졌나"를 숫자 두 개를 눈으로 빼지 않고 보려는 것.
+    # best의 초기값이 0.0이라 첫 val epoch에서는 델타가 곧 점수라 무의미하므로 생략한다.
+    delta = ""
+    if best_val_score > 0 and not math.isnan(val_score):
+        diff = val_score - best_val_score
+        delta = " " + _c(_Ansi.GREEN if diff > 0 else _Ansi.RED, f"({diff:+.3f})")
     return "\n".join([
         (
-            f"epoch {epoch:03d}/{num_epochs} | time {epoch_time:6.1f}s | "
-            f"val_iou_mean↑ {val_score:.3f} | best_val_iou_mean↑ {displayed_best:.3f} | "
-            f"checkpoint: {checkpoint_note}"
-            f"{_format_obstacle_bin_summary(val_occ_metrics)}"
+            _c(_Ansi.BOLD + _Ansi.CYAN, f"epoch {epoch:03d}/{num_epochs}") + _sep()
+            + _c(_Ansi.DIM, f"time {epoch_time:6.1f}s") + _sep()
+            + _field("val_iou_mean↑", val_score, emphasis=_Ansi.BOLD) + delta + _sep()
+            + _field("best_val_iou_mean↑", displayed_best) + _sep()
+            + (_c(_Ansi.BOLD + _Ansi.GREEN, "checkpoint: new best") if is_new_best
+               else _c(_Ansi.DIM, "checkpoint: -"))
         ),
-        (
-            f"  train | loss_total↓ {train_loss:.4f} | loss_occ↓ {train_occ_loss:.4f} | "
-            f"loss_vis↓ {train_vis_loss:.4f} | iou_drivable↑ {train_d_iou:.3f} | "
-            f"iou_obstacle↑ {train_o_iou:.3f} | vis_false_high↓ {train_v_false_high:.3f} | "
-            f"vis_false_low↓ {train_v_false_low:.3f}"
-            f"{_format_occupancy_diag(train_occ_metrics)}"
+        *_format_obstacle_bin_summary(val_occ_metrics),
+        _format_metric_row(
+            "train", _Ansi.YELLOW, train_loss, train_occ_loss, train_vis_loss,
+            train_d_iou, train_o_iou, train_v_false_high, train_v_false_low, train_occ_metrics,
         ),
-        (
-            f"  val   | loss_total↓ {val_loss:.4f} | loss_occ↓ {val_occ_loss:.4f} | "
-            f"loss_vis↓ {val_vis_loss:.4f} | iou_drivable↑ {val_d_iou:.3f} | "
-            f"iou_obstacle↑ {val_o_iou:.3f} | vis_false_high↓ {val_v_false_high:.3f} | "
-            f"vis_false_low↓ {val_v_false_low:.3f}"
-            f"{_format_occupancy_diag(val_occ_metrics)}"
+        _format_metric_row(
+            "val", _Ansi.CYAN, val_loss, val_occ_loss, val_vis_loss,
+            val_d_iou, val_o_iou, val_v_false_high, val_v_false_low, val_occ_metrics,
         ),
         *_format_deployment_line(val_deploy_metrics),
     ])
@@ -328,18 +396,12 @@ def summarize_occupancy_diagnostics(metric_dicts):
     return result
 
 
-def _format_occupancy_diag(metrics) -> str:
+def _format_obstacle_bin_summary(metrics):
+    """GT obstacle 비율 bin별 val IoU. epoch 헤더에 붙이면 헤더가 터미널 폭을 넘겨 줄바꿈되고,
+    그러면 정작 중요한 val_iou_mean이 묻힌다 -- 별도 줄로 뺀다. 샘플이 없는 bin(n0)은 흐리게.
+    """
     if metrics is None:
-        return ""
-    return (
-        f" | obst_frac {metrics['obstacle_frac']:.3f} | false_obstacle↓ {metrics['false_obstacle']:.3f} | "
-        f"missed_obstacle↓ {metrics['missed_obstacle']:.3f}"
-    )
-
-
-def _format_obstacle_bin_summary(metrics) -> str:
-    if metrics is None:
-        return ""
+        return []
     parts = []
     for name, _, _ in OBSTACLE_FRACTION_BINS:
         count = metrics[f"obstacle_count_{name}"]
@@ -348,8 +410,9 @@ def _format_obstacle_bin_summary(metrics) -> str:
         else:
             value = metrics[f"obstacle_iou_{name}"]
             value_text = f"{value:.3f}" if count > 0 else "-"
-        parts.append(f"{name}:{value_text}/n{count}")
-    return " | val_obst_iou_bins " + " ".join(parts)
+        text = f"{name}:{value_text}/n{count}"
+        parts.append(_c(_Ansi.DIM, text) if count == 0 else text)
+    return [_format_row("bins", _Ansi.BLUE, [_c(_Ansi.DIM, "val_obst_iou_bins") + " " + " ".join(parts)])]
 
 
 def write_occupancy_diagnostics(writer, split: str, metrics, epoch: int) -> None:

@@ -50,6 +50,7 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     RobotBEVDataset,
     build_bev_masks,
     load_masked_labels,
+    parse_sequence_names,
     split_samples_by_sequence,
     split_samples_within_sequences,
 )
@@ -159,8 +160,8 @@ def main(
     np.random.seed(0)
 
     dataset_root = Path(dataset_root)
-    names = [n for n in str(train_sequences).split(",") if n]
-    val_names = [n for n in str(val_sequences).split(",") if n]
+    names = parse_sequence_names(train_sequences)
+    val_names = parse_sequence_names(val_sequences)
     sequence_roots = [dataset_root / name for name in names + val_names]
     for root in sequence_roots:
         if not (root / "occupancy_npy").exists():

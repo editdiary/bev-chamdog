@@ -128,10 +128,21 @@ Do not switch the score until the new diagnostic metrics have been observed on a
 Current epoch log shape:
 
 ```text
-epoch 001/60 | time   23.1s | val_iou_mean↑ 0.753 | best_val_iou_mean↑ 0.753 | checkpoint: new best | val_obst_iou_bins empty:fa .../nN tiny:.../nN small:.../nN medium:.../nN large:.../nN
+epoch 001/60 | time   23.1s | val_iou_mean↑ 0.753 (+0.004) | best_val_iou_mean↑ 0.753 | checkpoint: new best
+  bins  | val_obst_iou_bins empty:fa .../nN tiny:.../nN small:.../nN medium:.../nN large:.../nN
   train | loss_total↓ ... | loss_occ↓ ... | loss_vis↓ ... | iou_drivable↑ ... | iou_obstacle↑ ... | vis_false_high↓ ... | vis_false_low↓ ... | obst_frac ... | false_obstacle↓ ... | missed_obstacle↓ ...
   val   | loss_total↓ ... | loss_occ↓ ... | loss_vis↓ ... | iou_drivable↑ ... | iou_obstacle↑ ... | vis_false_high↓ ... | vis_false_low↓ ... | obst_frac ... | false_obstacle↓ ... | missed_obstacle↓ ...
+  deploy| (pred visibility 기준) iou_drivable↑ ... | iou_obstacle↑ ... | visible_coverage ...
 ```
+
+`(+0.004)` next to `val_iou_mean` is the change against the previous best (green when positive,
+red when negative). It is omitted on the first scored epoch, where there is no previous best yet.
+
+The rows are colour-coded when the output is a terminal: metric names are dimmed so only the
+numbers stand out, and the two IoU values are bold. Colour is disabled automatically when stdout
+is redirected (`> train.log`, `| tee`) so log files stay free of escape sequences. Override with
+`NO_COLOR=1` to force plain output, or `FORCE_COLOR=1` to keep colour through a pipe
+(`FORCE_COLOR=1 bash configs/train_robot_bev_finetune.sh | less -R`).
 
 Direction markers:
 

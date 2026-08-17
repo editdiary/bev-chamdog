@@ -1,8 +1,11 @@
+import io
 import math
+import re
 
 import pytest
 import torch
 
+from projects.common.two_head_metrics import _color_enabled
 from tools.train_synwoodscape import (
     compute_deployment_occupancy_metrics,
     compute_drivable_and_obstacle_iou,
@@ -40,7 +43,11 @@ def test_format_epoch_log_separates_epoch_train_and_val_with_metric_directions()
 
     lines = text.splitlines()
     assert len(lines) == 3
-    assert lines[0] == "epoch 012/60 | time  138.2s | val_iou_mean↑ 0.624 | best_val_iou_mean↑ 0.624 | checkpoint: new best"
+    # 직전 best 대비 증감을 같이 보여준다 -- 숫자 두 개를 눈으로 빼지 않아도 되도록.
+    assert lines[0] == (
+        "epoch 012/60 | time  138.2s | val_iou_mean↑ 0.624 (+0.014) | "
+        "best_val_iou_mean↑ 0.624 | checkpoint: new best"
+    )
     assert lines[1] == (
         "  train | loss_total↓ 0.4821 | loss_occ↓ 0.1032 | loss_vis↓ 0.7578 | "
         "iou_drivable↑ 0.812 | iou_obstacle↑ 0.436 | vis_false_high↓ 0.021 | vis_false_low↓ 0.184"
@@ -49,6 +56,42 @@ def test_format_epoch_log_separates_epoch_train_and_val_with_metric_directions()
         "  val   | loss_total↓ 0.5014 | loss_occ↓ 0.1110 | loss_vis↓ 0.7808 | "
         "iou_drivable↑ 0.795 | iou_obstacle↑ 0.453 | vis_false_high↓ 0.025 | vis_false_low↓ 0.197"
     )
+
+
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+
+
+def _sample_epoch_log():
+    return format_epoch_log(
+        epoch=3, num_epochs=60, epoch_time=1.0,
+        train_loss=0.1, train_occ_loss=0.1, train_vis_loss=0.1,
+        train_d_iou=0.9, train_o_iou=0.5, train_v_false_high=0.0, train_v_false_low=0.0,
+        val_loss=0.1, val_occ_loss=0.1, val_vis_loss=0.1,
+        val_d_iou=0.9, val_o_iou=0.5, val_v_false_high=0.0, val_v_false_low=0.0,
+        val_score=0.7, best_val_score=0.6, is_new_best=True,
+    )
+
+
+def test_color_is_off_when_output_is_redirected(monkeypatch):
+    """`python train.py > train.log`로 남긴 로그에 escape sequence가 섞이면 안 된다."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.setattr("sys.stdout", io.StringIO())  # isatty() == False
+
+    assert not _color_enabled()
+    assert "\033[" not in _sample_epoch_log()
+
+
+def test_color_only_adds_escape_codes_and_never_changes_the_text(monkeypatch):
+    monkeypatch.setenv("NO_COLOR", "1")
+    plain = _sample_epoch_log()
+
+    monkeypatch.delenv("NO_COLOR")
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    colored = _sample_epoch_log()
+
+    assert "\033[" in colored
+    assert _ANSI_RE.sub("", colored) == plain
 
 
 def test_compute_occupancy_diagnostics_reports_error_direction_and_obstacle_bins():
@@ -153,7 +196,9 @@ def test_epoch_log_shows_false_alarm_instead_of_iou_for_empty_bin():
         is_new_best=True,
     )
 
-    assert "empty:fa 0.250/n1" in text.splitlines()[0]
+    # bin 요약은 헤더에 붙이면 줄이 터미널 폭을 넘겨 val_iou_mean이 묻히므로 별도 줄이다.
+    assert text.splitlines()[1].startswith("  bins  | val_obst_iou_bins ")
+    assert "empty:fa 0.250/n1" in text.splitlines()[1]
 
 
 # 배포 시에는 GT visibility가 없다. 모델이 "보인다"고 예측한 영역에서만 occupancy를 믿게

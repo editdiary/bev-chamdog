@@ -64,6 +64,18 @@ GRID_SPEC = ROBOT_GRID_SPEC
 RESIZE_WIDTH, RESIZE_HEIGHT = 512, 288
 
 
+def parse_sequence_names(value) -> list:
+    """CLI로 들어온 시퀀스 목록 -> 이름 리스트.
+
+    Fire는 `--train_sequences=raws1,raws3`처럼 콤마가 있는 값을 문자열이 아니라 튜플로
+    파싱한다(`--train_sequences=raws1`은 문자열). 두 경우를 모두 받아준다.
+    """
+    if value is None:
+        return []
+    items = value if isinstance(value, (list, tuple)) else str(value).split(",")
+    return [name for name in (str(item).strip() for item in items) if name]
+
+
 def list_sequence_samples(sequence_root) -> list:
     """시퀀스 디렉터리 -> [(sequence_root, sample_id), ...] (sample_id 오름차순)."""
     sequence_root = Path(sequence_root)

@@ -46,9 +46,6 @@ from projects.models.simplebev_two_head import TwoHeadSegnet  # noqa: E402
 from projects.common.two_head_metrics import (  # noqa: E402
     _Ansi,
     _c,
-    _format_deployment_line,
-    _format_obstacle_bin_summary,
-    _format_occupancy_diag,
     _print_banner,
     compute_deployment_occupancy_metrics,
     compute_drivable_and_obstacle_iou,
