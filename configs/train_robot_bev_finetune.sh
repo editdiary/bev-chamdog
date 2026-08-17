@@ -10,7 +10,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 EXP_NAME="${EXP_NAME:-robot_finetune}"
 LR="${LR:-1e-4}"
 AUGMENT="${AUGMENT:-False}"
@@ -18,8 +18,8 @@ AUGMENT="${AUGMENT:-False}"
 # 시퀀스가 늘어나면 여기에 콤마로 추가한다. VAL_SEQUENCES는 **train에 없는 시퀀스**여야
 # 한다 -- 한 시퀀스는 연속 주행을 거리 기반으로 샘플링한 것이라 프레임을 섞어 나누면
 # val이 train을 그대로 들여다본다.
-TRAIN_SEQUENCES="${TRAIN_SEQUENCES:-raws1}"
-VAL_SEQUENCES="${VAL_SEQUENCES:-}"
+TRAIN_SEQUENCES="${TRAIN_SEQUENCES:-raws1,raws2,raws3,rawos1,rawos4}"
+VAL_SEQUENCES="${VAL_SEQUENCES:-rawos3}"
 
 # VAL_SEQUENCES가 비어 있을 때만 쓰이는 임시 holdout -- 각 시퀀스의 뒤쪽 연속 구간을 뗀다.
 # 경계 프레임이 인접해 있어 숫자가 낙관적이므로 sanity check 용도로만 본다.

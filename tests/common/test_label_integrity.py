@@ -1,6 +1,6 @@
 """라벨이 조용히 바뀌는 것을 잡는 gated 테스트.
 
-여기 박힌 숫자는 2026-08-17에 154 프레임 전수로 실측한 값이다(스펙 §2.1). 라벨 파이프라인이
+여기 박힌 숫자는 2026-08-17에 227 프레임 전수로 실측한 값이다(스펙 §2.1). 라벨 파이프라인이
 바뀌면 여기가 먼저 터져야 한다 -- 학습 지표가 이상해진 뒤에 원인을 찾는 것보다 훨씬 싸다.
 """
 from pathlib import Path
@@ -17,7 +17,7 @@ from projects.datasets.robot_simplebev import (
 )
 
 DATASET_ROOT = Path("dataset/sj_datasets")
-SEQUENCES = ("raws1", "raws2", "raws3", "rawos1")
+SEQUENCES = ("raws1", "raws2", "raws3", "rawos1", "rawos3", "rawos4")
 requires_dataset = pytest.mark.skipif(
     not (DATASET_ROOT / "raws1" / "occupancy_npy").exists(),
     reason="self-collected dataset not available locally",
@@ -55,7 +55,7 @@ def test_occupied_is_a_one_cell_frontier_shell():
 def test_free_and_occupied_fractions_stay_in_the_measured_range():
     """실측(스펙 §2.1): free는 격자의 0.15~0.28, occupied는 평가 마스크의 0.04~0.08.
 
-    154 프레임 전체 평균만 보면 시퀀스 하나가 통째로 어긋나도 나머지 세 개에 묻혀 통과할 수
+    227 프레임 전체 평균만 보면 시퀀스 하나가 통째로 어긋나도 나머지에 묻혀 통과할 수
     있다(2026-08-17 실측: 시퀀스별 평균이 이미 free 0.151(rawos1)~0.258(raws3),
     occupied 0.048(raws3)~0.074(rawos1)로 넓게 퍼져 있어, 시퀀스 하나가 그 범위 밖으로
     빠져도 전체 평균은 여전히 0.15~0.28 안에 남을 수 있다 -- 직접 확인함).
@@ -86,8 +86,22 @@ def test_free_and_occupied_fractions_stay_in_the_measured_range():
     # 2026-08-17 실측 시퀀스별 평균 (fix round 1). 시퀀스가 늘어나 이 값이 자연스럽게
     # 조금씩 옮겨갈 수는 있으나, 라벨 파이프라인이 바뀌어 어느 한 시퀀스가 자기 평균 대비
     # 25 %를 넘게 움직이면 이 테스트가 먼저 터져야 한다.
-    measured_free = {"raws1": 0.1647, "raws2": 0.1757, "raws3": 0.2576, "rawos1": 0.1508}
-    measured_occupied = {"raws1": 0.0648, "raws2": 0.0647, "raws3": 0.0484, "rawos1": 0.0739}
+    measured_free = {
+        "raws1": 0.1647,
+        "raws2": 0.1757,
+        "raws3": 0.2576,
+        "rawos1": 0.1508,
+        "rawos3": 0.2451,
+        "rawos4": 0.2745,
+    }
+    measured_occupied = {
+        "raws1": 0.0648,
+        "raws2": 0.0647,
+        "raws3": 0.0484,
+        "rawos1": 0.0739,
+        "rawos3": 0.0486,
+        "rawos4": 0.0510,
+    }
     relative_margin = 0.25
     for name in per_sequence_free:
         seq_free = float(np.mean(per_sequence_free[name]))
@@ -104,13 +118,13 @@ def test_free_and_occupied_fractions_stay_in_the_measured_range():
 
 
 @requires_dataset
-def test_all_four_sequences_are_present_and_frame_count_is_154():
+def test_all_sequences_are_present_and_frame_count_is_227():
     """`_labels()`는 `occupancy_npy`가 없는 시퀀스를 조용히 `continue`로 건너뛴다.
 
-    시퀀스 4개 중 아무거나 하나가 통째로 빠져도(예: 마운트 실패, 경로 오타) 위 두 테스트는
+    시퀀스 중 아무거나 하나가 통째로 빠져도(예: 마운트 실패, 경로 오타) 위 두 테스트는
     나머지 시퀀스만으로 여전히 자기 밴드 안에 들어 통과할 수 있다 -- 시퀀스가 빠진 것 자체는
     "라벨이 조용히 바뀌는 것"의 가장 노골적인 형태인데, 그걸 보는 테스트가 없었다. 발견된
-    시퀀스 집합이 정확히 `SEQUENCES`와 같은지, 그리고 총 프레임 수가 실측값(154)과 같은지
+    시퀀스 집합이 정확히 `SEQUENCES`와 같은지, 그리고 총 프레임 수가 실측값(227)과 같은지
     직접 확인한다.
     """
     discovered = {
@@ -119,7 +133,7 @@ def test_all_four_sequences_are_present_and_frame_count_is_154():
     assert discovered == set(SEQUENCES), discovered
 
     total_frames = sum(1 for _ in _labels())
-    assert total_frames == 154
+    assert total_frames == 227
 
 
 @requires_dataset

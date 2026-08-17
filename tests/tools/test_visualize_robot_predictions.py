@@ -2,16 +2,88 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
 
-from projects.bev_gt.grid import ROBOT_GRID_SPEC
+from projects.bev_gt.grid import ROBOT_GRID_SPEC, OccupancyGridSpec
 from projects.bev_gt.ipm import render_ipm
+from projects.common.polar import RAY_CENSORED, RAY_NO_FREE, RAY_OK, build_ray_index
 from projects.datasets.robot_simplebev import split_samples_within_sequences
 from projects.geometry.double_sphere import (
     FINETUNE_CAMERA_NAMES,
     load_cameras,
     load_ego_T_cams,
 )
-from tools.visualize_robot_predictions import _sample_scores
+from tools.visualize_robot_predictions import _sample_scores, draw_range_profile
+
+
+@pytest.fixture
+def tiny_range_profile_fixture():
+    grid_spec = OccupancyGridSpec(front_m=1.0, rear_m=1.0, half_width_m=1.0, cell_m=0.5)
+    return grid_spec, build_ray_index(grid_spec, n_theta=4)
+
+
+def test_free_space_panel_uses_a_distinct_colour_per_class():
+    from tools.visualize_robot_predictions import FREE_SPACE_PALETTE, render_free_space_panel
+
+    parts = {
+        "free": torch.tensor([[True, False, False]]),
+        "occupied": torch.tensor([[False, True, False]]),
+        "unknown": torch.tensor([[False, False, True]]),
+    }
+    valid = torch.tensor([[True, True, True]])
+
+    panel = render_free_space_panel(parts, valid)
+
+    assert panel.shape == (1, 3, 3)
+    assert tuple(panel[0, 0]) == FREE_SPACE_PALETTE["free"]
+    assert tuple(panel[0, 1]) == FREE_SPACE_PALETTE["occupied"]
+    assert tuple(panel[0, 2]) == FREE_SPACE_PALETTE["unknown"]
+    assert len({FREE_SPACE_PALETTE[name] for name in ("free", "occupied", "unknown")}) == 3
+
+
+def test_invalid_cells_get_their_own_colour_not_unknown():
+    """`valid=0`은 수집 아티팩트다. `unknown`과 같은 색으로 칠하면 검수에서 구분이 안 된다."""
+    from tools.visualize_robot_predictions import FREE_SPACE_PALETTE, render_free_space_panel
+
+    parts = {
+        "free": torch.tensor([[False]]),
+        "occupied": torch.tensor([[False]]),
+        "unknown": torch.tensor([[False]]),
+    }
+    valid = torch.tensor([[False]])
+
+    panel = render_free_space_panel(parts, valid)
+
+    assert tuple(panel[0, 0]) == FREE_SPACE_PALETTE["invalid"]
+    assert FREE_SPACE_PALETTE["invalid"] != FREE_SPACE_PALETTE["unknown"]
+
+
+def test_range_profile_draws_only_ray_ok(tiny_range_profile_fixture):
+    grid_spec, rays = tiny_range_profile_fixture
+    panel = np.zeros((grid_spec.n_rows, grid_spec.n_cols, 3), np.uint8)
+    colour = (17, 34, 51)
+
+    draw_range_profile(
+        panel, np.full(4, 0.5), np.array([RAY_OK, RAY_NO_FREE, RAY_CENSORED, RAY_NO_FREE]),
+        rays, grid_spec, colour,
+    )
+
+    assert tuple(panel[0, 2]) == colour
+    assert np.count_nonzero(panel) == 3
+
+
+def test_range_profile_theta_90_degrees_moves_to_vehicle_left(tiny_range_profile_fixture):
+    grid_spec, rays = tiny_range_profile_fixture
+    panel = np.zeros((grid_spec.n_rows, grid_spec.n_cols, 3), np.uint8)
+    colour = (17, 34, 51)
+
+    draw_range_profile(
+        panel, np.full(4, 0.5), np.array([RAY_NO_FREE, RAY_OK, RAY_NO_FREE, RAY_NO_FREE]),
+        rays, grid_spec, colour,
+    )
+
+    assert tuple(panel[2, 0]) == colour
+    assert np.count_nonzero(panel) == 3
 
 COMMON_ROOT = Path("dataset/sj_datasets/common")
 SEQUENCE_ROOT = Path("dataset/sj_datasets/raws1")

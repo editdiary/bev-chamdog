@@ -224,7 +224,7 @@ occupancy loss가 덮는 셀이 줄어든다. raws1 전체 기준:
 
 ```bash
 # 시퀀스가 2개 이상 — 이것이 정상 경로
-TRAIN_SEQUENCES=raws1,raws2,raws3 VAL_SEQUENCES=raws4 \
+TRAIN_SEQUENCES=raws1,raws2,raws3,rawos1,rawos4 VAL_SEQUENCES=rawos3 \
   bash configs/train_robot_bev_finetune.sh
 
 # 시퀀스가 하나뿐일 때만 (임시)
@@ -236,14 +236,14 @@ EXP_NAME=ft_lr3e-5 LR=3e-5   bash configs/train_robot_bev_finetune.sh
 EXP_NAME=ft_aug   AUGMENT=True bash configs/train_robot_bev_finetune.sh
 ```
 
-GPU는 `CUDA_VISIBLE_DEVICES`로 지정한다(config 기본값 1번).
+GPU는 `CUDA_VISIBLE_DEVICES`로 지정한다(config 기본값 0번).
 
 ### 4.2 주요 인자
 
 | 환경변수 | 기본값 | 언제 바꾸나 |
 |---|---|---|
-| `TRAIN_SEQUENCES` | `raws1` | 시퀀스 추가할 때마다 |
-| `VAL_SEQUENCES` | (없음) | **시퀀스가 2개 이상이면 반드시 지정** |
+| `TRAIN_SEQUENCES` | `raws1,raws2,raws3,rawos1,rawos4` | 시퀀스 추가할 때마다 |
+| `VAL_SEQUENCES` | `rawos3` | **시퀀스가 2개 이상이면 반드시 지정** |
 | `VAL_TAIL_FRACTION` | `0.2` | `VAL_SEQUENCES`가 있으면 무시된다 |
 | `LR` | `1e-4` | 과적합이 심하면 `3e-5` |
 | `AUGMENT` | `False` | 광도 증강. train/val 격차가 클 때 후보 |

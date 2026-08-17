@@ -4,9 +4,9 @@
 그리고 트리비얼 baseline과의 순서가 맞는지를 여기서 확인한 뒤에야 학습 스크립트를 건드린다.
 
 실행:
-    CUDA_VISIBLE_DEVICES=1 python tools/rescore_checkpoints.py \\
+    CUDA_VISIBLE_DEVICES=0 python tools/rescore_checkpoints.py \\
         --checkpoint=runs/robot_bev/ckpt/<run>/model_best-000000046.pth \\
-        --train_sequences=raws1,raws3,rawos1 --val_sequences=raws2
+        --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3
 """
 import sys
 from pathlib import Path
@@ -170,8 +170,8 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map)
 
 def main(
     checkpoint,
-    train_sequences="raws1,raws3,rawos1",
-    val_sequences="raws2",
+    train_sequences="raws1,raws2,raws3,rawos1,rawos4",
+    val_sequences="rawos3",
     dataset_root=DEFAULT_DATASET_ROOT,
     common_root=DEFAULT_COMMON_ROOT,
     encoder_type="res101",

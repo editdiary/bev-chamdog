@@ -19,7 +19,7 @@
 - **커밋 메시지는 영어.** 코드 주석·문서는 한국어(주변 코드 스타일을 따른다 — 기존 `projects/common/*.py`는 한국어 docstring에 "왜"를 적는다).
 - **`merge`와 `push`는 절대 수행하지 않는다.** 작업 브랜치는 **`feat/bev-free-space-task`**.
 - 전체 테스트는 `python -m pytest tests/ -q` 로 돌린다. 계획 시작 시점 기준선은 **162 passed**.
-- GPU 학습은 `CUDA_VISIBLE_DEVICES=1` (RTX PRO 6000, 96GB). batch size 축소나 gradient accumulation은 불필요하다.
+- GPU 학습은 `CUDA_VISIBLE_DEVICES=0` (RTX PRO 6000, 96GB). batch size 축소나 gradient accumulation은 불필요하다.
 - 실측 없이 숫자를 적지 않는다. 게이트 태스크의 결과는 반드시 명령 출력을 문서에 붙여 남긴다.
 
 ## 스펙 대비 의도적 편차 (하나)
@@ -1348,9 +1348,9 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'tools.rescore_checkpoi
 그리고 트리비얼 baseline과의 순서가 맞는지를 여기서 확인한 뒤에야 학습 스크립트를 건드린다.
 
 실행:
-    CUDA_VISIBLE_DEVICES=1 python tools/rescore_checkpoints.py \\
+    CUDA_VISIBLE_DEVICES=0 python tools/rescore_checkpoints.py \\
         --checkpoint=runs/robot_bev/ckpt/<run>/model_best-000000046.pth \\
-        --train_sequences=raws1,raws3,rawos1 --val_sequences=raws2
+        --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3
 """
 import sys
 from pathlib import Path
@@ -1496,8 +1496,8 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map)
 
 def main(
     checkpoint,
-    train_sequences="raws1,raws3,rawos1",
-    val_sequences="raws2",
+    train_sequences="raws1,raws2,raws3,rawos1,rawos4",
+    val_sequences="rawos3",
     dataset_root=DEFAULT_DATASET_ROOT,
     common_root=DEFAULT_COMMON_ROOT,
     encoder_type="res101",
@@ -1561,9 +1561,9 @@ Expected: 1 passed
 
 ```bash
 conda activate bev-chamdog
-CUDA_VISIBLE_DEVICES=1 python tools/rescore_checkpoints.py \
+CUDA_VISIBLE_DEVICES=0 python tools/rescore_checkpoints.py \
     --checkpoint=runs/robot_bev/ckpt/robot_finetune_res101_bs8_lr1e-04_260817_122504/model_best-000000046.pth \
-    --train_sequences=raws1,raws3,rawos1 --val_sequences=raws2
+    --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3
 ```
 
 Expected (2026-08-17 실측과 대조 — 이것이 **게이트 C7–C9**):
@@ -2062,8 +2062,8 @@ git commit -m "Put iou_free and its trivial baseline in the epoch log"
 
 ```bash
 conda activate bev-chamdog
-CUDA_VISIBLE_DEVICES=1 python tools/train_robot_bev.py \
-    --exp_name=metric_smoke --train_sequences=raws1,raws3,rawos1 --val_sequences=raws2 \
+CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py \
+    --exp_name=metric_smoke --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3 \
     --num_epochs=1 --batch_size=8 --num_workers=8 --init_checkpoint=None
 ```
 
@@ -2207,7 +2207,7 @@ def draw_range_profile(panel, r_m, status, rays, grid_spec, colour) -> np.ndarra
 
 ```bash
 python -m pytest tests/tools/test_visualize_robot_predictions.py -v
-CUDA_VISIBLE_DEVICES=1 python tools/visualize_robot_predictions.py \
+CUDA_VISIBLE_DEVICES=0 python tools/visualize_robot_predictions.py \
     --checkpoint=runs/robot_bev/ckpt/robot_finetune_res101_bs8_lr1e-04_260817_122504/model_best-000000046.pth \
     --sequences=raws2 --limit=4
 ```
@@ -2231,16 +2231,20 @@ git commit -m "Visualise free/occupied/unknown with the range profile overlaid"
 
 ```bash
 conda activate bev-chamdog
-CUDA_VISIBLE_DEVICES=1 EXP_NAME=twohead_baseline_iou_free \
-    TRAIN_SEQUENCES=raws1,raws3,rawos1 VAL_SEQUENCES=raws2 \
+CUDA_VISIBLE_DEVICES=0 EXP_NAME=twohead_baseline_iou_free \
+    TRAIN_SEQUENCES=raws1,raws2,raws3,rawos1,rawos4 VAL_SEQUENCES=rawos3 \
     bash configs/train_robot_bev_finetune.sh 2>&1 | tee runs/twohead_baseline.log
 ```
 
-`configs/train_robot_bev_finetune.sh`의 `VAL_SEQUENCES` 기본값이 비어 있으므로 위처럼 환경변수로 넘긴다. `VAL_TAIL_FRACTION`은 `VAL_SEQUENCES`가 있으면 무시된다.
+`configs/train_robot_bev_finetune.sh`의 기본 split도 위와 같다. `VAL_TAIL_FRACTION`은
+`VAL_SEQUENCES`가 있으면 무시된다.
 
 - [ ] **Step 2: 게이트를 확인한다**
 
-재학습으로 나온 best `iou_free`가 **Phase 1 재채점 값(0.850) ±0.03 안**에 들어와야 한다. 같은 데이터·같은 설정·같은 지표이므로 크게 벗어나면 지표 배선이나 split이 달라진 것이다.
+새 split(`val=rawos3`)에서는 Phase 1 재채점 값 0.850(`val=raws2`)을 ±0.03 기준으로 쓰지
+않는다. Task 13은 새 held-out 시퀀스 기준의 2-head baseline을 수립하는 게이트다. best
+`iou_free`, `fatal_rate`, baseline delta를 기록하고, 모델 `iou_free`가 같은 split의
+constant-map baseline보다 낮으면 지표 배선·split·학습 실패를 먼저 의심한다.
 
 `partition_defects`는 **모든 epoch에서 0**이어야 한다. 하나라도 0이 아니면 즉시 멈추고 Task 1의 분해를 다시 본다.
 
@@ -2260,7 +2264,7 @@ git commit -m "Record the two-head baseline under the free-space metrics"
 ## Phase 2 게이트
 
 1. `python -m pytest tests/ -q` 전부 통과
-2. 재학습 best `iou_free`가 Phase 1 재채점 값 ±0.03
+2. 새 split에서 모델 best `iou_free`가 constant-map baseline보다 높음
 3. 모든 epoch에서 `partition_defects == 0`
 4. `docs/free_space_metric_migration.md`에 기준선이 기록됨
 
@@ -2754,10 +2758,10 @@ def _normalise_step_output(head, output):
 - [ ] **Step 3: 두 경로가 같은 지표를 내는지 확인한다**
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python tools/train_robot_bev.py --head=two_head \
-    --exp_name=head_switch_smoke --train_sequences=raws1 --val_sequences=raws2 --num_epochs=1
-CUDA_VISIBLE_DEVICES=1 python tools/train_robot_bev.py --head=three_class \
-    --exp_name=head_switch_smoke3 --train_sequences=raws1 --val_sequences=raws2 --num_epochs=1
+CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py --head=two_head \
+    --exp_name=head_switch_smoke --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3 --num_epochs=1
+CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py --head=three_class \
+    --exp_name=head_switch_smoke3 --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3 --num_epochs=1
 ```
 
 Expected: 두 실행 모두 같은 필드(`val_iou_free`, `fatal`, baseline 델타)를 찍고 `partition` 경고가 없다. 값 자체는 달라도 된다.
@@ -2799,7 +2803,7 @@ for sample_id in sorted(p.stem for p in (src / "occupancy_npy").glob("*.npy"))[:
 print("copied 4 samples")
 PY
 
-CUDA_VISIBLE_DEVICES=1 python tools/train_robot_bev.py --head=three_class \
+CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py --head=three_class \
     --exp_name=overfit4 --dataset_root=/tmp/overfit4 --train_sequences=seq \
     --val_sequences="" --val_tail_fraction=0.0 \
     --num_epochs=200 --batch_size=4 --lr=1e-4 --num_workers=2 --init_checkpoint=None
@@ -2835,8 +2839,8 @@ git commit -m "Record the three-class overfit sanity check"
 
 ```bash
 conda activate bev-chamdog
-CUDA_VISIBLE_DEVICES=1 python tools/train_robot_bev.py --head=three_class \
-    --exp_name=threeclass_ab --train_sequences=raws1,raws3,rawos1 --val_sequences=raws2 \
+CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py --head=three_class \
+    --exp_name=threeclass_ab --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3 \
     --num_epochs=60 --batch_size=8 --lr=1e-4 --weight_decay=1e-7 --num_workers=8 \
     --encoder_type=res101 --augment=False --val_freq_epochs=1 --save_freq_epochs=10 \
     --init_checkpoint=runs/synwoodscape_twohead/ckpt/twohead_pretrain_photo_aug_res101_bs16_lr3e-04_260814_150556/model_best-000000046.pth \

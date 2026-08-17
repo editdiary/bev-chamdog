@@ -39,6 +39,8 @@ from projects.common.bev_panels import (  # noqa: E402
     occupancy_to_image,
     visibility_to_image,
 )
+from projects.common.free_space import decompose  # noqa: E402
+from projects.common.polar import build_ray_index, first_free_range  # noqa: E402
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
     DEFAULT_DATASET_ROOT,
@@ -56,6 +58,55 @@ from projects.models.simplebev_two_head import TwoHeadSegnet, split_two_head_log
 
 CELL_UPSCALE = 4  # 120x120 -> 480x480. pretrain은 240x240이라 2를 썼다.
 CAM_THUMB_WH = (240, 135)  # 16:9 (자체 리그는 1280x720)
+
+# GT와 pred를 같은 팔레트로 그려야 눈으로 뺄셈이 된다. `invalid`는 `unknown`과 반드시
+# 달라야 한다 -- 하나는 배포 때 사라지는 수집 아티팩트고 다른 하나는 진짜 미관측이다.
+FREE_SPACE_PALETTE = {
+    "free": (60, 200, 90),
+    "occupied": (220, 60, 60),
+    "unknown": (25, 25, 30),
+    "invalid": (150, 60, 190),
+}
+RANGE_PROFILE_COLOURS = {"gt": (255, 255, 255), "pred": (250, 220, 60)}
+
+
+def render_free_space_panel(parts, valid) -> np.ndarray:
+    """분해 -> (H, W, 3) uint8. 입력은 `(H, W)` 또는 `(1, 1, H, W)` bool 텐서."""
+    def squeeze(tensor):
+        array = tensor.detach().cpu().numpy() if hasattr(tensor, "detach") else np.asarray(tensor)
+        return array.reshape(array.shape[-2], array.shape[-1])
+
+    valid_2d = squeeze(valid)
+    panel = np.zeros((*valid_2d.shape, 3), np.uint8)
+    panel[...] = FREE_SPACE_PALETTE["invalid"]
+    panel[valid_2d] = FREE_SPACE_PALETTE["unknown"]
+    for name in ("unknown", "occupied", "free"):
+        panel[squeeze(parts[name])] = FREE_SPACE_PALETTE[name]
+    return panel
+
+
+def draw_range_profile(panel, r_m, status, rays, grid_spec, colour) -> np.ndarray:
+    """`r(theta)`를 격자 위 점렬로 찍는다 -- M3 오차를 눈으로 보게 하는 것이 목적이다."""
+    from projects.common.polar import RAY_OK
+
+    origin_row = grid_spec.front_m / grid_spec.cell_m - 0.5
+    origin_col = grid_spec.half_width_m / grid_spec.cell_m - 0.5
+    thetas = np.linspace(0.0, 2 * np.pi, len(r_m), endpoint=False)
+    for i, theta in enumerate(thetas):
+        if status[i] != RAY_OK:
+            continue
+        radius_cells = r_m[i] / grid_spec.cell_m
+        row = int(round(origin_row - radius_cells * np.cos(theta)))
+        col = int(round(origin_col - radius_cells * np.sin(theta)))
+        if 0 <= row < panel.shape[0] and 0 <= col < panel.shape[1]:
+            panel[row, col] = colour
+    return panel
+
+
+def _free_space_to_image(parts, valid, upscale: int = CELL_UPSCALE) -> Image.Image:
+    image = render_free_space_panel(parts, valid)
+    h, w = image.shape[:2]
+    return Image.fromarray(image).resize((w * upscale, h * upscale), Image.NEAREST)
 
 
 def _ipm_to_image(ipm: np.ndarray, upscale: int = CELL_UPSCALE) -> Image.Image:
@@ -124,6 +175,7 @@ def main(
     checkpoint = torch.load(ckpt, map_location="cpu", weights_only=False)
     model.load_state_dict(checkpoint.get("model_state_dict", checkpoint), strict=False)
     model.eval()
+    rays = build_ray_index(ROBOT_GRID_SPEC)
 
     records = []
     with torch.no_grad():
@@ -133,8 +185,14 @@ def main(
                 batch["cam0_T_camXs"].to(device), vox_util,
             )
             occ_logits, vis_logits = split_two_head_logits(two_head_bev_e)
-            pred_occ = (torch.sigmoid(occ_logits) > 0.5).cpu().numpy()[:, 0].astype(np.uint8)
-            pred_vis = (torch.sigmoid(vis_logits) > 0.5).cpu().numpy()[:, 0]
+            pred_occ_bool = torch.sigmoid(occ_logits) > 0.5
+            pred_vis_bool = torch.sigmoid(vis_logits) > 0.5
+            pred_parts = decompose(
+                pred_occ_bool, pred_vis_bool, batch["valid_bev_g"].to(device)
+            )
+            gt_parts = decompose(batch["seg_bev_g"], batch["vis_bev_g"], batch["valid_bev_g"])
+            pred_occ = pred_occ_bool.cpu().numpy()[:, 0].astype(np.uint8)
+            pred_vis = pred_vis_bool.cpu().numpy()[:, 0]
             for i in range(len(pred_occ)):
                 gt_occ = batch["seg_bev_g"][i, 0].numpy().astype(np.uint8)
                 gt_vis = batch["vis_bev_g"][i, 0].numpy().astype(bool)
@@ -145,6 +203,8 @@ def main(
                     "rgb": batch["rgb_camXs"][i].numpy(),
                     "pred_occ": pred_occ[i], "pred_vis": pred_vis[i],
                     "gt_occ": gt_occ, "gt_vis": gt_vis, "valid": valid, "mask": mask,
+                    "gt_parts": {name: values[i, 0].cpu().numpy() for name, values in gt_parts.items()},
+                    "pred_parts": {name: values[i, 0].cpu().numpy() for name, values in pred_parts.items()},
                     **_sample_scores(pred_occ[i], gt_occ, mask),
                 })
 
@@ -170,6 +230,22 @@ def main(
         drivable_iou = compute_iou(
             (record["pred_occ"] == 1), (record["gt_occ"] == 1), record["mask"]
         )
+        gt_free_space = _free_space_to_image(record["gt_parts"], record["valid"])
+        pred_free_space = render_free_space_panel(record["pred_parts"], record["valid"])
+        gt_range, gt_status = first_free_range(record["gt_parts"]["free"], rays)
+        pred_range, pred_status = first_free_range(record["pred_parts"]["free"], rays)
+        draw_range_profile(
+            pred_free_space, gt_range, gt_status, rays, ROBOT_GRID_SPEC,
+            RANGE_PROFILE_COLOURS["gt"],
+        )
+        draw_range_profile(
+            pred_free_space, pred_range, pred_status, rays, ROBOT_GRID_SPEC,
+            RANGE_PROFILE_COLOURS["pred"],
+        )
+        pred_free_space = Image.fromarray(pred_free_space).resize(
+            (pred_free_space.shape[1] * CELL_UPSCALE, pred_free_space.shape[0] * CELL_UPSCALE),
+            Image.NEAREST,
+        )
         panel = build_panel(
             record["rgb"], FINETUNE_CAMERA_NAMES,
             [
@@ -178,6 +254,8 @@ def main(
                 ("pred occupancy", occupancy_to_image(record["pred_occ"], record["mask"], CELL_UPSCALE)),
                 ("GT visibility", visibility_to_image(record["gt_vis"], CELL_UPSCALE)),
                 ("pred visibility", visibility_to_image(record["pred_vis"] & record["valid"], CELL_UPSCALE)),
+                ("GT free-space", gt_free_space),
+                ("pred free-space + range", pred_free_space),
             ],
             [
                 f"{record['sample_id']}   (sort_by={sort_by}, rank {rank + 1}/{len(selected)})",

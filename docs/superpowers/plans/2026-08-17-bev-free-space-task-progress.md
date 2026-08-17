@@ -4,10 +4,10 @@
 > 기록한다. 계획 자체가 무엇을 할지 정하고, 이 문서는 어디까지 했고 그 과정에서 계획에 없던
 > 무엇이 정해졌는지를 정한다. 다른 세션·다른 에이전트가 이어받을 때 이 문서를 먼저 읽는다.
 
-- 브랜치: **`feat/bev-free-space-task`** (main 대비 52 커밋)
-- 마지막 구현 커밋: **`a0a3e53`** (이후 문서 갱신 커밋 예정)
-- 테스트: **220 passed**, 실패 0
-- 진행: **Task 1–11 완료. Phase 0·Phase 1 게이트 통과. 다음은 Task 12.**
+- 브랜치: **`feat/bev-free-space-task`** (Task 13 커밋 후 main 대비 58 커밋)
+- 마지막 완료 커밋: **Task 13 문서 커밋**
+- 테스트: **224 passed**, 실패 0
+- 진행: **Task 1–13 완료. Phase 0·Phase 1·Phase 2 게이트 통과. 다음은 Task 14. Task 17 전에 멈추고 사용자와 논의한다.**
 - 실행 방식: `superpowers:subagent-driven-development` (태스크마다 구현자 → 리뷰 → fix 루프 → 재리뷰)
 
 ---
@@ -16,15 +16,16 @@
 
 ```bash
 git checkout feat/bev-free-space-task
-python -m pytest tests/ -q          # 220 passed 확인
+python -m pytest tests/ -q          # 224 passed 확인
 ```
 
-`superpowers:subagent-driven-development` 스킬로 **Task 12부터** 이어간다. BASE는 현재 HEAD다.
+`superpowers:subagent-driven-development` 스킬로 **Task 14부터** 이어간다. BASE는 현재 HEAD다.
+Task 17은 GPU 학습이고 사용자가 그 전에 멈춰 논의하라고 지시했다.
 
 태스크 브리프는 계획에서 기계적으로 추출한다:
 
 ```bash
-<skill>/scripts/task-brief docs/superpowers/plans/2026-08-17-bev-free-space-task.md 12
+<skill>/scripts/task-brief docs/superpowers/plans/2026-08-17-bev-free-space-task.md 14
 ```
 
 실행 중 ledger는 `.superpowers/sdd/2026-08-17-bev-free-space-task/progress.md`에 있다.
@@ -54,6 +55,8 @@ python -m pytest tests/ -q          # 220 passed 확인
 | 9 | 2-head `run_batch` free-space 지표 배선 | `8d2d31d..acaf1eb` | 212 passed |
 | 10 | 로그·배너·TensorBoard에 `iou_free`와 baseline 배선 | `3efb297..d996c9a` | 217 passed |
 | 11 | checkpoint 선택 기준을 `iou_free`로 교체 | `de630ea..a0a3e53` | 220 passed + GPU0 smoke |
+| 12 | 시각화 3-class 팔레트 + polar range overlay | `61b74fd..235ea12` | 224 passed + PNG 4장 생성 |
+| 13 | 새 split 2-head 기준선 재학습 **[Phase 2 게이트]** | Task 13 문서 커밋 | best `val_iou_free` 0.765, 224 passed |
 
 `a6ddbaa`(문서 커밋)는 Task 4와 5 사이에 들어갔다. `8d2d31d`(인수인계 문서 커밋)는
 Task 8과 9 사이에 들어갔다.
@@ -150,6 +153,26 @@ Task 11 smoke에서 GPU1은 다른 프로세스가 점유해 OOM이 났다. 사�
 `constant-map baseline iou_free = 0.673`, `val_iou_free↑ 0.730 (+0.057 vs baseline)`,
 `partition` 경고 없음, `model_best-000000001.pth` 저장.
 
+### 3.9 현재 로봇 split (사용자 지시)
+
+새 시퀀스 `rawos3`, `rawos4`가 추가됐다. 이후 자체 로봇 데이터셋 학습은 별도 지시가 없으면
+`train = raws1,raws2,raws3,rawos1,rawos4`, `val = rawos3`로 실행한다. `rawos3`는 held-out
+시퀀스이며 train에 넣지 않는다. `configs/train_robot_bev_finetune.sh` 기본값과 남은 GPU
+task 명령은 이 split으로 맞췄다.
+
+이 변경 이후 Task 13의 `0.850 ±0.03` 비교는 더 이상 적용하지 않는다. 그 0.850은 old
+split(`val=raws2`)의 역사적 재채점 값이다. Task 13은 `rawos3` 기준 새 2-head baseline을
+수립하고, 같은 split의 constant-map baseline보다 높은지와 `partition_defects == 0`을
+게이트로 본다.
+
+### 3.10 Task 12 시각화 산출물
+
+Task 12에서 `runs/robot_bev/viz/task12_raws2/`에 raws2 샘플 4장의 PNG를 생성했다.
+`raws2_sample_000000.png`를 직접 확인했고, GT/pred free-space 패널과 pred 패널 위
+GT(흰색)/pred(노란색) range profile overlay가 표시된다. `draw_range_profile`의 `rays`
+인자는 현재 내부에서 직접 사용하지 않지만, 호출 경로에서는 `r_m/status`가 같은 ray index에서
+나온다. 상태 필터(`RAY_OK`만 draw)와 theta=90° 좌측(col 감소) 규약은 테스트로 고정했다.
+
 ---
 
 ## 4. 이후 태스크가 알아야 할 발견사항
@@ -203,12 +226,10 @@ Phase 1 게이트 조건 2가 그것과 비교하기 때문이다. 바꾸면 비
 
 | Task | 내용 | 비고 |
 |---|---|---|
-| 12 | 시각화를 4-way 분해로 교체 | |
-| 13 | 2-head 기준선 재학습 **[Phase 2 게이트]** | **GPU 학습 — 사용자 확인 필요** |
 | 14 | 3-class head (`TwoHeadDecoder` 패턴을 따른다) | |
 | 15 | 가중 CE loss + `three_class_metrics.py` | |
 | 16 | `--head` 스위치 + `two_head_metrics.py` 개칭 | §3.4 참조 |
-| 17 | 과적합 게이트 | **GPU 학습 — 사용자 확인 필요** |
+| 17 | 과적합 게이트 | **GPU 학습 — 실행 전 중지하고 사용자와 논의** |
 | 18 | 2-head vs 3-class A/B **[Phase 3 게이트]** | **GPU 학습 — 사용자 확인 필요**, §4.1 해석 주의 |
 
 Phase 4(SynWoodScape 3-class pretrain 재학습)와 Phase 5(polar head)는 이 계획 범위 밖이며,
@@ -218,7 +239,7 @@ Phase 3 결과를 보고 별도 스펙·계획으로 다룬다.
 
 ## 6. 실행에서 관찰된 것 — 리뷰를 어떻게 걸어야 하는가
 
-**Task 1–11에서 나온 리뷰 findings가 사실상 전부 "테스트는 통과하지만 그럴듯한 오류도 같이
+**Task 1–12에서 나온 리뷰 findings가 사실상 전부 "테스트는 통과하지만 그럴듯한 오류도 같이
 통과시킨다" 유형이었고, 구현 결함은 0건이었다.** 계획에 완성 코드를 넣는 방식은 구현 오류를
 잘 막지만 테스트 강도가 계획 작성자의 상한에 묶인다.
 
@@ -233,6 +254,7 @@ Phase 3 결과를 보고 별도 스펙·계획으로 다룬다.
 - Task 9 — `free_miss_rate` 분모를 `fatal_denom`으로 바꿔도, `run_batch` 반환을 8-튜플로 되돌려도 focused 테스트가 통과했다.
 - Task 10 — `_baseline_iou_free`가 항상 NaN을 반환해도 최초 focused 테스트가 통과했다.
 - Task 11 — 공용 `select_checkpoint_score` 테스트만으로는 두 trainer 호출부가 옛 평균식으로 되돌아가도 통과했다.
+- Task 12 — `draw_range_profile`의 `RAY_OK` guard 제거와 좌우 부호 반전이 최초 focused 테스트를 통과했다.
 
 **따라서 리뷰 프롬프트에 "구현을 실제로 망가뜨려서 테스트가 진짜 실패하는지 확인하라"를
 계속 명시 요구한다.** 추론만 한 mutation은 그렇게 표시하게 하고, 실행한 것과 구분한다.

@@ -163,3 +163,54 @@ visibility head만으로도 `iou_free`가 0.851로 결합(0.850)보다 **오히�
    0.312/0.312 (delta 0.000). **성립**
 3. `fatal_rate(모델) < fatal_rate(constant)`: 0.056 < 0.168. **성립** (다만 0.056 자체가 스펙의
    0.0587과 −5.1% 어긋나 있다 -- §2-1 참고)
+
+## 6. Phase 2 기준선 -- 2-head 재학습
+
+Task 13은 새 로봇 split에서 2-head 기준선을 다시 세우는 게이트다. 이전 Phase 1의
+`val=raws2` 재채점 값 0.850은 이 split에서는 비교 기준으로 쓰지 않는다. 아래 숫자가 이후
+Phase 3 A/B에서 3-class 단일 head가 비교할 2-head 기준선이다.
+
+실행 명령:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 EXP_NAME=twohead_baseline_iou_free \
+    TRAIN_SEQUENCES=raws1,raws2,raws3,rawos1,rawos4 VAL_SEQUENCES=rawos3 \
+    bash configs/train_robot_bev_finetune.sh 2>&1 | tee runs/twohead_baseline.log
+```
+
+실행 조건:
+
+| 항목 | 값 |
+|---|---|
+| train | `raws1,raws2,raws3,rawos1,rawos4` (190 samples) |
+| val | `rawos3` (37 samples) |
+| init checkpoint | `runs/synwoodscape_twohead/ckpt/twohead_pretrain_photo_aug_res101_bs16_lr3e-04_260814_150556/model_best-000000046.pth` |
+| constant-map baseline `iou_free` | 0.398 |
+| 로그 | `runs/twohead_baseline.log` |
+| best checkpoint | `runs/robot_bev/ckpt/twohead_baseline_iou_free_res101_bs8_lr1e-04_260817_213112/model_best-000000042.pth` |
+
+best epoch 로그:
+
+```text
+epoch 042/60 | time    4.8s | val_iou_free↑ 0.765 (+0.001) (+0.367 vs baseline) | best_val_iou_free↑ 0.765 | checkpoint: new best
+  bins  | val_obst_iou_bins empty:fa -/n0 tiny:-/n0 small:0.176/n21 medium:0.245/n16 large:-/n0
+  train | iou_free↑ 0.967 | fatal↓ 0.001 | free_miss↓ 0.031 | loss_total↓ 0.0270 | loss_occ↓ 0.0050 | loss_vis↓ 0.0440 | (ref) iou_drivable↑ 0.973 | iou_obstacle↑ 0.711 | vis_false_high↓ 0.001 | vis_false_low↓ 0.027 | obst_frac 0.054 | false_obstacle↓ 0.024 | missed_obstacle↓ 0.004
+  val   | iou_free↑ 0.765 | fatal↓ 0.124 | free_miss↓ 0.139 | loss_total↓ 0.3584 | loss_occ↓ 0.2191 | loss_vis↓ 0.2787 | (ref) iou_drivable↑ 0.890 | iou_obstacle↑ 0.206 | vis_false_high↓ 0.044 | vis_false_low↓ 0.135 | obst_frac 0.047 | false_obstacle↓ 0.085 | missed_obstacle↓ 0.472
+  range | abs_p50↓ 0.183 | abs_p90↓ 0.725 | over↓ 0.346 | under 0.332 | rays 10659 censored 4153
+  deploy| (pred visibility 기준) iou_drivable↑ 0.900 | iou_obstacle↑ 0.258 | visible_coverage 0.255
+```
+
+마지막 epoch 로그:
+
+```text
+epoch 060/60 | time    4.8s | val_iou_free↑ 0.762 (-0.002) (+0.364 vs baseline) | best_val_iou_free↑ 0.765 | checkpoint: -
+  val   | iou_free↑ 0.762 | fatal↓ 0.132 | free_miss↓ 0.134 | loss_total↓ 0.4392 | loss_occ↓ 0.2793 | loss_vis↓ 0.3198 | (ref) iou_drivable↑ 0.891 | iou_obstacle↑ 0.200 | vis_false_high↓ 0.047 | vis_false_low↓ 0.132 | obst_frac 0.047 | false_obstacle↓ 0.083 | missed_obstacle↓ 0.493
+  range | abs_p50↓ 0.193 | abs_p90↓ 0.760 | over↓ 0.349 | under 0.344 | rays 10699 censored 4153
+```
+
+게이트 판정:
+
+1. 모델 best `iou_free`가 같은 split의 constant-map baseline보다 높다: 0.765 > 0.398. **성립**
+2. 모든 epoch에서 `partition_defects == 0`: 학습 로그에 `partition` 경고가 없었다. **성립**
+3. 이 기준선은 `val=rawos3` 37프레임 기준이다. split이 바뀌었으므로 Phase 1의 `val=raws2`
+   0.850과 직접 비교하지 않는다.

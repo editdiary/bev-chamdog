@@ -9,8 +9,9 @@ SynWoodScape pretrain(`tools/train_synwoodscape.py`)과 지표·로깅을 공유
 4. 클래스 비율(`pos_weight`)을 **마스킹 후** 라벨에서 실측한다
 
 실행 예:
-    CUDA_VISIBLE_DEVICES=1 python tools/train_robot_bev.py \\
-        --train_sequences=raws1 --init_checkpoint=<pretrain best>.pth
+    CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py \\
+        --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3 \\
+        --init_checkpoint=<pretrain best>.pth
 """
 import sys
 import time
@@ -202,8 +203,8 @@ def _evaluate(model, loader, vox_util, pos_weight_tensor, device, lambda_vis, vi
 
 def main(
     exp_name="robot_finetune",
-    train_sequences="raws1",
-    val_sequences="",
+    train_sequences="raws1,raws2,raws3,rawos1,rawos4",
+    val_sequences="rawos3",
     val_tail_fraction=0.0,  # val 시퀀스가 없을 때만 쓰는 임시 holdout (시퀀스 뒤쪽 연속 구간)
     init_checkpoint=None,
     num_epochs=60,
