@@ -4,9 +4,9 @@ import torch
 from projects.common.free_space import FREE, OCCUPIED, UNKNOWN
 from projects.common.three_class_metrics import (
     CLASS_ORDER,
+    class_weights_from_labels,
     compute_free_metrics,
     compute_three_class_loss,
-    default_class_weights,
     run_batch,
 )
 
@@ -54,59 +54,60 @@ def test_class_weights_scale_the_occupied_term():
     assert float(heavy) > float(light) * 5
 
 
-def test_default_class_weights_use_unknown_free_occupied_order():
+def test_class_weights_use_unknown_free_occupied_order():
     assert CLASS_ORDER == (UNKNOWN, FREE, OCCUPIED)
 
-    def load_labels(_sequence_root, _sample_id, _permanent_blind, _invalid):
-        occ = torch.tensor([[[[1, 1], [0, 0]]]], dtype=torch.bool)
-        vis = torch.tensor([[[[1, 1], [1, 0]]]], dtype=torch.bool)
-        valid = torch.ones_like(occ)
-        return occ, vis, valid
+    occ = torch.tensor([[[[1, 1], [0, 0]]]], dtype=torch.bool)
+    vis = torch.tensor([[[[1, 1], [1, 0]]]], dtype=torch.bool)
+    valid = torch.ones_like(occ)
 
-    weights = default_class_weights(
-        [(object(), "sample")],
-        permanent_blind=torch.zeros(1, dtype=torch.bool),
-        invalid=torch.zeros(1, dtype=torch.bool),
-        load_labels=load_labels,
-    )
+    weights = class_weights_from_labels([(occ, vis, valid)])
 
     assert weights.tolist() == pytest.approx([2.0, 1.0, 2.0])
 
 
-def test_default_class_weights_ignore_invalid_cells():
-    def load_labels(_sequence_root, _sample_id, _permanent_blind, _invalid):
-        occ = torch.tensor([[[[1, 0], [0, 0]]]], dtype=torch.bool)
-        vis = torch.tensor([[[[1, 1], [0, 1]]]], dtype=torch.bool)
-        valid = torch.tensor([[[[1, 1], [1, 0]]]], dtype=torch.bool)
-        return occ, vis, valid
+def test_class_weights_ignore_invalid_cells():
+    occ = torch.tensor([[[[1, 0], [0, 0]]]], dtype=torch.bool)
+    vis = torch.tensor([[[[1, 1], [0, 1]]]], dtype=torch.bool)
+    valid = torch.tensor([[[[1, 1], [1, 0]]]], dtype=torch.bool)
 
-    weights = default_class_weights(
-        [(object(), "sample")],
-        permanent_blind=torch.zeros(1, dtype=torch.bool),
-        invalid=torch.zeros(1, dtype=torch.bool),
-        load_labels=load_labels,
-    )
+    weights = class_weights_from_labels([(occ, vis, valid)])
 
     assert weights.tolist() == pytest.approx([1.0, 1.0, 1.0])
 
 
-def test_default_class_weights_are_clipped():
-    def load_labels(_sequence_root, _sample_id, _permanent_blind, _invalid):
-        occ = torch.ones((1, 1, 1, 102), dtype=torch.bool)
-        vis = torch.ones_like(occ)
-        valid = torch.ones_like(occ)
-        occ[..., 100] = 0
-        vis[..., 101] = 0
-        return occ, vis, valid
+def test_class_weights_are_clipped():
+    occ = torch.ones((1, 1, 1, 102), dtype=torch.bool)
+    vis = torch.ones_like(occ)
+    valid = torch.ones_like(occ)
+    occ[..., 100] = 0
+    vis[..., 101] = 0
 
-    weights = default_class_weights(
-        [(object(), "sample")],
-        permanent_blind=torch.zeros(1, dtype=torch.bool),
-        invalid=torch.zeros(1, dtype=torch.bool),
-        load_labels=load_labels,
-    )
+    weights = class_weights_from_labels([(occ, vis, valid)])
 
     assert weights.tolist() == pytest.approx([20.0, 1.0, 20.0])
+
+
+def test_class_weights_accumulate_across_samples():
+    """여러 샘플이 하나의 분포로 합산돼야 한다 -- 마지막 샘플만 세면 split 전체의 불균형을
+    반영하지 못한다. free만 있는 샘플과 occupied만 있는 샘플을 합치면 균형이 된다."""
+    free_only = (
+        torch.ones((1, 1, 1, 4), dtype=torch.bool),
+        torch.ones((1, 1, 1, 4), dtype=torch.bool),
+        torch.ones((1, 1, 1, 4), dtype=torch.bool),
+    )
+    occupied_only = (
+        torch.zeros((1, 1, 1, 4), dtype=torch.bool),
+        torch.ones((1, 1, 1, 4), dtype=torch.bool),
+        torch.ones((1, 1, 1, 4), dtype=torch.bool),
+    )
+
+    weights = class_weights_from_labels([free_only, occupied_only])
+
+    # unknown 0개 -> clamp(min=1)에 걸려 8/1 = 8, free/occupied는 각각 8/4 = 2.
+    assert weights.tolist() == pytest.approx([4.0, 1.0, 1.0])
+    # 한 샘플만 셌다면 free 또는 occupied 한쪽이 0이 되어 20.0 캡에 걸린다.
+    assert max(weights.tolist()) < 20.0
 
 
 def test_compute_free_metrics_uses_the_shared_free_space_aggregator():

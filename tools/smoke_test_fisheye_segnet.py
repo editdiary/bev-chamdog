@@ -27,11 +27,9 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
 )
 from projects.geometry.fisheye import load_camera  # noqa: E402
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
-from projects.models.simplebev_two_head import (  # noqa: E402
-    TwoHeadSegnet,
-    compute_two_head_loss,
-    split_two_head_logits,
-)
+from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
+from projects.common.free_space import decompose, to_class_index  # noqa: E402
+from projects.common.three_class_metrics import compute_three_class_loss  # noqa: E402
 
 
 def main():
@@ -49,7 +47,7 @@ def main():
     vox_util = build_fisheye_vox_util(GRID_SPEC, cameras, device=device)
     Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
 
-    model = TwoHeadSegnet(
+    model = ThreeClassSegnet(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type="res101",
@@ -69,17 +67,19 @@ def main():
     print("input  rgb_camXs   :", tuple(rgb_camXs.shape))
     print("target seg_bev_g   :", tuple(seg_bev_g.shape))
 
-    raw_e, feat_e, two_head_e, center_e, offset_e = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
-    occ_e, vis_e = split_two_head_logits(two_head_e)
-    print("output occ_e       :", tuple(occ_e.shape))
-    print("output vis_e       :", tuple(vis_e.shape))
-    assert occ_e.shape == seg_bev_g.shape, f"shape mismatch: {occ_e.shape} vs {seg_bev_g.shape}"
-    assert vis_e.shape == vis_bev_g.shape, f"shape mismatch: {vis_e.shape} vs {vis_bev_g.shape}"
+    raw_e, feat_e, logits, center_e, offset_e = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
+    print("output logits      :", tuple(logits.shape))
+    expected = (seg_bev_g.shape[0], 3, *seg_bev_g.shape[2:])
+    assert tuple(logits.shape) == expected, f"shape mismatch: {tuple(logits.shape)} vs {expected}"
 
-    loss, parts = compute_two_head_loss(occ_e, vis_e, seg_bev_g, vis_bev_g, valid_bev_g)
+    class_index = to_class_index(decompose(seg_bev_g, vis_bev_g, valid_bev_g))
+    # 가중치 1로 둔다 -- 이 스모크는 배선(forward/backward)만 보고 클래스 균형은 보지 않는다.
+    loss, parts = compute_three_class_loss(
+        logits, class_index, valid_bev_g, torch.ones(3, device=device)
+    )
     print("loss               :", loss.item())
-    print("loss_occ           :", parts["loss_occ"].item())
-    print("loss_vis           :", parts["loss_vis"].item())
+    for name in ("loss_unknown", "loss_free", "loss_occupied"):
+        print(f"{name:19s}:", parts[name].item())
 
     loss.backward()
     grad_norm = sum(p.grad.norm().item() for p in model.parameters() if p.grad is not None)

@@ -3,9 +3,14 @@ import pytest
 import torch
 import torch.nn as nn
 
-from projects.common.free_space_metrics import weighted_mean
+from projects.common.free_space import FREE, OCCUPIED, UNKNOWN
+from projects.common.free_space_metrics import (
+    fatal_rate,
+    free_miss_rate,
+    iou_free,
+    weighted_mean,
+)
 from projects.common.polar import RayIndex
-from projects.common.bev_occupancy_metrics import compute_drivable_and_obstacle_iou
 from tools.rescore_checkpoints import (
     format_markdown_table,
     load_checkpoint_state_dict,
@@ -17,22 +22,22 @@ from tools.rescore_checkpoints import (
 def test_markdown_table_puts_the_baseline_next_to_every_model_row():
     """baseline이 같은 표에 없으면 숫자를 혼자 읽게 되고, 그게 이번 결함의 원인이었다."""
     rows = [
-        {"name": "robot_finetune", "split": "raws2", "iou_free": 0.850,
-         "baseline_iou_free": 0.673, "all_free_iou_free": 0.17,
-         "fatal_rate": 0.0587, "baseline_fatal_rate": 0.1678,
-         "iou_drivable": 0.891, "iou_obstacle": 0.312},
+        {"name": "threeclass_ab", "split": "rawos3", "iou_free": 0.774,
+         "baseline_iou_free": 0.398, "all_free_iou_free": 0.17,
+         "fatal_rate": 0.135, "baseline_fatal_rate": 0.1678,
+         "free_miss_rate": 0.115},
     ]
 
     text = format_markdown_table(rows)
 
     assert "iou_free" in text
     assert "baseline" in text
-    assert "0.850" in text and "0.673" in text
-    # 옛 지표도 남겨야 과거 실험 기록을 해석할 수 있다
-    assert "0.891" in text
+    assert "0.774" in text and "0.398" in text
+    # `fatal_rate`는 Phase 3에서 유일하게 후퇴한 지표라 표에서 빠지면 안 된다.
+    assert "0.135" in text
     # 열 이름과 값의 순서가 어긋나면(예: iou_free/baseline_iou_free 값이 바뀌어도) 위 assert들은
     # 전부 통과한다 -- 두 값이 나란히 올바른 순서로 붙어 있는지 문자열 그대로 고정한다.
-    assert "| 0.850 | 0.673 |" in text
+    assert "| 0.774 | 0.398 |" in text
 
 
 class _ModelA(nn.Module):
@@ -93,8 +98,14 @@ def _grid(values) -> torch.Tensor:
     return torch.tensor(values, dtype=torch.float32).view(1, 1, 4, 4)
 
 
-def _two_head(occ_grid, vis_grid) -> torch.Tensor:
-    return torch.cat([_grid(occ_grid), _grid(vis_grid)], dim=1)
+def _class_logits(class_grid) -> torch.Tensor:
+    """(4,4) 클래스 인덱스 격자 -> (1, 3, 4, 4) logits. argmax가 그 클래스를 고르게 만든다."""
+    index = torch.tensor(class_grid, dtype=torch.long)
+    logits = torch.full((1, 3, 4, 4), -5.0)
+    for row in range(4):
+        for col in range(4):
+            logits[0, int(index[row, col]), row, col] = 5.0
+    return logits
 
 
 def _batch(seg_gt, vis_gt, valid_gt) -> dict:
@@ -114,13 +125,13 @@ def _dummy_rays() -> RayIndex:
     )
 
 
-class _StubTwoHeadModel(nn.Module):
-    """forward가 인자를 무시하고 미리 정해둔 두 head logits를 loader 순서대로 돌려준다 --
+class _StubThreeClassModel(nn.Module):
+    """forward가 인자를 무시하고 미리 정해둔 3-class logits를 loader 순서대로 돌려준다 --
     실제 인코더·리프팅 없이 `score_split`의 집계 배선만 검증하기 위한 가짜 모델이다."""
 
-    def __init__(self, two_head_logits_sequence):
+    def __init__(self, logits_sequence):
         super().__init__()
-        self._logits = list(two_head_logits_sequence)
+        self._logits = list(logits_sequence)
         self._next = 0
 
     def forward(self, rgb, pix_T_cams, cam0_T_camXs, vox_util):
@@ -129,99 +140,104 @@ class _StubTwoHeadModel(nn.Module):
         return None, None, logits, None, None
 
 
-_ORD_LOGIT = [[3.0] * 4] * 4   # sigmoid든 raw든 threshold 0.5를 확실히 넘는 값 -- "배경" 셀
-_ORD_ONES = [[1] * 4] * 4
+_ALL_ONES = [[1] * 4] * 4
 
-# sample1: 특수 셀 4개
-#   (0,0) occ_logit=0.2 -- sigmoid(0.2)=0.550>0.5(True)지만 raw 0.2>0.5는 False.
-#     `torch.sigmoid`를 빼는 변형(mutation 1)이 정확히 이 셀에서만 갈린다.
-#   (0,1) occ 높음(3.0)/vis 낮음(-3.0) -- occ만 보고 free를 판단하면(AND 대신 OR 등) 틀리는 셀.
-#   (0,2) valid=0 -- masking이 빠지면 예측 free(occ·vis 둘 다 높음)와 GT obstacle이 어긋나
-#     허위 fatal이 하나 생기므로 masking이 빠졌는지 드러난다.
-#   (1,0) GT obstacle인데 occ·vis 예측은 둘 다 높음 -- sigmoid 유무와 무관한 "진짜" fatal 1건.
-_SAMPLE1_OCC = [[0.2, 3.0, 3.0, 3.0],
-                [3.0, 3.0, 3.0, 3.0],
-                [3.0, 3.0, 3.0, 3.0],
-                [3.0, 3.0, 3.0, 3.0]]
-_SAMPLE1_VIS = [[3.0, -3.0, 3.0, 3.0],
-                [3.0, 3.0, 3.0, 3.0],
-                [3.0, 3.0, 3.0, 3.0],
-                [3.0, 3.0, 3.0, 3.0]]
-_SAMPLE1_SEG = [[1, 1, 0, 1],
+# sample1 -- 네 종류의 셀이 한 번씩 등장하도록 짰다.
+#   (0,1) GT occupied / pred occupied  -- 맞게 막았다고 부른 셀
+#   (1,0) GT occupied / pred FREE      -- fatal 1건 (planner를 위험하게 하는 오류)
+#   (2,0) GT free     / pred UNKNOWN   -- free_miss 1건 (보수적 오류)
+#   (0,2) valid=0                      -- 마스킹이 빠지면 여기서 허위 fatal이 하나 더 생긴다
+_SAMPLE1_PRED = [[FREE, OCCUPIED, FREE, FREE],
+                 [FREE, FREE, FREE, FREE],
+                 [UNKNOWN, FREE, FREE, FREE],
+                 [FREE, FREE, FREE, FREE]]
+_SAMPLE1_SEG = [[1, 0, 0, 1],
                 [0, 1, 1, 1],
                 [1, 1, 1, 1],
                 [1, 1, 1, 1]]
-_SAMPLE1_VISGT = [[1, 1, 1, 1],
-                  [1, 1, 1, 1],
-                  [1, 1, 1, 1],
-                  [1, 1, 1, 1]]
+_SAMPLE1_VISGT = _ALL_ONES
 _SAMPLE1_VALID = [[1, 1, 0, 1],
                   [1, 1, 1, 1],
                   [1, 1, 1, 1],
                   [1, 1, 1, 1]]
 
+# score_split이 argmax로 만들어야 하는 free 마스크를 테스트가 **독립적으로** 손으로 적는다.
+# 이걸 logits에서 다시 유도하면 score_split의 유도 방식이 틀렸을 때 기대값도 같이 틀려
+# 테스트가 통과해 버린다.
+_SAMPLE1_PRED_FREE = _grid([[1, 0, 1, 1],
+                            [1, 1, 1, 1],
+                            [0, 1, 1, 1],
+                            [1, 1, 1, 1]]).bool()
 
-def test_score_split_applies_sigmoid_and_masking_before_computing_free_metrics():
-    """`torch.sigmoid`를 빼고 raw logit을 0.5로 자르는 변형(mutation 1)이면 이 테스트가
-    깨져야 한다. 기대값은 손으로 뺀 것이다 (이 함수 docstring과 리포트에 유도 과정을 남긴다):
 
-    sample1(16셀 중 특수 4셀, 위 주석 참고): intersection=13, union=15 -> IoU=13/15.
-    |pred|=14, fatal(오탐)=1건(=(1,0)) -> fatal_rate=1/14. |gt|=14, miss=1건(=(0,1)) -> 1/14.
-    sample2(전부 배경 16셀): IoU=1.0, fatal=0/16, miss=0/16.
-    배치 가중평균(각 배치=샘플 1개, count=1과 |pred|/|gt|로 가중):
-      iou_free = (13/15 + 1.0) / 2
-      fatal_rate = (1/14*14 + 0*16) / (14+16) = 1/30
-      free_miss_rate = (1/14*14 + 0*16) / (14+16) = 1/30
+def test_score_split_derives_free_from_argmax_and_applies_the_valid_mask():
+    """`score_split`이 3-class logits에서 free 마스크를 어떻게 뽑는지 고정한다.
+
+    기대값은 이미 단위 테스트가 있는 원시 지표(`iou_free`/`fatal_rate`/`free_miss_rate`)에
+    **손으로 적은** `pred_free`를 넣어 만든다. 따라서 이 테스트가 보는 것은 원시 지표의
+    정확성이 아니라 score_split이 (a) `argmax == FREE`로 예측을 만들고 (b) `valid`로
+    마스킹하고 (c) 배치 간 가중평균을 올바른 weight로 내는지다. `argmax`의 dim을 바꾸거나
+    FREE 대신 OCCUPIED를 고르거나 valid 마스킹을 빼면 깨진다.
     """
-    logits1 = _two_head(_SAMPLE1_OCC, _SAMPLE1_VIS)
-    logits2 = _two_head(_ORD_LOGIT, _ORD_LOGIT)
     batch1 = _batch(_SAMPLE1_SEG, _SAMPLE1_VISGT, _SAMPLE1_VALID)
-    batch2 = _batch(_ORD_ONES, _ORD_ONES, _ORD_ONES)
+    batch2 = _batch(_ALL_ONES, _ALL_ONES, _ALL_ONES)
+    all_free = _grid(_ALL_ONES).bool()
 
-    model = _StubTwoHeadModel([logits1, logits2])
+    model = _StubThreeClassModel([
+        _class_logits(_SAMPLE1_PRED),
+        _class_logits([[FREE] * 4] * 4),
+    ])
     result = score_split(
         model, [batch1, batch2], vox_util=None, rays=_dummy_rays(),
         ring_masks=[], device="cpu", constant_map=np.zeros((4, 4), dtype=bool),
     )
 
-    assert result["iou_free"] == pytest.approx((13 / 15 + 1.0) / 2, abs=1e-5)
-    assert result["fatal_rate"] == pytest.approx(1 / 30, abs=1e-5)
-    assert result["free_miss_rate"] == pytest.approx(1 / 30, abs=1e-5)
+    cases = [
+        (_SAMPLE1_PRED_FREE, _grid(_SAMPLE1_SEG), _grid(_SAMPLE1_VISGT), _grid(_SAMPLE1_VALID)),
+        (all_free, _grid(_ALL_ONES), _grid(_ALL_ONES), _grid(_ALL_ONES)),
+    ]
+    ious, iou_counts = [], []
+    fatals, fatal_denoms, misses, miss_denoms = [], [], [], []
+    for pred_free, seg, vis, valid in cases:
+        gt_free = seg.bool() & vis.bool() & valid.bool()
+        value, count = iou_free(pred_free, gt_free, valid)
+        ious.append(value)
+        iou_counts.append(count)
+        value, denom = fatal_rate(pred_free, gt_free, valid)
+        fatals.append(value)
+        fatal_denoms.append(denom)
+        value, denom = free_miss_rate(pred_free, gt_free, valid)
+        misses.append(value)
+        miss_denoms.append(denom)
 
-    # iou_drivable/iou_obstacle은 이미 신뢰된 compute_drivable_and_obstacle_iou를 같은 인자로
-    # 다시 불러 기대값을 만든다 -- 이 함수 자체의 정확성이 아니라 score_split이 인자·마스크를
-    # 바꿔치기하지 않았는지만 본다.
-    mask1 = _grid(_SAMPLE1_VISGT) * _grid(_SAMPLE1_VALID)
-    mask2 = _grid(_ORD_ONES) * _grid(_ORD_ONES)
-    d1, o1, c1 = compute_drivable_and_obstacle_iou(_grid(_SAMPLE1_OCC), _grid(_SAMPLE1_SEG), mask1)
-    d2, o2, c2 = compute_drivable_and_obstacle_iou(_grid(_ORD_LOGIT), _grid(_ORD_ONES), mask2)
-    expected_d = float(np.mean([d1.item(), d2.item()]))
-    expected_o = weighted_mean([o1.item(), o2.item()], [c1, c2])
-    assert result["iou_drivable"] == pytest.approx(expected_d, abs=1e-6)
-    assert result["iou_obstacle"] == pytest.approx(expected_o, abs=1e-6)
+    assert result["iou_free"] == pytest.approx(weighted_mean(ious, iou_counts), abs=1e-6)
+    assert result["fatal_rate"] == pytest.approx(weighted_mean(fatals, fatal_denoms), abs=1e-6)
+    assert result["free_miss_rate"] == pytest.approx(
+        weighted_mean(misses, miss_denoms), abs=1e-6
+    )
+    # 위 세 값이 서로 우연히 같아 배선 오류를 덮지 않도록, 실제 숫자가 자명하지 않은지 본다.
+    assert 0.0 < result["fatal_rate"] < 1.0
+    assert 0.0 < result["free_miss_rate"] < 1.0
+    assert 0.0 < result["iou_free"] < 1.0
 
 
-def test_score_split_iou_drivable_ignores_predicted_visibility():
-    """`iou_drivable`/`iou_obstacle`은 예측 vis head가 아니라 GT `vis_g * valid`로 마스킹된다
-    (`compute_drivable_and_obstacle_iou`에 넘기는 세 번째 인자). occ/GT를 고정하고
-    vis_logit만 뒤집어도 두 값이 그대로인지로 이를 확인한다 -- 반대로 `iou_free`는 vis
-    예측을 그대로 반영해 달라져야 한다(둘 다 안 바뀌면 애초에 vis가 안 쓰인 것이다)."""
+def test_score_split_free_prediction_responds_to_the_predicted_class():
+    """예측 클래스를 전부 FREE / 전부 UNKNOWN으로 뒤집으면 `iou_free`가 1.0과 0.0으로 갈려야 한다.
 
-    def run(vis_logit_grid):
-        model = _StubTwoHeadModel([_two_head(_ORD_LOGIT, vis_logit_grid)])
-        batch = _batch(_ORD_ONES, _ORD_ONES, _ORD_ONES)
+    logits를 아예 보지 않는(예: GT를 그대로 예측으로 쓰는) 배선 오류라면 둘이 같아진다.
+    """
+    def run(class_id):
+        model = _StubThreeClassModel([_class_logits([[class_id] * 4] * 4)])
         return score_split(
-            model, [batch], vox_util=None, rays=_dummy_rays(),
-            ring_masks=[], device="cpu", constant_map=np.zeros((4, 4), dtype=bool),
+            model, [_batch(_ALL_ONES, _ALL_ONES, _ALL_ONES)], vox_util=None,
+            rays=_dummy_rays(), ring_masks=[], device="cpu",
+            constant_map=np.zeros((4, 4), dtype=bool),
         )
 
-    low_vis = run([[-3.0] * 4] * 4)   # 전부 안 보인다고 예측
-    high_vis = run(_ORD_LOGIT)        # 전부 보인다고 예측
-
-    assert low_vis["iou_drivable"] == pytest.approx(high_vis["iou_drivable"], abs=1e-9)
-    # 대조: iou_free는 vis 예측에 실제로 반응해야 한다 (occ만 보는 결함이면 둘 다 안 바뀐다).
-    assert low_vis["iou_free"] == pytest.approx(0.0, abs=1e-9)
-    assert high_vis["iou_free"] == pytest.approx(1.0, abs=1e-9)
+    assert run(FREE)["iou_free"] == pytest.approx(1.0, abs=1e-9)
+    assert run(UNKNOWN)["iou_free"] == pytest.approx(0.0, abs=1e-9)
+    # OCCUPIED로 예측해도 free는 하나도 없으므로 0이어야 한다 (FREE와 OCCUPIED를 혼동하면 1.0이 된다).
+    assert run(OCCUPIED)["iou_free"] == pytest.approx(0.0, abs=1e-9)
 
 
 # --------------------------------------------------------------------------------
@@ -264,7 +280,7 @@ def test_main_calls_load_checkpoint_state_dict_and_propagates_its_error(tmp_path
     monkeypatch.setattr(tool, "constant_free_map", lambda masks: np.zeros((1, 1), dtype=bool))
     monkeypatch.setattr(tool, "RobotBEVDataset", _EmptyDataset)
     monkeypatch.setattr(tool, "build_double_sphere_vox_util", lambda *a, **kw: None)
-    monkeypatch.setattr(tool, "TwoHeadSegnet", _TinyModel)
+    monkeypatch.setattr(tool, "ThreeClassSegnet", _TinyModel)
     monkeypatch.setattr(tool, "load_checkpoint_state_dict", _fake_load_checkpoint_state_dict)
 
     # 실제로 로드 가능한 작은 체크포인트 -- 변형 2가 적용돼 인라인 코드로 되돌아가면

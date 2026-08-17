@@ -429,3 +429,130 @@ Phase 4에서 반드시 들고 갈 것: **`fatal_rate`를 `iou_free`와 함께 �
 pretrain으로 출력 head까지 전이되면 §8.3의 유일한 후퇴가 사라지는지가 핵심 확인 항목이다.
 사라지지 않으면 그것은 head 초기화 문제가 아니라 3-class 정식화가 occupancy 경계에서 실제로
 잃는 것이라는 뜻이며, polar head(Phase 5)나 free 임계값 조정 같은 별도 수단이 필요해진다.
+
+## 9. 2-head 정식화 제거 (사용자 결정, Phase 3 이후)
+
+§8의 A/B로 3-class를 확정한 뒤, 사용자가 **앞으로 학습과 테스트를 3-class 단일 head로만
+한다**고 결정했다. 두 정식화를 병행 유지하는 비용이 사라졌으므로 2-head 코드를 제거했다.
+
+### 9.1 무엇이 사라졌고 무엇이 남았는가
+
+| 대상 | 처리 |
+|---|---|
+| `projects/models/simplebev_two_head.py` | 삭제 (`TwoHeadSegnet`, `compute_two_head_loss`, `split_two_head_logits`, `visibility_error_rates`) |
+| `bev_occupancy_metrics.py`의 2-head `run_batch` | 삭제 |
+| occupancy 진단 (`compute_occupancy_diagnostics`, obstacle 비율 bin, `iou_drivable`/`iou_obstacle`) | 삭제 |
+| deployment 지표 (`compute_deployment_occupancy_metrics`, `visible_coverage`) | 삭제 |
+| `tools/train_robot_bev.py`의 `--head` 스위치 | 삭제 -- 3-class 전용 |
+| `tools/train_synwoodscape.py` | **3-class로 전환** (아래 §9.2) |
+| `tools/rescore_checkpoints.py` | 3-class 전용 |
+| 시각화·스모크 도구 4개 | 3-class로 전환 |
+| `bev_occupancy_metrics.py`의 공유 부분 | **유지** -- 터미널 헬퍼, `format_epoch_log`, `select_checkpoint_score`, free 지표 epoch 집계, `evaluate_split` |
+
+`bev_occupancy_metrics.py`는 593 -> 323행이 됐다. 모듈 이름은 그대로 뒀다 -- Task 16에서 방금
+개칭한 이름을 하루 만에 또 바꾸면 git 이력에서 같은 모듈이 세 이름을 갖게 되고, 남은 내용
+(BEV occupancy 라벨에 대한 IoU와 free 지표 집계)에 대해 이름이 여전히 맞다.
+
+**잃은 것을 분명히 적는다: `tools/rescore_checkpoints.py`로 2-head 체크포인트를 더 이상 채점할
+수 없다.** 따라서 §6의 2-head 기준선 `val_iou_free` 0.765와 §8의 대조표는 **그 시점의 역사적
+값으로 고정된다.** 지표 정의를 바꾸면 3-class 체크포인트는 재채점되지만 2-head 쪽은 안 된다.
+사용자가 이 손실을 알고 선택했다.
+
+### 9.2 3-class pretrain을 만들 수 있게 됐다
+
+`tools/train_synwoodscape.py`가 `TwoHeadSegnet`을 하드코딩하고 2-head `run_batch`의 9-튜플을
+직접 언패킹하고 있어서, 그전까지는 **3-class pretrain 자체가 불가능**했다. 이제 3-class 전용이다.
+
+전환에 필요했던 것:
+
+- **`default_class_weights` -> `class_weights_from_labels`**: 옛 시그니처가
+  `(samples, permanent_blind, invalid, load_labels)`로 로봇 리그 전용이었다. SynWoodScape에는
+  `permanent_blind`/`rear_self_box`가 없고(`valid`가 전부 1) 라벨 로더도 다르다. `(occ, vis, valid)`
+  3-tuple의 iterable만 받도록 일반화해 두 데이터셋이 같은 함수를 쓴다.
+- **링 경계**: SynWoodScape 그리드는 전방 8 m / 후방 4 m / ±6 m로 로봇 그리드의 두 배다.
+  `DEFAULT_RING_EDGES_M`(0/1.5/3/4)를 그대로 쓰면 바깥 절반이 어느 링에도 안 들어가므로
+  `PRETRAIN_RING_EDGES_M = (0, 2, 4, 6, 8)`을 따로 뒀다.
+- **constant-map baseline 추가**: pretrain에는 `iou_free`의 트리비얼 baseline이 없었다. 이
+  프로젝트의 출발점이 "모델이 블라인드 예측기에 지는데 아무도 몰랐다"(§1)이므로 fine-tuning과
+  같은 장치를 넣었다. 실제로 아래 스모크에서 바로 작동했다.
+- **`evaluate_split` 공유**: 두 trainer의 validation 루프가 거의 같아져서 공유 모듈로 올렸다.
+  한쪽만 고쳐지면 pretrain과 fine-tune 숫자를 나란히 읽을 수 없게 되기 때문이다.
+- **loss 항 로깅**: 옛 로그는 `loss_occ`/`loss_vis` 두 칸이었고 3-class를 그 두 칸에 억지로
+  끼워 넣고 있었다(`_loss_part(parts, "loss_occ", "loss_occupied")`). 그래서 **`unknown` 항이
+  로그에 아예 보이지 않았다** -- unknown이 셀의 85% 이상인 데이터에서 이건 큰 구멍이다.
+  이제 `loss_unknown`/`loss_free`/`loss_occupied` 세 항을 그대로 찍는다.
+
+GPU0 스모크 (`--max_samples=24`, 2 epoch, from scratch):
+
+```text
+ SynWoodScape -> Simple-BEV three-class pretrain
+ class weights (unknown/free/occupied) = [12.513870239257812, 1.0, 6.259463787078857]
+ constant-map baseline iou_free = 0.920  <- compare against this
+epoch 002/2 | val_iou_free↑ 0.870 (+0.112) (-0.050 vs baseline) | best_val_iou_free↑ 0.870
+  train | iou_free↑ 0.835 | fatal↓ 0.005 | free_miss↓ 0.171 | loss_total↓ 0.8550 | loss_unknown↓ 1.1726 | loss_free↓ 0.7781 | loss_occupied↓ 1.0054
+  val   | iou_free↑ 0.870 | fatal↓ 0.001 | free_miss↓ 0.139 | loss_total↓ 0.6649 | loss_unknown↓ 0.3614 | loss_free↓ 0.6760 | loss_occupied↓ 0.6722
+  range | abs_p50↓ 0.775 | abs_p90↓ 2.638 | over↓ 1.655 | under 0.905 | rays 1096 censored 3135
+```
+
+**24샘플 2 epoch이라 성능 값 자체는 의미가 없다.** 이 스모크가 보여주는 것은 배선이 돌고,
+세 loss 항이 전부 보이고, range/ring이 붙고, 새 constant-map baseline이 `-0.050`으로
+"아직 블라인드 예측기에 지고 있다"를 즉시 드러낸다는 것이다.
+
+### 9.3 3-class 체크포인트는 출력 head까지 전이된다 -- 실측 확인
+
+§8.4의 3번(head 전이 비대칭)이 Phase 4에서 해소되는지를 코드 추론이 아니라 실제 체크포인트로
+확인했다. 위 스모크가 만든 3-class 체크포인트를 로봇 `ThreeClassSegnet`에 얹은 결과:
+
+```text
+  -> loaded 677 tensors, skipped 0
+  skipped keys: (none)
+  segmentation_head tensors: ['decoder.segmentation_head.0.weight',
+                              'decoder.segmentation_head.3.weight',
+                              'decoder.segmentation_head.3.bias']
+  head weights identical to checkpoint: True
+```
+
+240×240 -> 120×120 그리드 차이에도 전부 전이된다(`Segnet`이 (Z, X)에 대해 완전 합성곱이라서다).
+대조: 2-head 체크포인트에서는 `674 loaded / 6 skipped`다. **따라서 `skipped`가 0인지가
+"head가 전이됐는지"의 기계적 확인이며, 학습 배너의 `weight transfer` 줄에 그대로 찍힌다.**
+`tests/models/test_simplebev_three_class.py`가 이 계약을 고정한다.
+
+### 9.4 `range_abs_p50`/`abs_p90`은 batch size에 의존한다 -- 새로 발견
+
+재채점 도구로 §8의 3-class best 체크포인트를 다시 채점해 학습 로그와 대조했다. 대부분 정확히
+일치했다:
+
+| 지표 | 학습 로그 (§8.2) | 재채점 (batch 4) | 재채점 (batch 8) |
+|---|---|---|---|
+| `iou_free` | 0.774 | 0.774 | 0.774 |
+| `fatal_rate` | 0.135 | 0.135 | 0.135 |
+| `free_miss_rate` | 0.115 | 0.115 | 0.115 |
+| ring 0–1.5 / 1.5–3 / 3–4 m | 0.810 / 0.766 / 0.735 | 0.810 / 0.766 / 0.735 | 동일 |
+| paired rays | 11024 | 11024 | 11024 |
+| **`range_abs_p50`** | **0.172** | **0.177** | **0.172** |
+| **`range_abs_p90`** | **0.718** | **0.701** | **0.718** |
+
+**원인이 확정됐다: `summarize_range_error`가 배치별 백분위수를 `n_paired_rays`로 가중평균한다**
+(`projects/common/free_space_metrics.py:166`). 배치별 중위수의 가중평균은 전체 분포의 중위수가
+아니다. 학습은 batch 8이었고 재채점 기본값이 batch 4라서 갈렸다 -- batch 8로 재채점하면
+소수점까지 일치한다(위 표 마지막 열).
+
+즉 **M3의 p50/p90만 batch-size 불변이 아니다.** 나머지 지표는 전부 불변이다(`iou_free`는
+per-sample IoU의 count 가중 평균, `fatal_rate`/`free_miss_rate`는 분자·분모 합, 링도 같다).
+
+§4.3의 `iou_drivable` 아티팩트와 같은 종류이지만 성격이 다르다. 그쪽은 재현해야 할 기준값이
+있어 의도적으로 남겼고, 이쪽은 **비교 기준이 없고 고치면 되는 문제다.** 올바른 구현은 배치별
+delta를 모아 마지막에 한 번 백분위수를 내는 것이다. 지금 고치지 않은 이유는 이것이 사용자가
+예고한 "평가 지표 수정" 범위에 들어갈 사안이고, `iou_free`의 정의를 건드리지 않으므로
+`tools/rescore_checkpoints.py`로 언제든 재채점해 판정을 다시 낼 수 있기 때문이다.
+
+**그때까지 지켜야 할 것: range p50/p90을 두 run 사이에 비교할 때는 batch size가 같은지 먼저
+확인한다.** §8.2의 2-head 대 3-class 대조는 둘 다 batch 8이라 유효하다.
+
+### 9.5 테스트
+
+`python -m pytest tests/ -q` -> **229 passed**, 실패 0. Phase 3 종료 시점의 242에서 줄어든
+것은 2-head 전용 테스트가 사라졌기 때문이다(모델 3개 + 데이터셋 계약 3개 + occupancy/deployment
+진단 9개 등). 같은 작업에서 새로 추가한 테스트도 있다: 클래스 가중치의 샘플 간 누적,
+3-class 체크포인트의 head 전이, 세 loss 항의 로그 노출과 epoch 평균,
+`empty_epoch_metrics`와 `evaluate_split`의 키 일치.

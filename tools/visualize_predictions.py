@@ -1,4 +1,4 @@
-"""학습된 SynWoodScape `TwoHeadSegnet` 체크포인트로 추론하고, occupancy/visibility를 시각화한다.
+"""학습된 SynWoodScape `ThreeClassSegnet` 체크포인트로 추론하고, occupancy/visibility를 시각화한다.
 
 ROADMAP Phase 3.3 성공 기준("예측 BEV가 GT와 육안으로도 정합한다")을 실제로 확인하는
 스크립트 -- 지금까지는 IoU 숫자만 봤고 육안 비교 코드는 없었다.
@@ -40,11 +40,8 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
 from projects.datasets.synwoodscape_split import discover_all_sample_ids, train_val_split  # noqa: E402
 from projects.geometry.fisheye import load_camera  # noqa: E402
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
-from projects.models.simplebev_two_head import (  # noqa: E402
-    TwoHeadSegnet,
-    split_two_head_logits,
-    visibility_error_rates,
-)
+from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
+from projects.common.free_space import decompose_from_class_index  # noqa: E402
 
 from projects.common.bev_panels import (  # noqa: E402
     CELL_UPSCALE,
@@ -58,6 +55,24 @@ from projects.common.bev_panels import (  # noqa: E402
     occupancy_to_image,
     visibility_to_image,
 )
+
+
+
+def observed_error_rates(pred_observed, gt_observed, valid) -> dict:
+    """모델이 "보인다"고 부른 영역의 오류율. 삭제된 2-head `visibility_error_rates`와 같은 정의다.
+
+    `false_high`는 GT가 미관측인 셀을 관측이라 부른 비율(과신), `false_low`는 그 반대다.
+    3-class에서 "관측"은 `free | occupied`이므로 argmax 결과에서 그대로 유도된다.
+    """
+    valid = valid.astype(bool)
+    pred_observed = pred_observed.astype(bool)
+    gt_observed = gt_observed.astype(bool)
+    false_high_den = max(int(((~gt_observed) & valid).sum()), 1)
+    false_low_den = max(int((gt_observed & valid).sum()), 1)
+    return {
+        "false_high": float((pred_observed & ~gt_observed & valid).sum()) / false_high_den,
+        "false_low": float((~pred_observed & gt_observed & valid).sum()) / false_low_den,
+    }
 
 
 def main(
@@ -97,7 +112,7 @@ def main(
     else:
         vox_util = build_vox_util(GRID_SPEC, device=device)
 
-    model = TwoHeadSegnet(
+    model = ThreeClassSegnet(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
@@ -116,11 +131,13 @@ def main(
         cam0_T_camXs = item["cam0_T_camXs"].unsqueeze(0).to(device)
 
         with torch.no_grad():
-            _, _, two_head_bev_e, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
-            occ_bev_e, vis_bev_e = split_two_head_logits(two_head_bev_e)
-        pred_occ_np = torch.sigmoid(occ_bev_e)[0, 0].round().cpu().numpy().astype(np.uint8)
-        pred_vis_prob = torch.sigmoid(vis_bev_e)
-        pred_vis_np = pred_vis_prob[0, 0].round().cpu().numpy().astype(bool)
+            _, _, logits, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
+        valid_dev = item["valid_bev_g"].unsqueeze(0).to(device)
+        pred_parts = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid_dev)
+        # 3-class 분해에서 옛 occupancy/visibility 패널이 기대하는 두 마스크를 꺼낸다.
+        # 정의상 `vis = free | occupied`(= unknown이 아님)이고 관측 영역 안에서 `drivable = free`다.
+        pred_vis_np = (pred_parts["free"] | pred_parts["occupied"])[0, 0].cpu().numpy().astype(bool)
+        pred_occ_np = pred_parts["free"][0, 0].cpu().numpy().astype(np.uint8)
 
         occupancy_np = item["seg_bev_g"][0].numpy().astype(np.uint8)
         visible_np = item["vis_bev_g"][0].numpy().astype(bool)
@@ -128,11 +145,7 @@ def main(
 
         d_iou = compute_iou(pred_occ_np, occupancy_np, valid_np)
         o_iou_text = format_obstacle_iou(1 - pred_occ_np, 1 - occupancy_np, valid_np)
-        vis_metrics = visibility_error_rates(
-            pred_vis_prob,
-            item["vis_bev_g"].unsqueeze(0).to(device),
-            item["valid_bev_g"].unsqueeze(0).to(device),
-        )
+        vis_metrics = observed_error_rates(pred_vis_np, visible_np, valid_np)
 
         all_cells = np.ones_like(visible_np, dtype=bool)
         gt_occ_image = occupancy_to_image(occupancy_np, visible_np)

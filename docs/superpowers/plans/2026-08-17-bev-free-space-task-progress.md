@@ -1,14 +1,18 @@
 # BEV Free-space Task 재정의 — 실행 인수인계
 
+> **이 계획은 끝났다(Task 1–18 완료).** 새 세션은
+> [`docs/next_session_threeclass_training.md`](../../next_session_threeclass_training.md)를
+> 먼저 읽는다. 이 문서는 그 계획을 **어떻게 실행했고 무엇이 중간에 정해졌는지**의 기록으로 남는다.
+
 > 이 문서는 [`2026-08-17-bev-free-space-task.md`](2026-08-17-bev-free-space-task.md) 계획의 **실행 상태**를
 > 기록한다. 계획 자체가 무엇을 할지 정하고, 이 문서는 어디까지 했고 그 과정에서 계획에 없던
 > 무엇이 정해졌는지를 정한다. 다른 세션·다른 에이전트가 이어받을 때 이 문서를 먼저 읽는다.
 
 - 브랜치: **`feat/bev-free-space-task`**
-- 마지막 코드 커밋: **`259b952`** (`--head` runtime switch) — Task 17·18은 코드 변경이 없다
-- 테스트: **242 passed**, 실패 0
-- 진행: **Task 1–18 전부 완료. Phase 0·1·2·3 게이트 통과 — 이 계획은 끝났다.** 다음은 Phase 4로, **별도 스펙·계획**으로 다룬다.
+- 테스트: **229 passed**, 실패 0 (2-head 전용 테스트가 사라져 242에서 줄었다 — §3.14)
+- 진행: **Task 1–18 전부 완료. Phase 0·1·2·3 게이트 통과 — 이 계획은 끝났다.** 이후 2-head 제거까지 수행했다.
 - Phase 3 판정: 3-class가 통과. `iou_free` 0.774 대 0.765, 단 `fatal_rate`는 0.135 대 0.124로 후퇴. 근거와 한계는 [`docs/free_space_metric_migration.md`](../../free_space_metric_migration.md) §8.
+- **계획 종료 후 추가 작업(사용자 지시)**: 3-class pretrain 지원 + 2-head 전면 제거. 같은 문서 §9. **이제 3-class pretrain을 돌릴 수 있다** — 그전에는 pretrain 스크립트가 `TwoHeadSegnet` 하드코딩이라 불가능했다.
 - 실행 방식: `superpowers:subagent-driven-development` (태스크마다 구현자 → 리뷰 → fix 루프 → 재리뷰)
 
 ---
@@ -34,6 +38,10 @@ Phase 4 착수 전에 사용자가 밝힌 두 가지 후속 작업이 있다(202
    checkpoint 선택 기준이 되었으므로 그 정의가 바뀌면 어느 epoch이 best로 뽑히는지가 달라져
    재학습이 필요하지만, 다른 지표 수정은 `tools/rescore_checkpoints.py`로 저장된 체크포인트를
    재채점해 판정만 다시 하면 된다. 수정 내용은 아직 듣지 못했다.
+
+   **이 범위에 넣을 후보가 하나 이미 발견됐다**: `range_abs_p50`/`abs_p90`이 배치별 백분위수의
+   가중평균이라 batch size에 따라 값이 달라진다. 지표 스위트에서 유일하게 batch-size 불변이
+   아니다. 실측과 원인은 `docs/free_space_metric_migration.md` §9.4.
 
 실행 중 ledger는 `.superpowers/sdd/2026-08-17-bev-free-space-task/progress.md`에 있다.
 **git-ignored 스크래치라 계획 완료 시 삭제된다** — 그래서 오래 남아야 하는 것은 전부 이
@@ -223,6 +231,34 @@ epoch마다 worker spawn 비용이 학습을 압도한다. 상세는
 `free`가 약 2배 다르다(`occupied`는 양쪽 다 `MAX_CLASS_WEIGHT=20` 캡). class weight는 CLI
 플래그가 없어 맞추려면 코드 변경이 필요한데, Task 17이 묻는 것은 "이 4장을 외울 수 있는가"라서
 기본값을 그대로 뒀다. **따라서 Task 17의 loss 값을 Task 18의 loss와 나란히 읽지 않는다.**
+
+---
+
+### 3.14 2-head는 코드에서 제거됐다 (사용자 결정, 계획 종료 후)
+
+**이 문서의 §2·§3·§4에 나오는 2-head 관련 서술은 전부 역사적 기록이다.** 그 코드는 더 이상
+없다. 상세는 [`docs/free_space_metric_migration.md`](../../free_space_metric_migration.md) §9.
+
+이후 작업이 반드시 알아야 할 것:
+
+- **`tools/rescore_checkpoints.py`로 2-head 체크포인트를 채점할 수 없다.** 따라서 §6의 0.765와
+  §8의 대조표는 영구히 그 시점의 값이다. 지표를 바꿔도 2-head 쪽은 재채점되지 않는다.
+- `default_class_weights`는 `class_weights_from_labels(label_triples)`로 바뀌었다 — 로봇 전용
+  시그니처였던 것을 `(occ, vis, valid)` iterable만 받도록 일반화했다.
+- `select_checkpoint_score`는 이제 인자가 하나다: `select_checkpoint_score(free_metrics)`.
+- `format_epoch_log`의 시그니처가 대폭 줄었다. loss는 `train_loss_parts`/`val_loss_parts`
+  dict로 넘기고, 세 클래스 항(`loss_unknown`/`loss_free`/`loss_occupied`)이 그대로 찍힌다.
+- validation 루프는 `bev_occupancy_metrics.evaluate_split`으로 공유된다 — 두 trainer가 각자
+  갖고 있으면 pretrain과 fine-tune 숫자를 나란히 읽을 수 없게 된다.
+- pretrain config가 `configs/train_synwoodscape_threeclass_pretrain.sh`로 개칭됐고 기본
+  `CUDA_VISIBLE_DEVICES`가 0이다(§3.8).
+
+### 3.15 아직 3-class pretrain을 돌리지 않았다
+
+코드는 준비됐고 24샘플 스모크만 돌렸다(§9.2). **실제 3-class pretrain은 미실행이다.**
+그때까지 fine-tuning은 옛 2-head 체크포인트에서 trunk만 받고 출력 head는 랜덤 초기화로
+시작한다 — 배너의 `weight transfer: loaded 674 tensors, skipped 6` 줄이 그 상태를 알려준다.
+3-class pretrain 체크포인트를 쓰면 `skipped 0`이 되고 head까지 전이된다(§9.3에서 실측 확인).
 
 ---
 

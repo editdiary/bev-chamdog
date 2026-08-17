@@ -1,12 +1,14 @@
-"""자체 수집 데이터셋 -> two-head Simple-BEV fine-tuning (ROADMAP Phase 4).
+"""자체 수집 데이터셋 -> 3-class 단일 head Simple-BEV fine-tuning (ROADMAP Phase 4).
 
 SynWoodScape pretrain(`tools/train_synwoodscape.py`)과 지표·로깅을 공유하며
-(`projects/common/bev_occupancy_metrics.py`), 다른 것은 네 가지뿐이다:
+(`projects/common/bev_occupancy_metrics.py`), 다른 것은 세 가지뿐이다:
 
 1. 데이터셋: `RobotBEVDataset` (Double Sphere 3-cam, 시퀀스 단위 split)
 2. lifting: `DoubleSphereVoxUtil`
 3. 초기화: pretrain 체크포인트에서 시작한다 (`--init_checkpoint`)
-4. 클래스 비율(`pos_weight`)을 **마스킹 후** 라벨에서 실측한다
+
+2-head 정식화는 제거됐다 -- Phase 3 A/B에서 3-class로 확정했다
+(`docs/free_space_metric_migration.md` §8, §9).
 
 실행 예:
     CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py \\
@@ -34,31 +36,23 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 import saverloader  # noqa: E402  (simple_bev submodule; see docs/project_structure.md)
 from projects.common.baselines import as_batch, constant_free_map  # noqa: E402
 from projects.common.three_class_metrics import (  # noqa: E402
-    default_class_weights,
+    class_weights_from_labels,
     run_batch as three_class_run_batch,
 )
-from projects.common.free_space_metrics import (  # noqa: E402
-    build_ring_masks,
-    iou_free,
-    metrics_per_ring,
-    range_error,
-    summarize_range_error,
-)
+from projects.common.free_space_metrics import build_ring_masks, iou_free  # noqa: E402
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.common.bev_occupancy_metrics import (  # noqa: E402
     _Ansi,
     _c,
     _print_banner,
     append_free_metrics,
+    empty_epoch_metrics,
+    evaluate_split,
     format_epoch_log,
-    run_batch as two_head_run_batch,
+    mean_loss_parts,
     select_checkpoint_score,
-    summarize_deployment_metrics,
     summarize_free_metrics,
-    summarize_occupancy_diagnostics,
     weighted_mean,
-    write_deployment_metrics,
-    write_occupancy_diagnostics,
 )
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
@@ -74,16 +68,16 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet, load_trunk_weights  # noqa: E402
-from projects.models.simplebev_two_head import TwoHeadSegnet  # noqa: E402
 
 
 def compute_label_statistics(samples, permanent_blind, invalid) -> dict:
-    """`pos_weight`와 트리비얼 베이스라인을 **마스킹이 적용된 셀**에서만 실측한다.
+    """라벨 분포를 **마스킹이 적용된 셀**에서만 실측한다.
 
-    occupancy loss는 `vis * valid`로 마스킹되므로, 마스킹 전 라벨로 클래스 비율을 세면
-    실제 loss가 보는 분포와 어긋난다. 자체 데이터셋에서는 이 차이가 크다 -- 그리드 전체
-    obstacle 비율은 23%인데 마스킹 후 supervised 영역에서는 5% 수준이다(온실 통로에서
-    raycast visibility가 장애물에 닿으며 멈춰 장애물 대부분이 경계 바깥에 놓이기 때문).
+    3-class loss는 `valid` 안에서만 채점되고 `vis`가 unknown/관측 클래스를 가르므로,
+    마스킹 전 라벨로 비율을 세면 실제 loss가 보는 분포와 어긋난다. 자체 데이터셋에서는 이
+    차이가 크다 -- 그리드 전체 obstacle 비율은 23%인데 마스킹 후 관측 영역에서는 5%
+    수준이다(온실 통로에서 raycast visibility가 장애물에 닿으며 멈춰 장애물 대부분이 경계
+    바깥에 놓이기 때문).
     """
     pos = neg = supervised = total = 0
     for sequence_root, sample_id in samples:
@@ -96,29 +90,10 @@ def compute_label_statistics(samples, permanent_blind, invalid) -> dict:
         supervised += int(mask.sum())
         total += mask.size
     return {
-        "pos_weight": neg / max(pos, 1),
         "trivial_iou": pos / max(supervised, 1),
         "supervised_fraction": supervised / max(total, 1),
         "obstacle_fraction": neg / max(supervised, 1),
     }
-
-
-def load_initial_weights(model, checkpoint_path, device) -> None:
-    """pretrain 체크포인트를 초기값으로 얹는다.
-
-    `Segnet`은 (Z, X)에 대해 완전 합성곱이고 Y=1이 양쪽 같아서, SynWoodScape의
-    240x240 그리드에서 학습한 가중치가 로봇의 120x120 그리드에 그대로 들어간다.
-    카메라 수(4 -> 3)도 per-camera 파라미터가 없어서 문제되지 않는다.
-    """
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    state_dict = checkpoint.get("model_state_dict", checkpoint)
-    result = model.load_state_dict(state_dict, strict=False)
-    if result.missing_keys or result.unexpected_keys:
-        raise RuntimeError(
-            f"체크포인트가 모델과 맞지 않는다: missing={len(result.missing_keys)} "
-            f"unexpected={len(result.unexpected_keys)}"
-        )
-    model.to(device)
 
 
 def _baseline_iou_free(val_samples, permanent_blind, invalid, constant_map, device):
@@ -159,91 +134,15 @@ def _write_scalar_if_finite(writer, tag, value, step):
 
 
 def _write_epoch_metric_scalars(writer, split, metrics, epoch):
-    for key, tb in (("loss", "loss_epoch"), ("loss_occ", "loss_occ_epoch"),
-                    ("loss_vis", "loss_vis_epoch"), ("d_iou", "iou_drivable_epoch"),
-                    ("o_iou", "iou_obstacle_epoch"),
-                    ("false_high", "visibility_false_high_epoch"),
-                    ("false_low", "visibility_false_low_epoch")):
-        _write_scalar_if_finite(writer, f"{split}/{tb}", metrics[key], epoch)
-
-
-def _summarize_ring_metrics(ring_dicts, ring_masks):
-    return {
-        name: {
-            "iou_free": weighted_mean([d[name]["iou_free"] for d in ring_dicts],
-                                      [d[name]["iou_free_count"] for d in ring_dicts]),
-            "fatal_rate": weighted_mean([d[name]["fatal_rate"] for d in ring_dicts],
-                                         [d[name]["fatal_denom"] for d in ring_dicts]),
-        }
-        for name, _ in ring_masks
-    }
-
-
-def _normalise_step_output(head, output):
-    """Adapt two-head and three-class batch outputs to one loop contract."""
-    if head == "two_head":
-        loss, parts, d_iou, o_iou, o_count, vis_m, occ_m, deploy, free_m = output
-        return loss, parts, free_m, {
-            "d_iou": float(d_iou.item()),
-            "o_iou": float(o_iou.item()),
-            "o_count": o_count,
-            "vis": vis_m,
-            "occ": occ_m,
-            "deploy": deploy,
-        }
-    loss, parts, free_m = output
-    return loss, parts, free_m, None
-
-
-def _loss_part(parts, *names):
-    for name in names:
-        if name in parts:
-            return parts[name]
-    return torch.tensor(float("nan"))
-
-
-def _evaluate(head, step, loader, device, rays, ring_masks):
-    losses, occ_losses, vis_losses = [], [], []
-    d_ious, o_ious, o_counts, false_highs, false_lows = [], [], [], [], []
-    occ_dicts, deploy_dicts, free_dicts, range_dicts, ring_dicts = [], [], [], [], []
-    with torch.no_grad():
-        for batch in loader:
-            loss, parts, free_metrics, legacy = _normalise_step_output(head, step(batch))
-            losses.append(loss.item())
-            occ_losses.append(_loss_part(parts, "loss_occ", "loss_occupied").item())
-            vis_losses.append(_loss_part(parts, "loss_vis", "loss_free").item())
-            if legacy is not None:
-                d_ious.append(legacy["d_iou"])
-                o_ious.append(legacy["o_iou"])
-                o_counts.append(legacy["o_count"])
-                false_highs.append(legacy["vis"]["false_high"])
-                false_lows.append(legacy["vis"]["false_low"])
-                occ_dicts.append(legacy["occ"])
-                deploy_dicts.append(legacy["deploy"])
-            valid = batch["valid_bev_g"].to(device)
-            range_dicts.append(range_error(
-                free_metrics["pred_free"], free_metrics["gt_free"], valid, rays
-            ))
-            ring_dicts.append(metrics_per_ring(
-                free_metrics["pred_free"], free_metrics["gt_free"], valid, ring_masks
-            ))
-            append_free_metrics(free_dicts, free_metrics)
-    mean = lambda xs: float(np.mean(xs)) if xs else float("nan")  # noqa: E731
-    return {
-        "loss": mean(losses), "loss_occ": mean(occ_losses), "loss_vis": mean(vis_losses),
-        "d_iou": mean(d_ious), "o_iou": weighted_mean(o_ious, o_counts),
-        "false_high": mean(false_highs), "false_low": mean(false_lows),
-        "occ": summarize_occupancy_diagnostics(occ_dicts),
-        "deploy": summarize_deployment_metrics(deploy_dicts),
-        "free": summarize_free_metrics(free_dicts),
-        "range": summarize_range_error(range_dicts),
-        "rings": _summarize_ring_metrics(ring_dicts, ring_masks),
-    }
+    """총 loss와 클래스별 loss 항. 클래스별 항을 개별 tag로 쓰는 이유는 unknown이 압도적
+    다수라 총 loss만 보면 occupied가 언제 죽었는지 알 수 없기 때문이다."""
+    _write_scalar_if_finite(writer, f"{split}/loss_epoch", metrics["loss"], epoch)
+    for key, value in metrics["loss_parts"].items():
+        _write_scalar_if_finite(writer, f"{split}/{key}_epoch", value, epoch)
 
 
 def main(
     exp_name="robot_finetune",
-    head="two_head",
     train_sequences="raws1,raws2,raws3,rawos1,rawos4",
     val_sequences="rawos3",
     val_tail_fraction=0.0,  # val 시퀀스가 없을 때만 쓰는 임시 holdout (시퀀스 뒤쪽 연속 구간)
@@ -255,9 +154,6 @@ def main(
     num_workers=8,
     encoder_type="res101",
     augment=False,  # 광도 증강. pretrain에서는 +0.006이었지만 적용 여부는 사용자가 결정한다
-    pos_weight=None,
-    lambda_vis=0.5,
-    vis_neg_weight=3.0,
     val_freq_epochs=1,
     save_freq_epochs=10,
     dataset_root=DEFAULT_DATASET_ROOT,
@@ -269,8 +165,6 @@ def main(
 ):
     torch.manual_seed(0)
     np.random.seed(0)
-    if head not in ("two_head", "three_class"):
-        raise ValueError(f"head must be 'two_head' or 'three_class': {head}")
 
     dataset_root = Path(dataset_root)
     names = parse_sequence_names(train_sequences)
@@ -305,21 +199,20 @@ def main(
     )
     rays = build_ray_index(GRID_SPEC) if n_theta is None else build_ray_index(GRID_SPEC, n_theta=n_theta)
     ring_masks = build_ring_masks(GRID_SPEC)
-    if pos_weight is None:
-        pos_weight = stats["pos_weight"]
-    class_weights = default_class_weights(
-        train_samples, permanent_blind, invalid, load_masked_labels
+    class_weights = class_weights_from_labels(
+        load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
+        for sequence_root, sample_id in train_samples
     )
 
     _print_banner([
-        f" robot dataset -> Simple-BEV {head.replace('_', '-')} fine-tuning",
+        " robot dataset -> Simple-BEV three-class fine-tuning",
         f" exp_name={exp_name} | encoder={encoder_type} | cameras={','.join(FINETUNE_CAMERA_NAMES)}",
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
         f" train sequences={','.join(names) or '-'} ({len(train_samples)} samples)",
         f" val   split={split_note} ({len(val_samples)} samples)",
         f" init_checkpoint={init_checkpoint or 'none (from scratch)'}",
         f" masks: vis=0 on {permanent_blind.sum()} cells | valid=0 on {invalid.sum()} cells",
-        f" occupancy loss covers {100 * stats['supervised_fraction']:.2f}% of cells"
+        f" observed (vis&valid) covers {100 * stats['supervised_fraction']:.2f}% of cells"
         f" (obstacle {100 * stats['obstacle_fraction']:.2f}% inside it)",
         # val 분포를 같이 찍는다 -- 한 시퀀스 안에서도 구간마다 관측 면적과 장애물 비율이
         # 몇 배씩 차이 나므로(raws1은 앞 30장 11.7%/7.4% vs 뒤 8장 36.5%/3.1%), 이게 안
@@ -330,7 +223,6 @@ def main(
             abs(val_stats["supervised_fraction"] - stats["supervised_fraction"]) > 0.05
             or abs(val_stats["obstacle_fraction"] - stats["obstacle_fraction"]) > 0.02
         ) else ""),
-        f" pos_weight (neg/pos, masked) = {pos_weight:.3f}",
         f" class weights (unknown/free/occupied) = {class_weights.tolist()}",
         f" photometric augment (train only) = {bool(augment)}",
         f" trivial 'always drivable' baseline IoU = {stats['trivial_iou']:.3f}  <- compare against this",
@@ -357,24 +249,24 @@ def main(
     vox_util = build_double_sphere_vox_util(GRID_SPEC, train_ds.cameras, device=device)
     # rand_flip=False: 이 리그의 ROI는 전후 비대칭(전방 4 m / 후방 2 m)이라
     # Simple-BEV의 Z축 flip 증강이 물리적으로 성립하지 않는다.
-    model_cls = TwoHeadSegnet if head == "two_head" else ThreeClassSegnet
-    model = model_cls(
+    model = ThreeClassSegnet(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
     ).to(device)
     if init_checkpoint:
-        if head == "two_head":
-            load_initial_weights(model, init_checkpoint, device)
-        else:
-            report = load_trunk_weights(model, init_checkpoint, device)
-            print(_c(
-                _Ansi.CYAN,
-                f" trunk transfer: loaded {report['loaded']} tensors, skipped {len(report['skipped'])}",
-            ))
-            unexpected = [name for name in report["skipped"] if "segmentation_head" not in name]
-            if unexpected:
-                raise RuntimeError(f"trunk keys were skipped: {unexpected[:5]}")
+        # shape가 맞는 키를 전부 복사한다. 2-head pretrain 체크포인트에서는 출력 head 6개가
+        # 형상이 달라 skip되고(674/6), 3-class pretrain 체크포인트에서는 head까지 함께
+        # 전이돼 skipped가 0이어야 한다 -- 그 숫자가 곧 "head가 전이됐는지"의 확인이다.
+        report = load_trunk_weights(model, init_checkpoint, device)
+        print(_c(
+            _Ansi.CYAN,
+            f" weight transfer: loaded {report['loaded']} tensors, skipped {len(report['skipped'])}"
+            + ("  <- 출력 head까지 전이됨" if not report["skipped"] else "  <- 출력 head는 랜덤 초기화"),
+        ))
+        unexpected = [name for name in report["skipped"] if "segmentation_head" not in name]
+        if unexpected:
+            raise RuntimeError(f"trunk keys were skipped: {unexpected[:5]}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     steps_per_epoch = max(1, len(train_loader))
@@ -382,16 +274,10 @@ def main(
         optimizer, lr, num_epochs * steps_per_epoch + 10,
         pct_start=0.05, cycle_momentum=False, anneal_strategy="linear",
     )
-    pos_weight_tensor = torch.tensor(pos_weight, dtype=torch.float32, device=device)
     class_weights = class_weights.to(device)
-    if head == "two_head":
-        step = lambda batch: two_head_run_batch(  # noqa: E731
-            model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
-        )
-    else:
-        step = lambda batch: three_class_run_batch(  # noqa: E731
-            model, batch, vox_util, class_weights, device
-        )
+    step = lambda batch: three_class_run_batch(  # noqa: E731
+        model, batch, vox_util, class_weights, device
+    )
 
     run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}"
                 f"_{datetime.now().strftime('%y%m%d_%H%M%S')}")
@@ -411,83 +297,48 @@ def main(
         for epoch in range(1, num_epochs + 1):
             model.train()
             epoch_start = time.time()
-            losses, occ_losses, vis_losses = [], [], []
-            d_ious, o_ious, o_counts, false_highs, false_lows = [], [], [], [], []
-            occ_dicts, deploy_dicts, free_dicts = [], [], []
+            losses, parts_dicts, free_dicts = [], [], []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, parts, free_metrics, legacy = _normalise_step_output(head, step(batch))
+                loss, parts, free_metrics = step(batch)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
                 optimizer.step()
                 scheduler.step()
 
                 losses.append(loss.item())
-                occ_losses.append(_loss_part(parts, "loss_occ", "loss_occupied").item())
-                vis_losses.append(_loss_part(parts, "loss_vis", "loss_free").item())
-                if legacy is not None:
-                    d_ious.append(legacy["d_iou"])
-                    o_ious.append(legacy["o_iou"])
-                    o_counts.append(legacy["o_count"])
-                    false_highs.append(legacy["vis"]["false_high"])
-                    false_lows.append(legacy["vis"]["false_low"])
-                    occ_dicts.append(legacy["occ"])
-                    deploy_dicts.append(legacy["deploy"])
+                parts_dicts.append({k: v.item() for k, v in parts.items()})
                 append_free_metrics(free_dicts, free_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
                 global_step += 1
 
-            mean = lambda xs: float(np.mean(xs)) if xs else float("nan")  # noqa: E731
             train = {
-                "loss": mean(losses), "loss_occ": mean(occ_losses), "loss_vis": mean(vis_losses),
-                "d_iou": mean(d_ious), "o_iou": weighted_mean(o_ious, o_counts),
-                "false_high": mean(false_highs), "false_low": mean(false_lows),
-                "occ": summarize_occupancy_diagnostics(occ_dicts),
-                "deploy": summarize_deployment_metrics(deploy_dicts),
+                "loss": float(np.mean(losses)) if losses else float("nan"),
+                "loss_parts": mean_loss_parts(parts_dicts),
                 "free": summarize_free_metrics(free_dicts),
             }
             _write_epoch_metric_scalars(writer, "train", train, epoch)
-            write_occupancy_diagnostics(writer, "train", train["occ"], epoch)
-            write_deployment_metrics(writer, "train", train["deploy"], epoch)
             _write_free_space_scalars(writer, "train", train["free"], epoch)
 
-            val = {
-                "loss": float("nan"), "loss_occ": float("nan"), "loss_vis": float("nan"),
-                "d_iou": float("nan"), "o_iou": float("nan"),
-                "false_high": float("nan"), "false_low": float("nan"),
-                "occ": summarize_occupancy_diagnostics([]),
-                "deploy": summarize_deployment_metrics([]),
-                "free": summarize_free_metrics([]),
-                "range": summarize_range_error([]),
-                "rings": {},
-            }
+            val = empty_epoch_metrics()
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
-                val = _evaluate(head, step, val_loader, device, rays, ring_masks)
+                val = evaluate_split(step, val_loader, device, rays, ring_masks)
                 _write_epoch_metric_scalars(writer, "val", val, epoch)
-                write_occupancy_diagnostics(writer, "val", val["occ"], epoch)
-                write_deployment_metrics(writer, "val", val["deploy"], epoch)
                 _write_free_space_scalars(
                     writer, "val", val["free"], epoch,
                     range_metrics=val["range"], ring_metrics=val["rings"],
                 )
 
-            val_score = select_checkpoint_score(
-                d_iou=val["d_iou"], o_iou=val["o_iou"], free_metrics=val["free"]
-            )
+            val_score = select_checkpoint_score(val["free"])
             is_new_best = val_score > best_val_score  # NaN > x는 항상 False
             print(format_epoch_log(
                 epoch=epoch, num_epochs=num_epochs, epoch_time=time.time() - epoch_start,
-                train_loss=train["loss"], train_occ_loss=train["loss_occ"],
-                train_vis_loss=train["loss_vis"], train_d_iou=train["d_iou"],
-                train_o_iou=train["o_iou"], train_v_false_high=train["false_high"],
-                train_v_false_low=train["false_low"], train_occ_metrics=train["occ"],
-                val_loss=val["loss"], val_occ_loss=val["loss_occ"], val_vis_loss=val["loss_vis"],
-                val_d_iou=val["d_iou"], val_o_iou=val["o_iou"],
-                val_v_false_high=val["false_high"], val_v_false_low=val["false_low"],
-                val_occ_metrics=val["occ"], val_deploy_metrics=val["deploy"],
-                train_free_metrics=train["free"], val_free_metrics=val["free"],
+                train_loss=train["loss"], train_loss_parts=train["loss_parts"],
+                train_free_metrics=train["free"],
+                val_loss=val["loss"], val_loss_parts=val["loss_parts"],
+                val_free_metrics=val["free"],
                 val_range_metrics=val["range"], baseline_iou_free=baseline_iou_free,
                 val_score=val_score, best_val_score=best_val_score, is_new_best=is_new_best,
             ))

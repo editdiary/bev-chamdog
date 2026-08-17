@@ -2,6 +2,9 @@
 
 이 문서는 AI agent와 협업할 때 항상 참고할 **핵심 지침**입니다. 특정 플랫폼에 종속되지 않는 공통 규칙만 둡니다. 상세 내용은 `docs/`의 개별 문서를 필요할 때만 찾아봅니다.
 
+> **현재 작업 인수인계: [`docs/next_session_threeclass_training.md`](docs/next_session_threeclass_training.md)**
+> — 새 세션을 시작할 때 이 문서를 먼저 읽습니다. 지금 어디까지 됐고 다음에 무엇을 결정해야 하는지가 여기 있습니다.
+
 ## [중요] 소통 규칙
 
 - **사용자와의 모든 대화는 한국어로 한다.** 최종 답변뿐 아니라 **작업 중간의 진행 설명·판단 근거·질문도 한국어**로 쓴다.
@@ -9,14 +12,19 @@
 
 ## 프로젝트 한 줄 요약
 
-자체 구축한 Fisheye 4-cam 데이터셋으로 **BEV occupancy map**(각 BEV 격자 셀이 주행 가능한 영역인지 여부)을 예측하는 모델을 학습한다. baseline은 **Simple-BEV**.
+자체 구축한 Fisheye 4-cam 데이터셋으로 **BEV free-space map**(각 BEV 격자 셀이 free / occupied / unknown 중 무엇인지)을 예측하는 모델을 학습한다. baseline은 **Simple-BEV**.
 
 ## Task & 모델
 
-- Task: 어안 이미지 → **BEV occupancy map** (drivable / non-drivable). 3D bbox 검출과 세밀 semantic 구분은 **이후 확장 과제**로 분리.
+- Task: 어안 이미지 → **BEV 3-class free-space map** (`free` / `occupied` / `unknown`). 3D bbox 검출과 세밀 semantic 구분은 **이후 확장 과제**로 분리.
+- **정식화는 3-class 단일 head 하나다.** 옛 2-head(occupancy + visibility) 정식화는 Phase 3 A/B 이후 코드에서 제거됐다 — `visibility = raycast(occupancy)`라 두 head가 같은 라벨의 두 인코딩이었기 때문이다. 근거와 A/B 결과는 [`docs/free_space_metric_migration.md`](docs/free_space_metric_migration.md) §8–9.
+- **주 지표는 `iou_free`이고 `fatal_rate`를 항상 같이 읽는다.** 옛 `iou_drivable`/`iou_obstacle`은 이미지를 안 보는 트리비얼 예측기에 지는 지표였다(같은 문서 §1). 새 학습·평가는 반드시 constant-map baseline과 병기해 판단한다.
 - baseline: **Simple-BEV** (`third_party/models/simple_bev`) — mmdet3d에 의존하지 않는 standalone PyTorch 구현.
 - 학습 순서: **SynWoodScape로 먼저 학습·검증 → pre-training → 자체 데이터셋 fine-tuning.**
-  - pretraining ✅ 완료 (SynWoodScape 4-cam, `radial_poly`, 240×240 그리드)
+  - pretraining — 2-head 시절 것은 완료돼 있다 (SynWoodScape 4-cam, `radial_poly`, 240×240 그리드).
+    **3-class pretrain은 아직 돌리지 않았다** — 코드는 준비됐다
+    (`configs/train_synwoodscape_threeclass_pretrain.sh`). 그때까지 fine-tuning은 옛 2-head
+    체크포인트에서 trunk만 받고 출력 head는 랜덤 초기화로 시작한다(배너 `weight transfer` 줄로 확인).
   - fine-tuning ⬅️ 현재 단계 — **자체 리그는 3-cam(front/left/right), Double Sphere,
     120×120 그리드다.** 리그에 카메라는 4대지만 rear는 라벨 생성에 쓰이지 않았다.
     실행 방법은 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)가 정본.

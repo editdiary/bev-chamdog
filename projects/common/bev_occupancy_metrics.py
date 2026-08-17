@@ -1,4 +1,4 @@
-"""two-head BEV 학습의 데이터셋 비의존 지표·로깅 -- SynWoodScape pretrain과 자체 데이터셋
+"""3-class BEV 학습의 데이터셋 비의존 지표·로깅 -- SynWoodScape pretrain과 자체 데이터셋
 fine-tuning이 공유한다.
 
 원래는 `tools/train_synwoodscape.py` 안에 있었다. 자체 데이터셋 fine-tuning 스크립트가
@@ -6,8 +6,13 @@ fine-tuning이 공유한다.
 스크립트끼리 import하면 pretrain 스크립트를 손댈 때 fine-tune이 같이 깨진다. 여기 옮겨서
 양쪽이 대등하게 의존하도록 한다.
 
-여기 있는 것은 전부 `(logits, target, mask)` 텐서만 받는다 -- 데이터셋 경로나 라벨 파일
-규약에 의존하는 것(`compute_pos_weight` 등)은 각 스크립트에 남는다.
+여기 있는 것은 전부 텐서나 지표 dict만 받는다 -- 데이터셋 경로나 라벨 파일 규약에 의존하는
+것은 각 스크립트에 남는다. loss와 batch step 자체는 `three_class_metrics.py`에 있다.
+
+**2-head 정식화는 제거됐다.** Phase 3 A/B(`docs/free_space_metric_migration.md` §8)에서
+3-class로 확정한 뒤, 두 정식화를 병행 유지하는 비용이 사라졌기 때문이다. 그래서 이 모듈에
+남은 것은 두 학습 경로가 **공유**하는 것뿐이다: 터미널 출력 헬퍼, epoch 로그 포매터,
+체크포인트 선택 기준, free-space 지표의 epoch 집계.
 """
 import math
 import os
@@ -20,13 +25,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT / "third_party/models/simple_bev") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
-from projects.models.simplebev_two_head import (  # noqa: E402
-    compute_two_head_loss,
-    split_two_head_logits,
-    visibility_error_rates,
+from projects.common.free_space_metrics import (  # noqa: E402
+    metrics_per_ring,
+    range_error,
+    summarize_range_error,
+    weighted_mean,
 )
-from projects.common.free_space import decompose  # noqa: E402
-from projects.common.free_space_metrics import free_metrics_from_masks  # noqa: E402
 
 
 class _Ansi:
@@ -96,9 +100,20 @@ def _format_row(tag: str, tag_color: str, fields) -> str:
     return f"  {_c(_Ansi.BOLD + tag_color, tag.ljust(6))}{_c(_Ansi.DIM, '|')} " + _sep().join(fields)
 
 
-def _format_metric_row(tag, tag_color, loss, occ_loss, vis_loss, d_iou, o_iou,
-                       v_false_high, v_false_low, occ_metrics, free_metrics=None):
-    """train/val 한 줄. `iou_free`가 주 지표이고, 기존 IoU는 해석용 참고 지표다."""
+
+
+# loss 파트 표시 순서. 3-class CE의 클래스별 항이고, `three_class_metrics.compute_three_class_loss`
+# 가 돌려주는 키와 이름이 같아야 한다 -- 옛 2-head 시절에는 이 자리를 loss_occ/loss_vis 두 칸이
+# 차지하고 있어서, 3-class의 세 항 중 하나(unknown)가 로그에서 아예 보이지 않았다.
+_LOSS_PART_FIELDS = (
+    ("loss_unknown↓", "loss_unknown"),
+    ("loss_free↓", "loss_free"),
+    ("loss_occupied↓", "loss_occupied"),
+)
+
+
+def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None):
+    """train/val 한 줄. `iou_free`가 주 지표이고 나머지는 그것을 해석하기 위한 것이다."""
     fields = []
     if free_metrics is not None:
         fields += [
@@ -106,22 +121,9 @@ def _format_metric_row(tag, tag_color, loss, occ_loss, vis_loss, d_iou, o_iou,
             _field("fatal↓", free_metrics["fatal_rate"]),
             _field("free_miss↓", free_metrics["free_miss_rate"]),
         ]
-    fields += [
-        _field("loss_total↓", loss, ".4f"),
-        _field("loss_occ↓", occ_loss, ".4f"),
-        _field("loss_vis↓", vis_loss, ".4f"),
-        ((_c(_Ansi.DIM, "(ref)") + " ") if free_metrics is not None else "")
-        + _field("iou_drivable↑", d_iou),
-        _field("iou_obstacle↑", o_iou),
-        _field("vis_false_high↓", v_false_high),
-        _field("vis_false_low↓", v_false_low),
-    ]
-    if occ_metrics is not None:
-        fields += [
-            _field("obst_frac", occ_metrics["obstacle_frac"]),
-            _field("false_obstacle↓", occ_metrics["false_obstacle"]),
-            _field("missed_obstacle↓", occ_metrics["missed_obstacle"]),
-        ]
+    fields.append(_field("loss_total↓", loss, ".4f"))
+    parts = loss_parts or {}
+    fields += [_field(label, parts.get(key), ".4f") for label, key in _LOSS_PART_FIELDS]
     return _format_row(tag, tag_color, fields)
 
 
@@ -150,44 +152,16 @@ def _format_partition_warning(train_free, val_free):
                " -- free/occupied/unknown does not cover valid exactly")]
 
 
-def _format_deployment_line(metrics):
-    """예측 visibility로 마스킹한 occupancy 성능. coverage 없이 IoU만 보면 안 된다 --
-    모델이 시야를 좁게 부를수록 IoU는 쉬워지기 때문이다.
-    """
-    if metrics is None:
-        return []
-    fields = [
-        _c(_Ansi.DIM, "(pred visibility 기준)") + " "
-        + _field("iou_drivable↑", metrics["iou_drivable"], emphasis=_Ansi.BOLD),
-        _field("iou_obstacle↑", metrics["iou_obstacle"], emphasis=_Ansi.BOLD),
-        _field("visible_coverage", metrics["visible_coverage"]),
-    ]
-    return [_format_row("deploy", _Ansi.MAGENTA, fields)]
-
-
 def format_epoch_log(
     *,
     epoch,
     num_epochs,
     epoch_time,
     train_loss,
-    train_occ_loss,
-    train_vis_loss,
-    train_d_iou,
-    train_o_iou,
-    train_v_false_high,
-    train_v_false_low,
-    train_occ_metrics=None,
+    train_loss_parts=None,
     train_free_metrics=None,
-    val_deploy_metrics=None,
     val_loss,
-    val_occ_loss,
-    val_vis_loss,
-    val_d_iou,
-    val_o_iou,
-    val_v_false_high,
-    val_v_false_low,
-    val_occ_metrics=None,
+    val_loss_parts=None,
     val_free_metrics=None,
     val_range_metrics=None,
     baseline_iou_free=None,
@@ -219,35 +193,21 @@ def format_epoch_log(
                else _c(_Ansi.DIM, "checkpoint: -"))
         ),
         *_format_partition_warning(train_free_metrics, val_free_metrics),
-        *_format_obstacle_bin_summary(val_occ_metrics),
-        _format_metric_row(
-            "train", _Ansi.YELLOW, train_loss, train_occ_loss, train_vis_loss,
-            train_d_iou, train_o_iou, train_v_false_high, train_v_false_low,
-            train_occ_metrics, train_free_metrics,
-        ),
-        _format_metric_row(
-            "val", _Ansi.CYAN, val_loss, val_occ_loss, val_vis_loss,
-            val_d_iou, val_o_iou, val_v_false_high, val_v_false_low,
-            val_occ_metrics, val_free_metrics,
-        ),
+        _format_metric_row("train", _Ansi.YELLOW, train_loss, train_loss_parts, train_free_metrics),
+        _format_metric_row("val", _Ansi.CYAN, val_loss, val_loss_parts, val_free_metrics),
         *_format_range_line(val_range_metrics),
-        *_format_deployment_line(val_deploy_metrics),
     ])
 
 
-def select_checkpoint_score(*, d_iou, o_iou, free_metrics):
-    """Return the checkpoint ranking metric, independent of legacy occupancy IoUs.
+def select_checkpoint_score(free_metrics):
+    """체크포인트 순위 지표. `iou_free` 하나다.
 
-    ``d_iou`` and ``o_iou`` remain explicit inputs at the selection boundary so callers
-    cannot silently substitute their historical mean for the free-space objective.
+    한 줄짜리 함수를 남겨 두는 이유: 두 학습 스크립트가 각자 `val_free_metrics["iou_free"]`를
+    직접 읽으면 한쪽만 조용히 다른 기준으로 바뀔 수 있다. 이름 붙은 이음매가 있으면 테스트가
+    그 지점을 고정할 수 있다. 옛 `0.5 * (d_iou + o_iou)` 평균으로 되돌아가는 것을 막는 것이
+    애초의 목적이었다(`docs/free_space_metric_migration.md` §2.2).
     """
-    del d_iou, o_iou
     return free_metrics["iou_free"]
-
-
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_REPO_ROOT))
-sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 
 def compute_iou_per_sample(pred, target, valid_g):
@@ -261,180 +221,85 @@ def compute_iou(pred, target, valid_g):
     return compute_iou_per_sample(pred, target, valid_g).mean()
 
 
-def weighted_mean(values, weights):
-    """weight가 0인 항목은 값이 NaN일 수 있으므로(= 셀 수 있는 샘플이 없던 batch) 건너뛴다."""
-    total = sum(weights)
-    if total <= 0:
-        return float("nan")
-    return sum(v * w for v, w in zip(values, weights) if w > 0) / total
-
-
-def compute_drivable_and_obstacle_iou(seg_e_logits, seg_g, valid_g):
-    """drivable(다수 클래스) IoU만 보면 "항상 drivable" 트리비얼 해와 구분이 안 된다
-    (`docs/training_guide.md` 참고) — obstacle(비주행가능, 소수 클래스) IoU를 항상 같이 본다.
-
-    GT에 obstacle이 하나도 없는 샘플은 intersection이 항상 0이라 IoU가 0으로 고정된다.
-    "obstacle 없음"을 완벽하게 맞혀도 0점이라 지표를 왜곡하므로 평균에서 제외하고, 그런
-    샘플의 오탐은 `compute_occupancy_diagnostics`의 `empty_false_alarm`으로 따로 본다.
-    반환하는 count는 epoch 단위로 batch 간 가중평균을 내기 위한 것이다.
-    """
-    pred_drivable = torch.sigmoid(seg_e_logits).round()
-    pred_obstacle = 1.0 - pred_drivable
-    target_obstacle = 1.0 - seg_g
-
-    drivable_iou = compute_iou(pred_drivable, seg_g, valid_g)
-
-    per_sample_iou = compute_iou_per_sample(pred_obstacle, target_obstacle, valid_g)
-    has_obstacle = (target_obstacle * valid_g).sum(dim=[1, 2, 3]) > 0
-    obstacle_count = int(has_obstacle.sum().item())
-    if obstacle_count == 0:
-        obstacle_iou = torch.tensor(float("nan"), device=per_sample_iou.device)
-    else:
-        obstacle_iou = per_sample_iou[has_obstacle].mean()
-    return drivable_iou, obstacle_iou, obstacle_count
-
-
-OBSTACLE_FRACTION_BINS = (
-    ("empty", 0.0, 0.0),
-    ("tiny", 0.0, 0.01),
-    ("small", 0.01, 0.05),
-    ("medium", 0.05, 0.15),
-    ("large", 0.15, 1.0),
-)
-
-
-def _bin_name_for_obstacle_fraction(value: float) -> str:
-    if value == 0.0:
-        return "empty"
-    for name, lo, hi in OBSTACLE_FRACTION_BINS[1:]:
-        if lo < value <= hi:
-            return name
-    return "large"
-
-
-def compute_occupancy_diagnostics(seg_e_logits, seg_g, valid_g):
-    """Occupancy IoU를 해석하기 위한 error 방향과 GT obstacle 비율별 통계를 계산한다."""
-    pred_drivable = torch.sigmoid(seg_e_logits).round()
-    pred_obstacle = 1.0 - pred_drivable
-    target_obstacle = 1.0 - seg_g
-
-    false_obstacle_num = float((pred_obstacle * seg_g * valid_g).sum().item())
-    false_obstacle_den = float((seg_g * valid_g).sum().item())
-    missed_obstacle_num = float((pred_drivable * target_obstacle * valid_g).sum().item())
-    missed_obstacle_den = float((target_obstacle * valid_g).sum().item())
-    obstacle_cells = missed_obstacle_den
-    valid_cells = float(valid_g.sum().item())
-
-    metrics = {
-        "obstacle_frac": obstacle_cells / valid_cells if valid_cells > 0 else float("nan"),
-        "false_obstacle": false_obstacle_num / false_obstacle_den if false_obstacle_den > 0 else float("nan"),
-        "missed_obstacle": missed_obstacle_num / missed_obstacle_den if missed_obstacle_den > 0 else float("nan"),
-        "false_obstacle_num": false_obstacle_num,
-        "false_obstacle_den": false_obstacle_den,
-        "missed_obstacle_num": missed_obstacle_num,
-        "missed_obstacle_den": missed_obstacle_den,
-        "obstacle_cells": obstacle_cells,
-        "valid_cells": valid_cells,
-        "empty_false_alarm_num": 0.0,
-        "empty_false_alarm_den": 0.0,
-        "empty_false_alarm_samples": 0,
-    }
-    for name, _, _ in OBSTACLE_FRACTION_BINS:
-        metrics[f"obstacle_iou_{name}"] = float("nan")
-        metrics[f"obstacle_iou_{name}_sum"] = 0.0
-        metrics[f"obstacle_count_{name}"] = 0
-
-    batch_size = seg_g.shape[0]
-    for i in range(batch_size):
-        valid_i = valid_g[i : i + 1]
-        target_i = target_obstacle[i : i + 1]
-        pred_i = pred_obstacle[i : i + 1]
-        valid_count = float(valid_i.sum().item())
-        if valid_count <= 0:
-            continue
-        frac = float((target_i * valid_i).sum().item()) / valid_count
-        bin_name = _bin_name_for_obstacle_fraction(frac)
-        metrics[f"obstacle_count_{bin_name}"] += 1
-        if bin_name == "empty":
-            # GT obstacle이 없으면 IoU는 예측과 무관하게 0이다 -- 대신 오탐량을 센다.
-            false_cells = float((pred_i * valid_i).sum().item())
-            metrics["empty_false_alarm_num"] += false_cells
-            metrics["empty_false_alarm_den"] += valid_count
-            metrics["empty_false_alarm_samples"] += int(false_cells > 0)
-            continue
-        metrics[f"obstacle_iou_{bin_name}_sum"] += float(compute_iou(pred_i, target_i, valid_i).item())
-
-    for name, _, _ in OBSTACLE_FRACTION_BINS:
-        count = metrics[f"obstacle_count_{name}"]
-        if name != "empty" and count > 0:
-            metrics[f"obstacle_iou_{name}"] = metrics[f"obstacle_iou_{name}_sum"] / count
-    metrics["empty_false_alarm"] = (
-        metrics["empty_false_alarm_num"] / metrics["empty_false_alarm_den"]
-        if metrics["empty_false_alarm_den"] > 0
-        else float("nan")
-    )
-    return metrics
-
-
-def compute_deployment_occupancy_metrics(occ_logits, vis_logits, seg_g, valid_g):
-    """배포 조건 그대로의 occupancy 성능: GT visibility가 아니라 **예측** visibility로 마스킹한다.
-
-    개발용 `iou_obstacle`은 GT로 가려진 영역을 빼주므로 occupancy head 자체의 품질을 본다.
-    실제 로봇은 GT를 못 쓰고 모델이 "보인다"고 한 영역만 신뢰하게 되므로, 가려진 곳을
-    보인다고 착각하면 그 영역의 틀린 occupancy가 그대로 반영돼야 한다.
-    시야를 좁게 부를수록 점수는 쉬워지니 `visible_coverage`와 항상 같이 봐야 한다.
-    """
-    valid = valid_g.float()
-    pred_visible = (torch.sigmoid(vis_logits) > 0.5).float() * valid
-    drivable_iou, obstacle_iou, obstacle_count = compute_drivable_and_obstacle_iou(
-        occ_logits, seg_g, pred_visible
-    )
-    return {
-        "iou_drivable": float(drivable_iou.item()),
-        "iou_obstacle": float(obstacle_iou.item()),
-        "obstacle_count": obstacle_count,
-        "sample_count": int(seg_g.shape[0]),
-        "claimed_visible_cells": float(pred_visible.sum().item()),
-        "valid_cells": float(valid.sum().item()),
-    }
-
-
-def summarize_deployment_metrics(metric_dicts):
-    if not metric_dicts:
-        return {"iou_drivable": float("nan"), "iou_obstacle": float("nan"), "visible_coverage": float("nan")}
-    claimed = sum(m["claimed_visible_cells"] for m in metric_dicts)
-    valid = sum(m["valid_cells"] for m in metric_dicts)
-    return {
-        "iou_drivable": weighted_mean(
-            [m["iou_drivable"] for m in metric_dicts], [m["sample_count"] for m in metric_dicts]
-        ),
-        "iou_obstacle": weighted_mean(
-            [m["iou_obstacle"] for m in metric_dicts], [m["obstacle_count"] for m in metric_dicts]
-        ),
-        "visible_coverage": claimed / valid if valid > 0 else float("nan"),
-    }
-
-
-def compute_free_metrics(occ_logits, vis_logits, seg_g, vis_g, valid_g) -> dict:
-    """2-head 출력 -> free-space 지표.
-
-    `free`는 두 head의 결합 결과다. 지금까지의 지표는 두 head를 따로 채점해서, 정작
-    로봇이 쓰는 결합 결과를 아무도 보지 않았다.
-
-    집계 자체는 `free_metrics_from_masks`에 있다 -- 3-class 경로와 같은 집계기를 써야
-    Phase 3의 A/B가 공정하다. 여기서 하는 일은 예측을 free 마스크로 바꾸는 것뿐이다.
-    """
-    gt = decompose(seg_g, vis_g, valid_g)
-    pred = decompose(torch.sigmoid(occ_logits), torch.sigmoid(vis_logits), valid_g)
-    return free_metrics_from_masks(pred["free"], gt, valid_g)
-
-
 _FREE_METRIC_SCALAR_KEYS = (
     "iou_free", "iou_free_count",
     "fatal_rate", "fatal_denom",
     "free_miss_rate", "free_miss_denom",
     "partition_defects",
 )
+
+
+def summarize_ring_metrics(ring_dicts, ring_masks) -> dict:
+    """링별 M1·M2의 epoch 집계. 링마다 셀 수가 달라 반드시 count로 가중해야 한다."""
+    return {
+        name: {
+            "iou_free": weighted_mean([d[name]["iou_free"] for d in ring_dicts],
+                                      [d[name]["iou_free_count"] for d in ring_dicts]),
+            "fatal_rate": weighted_mean([d[name]["fatal_rate"] for d in ring_dicts],
+                                        [d[name]["fatal_denom"] for d in ring_dicts]),
+        }
+        for name, _ in ring_masks
+    }
+
+
+def evaluate_split(step, loader, device, rays, ring_masks) -> dict:
+    """validation 한 바퀴. **pretrain과 fine-tuning이 공유한다.**
+
+    두 학습 스크립트가 각자 이 루프를 갖고 있으면 한쪽만 고쳐지는 순간 pretrain과 fine-tune
+    숫자를 나란히 읽을 수 없게 된다 -- 그 비교가 이 프로젝트의 학습 순서(SynWoodScape ->
+    자체 데이터셋) 전체의 근거이므로 한 벌만 둔다.
+
+    M3(range)·M4(ring)는 여기서만 계산한다. train에서는 계산하지 않는다 -- 광선 추출이
+    배치마다 비싸고, 학습 중에 볼 값이 아니다.
+    """
+    losses, parts_dicts = [], []
+    free_dicts, range_dicts, ring_dicts = [], [], []
+    with torch.no_grad():
+        for batch in loader:
+            loss, parts, free_metrics = step(batch)
+            losses.append(loss.item())
+            parts_dicts.append({k: v.item() for k, v in parts.items()})
+            valid = batch["valid_bev_g"].to(device)
+            range_dicts.append(range_error(
+                free_metrics["pred_free"], free_metrics["gt_free"], valid, rays
+            ))
+            ring_dicts.append(metrics_per_ring(
+                free_metrics["pred_free"], free_metrics["gt_free"], valid, ring_masks
+            ))
+            append_free_metrics(free_dicts, free_metrics)
+    return {
+        "loss": (sum(losses) / len(losses)) if losses else float("nan"),
+        "loss_parts": mean_loss_parts(parts_dicts),
+        "free": summarize_free_metrics(free_dicts),
+        "range": summarize_range_error(range_dicts),
+        "rings": summarize_ring_metrics(ring_dicts, ring_masks),
+    }
+
+
+def empty_epoch_metrics() -> dict:
+    """val을 돌리지 않은 epoch의 자리표시자. `evaluate_split`과 키가 같아야 한다."""
+    return {
+        "loss": float("nan"),
+        "loss_parts": {},
+        "free": summarize_free_metrics([]),
+        "range": summarize_range_error([]),
+        "rings": {},
+    }
+
+
+def mean_loss_parts(parts_dicts) -> dict:
+    """클래스별 loss 항의 epoch 평균.
+
+    첫 배치의 키만 순회한다 -- 3-class loss는 배치마다 항이 세 개로 고정이므로 키 합집합을
+    쓸 이유가 없고, 오히려 키가 배치마다 달라지면 그것이 버그다. 총 loss만 로그에 남기면
+    unknown이 압도적 다수라 occupied 항이 언제 0으로 죽었는지 보이지 않으므로 따로 낸다.
+    """
+    if not parts_dicts:
+        return {}
+    return {
+        key: float(sum(float(d[key]) for d in parts_dicts) / len(parts_dicts))
+        for key in parts_dicts[0]
+    }
 
 
 def append_free_metrics(metric_dicts, free_metrics) -> None:
@@ -456,138 +321,3 @@ def summarize_free_metrics(dicts) -> dict:
         "partition_defects": sum(d["partition_defects"] for d in dicts),
     }
 
-
-def summarize_occupancy_diagnostics(metric_dicts):
-    if not metric_dicts:
-        result = {
-            "obstacle_frac": float("nan"),
-            "false_obstacle": float("nan"),
-            "missed_obstacle": float("nan"),
-        }
-        for name, _, _ in OBSTACLE_FRACTION_BINS:
-            result[f"obstacle_iou_{name}"] = float("nan")
-            result[f"obstacle_count_{name}"] = 0
-        result["empty_false_alarm"] = float("nan")
-        result["empty_false_alarm_samples"] = 0
-        return result
-
-    false_num = sum(m["false_obstacle_num"] for m in metric_dicts)
-    false_den = sum(m["false_obstacle_den"] for m in metric_dicts)
-    missed_num = sum(m["missed_obstacle_num"] for m in metric_dicts)
-    missed_den = sum(m["missed_obstacle_den"] for m in metric_dicts)
-    obstacle_cells = sum(m["obstacle_cells"] for m in metric_dicts)
-    valid_cells = sum(m["valid_cells"] for m in metric_dicts)
-    result = {
-        "obstacle_frac": obstacle_cells / valid_cells if valid_cells > 0 else float("nan"),
-        "false_obstacle": false_num / false_den if false_den > 0 else float("nan"),
-        "missed_obstacle": missed_num / missed_den if missed_den > 0 else float("nan"),
-    }
-    for name, _, _ in OBSTACLE_FRACTION_BINS:
-        count = sum(m[f"obstacle_count_{name}"] for m in metric_dicts)
-        result[f"obstacle_count_{name}"] = count
-        if name == "empty":  # IoU가 구조적으로 0인 bin -- 아래 false alarm으로 대신 본다
-            result[f"obstacle_iou_{name}"] = float("nan")
-            continue
-        iou_sum = sum(m[f"obstacle_iou_{name}"] * m[f"obstacle_count_{name}"] for m in metric_dicts if m[f"obstacle_count_{name}"] > 0)
-        result[f"obstacle_iou_{name}"] = iou_sum / count if count > 0 else float("nan")
-
-    false_alarm_num = sum(m["empty_false_alarm_num"] for m in metric_dicts)
-    false_alarm_den = sum(m["empty_false_alarm_den"] for m in metric_dicts)
-    result["empty_false_alarm"] = false_alarm_num / false_alarm_den if false_alarm_den > 0 else float("nan")
-    result["empty_false_alarm_samples"] = sum(m["empty_false_alarm_samples"] for m in metric_dicts)
-    return result
-
-
-def _format_obstacle_bin_summary(metrics):
-    """GT obstacle 비율 bin별 val IoU. epoch 헤더에 붙이면 헤더가 터미널 폭을 넘겨 줄바꿈되고,
-    그러면 정작 중요한 val_iou_free가 묻힌다 -- 별도 줄로 뺀다. 샘플이 없는 bin(n0)은 흐리게.
-    """
-    if metrics is None:
-        return []
-    parts = []
-    for name, _, _ in OBSTACLE_FRACTION_BINS:
-        count = metrics[f"obstacle_count_{name}"]
-        if name == "empty":  # IoU 대신 오탐률(false alarm)을 보여준다
-            value_text = f"fa {metrics['empty_false_alarm']:.3f}" if count > 0 else "fa -"
-        else:
-            value = metrics[f"obstacle_iou_{name}"]
-            value_text = f"{value:.3f}" if count > 0 else "-"
-        text = f"{name}:{value_text}/n{count}"
-        parts.append(_c(_Ansi.DIM, text) if count == 0 else text)
-    return [_format_row("bins", _Ansi.BLUE, [_c(_Ansi.DIM, "val_obst_iou_bins") + " " + " ".join(parts)])]
-
-
-def _add_scalar_if_finite(writer, tag: str, value, epoch: int) -> None:
-    try:
-        scalar = float(value)
-    except (TypeError, ValueError):
-        writer.add_scalar(tag, value, epoch)
-        return
-    if math.isfinite(scalar):
-        writer.add_scalar(tag, value, epoch)
-
-
-def write_occupancy_diagnostics(writer, split: str, metrics, epoch: int) -> None:
-    _add_scalar_if_finite(writer, f"{split}/occupancy_obstacle_fraction_epoch", metrics["obstacle_frac"], epoch)
-    _add_scalar_if_finite(writer, f"{split}/occupancy_false_obstacle_epoch", metrics["false_obstacle"], epoch)
-    _add_scalar_if_finite(writer, f"{split}/occupancy_missed_obstacle_epoch", metrics["missed_obstacle"], epoch)
-    for name, _, _ in OBSTACLE_FRACTION_BINS:
-        if name != "empty" and metrics[f"obstacle_count_{name}"] > 0:
-            _add_scalar_if_finite(
-                writer, f"{split}/occupancy_obstacle_iou_{name}_epoch",
-                metrics[f"obstacle_iou_{name}"], epoch,
-            )
-        writer.add_scalar(f"{split}/occupancy_obstacle_count_{name}_epoch", metrics[f"obstacle_count_{name}"], epoch)
-    if metrics["obstacle_count_empty"] > 0:
-        _add_scalar_if_finite(
-            writer, f"{split}/occupancy_empty_false_alarm_epoch", metrics["empty_false_alarm"], epoch
-        )
-    writer.add_scalar(f"{split}/occupancy_empty_false_alarm_samples_epoch", metrics["empty_false_alarm_samples"], epoch)
-
-
-def write_deployment_metrics(writer, split: str, metrics, epoch: int) -> None:
-    for key in ("iou_drivable", "iou_obstacle", "visible_coverage"):
-        _add_scalar_if_finite(writer, f"{split}/deploy_{key}_epoch", metrics[key], epoch)
-
-
-def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight):
-    rgb_camXs = batch["rgb_camXs"].to(device) - 0.5  # nuScenes 관례: [0,1] -> [-0.5,0.5]
-    pix_T_cams = batch["pix_T_cams"].to(device)
-    cam0_T_camXs = batch["cam0_T_camXs"].to(device)
-    seg_bev_g = batch["seg_bev_g"].to(device)
-    vis_bev_g = batch["vis_bev_g"].to(device)
-    valid_bev_g = batch["valid_bev_g"].to(device)
-
-    _, _, two_head_bev_e, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
-    occ_bev_e, vis_bev_e = split_two_head_logits(two_head_bev_e)
-
-    loss, loss_parts = compute_two_head_loss(
-        occ_bev_e,
-        vis_bev_e,
-        seg_bev_g,
-        vis_bev_g,
-        valid_bev_g,
-        lambda_vis=lambda_vis,
-        vis_neg_weight=vis_neg_weight,
-        occ_pos_weight=pos_weight_tensor,
-    )
-    # occupancy는 "라벨이 있고(valid) 실제로 보이는(vis)" 셀에서만 평가한다 -- loss의 w_occ와 동일.
-    occ_eval_mask = vis_bev_g * valid_bev_g
-    drivable_iou, obstacle_iou, obstacle_count = compute_drivable_and_obstacle_iou(
-        occ_bev_e, seg_bev_g, occ_eval_mask
-    )
-    vis_metrics = visibility_error_rates(torch.sigmoid(vis_bev_e), vis_bev_g, valid_bev_g)
-    occ_metrics = compute_occupancy_diagnostics(occ_bev_e, seg_bev_g, occ_eval_mask)
-    deploy_metrics = compute_deployment_occupancy_metrics(occ_bev_e, vis_bev_e, seg_bev_g, valid_bev_g)
-    free_metrics = compute_free_metrics(occ_bev_e, vis_bev_e, seg_bev_g, vis_bev_g, valid_bev_g)
-    return (
-        loss,
-        loss_parts,
-        drivable_iou,
-        obstacle_iou,
-        obstacle_count,
-        vis_metrics,
-        occ_metrics,
-        deploy_metrics,
-        free_metrics,
-    )

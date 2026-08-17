@@ -1,10 +1,19 @@
-"""SynWoodScape -> Simple-BEV `Segnet` 학습 스크립트 (ROADMAP Phase 3.3).
+"""SynWoodScape -> 3-class 단일 head Simple-BEV pretrain 스크립트 (ROADMAP Phase 3.3).
 
 Simple-BEV 원본(`train_nuscenes.py`)의 관례를 따라 `Fire`로 `main(...)`의 키워드 인자를
 CLI에서 받는다 — config 파일 체계 대신 실행 스크립트(`configs/train_synwoodscape_baseline.sh`)에
 인자를 나열한다.
 
 값을 보고 어떻게 튜닝할지는 `docs/training_guide.md`를 참고할 것.
+
+`tools/train_robot_bev.py`(fine-tuning)와 지표·로깅·체크포인트 선택 기준을 공유한다
+(`projects/common/bev_occupancy_metrics.py`). 그래야 pretrain과 fine-tune 숫자를 나란히
+읽을 수 있다. 다른 것은 데이터셋과 lifting(어안 투영), 그리고 그리드 크기뿐이다.
+
+2-head 정식화는 제거됐다 -- Phase 3 A/B에서 3-class로 확정했다
+(`docs/free_space_metric_migration.md` §8, §9). 이 스크립트가 만드는 체크포인트는 출력
+head까지 3-class이므로, fine-tuning이 `load_trunk_weights`로 받을 때 head가 함께 전이된다
+(`skipped`가 0으로 찍히는 것이 그 확인이다).
 
 실행 예:
     python tools/train_synwoodscape.py --exp_name=baseline --num_epochs=60 --batch_size=4
@@ -42,38 +51,46 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
 from projects.datasets.synwoodscape_split import discover_all_sample_ids, train_val_split  # noqa: E402
 from projects.geometry.fisheye import load_camera  # noqa: E402
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
-from projects.models.simplebev_two_head import TwoHeadSegnet  # noqa: E402
+from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 from projects.common.bev_occupancy_metrics import (  # noqa: E402
     _Ansi,
     _c,
     _print_banner,
     append_free_metrics,
-    compute_deployment_occupancy_metrics,
-    compute_drivable_and_obstacle_iou,
-    compute_iou,
-    compute_iou_per_sample,
-    compute_occupancy_diagnostics,
+    empty_epoch_metrics,
+    evaluate_split,
     format_epoch_log,
-    run_batch,
+    mean_loss_parts,
     select_checkpoint_score,
-    summarize_deployment_metrics,
     summarize_free_metrics,
-    summarize_occupancy_diagnostics,
     weighted_mean,
-    write_deployment_metrics,
-    write_occupancy_diagnostics,
 )
+from projects.common.three_class_metrics import (  # noqa: E402
+    class_weights_from_labels,
+    run_batch,
+)
+from projects.common.free_space_metrics import build_ring_masks  # noqa: E402
+from projects.common.polar import build_ray_index  # noqa: E402
+from projects.common.baselines import as_batch, constant_free_map  # noqa: E402
+from projects.common.free_space_metrics import iou_free  # noqa: E402
+
+# SynWoodScape pretrain 그리드는 전방 8 m / 후방 4 m / 좌우 ±6 m라 로봇 fine-tuning 그리드
+# (전방 4 m)보다 두 배 넓다. `DEFAULT_RING_EDGES_M`(0/1.5/3/4)를 그대로 쓰면 그리드 바깥쪽
+# 절반이 어느 링에도 들어가지 않는다. 그래서 이 스크립트는 자기 그리드에 맞는 경계를 쓴다.
+PRETRAIN_RING_EDGES_M = (0.0, 2.0, 4.0, 6.0, 8.0)
 
 
-def compute_pos_weight(sample_ids, occupancy_gt_root: Path) -> float:
-    """`BCEWithLogitsLoss(pos_weight=...)` = neg/pos, valid(관측된) 셀만 대상으로 train split에서 실측."""
-    pos = neg = 0
+def load_label_triples(sample_ids, occupancy_gt_root: Path):
+    """`(occ, vis, valid)` 3-tuple을 하나씩 내놓는다 -- `class_weights_from_labels`의 입력 계약.
+
+    SynWoodScape에는 리그 고정 마스크(`permanent_blind`/`rear_self_box`)가 없으므로 `valid`가
+    전부 1이다. `SynWoodScapeSimpleBEVDataset.__getitem__`이 `valid_bev_g`에 넣는 값과 같아야
+    한다 -- 어긋나면 클래스 가중치가 loss가 실제로 보는 분포와 다른 분포에서 계산된다.
+    """
     for sample_id in sample_ids:
         occupancy = np.load(occupancy_gt_root / f"{sample_id}_occupancy.npy").astype(bool)
         visible = np.load(occupancy_gt_root / f"{sample_id}_visible.npy").astype(bool)
-        pos += int((occupancy & visible).sum())
-        neg += int((~occupancy & visible).sum())
-    return neg / max(pos, 1)
+        yield occupancy, visible, np.ones_like(occupancy)
 
 
 def compute_trivial_baseline_iou(sample_ids, occupancy_gt_root: Path) -> float:
@@ -81,12 +98,55 @@ def compute_trivial_baseline_iou(sample_ids, occupancy_gt_root: Path) -> float:
     다수 클래스를 그냥 외운 것일 수 있다 (`docs/training_guide.md` 참고).
     """
     pos = valid = 0
-    for sample_id in sample_ids:
-        occupancy = np.load(occupancy_gt_root / f"{sample_id}_occupancy.npy").astype(bool)
-        visible = np.load(occupancy_gt_root / f"{sample_id}_visible.npy").astype(bool)
+    for occupancy, visible, _ in load_label_triples(sample_ids, occupancy_gt_root):
         pos += int((occupancy & visible).sum())
         valid += int(visible.sum())
     return pos / max(valid, 1)
+
+
+def baseline_iou_free(val_ids, occupancy_gt_root: Path, constant_map, device) -> float:
+    """학습 split의 셀별 다수결 free map을 validation 라벨에 채점한다.
+
+    이미지를 한 픽셀도 보지 않는 예측기다. 이 값을 배너와 매 epoch 로그에 병기하는 이유는
+    이 프로젝트의 출발점이 바로 "모델이 트리비얼 예측기에 지고 있었는데 아무도 몰랐다"였기
+    때문이다(`docs/free_space_metric_migration.md` §1). fine-tuning 쪽과 같은 장치다.
+    """
+    if constant_map is None or not val_ids:
+        return float("nan")
+    values, counts = [], []
+    for occ, vis, valid in load_label_triples(val_ids, occupancy_gt_root):
+        free_gt = torch.from_numpy(occ & vis & valid).view(1, 1, *occ.shape).to(device)
+        valid_t = torch.from_numpy(valid).view(1, 1, *valid.shape).to(device)
+        value, count = iou_free(as_batch(constant_map, 1, device), free_gt, valid_t)
+        values.append(value)
+        counts.append(count)
+    return weighted_mean(values, counts)
+
+
+def _write_scalar_if_finite(writer, tag, value, step) -> None:
+    if np.isfinite(float(value)):
+        writer.add_scalar(tag, value, step)
+
+
+def _write_epoch_scalars(writer, split, metrics, epoch, *,
+                         range_metrics=None, ring_metrics=None) -> None:
+    """총 loss·클래스별 loss·free 지표. range/ring은 validation에서만 넘긴다."""
+    _write_scalar_if_finite(writer, f"{split}/loss_epoch", metrics["loss"], epoch)
+    for key, value in metrics["loss_parts"].items():
+        _write_scalar_if_finite(writer, f"{split}/{key}_epoch", value, epoch)
+    for key, tb in (("iou_free", "iou_free_epoch"),
+                    ("fatal_rate", "fatal_rate_epoch"),
+                    ("free_miss_rate", "free_miss_rate_epoch")):
+        _write_scalar_if_finite(writer, f"{split}/{tb}", metrics["free"][key], epoch)
+    if range_metrics is not None:
+        for key, tb in (("abs_p50", "range_abs_p50_epoch"),
+                        ("abs_p90", "range_abs_p90_epoch"),
+                        ("over_mean", "range_over_epoch"),
+                        ("under_mean", "range_under_epoch")):
+            _write_scalar_if_finite(writer, f"{split}/{tb}", range_metrics[key], epoch)
+    for name, values in (ring_metrics or {}).items():
+        _write_scalar_if_finite(writer, f"{split}/ring_{name}_iou_free_epoch",
+                                values["iou_free"], epoch)
 
 
 
@@ -102,15 +162,13 @@ def main(
     encoder_type="res101",
     use_fisheye=True,
     augment=False,
-    pos_weight=None,
-    lambda_vis=0.5,
-    vis_neg_weight=3.0,
     val_freq_epochs=1,
     save_freq_epochs=5,
     log_dir="work_dirs/logs_synwoodscape",
     ckpt_dir="work_dirs/checkpoints_synwoodscape",
     max_samples=None,
     device="cuda",
+    n_theta=None,
 ):
     torch.manual_seed(0)
     np.random.seed(0)
@@ -122,19 +180,29 @@ def main(
     if max_samples is not None:  # 빠른 smoke run 용 -- 실제 학습에는 쓰지 않는다
         train_ids, val_ids = train_ids[:max_samples], val_ids[: max(1, max_samples // 4)]
 
-    if pos_weight is None:
-        pos_weight = compute_pos_weight(train_ids, DEFAULT_OCCUPANCY_GT_ROOT)
     trivial_iou = compute_trivial_baseline_iou(val_ids, DEFAULT_OCCUPANCY_GT_ROOT)
+    class_weights = class_weights_from_labels(
+        load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT)
+    )
+    train_free_masks = [
+        occ & vis & valid
+        for occ, vis, valid in load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT)
+    ]
+    constant_map = constant_free_map(train_free_masks) if train_free_masks else None
+    del train_free_masks  # 240x240 bool을 train split 전체만큼 들고 있을 이유가 없다
+    constant_baseline = baseline_iou_free(
+        val_ids, DEFAULT_OCCUPANCY_GT_ROOT, constant_map, device
+    )
 
     _print_banner([
-        " SynWoodScape -> Simple-BEV training",
+        " SynWoodScape -> Simple-BEV three-class pretrain",
         f" exp_name={exp_name} | encoder={encoder_type} | fisheye={use_fisheye}",
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
         f" train={len(train_ids)} | val={len(val_ids)}",
-        f" pos_weight (neg/pos on train) = {pos_weight:.3f}",
-        f" lambda_vis={lambda_vis:.3f} | vis_neg_weight={vis_neg_weight:.3f}",
+        f" class weights (unknown/free/occupied) = {class_weights.tolist()}",
         f" photometric augment (train only) = {bool(augment)}",
-        f" trivial 'always predict drivable' baseline IoU on val = {trivial_iou:.3f}  <- compare against this",
+        f" trivial 'always predict drivable' baseline IoU on val = {trivial_iou:.3f}",
+        f" constant-map baseline iou_free = {constant_baseline:.3f}  <- compare against this",
     ])
 
     train_ds = SynWoodScapeSimpleBEVDataset(train_ids, augment=augment)
@@ -156,7 +224,7 @@ def main(
 
     # rand_flip=False로 고정한다: Simple-BEV의 forward/backward(Z축) flip 증강은 대칭 grid를
     # 전제하는데 SynWoodScape pretrain grid는 전후 비대칭이라 물리적으로 성립하지 않는다.
-    model = TwoHeadSegnet(
+    model = ThreeClassSegnet(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
@@ -168,7 +236,13 @@ def main(
         optimizer, lr, num_epochs * steps_per_epoch + 10,
         pct_start=0.05, cycle_momentum=False, anneal_strategy="linear",
     )
-    pos_weight_tensor = torch.tensor(pos_weight, dtype=torch.float32, device=device)
+    class_weights = class_weights.to(device)
+    rays = (build_ray_index(GRID_SPEC) if n_theta is None
+            else build_ray_index(GRID_SPEC, n_theta=n_theta))
+    ring_masks = build_ring_masks(GRID_SPEC, edges_m=PRETRAIN_RING_EDGES_M)
+    step = lambda batch: run_batch(  # noqa: E731
+        model, batch, vox_util, class_weights, device
+    )
 
     # 타임스탬프를 반드시 넣는다: 이게 없으면 같은 exp_name으로 재실행할 때 global_step(epoch)이
     # 1부터 다시 시작하면서 이전 실행의 체크포인트(model-000000001.pth 등)를 그대로 덮어쓰고,
@@ -198,133 +272,52 @@ def main(
         for epoch in range(1, num_epochs + 1):
             model.train()
             epoch_start = time.time()
-            train_losses, train_occ_losses, train_vis_losses = [], [], []
-            train_d_ious, train_o_ious, train_v_false_highs, train_v_false_lows = [], [], [], []
-            train_o_iou_counts = []
-            train_occ_metric_dicts, train_deploy_metric_dicts, train_free_metric_dicts = [], [], []
+            train_losses, train_parts_dicts, train_free_metric_dicts = [], [], []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy_metrics, free_metrics = run_batch(
-                    model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
-                )
+                loss, loss_parts, free_metrics = step(batch)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
                 optimizer.step()
                 scheduler.step()
 
                 train_losses.append(loss.item())
-                train_occ_losses.append(loss_parts["loss_occ"].item())
-                train_vis_losses.append(loss_parts["loss_vis"].item())
-                train_d_ious.append(d_iou.item())
-                train_o_ious.append(o_iou.item())
-                train_o_iou_counts.append(o_count)
-                train_v_false_highs.append(vis_metrics["false_high"])
-                train_v_false_lows.append(vis_metrics["false_low"])
-                train_occ_metric_dicts.append(occ_metrics)
-                train_deploy_metric_dicts.append(deploy_metrics)
+                train_parts_dicts.append({k: v.item() for k, v in loss_parts.items()})
                 append_free_metrics(train_free_metric_dicts, free_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
-                writer.add_scalar("train/loss_occ_step", loss_parts["loss_occ"].item(), global_step)
-                writer.add_scalar("train/loss_vis_step", loss_parts["loss_vis"].item(), global_step)
                 writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
                 global_step += 1
 
-            train_loss = float(np.mean(train_losses)) if train_losses else float("nan")
-            train_occ_loss = float(np.mean(train_occ_losses)) if train_occ_losses else float("nan")
-            train_vis_loss = float(np.mean(train_vis_losses)) if train_vis_losses else float("nan")
-            train_d_iou = float(np.mean(train_d_ious)) if train_d_ious else float("nan")
-            train_o_iou = weighted_mean(train_o_ious, train_o_iou_counts)
-            train_v_false_high = float(np.mean(train_v_false_highs)) if train_v_false_highs else float("nan")
-            train_v_false_low = float(np.mean(train_v_false_lows)) if train_v_false_lows else float("nan")
-            train_occ_metrics = summarize_occupancy_diagnostics(train_occ_metric_dicts)
-            train_deploy_metrics = summarize_deployment_metrics(train_deploy_metric_dicts)
-            train_free_metrics = summarize_free_metrics(train_free_metric_dicts)
-            writer.add_scalar("train/loss_epoch", train_loss, epoch)
-            writer.add_scalar("train/loss_occ_epoch", train_occ_loss, epoch)
-            writer.add_scalar("train/loss_vis_epoch", train_vis_loss, epoch)
-            writer.add_scalar("train/iou_drivable_epoch", train_d_iou, epoch)
-            writer.add_scalar("train/iou_obstacle_epoch", train_o_iou, epoch)
-            writer.add_scalar("train/visibility_false_high_epoch", train_v_false_high, epoch)
-            writer.add_scalar("train/visibility_false_low_epoch", train_v_false_low, epoch)
-            write_occupancy_diagnostics(writer, "train", train_occ_metrics, epoch)
-            write_deployment_metrics(writer, "train", train_deploy_metrics, epoch)
+            train = {
+                "loss": float(np.mean(train_losses)) if train_losses else float("nan"),
+                "loss_parts": mean_loss_parts(train_parts_dicts),
+                "free": summarize_free_metrics(train_free_metric_dicts),
+            }
+            _write_epoch_scalars(writer, "train", train, epoch)
 
-            val_loss = val_occ_loss = val_vis_loss = val_d_iou = val_o_iou = float("nan")
-            val_v_false_high = val_v_false_low = float("nan")
-            val_occ_metrics = summarize_occupancy_diagnostics([])
-            val_deploy_metrics = summarize_deployment_metrics([])
-            val_free_metrics = summarize_free_metrics([])
+            val = empty_epoch_metrics()
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
-                val_losses, val_occ_losses, val_vis_losses = [], [], []
-                val_d_ious, val_o_ious, val_v_false_highs, val_v_false_lows = [], [], [], []
-                val_o_iou_counts = []
-                val_occ_metric_dicts, val_deploy_metric_dicts, val_free_metric_dicts = [], [], []
-                with torch.no_grad():
-                    for batch in val_loader:
-                        loss, loss_parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy_metrics, free_metrics = run_batch(
-                            model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
-                        )
-                        val_losses.append(loss.item())
-                        val_occ_losses.append(loss_parts["loss_occ"].item())
-                        val_vis_losses.append(loss_parts["loss_vis"].item())
-                        val_d_ious.append(d_iou.item())
-                        val_o_ious.append(o_iou.item())
-                        val_o_iou_counts.append(o_count)
-                        val_v_false_highs.append(vis_metrics["false_high"])
-                        val_v_false_lows.append(vis_metrics["false_low"])
-                        val_occ_metric_dicts.append(occ_metrics)
-                        val_deploy_metric_dicts.append(deploy_metrics)
-                        append_free_metrics(val_free_metric_dicts, free_metrics)
-                val_loss = float(np.mean(val_losses))
-                val_occ_loss = float(np.mean(val_occ_losses))
-                val_vis_loss = float(np.mean(val_vis_losses))
-                val_d_iou = float(np.mean(val_d_ious))
-                val_o_iou = weighted_mean(val_o_ious, val_o_iou_counts)
-                val_v_false_high = float(np.mean(val_v_false_highs))
-                val_v_false_low = float(np.mean(val_v_false_lows))
-                val_occ_metrics = summarize_occupancy_diagnostics(val_occ_metric_dicts)
-                val_deploy_metrics = summarize_deployment_metrics(val_deploy_metric_dicts)
-                val_free_metrics = summarize_free_metrics(val_free_metric_dicts)
-                writer.add_scalar("val/loss_epoch", val_loss, epoch)
-                writer.add_scalar("val/loss_occ_epoch", val_occ_loss, epoch)
-                writer.add_scalar("val/loss_vis_epoch", val_vis_loss, epoch)
-                writer.add_scalar("val/iou_drivable_epoch", val_d_iou, epoch)
-                writer.add_scalar("val/iou_obstacle_epoch", val_o_iou, epoch)
-                writer.add_scalar("val/visibility_false_high_epoch", val_v_false_high, epoch)
-                writer.add_scalar("val/visibility_false_low_epoch", val_v_false_low, epoch)
-                write_occupancy_diagnostics(writer, "val", val_occ_metrics, epoch)
-                write_deployment_metrics(writer, "val", val_deploy_metrics, epoch)
+                val = evaluate_split(step, val_loader, device, rays, ring_masks)
+                _write_epoch_scalars(writer, "val", val, epoch,
+                                     range_metrics=val["range"], ring_metrics=val["rings"])
 
             epoch_time = time.time() - epoch_start
-            val_score = select_checkpoint_score(
-                d_iou=val_d_iou, o_iou=val_o_iou, free_metrics=val_free_metrics
-            )
+            val_score = select_checkpoint_score(val["free"])
             is_new_best = val_score > best_val_score  # NaN > x is always False -- val을 안 돌린 epoch은 자동으로 제외됨
 
             print(format_epoch_log(
                 epoch=epoch,
                 num_epochs=num_epochs,
                 epoch_time=epoch_time,
-                train_loss=train_loss,
-                train_occ_loss=train_occ_loss,
-                train_vis_loss=train_vis_loss,
-                train_d_iou=train_d_iou,
-                train_o_iou=train_o_iou,
-                train_v_false_high=train_v_false_high,
-                train_v_false_low=train_v_false_low,
-                train_occ_metrics=train_occ_metrics,
-                val_loss=val_loss,
-                val_occ_loss=val_occ_loss,
-                val_vis_loss=val_vis_loss,
-                val_d_iou=val_d_iou,
-                val_o_iou=val_o_iou,
-                val_v_false_high=val_v_false_high,
-                val_v_false_low=val_v_false_low,
-                val_occ_metrics=val_occ_metrics,
-                val_deploy_metrics=val_deploy_metrics,
-                train_free_metrics=train_free_metrics,
-                val_free_metrics=val_free_metrics,
+                train_loss=train["loss"],
+                train_loss_parts=train["loss_parts"],
+                train_free_metrics=train["free"],
+                val_loss=val["loss"],
+                val_loss_parts=val["loss_parts"],
+                val_free_metrics=val["free"],
+                val_range_metrics=val["range"],
+                baseline_iou_free=constant_baseline,
                 val_score=val_score,
                 best_val_score=best_val_score,
                 is_new_best=is_new_best,

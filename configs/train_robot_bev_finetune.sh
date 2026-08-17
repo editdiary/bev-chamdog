@@ -1,7 +1,7 @@
 #!/bin/bash
-# 자체 수집 데이터셋 -> two-head Simple-BEV fine-tuning 설정.
+# 자체 수집 데이터셋 -> 3-class 단일 head Simple-BEV fine-tuning 설정.
 #
-# pretrain 설정(`configs/train_synwoodscape_twohead_pretrain.sh`)과 같은 관례를 따른다:
+# pretrain 설정(`configs/train_synwoodscape_threeclass_pretrain.sh`)과 같은 관례를 따른다:
 # Simple-BEV에는 config 파일 체계가 없고 Fire 키워드 인자 + 셸 스크립트로 값을 남긴다.
 # 한 값만 바꾸는 스윕은 파일을 복사하지 말고 환경변수로 덮어쓴다:
 #   EXP_NAME=ft_lr3e-5 LR=3e-5 bash configs/train_robot_bev_finetune.sh
@@ -27,6 +27,13 @@ VAL_TAIL_FRACTION="${VAL_TAIL_FRACTION:-0.2}"
 
 # pretrain에서 나온 best 체크포인트. 240x240 -> 120x120, 4-cam -> 3-cam 모두 그대로 로드된다
 # (Segnet은 (Z, X)에 대해 완전 합성곱이고 카메라별 전용 파라미터가 없다).
+#
+# **아직 옛 2-head pretrain 체크포인트다.** 3-class 학습 코드는 이것도 받는다 -- trunk 674개가
+# 전이되고 출력 head 6개는 형상이 달라 skip되어 랜덤 초기화로 시작한다(배너의
+# `weight transfer` 줄에 그대로 찍힌다). Phase 4에서
+# `configs/train_synwoodscape_threeclass_pretrain.sh`로 3-class pretrain을 뽑으면 이 값을 그
+# 체크포인트로 바꾼다. 그러면 head까지 전이돼 `skipped 0`이 찍히고, Phase 3 A/B의 가장 큰
+# 교란(head 전이 비대칭, `docs/free_space_metric_migration.md` §8.4)이 사라진다.
 INIT_CHECKPOINT="${INIT_CHECKPOINT:-runs/synwoodscape_twohead/ckpt/twohead_pretrain_photo_aug_res101_bs16_lr3e-04_260814_150556/model_best-000000046.pth}"
 
 python tools/train_robot_bev.py \
@@ -42,8 +49,6 @@ python tools/train_robot_bev.py \
     --num_workers=8 \
     --encoder_type=res101 \
     --augment="${AUGMENT}" \
-    --lambda_vis=0.5 \
-    --vis_neg_weight=3.0 \
     --val_freq_epochs=1 \
     --save_freq_epochs=10 \
     --log_dir=runs/robot_bev/logs \

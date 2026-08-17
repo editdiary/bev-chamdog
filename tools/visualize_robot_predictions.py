@@ -39,7 +39,7 @@ from projects.common.bev_panels import (  # noqa: E402
     occupancy_to_image,
     visibility_to_image,
 )
-from projects.common.free_space import decompose  # noqa: E402
+from projects.common.free_space import decompose, decompose_from_class_index  # noqa: E402
 from projects.common.polar import build_ray_index, first_free_range  # noqa: E402
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
@@ -54,7 +54,7 @@ from projects.geometry.double_sphere import (  # noqa: E402
     load_ego_T_cams,
 )
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
-from projects.models.simplebev_two_head import TwoHeadSegnet, split_two_head_logits  # noqa: E402
+from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 
 CELL_UPSCALE = 4  # 120x120 -> 480x480. pretrain은 240x240이라 2를 썼다.
 CAM_THUMB_WH = (240, 135)  # 16:9 (자체 리그는 1280x720)
@@ -167,7 +167,7 @@ def main(
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     vox_util = build_double_sphere_vox_util(ROBOT_GRID_SPEC, dataset.cameras, device=device)
-    model = TwoHeadSegnet(
+    model = ThreeClassSegnet(
         ROBOT_GRID_SPEC.n_rows, 1, ROBOT_GRID_SPEC.n_cols, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
@@ -180,16 +180,18 @@ def main(
     records = []
     with torch.no_grad():
         for batch in loader:
-            _, _, two_head_bev_e, _, _ = model(
+            _, _, logits, _, _ = model(
                 batch["rgb_camXs"].to(device), batch["pix_T_cams"].to(device),
                 batch["cam0_T_camXs"].to(device), vox_util,
             )
-            occ_logits, vis_logits = split_two_head_logits(two_head_bev_e)
-            pred_occ_bool = torch.sigmoid(occ_logits) > 0.5
-            pred_vis_bool = torch.sigmoid(vis_logits) > 0.5
-            pred_parts = decompose(
-                pred_occ_bool, pred_vis_bool, batch["valid_bev_g"].to(device)
-            )
+            valid_dev = batch["valid_bev_g"].to(device)
+            pred_parts = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid_dev)
+            # 3-class 예측을 옛 occupancy/visibility 패널이 기대하는 두 bool로 되돌린다.
+            # 정의상 `vis = free | occupied`(= unknown이 아님)이고 관측 영역 안에서
+            # `occ(drivable) = free`다. 새 정식화에서 두 head를 다시 만드는 것이 아니라,
+            # 3-class 분해에서 같은 뜻의 마스크를 꺼내는 것이다.
+            pred_vis_bool = pred_parts["free"] | pred_parts["occupied"]
+            pred_occ_bool = pred_parts["free"]
             gt_parts = decompose(batch["seg_bev_g"], batch["vis_bev_g"], batch["valid_bev_g"])
             pred_occ = pred_occ_bool.cpu().numpy()[:, 0].astype(np.uint8)
             pred_vis = pred_vis_bool.cpu().numpy()[:, 0]

@@ -43,11 +43,16 @@ def compute_three_class_loss(logits, class_index, valid, class_weights):
     return total, parts
 
 
-def default_class_weights(samples, permanent_blind, invalid, load_labels) -> torch.Tensor:
-    """Compute inverse-frequency class weights from a train split."""
+def class_weights_from_labels(label_triples) -> torch.Tensor:
+    """Inverse-frequency class weights from an iterable of ``(occ, vis, valid)`` triples.
+
+    데이터셋을 모른다 -- 호출자가 자기 방식으로 라벨을 읽어 세 마스크만 넘긴다. 로봇 쪽은
+    `permanent_blind`/`rear_self_box`가 이미 반영된 마스크를 넘기고, SynWoodScape 쪽은
+    `valid`가 전부 1인 마스크를 넘긴다. 이렇게 두는 이유는 두 데이터셋의 "관측 불가" 개념이
+    서로 다르고(리그 고정 마스크 대 없음), 가중치 계산은 그 차이를 알 필요가 없기 때문이다.
+    """
     counts = torch.zeros(3, dtype=torch.float64)
-    for sequence_root, sample_id in samples:
-        occ, vis, valid = load_labels(sequence_root, sample_id, permanent_blind, invalid)
+    for occ, vis, valid in label_triples:
         occ = torch.as_tensor(occ).bool()
         vis = torch.as_tensor(vis).bool()
         valid = torch.as_tensor(valid).bool()
