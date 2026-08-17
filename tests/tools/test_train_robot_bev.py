@@ -2,9 +2,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
 
 from tools.train_robot_bev import (
     _baseline_iou_free,
+    _write_epoch_metric_scalars,
     _write_free_space_scalars,
     compute_label_statistics,
 )
@@ -125,6 +127,80 @@ def test_free_space_scalars_include_train_free_and_validation_range_and_rings():
         ("val/range_under_epoch", 0.1, 4),
         ("val/ring_0-1m_iou_free_epoch", 0.9, 4),
     ]
+
+
+def test_epoch_metric_scalars_skip_non_finite_legacy_values():
+    writer = _ScalarWriter()
+    metrics = {
+        "loss": 1.0, "loss_occ": float("nan"), "loss_vis": 0.5,
+        "d_iou": float("nan"), "o_iou": float("nan"),
+        "false_high": float("nan"), "false_low": float("nan"),
+    }
+
+    _write_epoch_metric_scalars(writer, "train", metrics, epoch=4)
+
+    assert writer.scalars == [
+        ("train/loss_epoch", 1.0, 4),
+        ("train/loss_vis_epoch", 0.5, 4),
+    ]
+
+
+def test_occupancy_diagnostic_scalars_skip_non_finite_values():
+    from projects.common.bev_occupancy_metrics import (
+        summarize_occupancy_diagnostics,
+        write_occupancy_diagnostics,
+    )
+
+    writer = _ScalarWriter()
+
+    write_occupancy_diagnostics(writer, "train", summarize_occupancy_diagnostics([]), epoch=4)
+
+    assert ("train/occupancy_obstacle_count_empty_epoch", 0, 4) in writer.scalars
+    assert all(np.isfinite(value) for _, value, _ in writer.scalars)
+
+
+def test_normalise_step_output_preserves_three_class_free_metrics():
+    from tools.train_robot_bev import _normalise_step_output
+
+    loss = torch.tensor(1.0)
+    parts = {"loss_free": torch.tensor(0.1)}
+    free = {"iou_free": 0.7}
+
+    assert _normalise_step_output("three_class", (loss, parts, free)) == (loss, parts, free, None)
+
+
+def test_normalise_step_output_preserves_two_head_legacy_diagnostics():
+    from tools.train_robot_bev import _normalise_step_output
+
+    loss = torch.tensor(1.0)
+    parts = {"loss_occ": torch.tensor(0.4), "loss_vis": torch.tensor(0.6)}
+    free = {"iou_free": 0.2}
+    output = (
+        loss, parts, torch.tensor(0.95), torch.tensor(0.80), 3,
+        {"false_high": 0.1, "false_low": 0.2},
+        {"obstacle_frac": 0.3},
+        {"visible_coverage": 0.4},
+        free,
+    )
+
+    normalised_loss, normalised_parts, normalised_free, legacy = _normalise_step_output("two_head", output)
+
+    assert normalised_loss is loss
+    assert normalised_parts is parts
+    assert normalised_free is free
+    assert legacy["d_iou"] == pytest.approx(0.95)
+    assert legacy["o_iou"] == pytest.approx(0.80)
+    assert legacy["o_count"] == 3
+    assert legacy["vis"] == {"false_high": 0.1, "false_low": 0.2}
+    assert legacy["occ"] == {"obstacle_frac": 0.3}
+    assert legacy["deploy"] == {"visible_coverage": 0.4}
+
+
+def test_main_rejects_unknown_head_before_touching_the_dataset(tmp_path):
+    import tools.train_robot_bev as trainer
+
+    with pytest.raises(ValueError, match="two_head.*three_class"):
+        trainer.main(head="bogus", dataset_root=tmp_path, device="cpu")
 
 
 @requires_dataset

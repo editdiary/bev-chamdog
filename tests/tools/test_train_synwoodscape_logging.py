@@ -5,8 +5,8 @@ import re
 import pytest
 import torch
 
-from projects.common import two_head_metrics
-from projects.common.two_head_metrics import (
+from projects.common import bev_occupancy_metrics
+from projects.common.bev_occupancy_metrics import (
     _color_enabled,
     append_free_metrics,
     run_batch,
@@ -25,10 +25,10 @@ from tools.train_synwoodscape import (
 
 def test_checkpoint_score_uses_iou_free_when_legacy_iou_mean_prefers_another_model():
     """기존 평균은 free-space가 더 나쁜 모델을 best로 고르는 퇴행을 만든다."""
-    better_free_space = two_head_metrics.select_checkpoint_score(
+    better_free_space = bev_occupancy_metrics.select_checkpoint_score(
         d_iou=0.60, o_iou=0.20, free_metrics={"iou_free": 0.85}
     )
-    better_legacy_mean = two_head_metrics.select_checkpoint_score(
+    better_legacy_mean = bev_occupancy_metrics.select_checkpoint_score(
         d_iou=0.95, o_iou=0.80, free_metrics={"iou_free": 0.70}
     )
 

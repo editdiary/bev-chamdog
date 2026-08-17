@@ -517,23 +517,37 @@ def _format_obstacle_bin_summary(metrics):
     return [_format_row("bins", _Ansi.BLUE, [_c(_Ansi.DIM, "val_obst_iou_bins") + " " + " ".join(parts)])]
 
 
+def _add_scalar_if_finite(writer, tag: str, value, epoch: int) -> None:
+    try:
+        scalar = float(value)
+    except (TypeError, ValueError):
+        writer.add_scalar(tag, value, epoch)
+        return
+    if math.isfinite(scalar):
+        writer.add_scalar(tag, value, epoch)
+
+
 def write_occupancy_diagnostics(writer, split: str, metrics, epoch: int) -> None:
-    writer.add_scalar(f"{split}/occupancy_obstacle_fraction_epoch", metrics["obstacle_frac"], epoch)
-    writer.add_scalar(f"{split}/occupancy_false_obstacle_epoch", metrics["false_obstacle"], epoch)
-    writer.add_scalar(f"{split}/occupancy_missed_obstacle_epoch", metrics["missed_obstacle"], epoch)
+    _add_scalar_if_finite(writer, f"{split}/occupancy_obstacle_fraction_epoch", metrics["obstacle_frac"], epoch)
+    _add_scalar_if_finite(writer, f"{split}/occupancy_false_obstacle_epoch", metrics["false_obstacle"], epoch)
+    _add_scalar_if_finite(writer, f"{split}/occupancy_missed_obstacle_epoch", metrics["missed_obstacle"], epoch)
     for name, _, _ in OBSTACLE_FRACTION_BINS:
         if name != "empty" and metrics[f"obstacle_count_{name}"] > 0:
-            writer.add_scalar(f"{split}/occupancy_obstacle_iou_{name}_epoch", metrics[f"obstacle_iou_{name}"], epoch)
+            _add_scalar_if_finite(
+                writer, f"{split}/occupancy_obstacle_iou_{name}_epoch",
+                metrics[f"obstacle_iou_{name}"], epoch,
+            )
         writer.add_scalar(f"{split}/occupancy_obstacle_count_{name}_epoch", metrics[f"obstacle_count_{name}"], epoch)
     if metrics["obstacle_count_empty"] > 0:
-        writer.add_scalar(f"{split}/occupancy_empty_false_alarm_epoch", metrics["empty_false_alarm"], epoch)
+        _add_scalar_if_finite(
+            writer, f"{split}/occupancy_empty_false_alarm_epoch", metrics["empty_false_alarm"], epoch
+        )
     writer.add_scalar(f"{split}/occupancy_empty_false_alarm_samples_epoch", metrics["empty_false_alarm_samples"], epoch)
 
 
 def write_deployment_metrics(writer, split: str, metrics, epoch: int) -> None:
     for key in ("iou_drivable", "iou_obstacle", "visible_coverage"):
-        if not math.isnan(metrics[key]):
-            writer.add_scalar(f"{split}/deploy_{key}_epoch", metrics[key], epoch)
+        _add_scalar_if_finite(writer, f"{split}/deploy_{key}_epoch", metrics[key], epoch)
 
 
 def run_batch(model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight):

@@ -43,7 +43,7 @@ from projects.datasets.synwoodscape_split import discover_all_sample_ids, train_
 from projects.geometry.fisheye import load_camera  # noqa: E402
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
 from projects.models.simplebev_two_head import TwoHeadSegnet  # noqa: E402
-from projects.common.two_head_metrics import (  # noqa: E402
+from projects.common.bev_occupancy_metrics import (  # noqa: E402
     _Ansi,
     _c,
     _print_banner,

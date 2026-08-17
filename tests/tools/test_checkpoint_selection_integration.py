@@ -40,7 +40,10 @@ def _install_common_cpu_doubles(monkeypatch, trainer, captured, selected, saved)
     monkeypatch.setattr(trainer, "SummaryWriter", lambda *args, **kwargs: _Writer())
     monkeypatch.setattr(trainer, "DataLoader", lambda *args, **kwargs: [object()])
     monkeypatch.setattr(trainer, "TwoHeadSegnet", _Model)
-    monkeypatch.setattr(trainer, "run_batch", _run_batch)
+    if hasattr(trainer, "two_head_run_batch"):
+        monkeypatch.setattr(trainer, "two_head_run_batch", _run_batch)
+    else:
+        monkeypatch.setattr(trainer, "run_batch", _run_batch)
     monkeypatch.setattr(trainer, "append_free_metrics", lambda values, value: values.append(value))
     monkeypatch.setattr(trainer, "summarize_occupancy_diagnostics", lambda values: {})
     monkeypatch.setattr(trainer, "summarize_deployment_metrics", lambda values: {})
@@ -114,6 +117,70 @@ def test_robot_trainer_uses_free_score_at_checkpoint_selection_boundary(monkeypa
     )
 
     _assert_free_score_reaches_checkpoint_path(captured, selected, saved)
+
+
+def test_robot_trainer_three_class_head_uses_three_class_step(monkeypatch, tmp_path):
+    captured, selected, saved, calls = [], [], [], []
+    dataset_root = tmp_path / "data"
+    for name in ("train", "val"):
+        (dataset_root / name / "occupancy_npy").mkdir(parents=True)
+    _install_common_cpu_doubles(monkeypatch, robot_trainer, captured, selected, saved)
+    monkeypatch.setattr(robot_trainer, "ThreeClassSegnet", _Model)
+    monkeypatch.setattr(robot_trainer, "parse_sequence_names", lambda names: names.split(",") if names else [])
+    monkeypatch.setattr(
+        robot_trainer,
+        "split_samples_by_sequence",
+        lambda roots, val_names: ([(roots[0], "train")], [(roots[1], "val")]),
+    )
+    monkeypatch.setattr(robot_trainer, "build_bev_masks", lambda *args: (np.zeros((1, 1), bool),) * 2)
+    monkeypatch.setattr(
+        robot_trainer, "compute_label_statistics",
+        lambda *args: {"pos_weight": 1.0, "trivial_iou": 0.5,
+                       "supervised_fraction": 1.0, "obstacle_fraction": 0.5},
+    )
+    monkeypatch.setattr(robot_trainer, "load_masked_labels", lambda *args: (np.ones((1, 1), bool),) * 3)
+    monkeypatch.setattr(robot_trainer, "constant_free_map", lambda masks: masks[0])
+    monkeypatch.setattr(robot_trainer, "_baseline_iou_free", lambda *args: 0.5)
+    monkeypatch.setattr(robot_trainer, "build_ray_index", lambda *args, **kwargs: object())
+    monkeypatch.setattr(robot_trainer, "build_ring_masks", lambda *args: [])
+    monkeypatch.setattr(robot_trainer, "RobotBEVDataset", lambda *args, **kwargs: _Dataset())
+    monkeypatch.setattr(robot_trainer, "build_double_sphere_vox_util", lambda *args, **kwargs: object())
+    monkeypatch.setattr(robot_trainer, "_write_free_space_scalars", lambda *args, **kwargs: None)
+    monkeypatch.setattr(robot_trainer, "summarize_range_error", lambda values: {})
+    monkeypatch.setattr(
+        robot_trainer,
+        "_evaluate",
+        lambda *args: {"loss": 1.0, "loss_occ": 0.4, "loss_vis": 0.6,
+                       "d_iou": 0.95, "o_iou": 0.80, "false_high": 0.0, "false_low": 0.0,
+                       "occ": {}, "deploy": {},
+                       "free": {"iou_free": 0.20, "fatal_rate": 0.0, "free_miss_rate": 0.0},
+                       "range": {}, "rings": {}},
+    )
+
+    def three_class_step(*args):
+        calls.append(args)
+        return (
+            torch.tensor(1.0, requires_grad=True),
+            {"loss_free": torch.tensor(0.2), "loss_occupied": torch.tensor(0.3),
+             "loss_unknown": torch.tensor(0.4)},
+            {"iou_free": 0.20, "iou_free_count": 1, "fatal_rate": 0.0,
+             "fatal_denom": 1, "free_miss_rate": 0.0, "free_miss_denom": 1,
+             "partition_defects": 0},
+        )
+
+    monkeypatch.setattr(robot_trainer, "three_class_run_batch", three_class_step)
+
+    robot_trainer.main(
+        head="three_class",
+        train_sequences="train", val_sequences="val", num_epochs=1, batch_size=2,
+        num_workers=0, dataset_root=dataset_root, common_root=tmp_path, log_dir=tmp_path / "logs",
+        ckpt_dir=tmp_path / "ckpts", device="cpu",
+    )
+
+    assert len(calls) == 1
+    assert captured[0]["train_occ_loss"] == pytest.approx(0.3)
+    assert captured[0]["train_vis_loss"] == pytest.approx(0.2)
+    assert selected[0]["free_metrics"]["iou_free"] == pytest.approx(0.20)
 
 
 def test_synwoodscape_trainer_uses_free_score_at_checkpoint_selection_boundary(monkeypatch, tmp_path):

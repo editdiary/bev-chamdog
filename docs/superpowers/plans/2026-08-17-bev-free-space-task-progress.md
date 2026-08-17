@@ -4,10 +4,10 @@
 > 기록한다. 계획 자체가 무엇을 할지 정하고, 이 문서는 어디까지 했고 그 과정에서 계획에 없던
 > 무엇이 정해졌는지를 정한다. 다른 세션·다른 에이전트가 이어받을 때 이 문서를 먼저 읽는다.
 
-- 브랜치: **`feat/bev-free-space-task`** (Task 13 커밋 후 main 대비 58 커밋)
-- 마지막 완료 커밋: **Task 13 문서 커밋**
-- 테스트: **224 passed**, 실패 0
-- 진행: **Task 1–13 완료. Phase 0·Phase 1·Phase 2 게이트 통과. 다음은 Task 14. Task 17 전에 멈추고 사용자와 논의한다.**
+- 브랜치: **`feat/bev-free-space-task`**
+- 마지막 완료 커밋: **`259b952`** (`--head` runtime switch)
+- 테스트: **242 passed**, 실패 0
+- 진행: **Task 1–16 완료. Phase 0·Phase 1·Phase 2 게이트 통과. 다음은 Task 17 — 실행 전 사용자와 논의한다.**
 - 실행 방식: `superpowers:subagent-driven-development` (태스크마다 구현자 → 리뷰 → fix 루프 → 재리뷰)
 
 ---
@@ -16,16 +16,17 @@
 
 ```bash
 git checkout feat/bev-free-space-task
-python -m pytest tests/ -q          # 224 passed 확인
+python -m pytest tests/ -q          # 242 passed 확인
 ```
 
-`superpowers:subagent-driven-development` 스킬로 **Task 14부터** 이어간다. BASE는 현재 HEAD다.
-Task 17은 GPU 학습이고 사용자가 그 전에 멈춰 논의하라고 지시했다.
+`superpowers:subagent-driven-development` 스킬로 **Task 17부터** 이어간다. BASE는 현재 HEAD다.
+Task 17은 GPU 학습이고 사용자가 그 전에 멈춰 논의하라고 지시했다. 즉, 자동으로 실행하지
+말고 먼저 사용자와 overfit gate의 목적·조건·실행 방식을 확인한다.
 
 태스크 브리프는 계획에서 기계적으로 추출한다:
 
 ```bash
-<skill>/scripts/task-brief docs/superpowers/plans/2026-08-17-bev-free-space-task.md 14
+<skill>/scripts/task-brief docs/superpowers/plans/2026-08-17-bev-free-space-task.md 17
 ```
 
 실행 중 ledger는 `.superpowers/sdd/2026-08-17-bev-free-space-task/progress.md`에 있다.
@@ -57,6 +58,9 @@ Task 17은 GPU 학습이고 사용자가 그 전에 멈춰 논의하라고 지�
 | 11 | checkpoint 선택 기준을 `iou_free`로 교체 | `de630ea..a0a3e53` | 220 passed + GPU0 smoke |
 | 12 | 시각화 3-class 팔레트 + polar range overlay | `61b74fd..235ea12` | 224 passed + PNG 4장 생성 |
 | 13 | 새 split 2-head 기준선 재학습 **[Phase 2 게이트]** | Task 13 문서 커밋 | best `val_iou_free` 0.765, 224 passed |
+| 14 | `ThreeClassSegnet` wrapper | `8a231a1..b0941b0` | 228 passed + reviewer mutation |
+| 15 | 3-class weighted CE + shared free metrics/run_batch | `b0941b0..25bc010` | 236 passed + reviewer mutation |
+| 16 | `--head` switch + `bev_occupancy_metrics.py` rename | `25bc010..259b952` | 242 passed + GPU0 two-head/three-class smoke |
 
 `a6ddbaa`(문서 커밋)는 Task 4와 5 사이에 들어갔다. `8d2d31d`(인수인계 문서 커밋)는
 Task 8과 9 사이에 들어갔다.
@@ -173,6 +177,23 @@ GT(흰색)/pred(노란색) range profile overlay가 표시된다. `draw_range_pr
 인자는 현재 내부에서 직접 사용하지 않지만, 호출 경로에서는 `r_m/status`가 같은 ray index에서
 나온다. 상태 필터(`RAY_OK`만 draw)와 theta=90° 좌측(col 감소) 규약은 테스트로 고정했다.
 
+### 3.11 Task 16 이후 trainer head switch 상태
+
+`projects/common/two_head_metrics.py`는 Task 16에서 `projects/common/bev_occupancy_metrics.py`로
+개칭됐다. 이후 import는 새 이름을 쓴다. `tools/train_robot_bev.py`는 `head="two_head"`와
+`head="three_class"`를 받는다. 두 경로는 서로 다른 batch-step 반환을 `_normalise_step_output`으로
+같은 `(loss, loss_parts, free_metrics, legacy)` 계약으로 맞춘다. `legacy`는 2-head 전용 진단
+지표(`iou_drivable`, visibility/occupancy diagnostics 등)라 3-class에서는 `None`이고, TensorBoard에
+NaN scalar를 쓰지 않도록 non-finite 값은 건너뛴다.
+
+Task 16 GPU0 smoke:
+
+- `--head=two_head`, 1 epoch, split `train=raws1,raws2,raws3,rawos1,rawos4`, `val=rawos3`:
+  `val_iou_free 0.681`, baseline delta `+0.283`, partition 경고 없음.
+- `--head=three_class`, 1 epoch, 같은 split:
+  최초 실행은 TensorBoard가 legacy NaN scalar를 받아 `NaN or Inf found` 경고를 냈다. fix 후 재실행에서
+  `val_iou_free 0.715`, baseline delta `+0.317`, `NaN or Inf` 경고 없음, partition 경고 없음.
+
 ---
 
 ## 4. 이후 태스크가 알아야 할 발견사항
@@ -226,9 +247,6 @@ Phase 1 게이트 조건 2가 그것과 비교하기 때문이다. 바꾸면 비
 
 | Task | 내용 | 비고 |
 |---|---|---|
-| 14 | 3-class head (`TwoHeadDecoder` 패턴을 따른다) | |
-| 15 | 가중 CE loss + `three_class_metrics.py` | |
-| 16 | `--head` 스위치 + `two_head_metrics.py` 개칭 | §3.4 참조 |
 | 17 | 과적합 게이트 | **GPU 학습 — 실행 전 중지하고 사용자와 논의** |
 | 18 | 2-head vs 3-class A/B **[Phase 3 게이트]** | **GPU 학습 — 사용자 확인 필요**, §4.1 해석 주의 |
 

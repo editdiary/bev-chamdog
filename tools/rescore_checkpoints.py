@@ -33,7 +33,7 @@ from projects.common.free_space_metrics import (  # noqa: E402
     weighted_mean,
 )
 from projects.common.polar import build_ray_index  # noqa: E402
-from projects.common.two_head_metrics import compute_drivable_and_obstacle_iou  # noqa: E402
+from projects.common.bev_occupancy_metrics import compute_drivable_and_obstacle_iou  # noqa: E402
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
     DEFAULT_DATASET_ROOT,

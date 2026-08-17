@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from projects.common.free_space_metrics import weighted_mean
 from projects.common.polar import RayIndex
-from projects.common.two_head_metrics import compute_drivable_and_obstacle_iou
+from projects.common.bev_occupancy_metrics import compute_drivable_and_obstacle_iou
 from tools.rescore_checkpoints import (
     format_markdown_table,
     load_checkpoint_state_dict,

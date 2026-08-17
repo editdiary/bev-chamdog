@@ -1,7 +1,7 @@
 """자체 수집 데이터셋 -> two-head Simple-BEV fine-tuning (ROADMAP Phase 4).
 
 SynWoodScape pretrain(`tools/train_synwoodscape.py`)과 지표·로깅을 공유하며
-(`projects/common/two_head_metrics.py`), 다른 것은 네 가지뿐이다:
+(`projects/common/bev_occupancy_metrics.py`), 다른 것은 네 가지뿐이다:
 
 1. 데이터셋: `RobotBEVDataset` (Double Sphere 3-cam, 시퀀스 단위 split)
 2. lifting: `DoubleSphereVoxUtil`
@@ -33,6 +33,10 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 import saverloader  # noqa: E402  (simple_bev submodule; see docs/project_structure.md)
 from projects.common.baselines import as_batch, constant_free_map  # noqa: E402
+from projects.common.three_class_metrics import (  # noqa: E402
+    default_class_weights,
+    run_batch as three_class_run_batch,
+)
 from projects.common.free_space_metrics import (  # noqa: E402
     build_ring_masks,
     iou_free,
@@ -41,13 +45,13 @@ from projects.common.free_space_metrics import (  # noqa: E402
     summarize_range_error,
 )
 from projects.common.polar import build_ray_index  # noqa: E402
-from projects.common.two_head_metrics import (  # noqa: E402
+from projects.common.bev_occupancy_metrics import (  # noqa: E402
     _Ansi,
     _c,
     _print_banner,
     append_free_metrics,
     format_epoch_log,
-    run_batch,
+    run_batch as two_head_run_batch,
     select_checkpoint_score,
     summarize_deployment_metrics,
     summarize_free_metrics,
@@ -69,6 +73,7 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
 )
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
+from projects.models.simplebev_three_class import ThreeClassSegnet, load_trunk_weights  # noqa: E402
 from projects.models.simplebev_two_head import TwoHeadSegnet  # noqa: E402
 
 
@@ -137,15 +142,29 @@ def _write_free_space_scalars(writer, split, free_metrics, epoch, *,
     for key, tb in (("iou_free", "iou_free_epoch"),
                     ("fatal_rate", "fatal_rate_epoch"),
                     ("free_miss_rate", "free_miss_rate_epoch")):
-        writer.add_scalar(f"{split}/{tb}", free_metrics[key], epoch)
+        _write_scalar_if_finite(writer, f"{split}/{tb}", free_metrics[key], epoch)
     if range_metrics is not None:
         for key, tb in (("abs_p50", "range_abs_p50_epoch"),
                         ("abs_p90", "range_abs_p90_epoch"),
                         ("over_mean", "range_over_epoch"),
                         ("under_mean", "range_under_epoch")):
-            writer.add_scalar(f"{split}/{tb}", range_metrics[key], epoch)
+            _write_scalar_if_finite(writer, f"{split}/{tb}", range_metrics[key], epoch)
     for name, values in (ring_metrics or {}).items():
-        writer.add_scalar(f"{split}/ring_{name}_iou_free_epoch", values["iou_free"], epoch)
+        _write_scalar_if_finite(writer, f"{split}/ring_{name}_iou_free_epoch", values["iou_free"], epoch)
+
+
+def _write_scalar_if_finite(writer, tag, value, step):
+    if np.isfinite(float(value)):
+        writer.add_scalar(tag, value, step)
+
+
+def _write_epoch_metric_scalars(writer, split, metrics, epoch):
+    for key, tb in (("loss", "loss_epoch"), ("loss_occ", "loss_occ_epoch"),
+                    ("loss_vis", "loss_vis_epoch"), ("d_iou", "iou_drivable_epoch"),
+                    ("o_iou", "iou_obstacle_epoch"),
+                    ("false_high", "visibility_false_high_epoch"),
+                    ("false_low", "visibility_false_low_epoch")):
+        _write_scalar_if_finite(writer, f"{split}/{tb}", metrics[key], epoch)
 
 
 def _summarize_ring_metrics(ring_dicts, ring_masks):
@@ -160,26 +179,47 @@ def _summarize_ring_metrics(ring_dicts, ring_masks):
     }
 
 
-def _evaluate(model, loader, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight,
-              rays, ring_masks):
+def _normalise_step_output(head, output):
+    """Adapt two-head and three-class batch outputs to one loop contract."""
+    if head == "two_head":
+        loss, parts, d_iou, o_iou, o_count, vis_m, occ_m, deploy, free_m = output
+        return loss, parts, free_m, {
+            "d_iou": float(d_iou.item()),
+            "o_iou": float(o_iou.item()),
+            "o_count": o_count,
+            "vis": vis_m,
+            "occ": occ_m,
+            "deploy": deploy,
+        }
+    loss, parts, free_m = output
+    return loss, parts, free_m, None
+
+
+def _loss_part(parts, *names):
+    for name in names:
+        if name in parts:
+            return parts[name]
+    return torch.tensor(float("nan"))
+
+
+def _evaluate(head, step, loader, device, rays, ring_masks):
     losses, occ_losses, vis_losses = [], [], []
     d_ious, o_ious, o_counts, false_highs, false_lows = [], [], [], [], []
     occ_dicts, deploy_dicts, free_dicts, range_dicts, ring_dicts = [], [], [], [], []
     with torch.no_grad():
         for batch in loader:
-            loss, parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy, free_metrics = run_batch(
-                model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
-            )
+            loss, parts, free_metrics, legacy = _normalise_step_output(head, step(batch))
             losses.append(loss.item())
-            occ_losses.append(parts["loss_occ"].item())
-            vis_losses.append(parts["loss_vis"].item())
-            d_ious.append(d_iou.item())
-            o_ious.append(o_iou.item())
-            o_counts.append(o_count)
-            false_highs.append(vis_metrics["false_high"])
-            false_lows.append(vis_metrics["false_low"])
-            occ_dicts.append(occ_metrics)
-            deploy_dicts.append(deploy)
+            occ_losses.append(_loss_part(parts, "loss_occ", "loss_occupied").item())
+            vis_losses.append(_loss_part(parts, "loss_vis", "loss_free").item())
+            if legacy is not None:
+                d_ious.append(legacy["d_iou"])
+                o_ious.append(legacy["o_iou"])
+                o_counts.append(legacy["o_count"])
+                false_highs.append(legacy["vis"]["false_high"])
+                false_lows.append(legacy["vis"]["false_low"])
+                occ_dicts.append(legacy["occ"])
+                deploy_dicts.append(legacy["deploy"])
             valid = batch["valid_bev_g"].to(device)
             range_dicts.append(range_error(
                 free_metrics["pred_free"], free_metrics["gt_free"], valid, rays
@@ -203,6 +243,7 @@ def _evaluate(model, loader, vox_util, pos_weight_tensor, device, lambda_vis, vi
 
 def main(
     exp_name="robot_finetune",
+    head="two_head",
     train_sequences="raws1,raws2,raws3,rawos1,rawos4",
     val_sequences="rawos3",
     val_tail_fraction=0.0,  # val 시퀀스가 없을 때만 쓰는 임시 holdout (시퀀스 뒤쪽 연속 구간)
@@ -228,6 +269,8 @@ def main(
 ):
     torch.manual_seed(0)
     np.random.seed(0)
+    if head not in ("two_head", "three_class"):
+        raise ValueError(f"head must be 'two_head' or 'three_class': {head}")
 
     dataset_root = Path(dataset_root)
     names = parse_sequence_names(train_sequences)
@@ -264,9 +307,12 @@ def main(
     ring_masks = build_ring_masks(GRID_SPEC)
     if pos_weight is None:
         pos_weight = stats["pos_weight"]
+    class_weights = default_class_weights(
+        train_samples, permanent_blind, invalid, load_masked_labels
+    )
 
     _print_banner([
-        " robot dataset -> Simple-BEV two-head fine-tuning",
+        f" robot dataset -> Simple-BEV {head.replace('_', '-')} fine-tuning",
         f" exp_name={exp_name} | encoder={encoder_type} | cameras={','.join(FINETUNE_CAMERA_NAMES)}",
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
         f" train sequences={','.join(names) or '-'} ({len(train_samples)} samples)",
@@ -285,6 +331,7 @@ def main(
             or abs(val_stats["obstacle_fraction"] - stats["obstacle_fraction"]) > 0.02
         ) else ""),
         f" pos_weight (neg/pos, masked) = {pos_weight:.3f}",
+        f" class weights (unknown/free/occupied) = {class_weights.tolist()}",
         f" photometric augment (train only) = {bool(augment)}",
         f" trivial 'always drivable' baseline IoU = {stats['trivial_iou']:.3f}  <- compare against this",
         f" constant-map baseline iou_free = {baseline_iou_free:.3f}  <- compare against this",
@@ -310,13 +357,24 @@ def main(
     vox_util = build_double_sphere_vox_util(GRID_SPEC, train_ds.cameras, device=device)
     # rand_flip=False: 이 리그의 ROI는 전후 비대칭(전방 4 m / 후방 2 m)이라
     # Simple-BEV의 Z축 flip 증강이 물리적으로 성립하지 않는다.
-    model = TwoHeadSegnet(
+    model_cls = TwoHeadSegnet if head == "two_head" else ThreeClassSegnet
+    model = model_cls(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
     ).to(device)
     if init_checkpoint:
-        load_initial_weights(model, init_checkpoint, device)
+        if head == "two_head":
+            load_initial_weights(model, init_checkpoint, device)
+        else:
+            report = load_trunk_weights(model, init_checkpoint, device)
+            print(_c(
+                _Ansi.CYAN,
+                f" trunk transfer: loaded {report['loaded']} tensors, skipped {len(report['skipped'])}",
+            ))
+            unexpected = [name for name in report["skipped"] if "segmentation_head" not in name]
+            if unexpected:
+                raise RuntimeError(f"trunk keys were skipped: {unexpected[:5]}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     steps_per_epoch = max(1, len(train_loader))
@@ -325,6 +383,15 @@ def main(
         pct_start=0.05, cycle_momentum=False, anneal_strategy="linear",
     )
     pos_weight_tensor = torch.tensor(pos_weight, dtype=torch.float32, device=device)
+    class_weights = class_weights.to(device)
+    if head == "two_head":
+        step = lambda batch: two_head_run_batch(  # noqa: E731
+            model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
+        )
+    else:
+        step = lambda batch: three_class_run_batch(  # noqa: E731
+            model, batch, vox_util, class_weights, device
+        )
 
     run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}"
                 f"_{datetime.now().strftime('%y%m%d_%H%M%S')}")
@@ -349,24 +416,23 @@ def main(
             occ_dicts, deploy_dicts, free_dicts = [], [], []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, parts, d_iou, o_iou, o_count, vis_metrics, occ_metrics, deploy, free_metrics = run_batch(
-                    model, batch, vox_util, pos_weight_tensor, device, lambda_vis, vis_neg_weight
-                )
+                loss, parts, free_metrics, legacy = _normalise_step_output(head, step(batch))
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
                 optimizer.step()
                 scheduler.step()
 
                 losses.append(loss.item())
-                occ_losses.append(parts["loss_occ"].item())
-                vis_losses.append(parts["loss_vis"].item())
-                d_ious.append(d_iou.item())
-                o_ious.append(o_iou.item())
-                o_counts.append(o_count)
-                false_highs.append(vis_metrics["false_high"])
-                false_lows.append(vis_metrics["false_low"])
-                occ_dicts.append(occ_metrics)
-                deploy_dicts.append(deploy)
+                occ_losses.append(_loss_part(parts, "loss_occ", "loss_occupied").item())
+                vis_losses.append(_loss_part(parts, "loss_vis", "loss_free").item())
+                if legacy is not None:
+                    d_ious.append(legacy["d_iou"])
+                    o_ious.append(legacy["o_iou"])
+                    o_counts.append(legacy["o_count"])
+                    false_highs.append(legacy["vis"]["false_high"])
+                    false_lows.append(legacy["vis"]["false_low"])
+                    occ_dicts.append(legacy["occ"])
+                    deploy_dicts.append(legacy["deploy"])
                 append_free_metrics(free_dicts, free_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
@@ -381,12 +447,7 @@ def main(
                 "deploy": summarize_deployment_metrics(deploy_dicts),
                 "free": summarize_free_metrics(free_dicts),
             }
-            for key, tb in (("loss", "loss_epoch"), ("loss_occ", "loss_occ_epoch"),
-                            ("loss_vis", "loss_vis_epoch"), ("d_iou", "iou_drivable_epoch"),
-                            ("o_iou", "iou_obstacle_epoch"),
-                            ("false_high", "visibility_false_high_epoch"),
-                            ("false_low", "visibility_false_low_epoch")):
-                writer.add_scalar(f"train/{tb}", train[key], epoch)
+            _write_epoch_metric_scalars(writer, "train", train, epoch)
             write_occupancy_diagnostics(writer, "train", train["occ"], epoch)
             write_deployment_metrics(writer, "train", train["deploy"], epoch)
             _write_free_space_scalars(writer, "train", train["free"], epoch)
@@ -403,14 +464,8 @@ def main(
             }
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
-                val = _evaluate(model, val_loader, vox_util, pos_weight_tensor, device,
-                                lambda_vis, vis_neg_weight, rays, ring_masks)
-                for key, tb in (("loss", "loss_epoch"), ("loss_occ", "loss_occ_epoch"),
-                                ("loss_vis", "loss_vis_epoch"), ("d_iou", "iou_drivable_epoch"),
-                                ("o_iou", "iou_obstacle_epoch"),
-                                ("false_high", "visibility_false_high_epoch"),
-                                ("false_low", "visibility_false_low_epoch")):
-                    writer.add_scalar(f"val/{tb}", val[key], epoch)
+                val = _evaluate(head, step, val_loader, device, rays, ring_masks)
+                _write_epoch_metric_scalars(writer, "val", val, epoch)
                 write_occupancy_diagnostics(writer, "val", val["occ"], epoch)
                 write_deployment_metrics(writer, "val", val["deploy"], epoch)
                 _write_free_space_scalars(
