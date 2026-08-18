@@ -4,7 +4,9 @@ Simple-BEV 원본(`train_nuscenes.py`)의 관례를 따라 `Fire`로 `main(...)`
 CLI에서 받는다 — config 파일 체계 대신 실행 스크립트(`configs/train_synwoodscape_baseline.sh`)에
 인자를 나열한다.
 
-값을 보고 어떻게 튜닝할지는 `docs/training_guide.md`를 참고할 것.
+값을 보고 어떻게 튜닝할지는 `docs/training_pipeline_walkthrough.md`(코드 정독)와
+`docs/BEV_loss_and_metrics_design.md` §2.8(지표 정의)을 본다.
+`docs/training_guide.md`는 2-head 시절 문서이므로 플래그·경로를 그대로 쓰면 안 된다.
 
 `tools/train_robot_bev.py`(fine-tuning)와 지표·로깅·체크포인트 선택 기준을 공유한다
 (`projects/common/bev_occupancy_metrics.py`). 그래야 pretrain과 fine-tune 숫자를 나란히
@@ -97,7 +99,7 @@ def load_label_triples(sample_ids, occupancy_gt_root: Path):
 
 def compute_trivial_baseline_iou(sample_ids, occupancy_gt_root: Path) -> float:
     """"항상 drivable로 예측"의 IoU = drivable_fraction. 모델 IoU가 이 값 근처면 학습이 아니라
-    다수 클래스를 그냥 외운 것일 수 있다 (`docs/training_guide.md` 참고).
+    다수 클래스를 그냥 외운 것일 수 있다.
     """
     free = observed = 0
     for triple in load_label_triples(sample_ids, occupancy_gt_root):

@@ -1,5 +1,11 @@
 # Free-space 지표 마이그레이션 -- Phase 1 재채점 결과
 
+> **[2026-08-18 갱신] 이 문서의 로봇 숫자는 전부 옛 split(`train` 190장 / `val = rawos3` 37장)
+> 기준이다.** `rawos2`가 추가되고 `raws1`이 val로 옮겨져 지금은 `train` 192장 /
+> `val = raws1,rawos3` 75장이고, constant-map baseline이 0.398 -> **0.518**로 바뀌었다.
+> **여기 적힌 값과 새 런의 값을 직접 비교하지 않는다.** 이 문서는 지표 이관의 근거 기록이고,
+> 현재 상태는 [`next_session_threeclass_training.md`](next_session_threeclass_training.md)를 본다.
+
 이 문서는 `docs/superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md`
 Phase 1 게이트(C7–C9)의 실측 기록이다. **재학습 없이** 기존 체크포인트를 새 지표
 (`projects/common/free_space_metrics.py`)로 다시 재고, 옛 지표(`iou_drivable`/`iou_obstacle`)와

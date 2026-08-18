@@ -1,64 +1,52 @@
-# Next Session Handoff: 3-class 본학습과 지표 수정
+# Next Session Handoff: 3-class 학습
 
 Last updated: 2026-08-18
 
-> **이 문서를 새 세션에서 가장 먼저 읽는다.** 그다음
-> [`docs/free_space_metric_migration.md`](free_space_metric_migration.md) §8–9를 읽으면 지금
-> 상태의 근거가 전부 숫자로 있다.
+> ## ▶ 새 세션은 여기서 시작한다
+>
+> **지금 막힌 곳: fine-tuning이 제대로 학습되지 않는다. 원인은 loss가 면적 기반(CE)인데
+> `occupied`가 두께 1셀 표면이라는 것이고, 다음 할 일은 loss를 표면에 맞게 바꾸는 것이다.**
+>
+> 진단·실험 기록과 다음 단계 설계가 전부 여기 있다:
+> **[`docs/finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md)**
+> — §13이 "다음 세션에서 할 일"((C) 복합 loss → (D) 이진 정식화), §14가 산출물 정리 규약이다.
+>
+> 지표 정의의 정본은 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §2.8.
+> pretrain 쪽 분석은 [`synwoodscape_pretrain_experiment_log.md`](synwoodscape_pretrain_experiment_log.md) §7.
+>
+> ```
+> git log --oneline -1        # HEAD
+> python -m pytest tests/ -q  # 275 passed
+> nvidia-smi                  # GPU0을 쓴다. 다른 사용자와 공유될 때가 있다
+> ```
+>
+> **한 줄 상태**: pretrain(60 epoch)과 fine-tuning ablation 8개를 돌렸다. 지표 확장과 시각화
+> 재작성은 끝났다. fine-tuning은 아직 쓸 만한 상태가 아니다.
 
-## 한 줄 상태
+## 어느 문서를 믿어야 하는가
 
-**3-class 단일 head로 확정, 2-head 제거 완료. 지표 확장(occupied `f1@τ`, range `mae`/`bias`,
-`missed_obstacle_rate`, 거리별 층화)까지 끝냈다. 아직 본학습은 돌리지 않았다.**
+| 문서 | 역할 | 상태 |
+|---|---|---|
+| **[`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md)** | **지금 막힌 곳·실험 기록·다음 단계(§13)·산출물 정리 규약(§14)** | **활성** |
+| [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) | 지표 정의 정본(**§2.8**), loss 배경(§1.7) | 활성 (§1–2.7은 2-head 설계) |
+| [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드 (파일 → 텐서 → 모델 → loss → 지표) | 활성 |
+| [`synwoodscape_pretrain_experiment_log.md`](synwoodscape_pretrain_experiment_log.md) | pretrain 실험 기록. **§7**이 3-class 진단 런 | 활성 |
+| [`finetuning_guide.md`](finetuning_guide.md) | fine-tuning 실행 절차 | 활성 |
+| 이 문서 | 진입점, git/실행 명령, 결정 이력 | 활성 |
+| [`free_space_metric_migration.md`](free_space_metric_migration.md) | 지표 이관의 근거 기록 | 기록용 — **숫자가 옛 split 기준** |
+| `training_guide.md`, `training_improvement_plan.md` | 2-head 시절 문서 | **낡음** — 플래그·경로가 존재하지 않는다 |
+| `next_session_synwoodscape_twohead.md`, `finetuning_preparation.md` | 옛 단계의 인수인계·준비 기록 | 기록용 |
 
-## ▶ 지금 진행 중인 안건: fine-tuning 과적합 진단 결과 처리
+## 지금까지 무엇을 확인했나 (요약)
 
-pretrain(33.5분)과 fine-tuning(60 epoch) 진단 런을 **둘 다 돌렸다.** 결과:
-
-- pretrain 분석: `synwoodscape_pretrain_experiment_log.md` **§7**
-- fine-tuning 분석: **[`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md)**
-
-fine-tuning에서 심각한 과적합이 확인됐고 원인이 셋이다(정규화 부재, `MAX_CLASS_WEIGHT=20`,
-수렴한 pretrain 초기화 가설). **이월 안건이었던 `MAX_CLASS_WEIGHT`가 이제 최우선이 됐다** --
-val `loss_occupied`가 145까지 올라 raw CE 7.25 nats(정답 확률 0.07 %)다. 조치 후보와
-우선순위는 그 문서 §7에 있다. 각 fine-tuning이 10분이라 전부 실측 가능하다.
-
-<details><summary>이전 안건: 진단용 pretrain으로 선택 기준 결정 (완료, 답이 나왔다)</summary>
-
-지표 확장은 **끝났다**(2026-08-18, 커밋 `1703a34`). 남은 것은 하나:
-
-> **어떤 지표로 pretrain의 best epoch을 고를 것인가.**
-
-현재 기준은 `iou_free`인데 SynWoodScape에서 변별력이 좁다(constant-map baseline 0.866,
-2 epoch 모델이 이미 0.951). 원인은 free가 셀의 82%라 레이아웃 prior만으로 대부분 맞는 것이고,
-**새로 넣은 occupied 지표는 그 포화가 없다.** 그래서 두 안건이 하나로 합쳐졌다.
-
-**다음 단계 (합의된 순서):**
-
-1. ~~지표 구현~~ 완료. 전부 보고 전용으로 넣었고 **선택 기준은 아직 `iou_free`다.**
-2. **진단용 pretrain 1회 (약 33분).** `val_freq_epochs=1`이라 60 epoch 전부의 모든 지표가
-   TensorBoard에 찍힌다. 어떤 지표가 포화하고 어떤 게 움직이는지를 추측이 아니라 곡선으로 본다.
-3. 그 데이터로 선택 기준을 결정 → 본학습.
-
-**선택 기준 후보에 대한 현재 판단** (2번의 곡선으로 확정할 것):
-
-- `f1@20cm` (occupied) -- **가장 안전하다.** 분모(`|O_pred|`, `|O_gt|`)가 고정이고 유계다
-- `MAE_range` -- 해석은 가장 직접적이지만 **선택 기준으로는 위험하다.** 표본이 예측에 의존해서
-  (장애물을 놓친 광선이 빠진다) 이 지표로 순위를 매기면 "어려운 광선을 버리는" 체크포인트가
-  유리해진다. 보고용 headline으로는 좋지만 선택은 다른 지표에 맡기는 것이 맞다
-- 원거리 링 `iou_free` -- 추가 비용 0이지만 여전히 free 기준이라 포화 문제를 완전히 벗지 못한다
-
-주의: **선택 기준 변경은 본학습 전에 해야 한다** -- 재채점으로 복구되지 않는 부류다.
-
-**[답] 두 런을 다 돌린 뒤의 결론**: `iou_free`의 선택 폭이 pretrain에서 0.4 %,
-로봇에서 2.1 %(절대 0.0170 < 노이즈 대역 0.02)로 **양쪽 다 부족하다.** 대안은 데이터셋마다
-다르다 -- pretrain은 `range_mae`(140 %)만 살아남고, 로봇은 `fatal_rate`(34.8 %)와
-`f1@20cm`(6.7 %)가 작동한다. `f1@τ`가 SynWoodScape에서 포화하는 이유는 두 데이터셋의
-`occupied`가 다른 물체이기 때문이다(frontier shell 0.0135 대 0.998, §7.3).
-단 pretrain에서는 어느 기준을 써도 epoch 44~52를 고르고 그 체크포인트들이 구별되지 않아
-**재실행은 불필요했다**(epoch 48 사용 중).
-
-</details>
+| 확인한 것 | 결론 | 근거 |
+|---|---|---|
+| 이미지 경로가 정상인가 | **정상.** 이미지를 섞으면 `iou_free` 0.79 → 0.37 | 진단 §11 앞부분, `tools/measure_image_dependence.py` |
+| photometric augmentation | 작지만 일관되게 개선. **채택** | 진단 §8 |
+| weight decay | **막다른 길.** 0.5에서도 train `iou_free` 0.99 | 진단 §10 |
+| SynWoodScape pretrain | **해롭다.** 없이 돌리면 9개 지표 중 7개 우세 | 진단 §11 |
+| 클래스 가중치 상한 | **20도 1도 실패.** 상한을 고르는 문제가 아니다 | 진단 §12 |
+| `iou_free`의 변별력 | pretrain 0.4 %, 로봇 2.1 % -- 양쪽 다 부족 | 진단 §6, pretrain log §7.2 |
 
 ## 브랜치와 git 상태
 
@@ -67,47 +55,53 @@ git branch --show-current
 # feat/bev-free-space-task     <- merge/push는 사용자가 직접 한다 (AGENTS.md)
 ```
 
-```text
-1703a34 Add occupied tolerance F1 and make the range metrics honest             <- HEAD
-b78c6ef Bring the handoff doc up to the current state
-27f555b Document the training pipeline and the open loss questions
-f766026 Clean up the three-class training path before the real run
-1ec89ca Document the three-class training handoff for the next session
-```
-
-워킹트리 clean. 테스트: `python -m pytest tests/ -q` -> **251 passed**, 실패 0.
-
-지표 정의의 정본은 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) **§2.8**이다
-(신규 지표, 실측값, 채택하지 않은 후보와 그 이유, 집계 규칙).
-
-`runs/`에는 `_archive_2-head/`만 있다 -- 본학습 결과물은 아직 하나도 없다.
+워킹트리 clean. `python -m pytest tests/ -q` -> **275 passed**.
 
 ## 지금 바로 돌릴 수 있는 것
 
 ```bash
 conda activate bev-chamdog
+nvidia-smi   # GPU0을 쓴다. 다른 사용자 job과 겹칠 때가 있어 먼저 확인한다
 
-# 1) 3-class pretrain -- 약 33분 (400 train / 100 val, bs16, 60 epoch, 33.2s/epoch 실측)
-bash configs/train_synwoodscape_threeclass_pretrain.sh 2>&1 | tee runs/threeclass_pretrain.log
+# fine-tuning (약 10분). split은 config 기본값이 train 192 / val 75다.
+# INIT_CHECKPOINT는 필수 -- `none`이면 pretrain 없이(ImageNet trunk만) 돌린다.
+#   실측으로 pretrain이 해로웠으므로(진단 §11) 당분간 `none`이 기준선이다.
+EXP_NAME=ft_x AUGMENT=True MAX_CLASS_WEIGHT=1 INIT_CHECKPOINT=none \
+  bash configs/train_robot_bev_finetune.sh 2>&1 | tee runs/console/ft_x.log
 
-# 2) 위에서 나온 best 체크포인트로 fine-tuning -- 약 8분 (190 train / 37 val, bs8, 60 epoch)
-INIT_CHECKPOINT=runs/synwoodscape_threeclass/ckpt/<run>/model_best-<step>.pth \
-  bash configs/train_robot_bev_finetune.sh 2>&1 | tee runs/threeclass_finetune.log
+# 환경변수로 스윕한다 (config 파일을 복사하지 말 것)
+#   AUGMENT | WEIGHT_DECAY | NUM_EPOCHS | MAX_CLASS_WEIGHT | LR
+#   TRAIN_SEQUENCES | VAL_SEQUENCES | INIT_CHECKPOINT
+
+# pretrain (약 25~33분). 지금은 재실행할 이유가 없다 -- epoch 48 체크포인트가 남아 있고
+# 그것을 쓰지 않는 것이 더 낫다는 실측이 있다.
+bash configs/train_synwoodscape_threeclass_pretrain.sh 2>&1 | tee runs/console/pretrain.log
 ```
 
-GPU는 **`CUDA_VISIBLE_DEVICES=0`**을 쓴다 (config 기본값이 이미 0이다). GPU1은 다른 프로세스가
-90GB 가까이 점유하고 있어 쓰면 OOM이 난다.
+**진단 도구:**
 
-**GPU0 점유 상황은 그날그날 다르다.** 이 세션 앞부분에는 다른 사용자의 학습(chamnet)이 GPU0에서
-35~56GB를 쓰고 있었고(우리 pretrain 48GB, 합산 84GB/97.9GB) 그때 epoch 시간이 24.8s ->
-**33.2s**로 늘었다. 세션 뒷부분에는 그 job이 끝나 GPU0이 비었다(888MiB). **돌리기 전에
-`nvidia-smi`로 확인한다** -- 공유 중이면 pretrain 60 epoch을 25분이 아니라 약 33분으로 보고,
-상대 job이 peak를 치면 OOM 위험이 있다.
-(2 epoch 실행으로 실측: pretrain·fine-tuning 모두 정상 완주, fine-tuning의 weight transfer가
-`loaded 668 tensors, skipped 0` -- 3-class pretrain 체크포인트는 출력 head까지 전이된다.
-§8.4가 A/B의 최대 교란으로 지목한 head 전이 비대칭이 본학습에서는 사라진다는 뜻이다.)
+```bash
+# 예측 패널 (2x2, 오차 지도 포함). --sort_by 로 나쁜 순 정렬
+python tools/visualize_robot_predictions.py --ckpt=<...>.pth --sort_by=fatal_rate --limit=6
 
----
+# 모델이 이미지를 쓰고 있는지 (이미지를 섞어 재채점)
+python tools/measure_image_dependence.py --ckpt=<...>.pth
+
+# 저장된 체크포인트를 새 지표로 재채점
+python tools/rescore_checkpoints.py --checkpoint=<...>.pth
+
+# 산출물 정리 (기본 dry-run). 규약은 진단 문서 §14
+python tools/prune_runs.py --pattern='ft_*'
+```
+
+**남아 있는 체크포인트** (주기 저장분은 정리했다):
+
+```
+runs/synwoodscape_threeclass/ckpt/threeclass_pretrain_.../model_best-000000048.pth  # pretrain
+runs/robot_bev/ckpt/ft_scratch_.../model_best-000000051.pth                        # 현재 최고
+runs/robot_bev/ckpt/robot_finetune_.../model_best-000000033.pth                    # 진단 기준선
+runs/robot_bev/ckpt/ft_aug_*, ft_wd*_*                                             # ablation
+```
 
 ## 1. 이번 세션(2026-08-17~18)에 실제로 한 일
 
@@ -195,7 +189,7 @@ GPU는 **`CUDA_VISIBLE_DEVICES=0`**을 쓴다 (config 기본값이 이미 0이�
   바뀐다 -- 실제 라벨(`..._roi_8_4_6_h08`)과 이제 일치한다.
 - **`save_freq_epochs`를 10으로 통일** (pretrain이 5였다). 둘 다 `keep_latest=3`이라 최종
   잔존 체크포인트 수는 원래 같았고, `model_best`는 별도로 항상 저장되므로 판정에 영향 없다.
-- **`runs/`가 `runs/_archive_2-head/`로 옮겨졌다**(사용자가 정리). 그래서
+- **옛 2-head 산출물은 아카이브로 옮겨진 뒤 2026-08-18에 삭제됐다**(재채점 불가). 그래서
   `configs/train_robot_bev_finetune.sh`의 기본 `INIT_CHECKPOINT`가 **죽은 경로**다 --
   `INIT_CHECKPOINT=`를 반드시 넘기거나, 본학습 때 그 기본값을 새 3-class 체크포인트로 갱신한다.
 - **SynWoodScape는 500장이다** (train 400 / val 100). 이전 세션 기록의 "501"은 오기였다.
@@ -330,7 +324,7 @@ range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있�
 
 </details>
 
-### 2.3 [이월] loss / 클래스 가중치 -- 본학습 **뒤에** 볼 것
+### 2.3 [해결됨 2026-08-18] loss / 클래스 가중치
 
 3-class loss의 클래스 가중치는 train split에서 역빈도로 자동 계산되는데, 상한
 `MAX_CLASS_WEIGHT = 20`이 **근거 없는 임의값이면서 실제로 작동 중이다** -- 로봇 train split에서
@@ -341,18 +335,19 @@ range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있�
 (실측 분포표, Simple-BEV 원본과의 차이, 대안 목록, 스윕 계획). 코드 쪽 포인터는
 `projects/common/three_class_metrics.py`의 `MAX_CLASS_WEIGHT` 주석.
 
-**순서상 본학습 뒤다.** 기준 숫자가 없으면 스윕 결과를 판정할 대조군이 없다. 그리고 이것은
-`iou_free`의 **정의**를 건드리지 않으므로 §2.1의 지표 수정과 독립적이다 -- 단 loss를 바꾸면
-재채점이 아니라 재학습이 필요하다.
+> **[답] 본학습을 돌렸고 결론이 나왔다.** 상한을 고르는 문제가 아니다 -- `occupied`가 셀의
+> 1.1 %인데 val loss의 67 %를 만들고, 20은 과신(정답 확률 0.07 %)을, 1은 (일시적) 붕괴를
+> 만든다. 근본 원인은 CE가 **면적** loss인데 `occupied`는 두께 1셀 **표면**이라는 것이다.
+> 다음 단계는 loss 교체다:
+> **[`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §12–§13.**
 
-### 2.4 본학습 -- §2.1(b)의 선택 기준이 정해진 뒤
+### 2.4 [완료] 본학습
 
-명령은 이 문서 맨 위 "지금 바로 돌릴 수 있는 것"에 있다. 합의된 순서:
+pretrain 60 epoch과 fine-tuning ablation 8개를 돌렸다. 결과는 각각
+[`synwoodscape_pretrain_experiment_log.md`](synwoodscape_pretrain_experiment_log.md) §7,
+[`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §8–§12.
 
-1. ~~지표 수정~~ 완료 (`1703a34`)
-2. ~~코드 파악~~ 완료 ([`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md))
-3. **진단용 pretrain 1회** -> 곡선으로 선택 기준 결정
-4. 본학습 (pretrain -> fine-tuning)
+**지금 막힌 곳은 fine-tuning 품질이고, 다음 할 일은 진단 문서 §13이다.**
 
 ---
 
@@ -400,7 +395,8 @@ range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있�
 
 - **코드 정독 가이드**: [`docs/training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md)
   -- 데이터 파일 -> 텐서 -> 모델 -> loss -> 지표 -> 체크포인트 선택. §6에 함정, §7에 읽는 순서.
-- **loss 미해결 항목**: [`docs/BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §1.7
+- **loss 설계 현황과 다음 단계**: [`docs/finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §13
+  (loss 구현의 배경·실측 분포는 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §1.7)
   -- `MAX_CLASS_WEIGHT=20`의 근거 없음, 실측 분포, 대안 목록. §1.1–1.6은 옛 2-head 설계다.
 - **근거 정본**: [`docs/free_space_metric_migration.md`](free_space_metric_migration.md)
   -- §1 진단, §6 2-head 기준선, §7 Task 17, §8 A/B, §9 2-head 제거

@@ -126,7 +126,7 @@ w_occ = torch.clamp(vis_gt, min=0.05) * valid
 
 **(d) Soft/Rigid 분리** — 잎(스쳐도 됨)과 지주대·유인끈(충돌 시 파손)은 밀도가 비슷하지만 물리적 결과가 완전히 다르다. 임계값 하나로는 구분 불가. occupancy를 다중 클래스로 확장하는 것을 검토한다.
 
-### 1.7 현재 구현된 loss와 미해결 항목 (2026-08-18 기록)
+### 1.7 현재 구현된 loss (2026-08-18 기록. 미해결이던 부분은 §1.7 끝에서 해결됨)
 
 > **§1.1–1.6은 2-head(occupancy + visibility) 시절의 설계다.** 그 정식화는 Phase 3 A/B 이후
 > 코드에서 제거됐다([`free_space_metric_migration.md`](free_space_metric_migration.md) §8–9).
@@ -159,7 +159,7 @@ return weights.clamp(max=MAX_CLASS_WEIGHT)       # MAX_CLASS_WEIGHT = 20.0
 유도한 것이 아니라 Lift-Splat-Shoot 논문에서 가져온 상수다(`# value from lift-splat`).
 3-class 역빈도 가중은 이 프로젝트에서 커밋 `e6a2fe0`으로 추가했다.
 
-**미해결: `MAX_CLASS_WEIGHT = 20`의 근거가 없다.**
+**[당시 미해결] `MAX_CLASS_WEIGHT = 20`의 근거가 없다** (이 절 끝의 갱신 블록 참고):
 
 - 역빈도 가중 CE 자체는 semantic segmentation의 표준 처방 중 하나다. 하지만 **순수 역빈도는
   그중 가장 공격적인 축**이고, 실무에서는 median-frequency balancing(SegNet 논문), √역빈도,
@@ -177,6 +177,12 @@ return weights.clamp(max=MAX_CLASS_WEIGHT)       # MAX_CLASS_WEIGHT = 20.0
 - 또 하나: 가중치가 split마다 다시 계산되므로 **train 구성이 바뀌면 loss 균형도 같이 바뀐다.**
   4샘플 overfit run의 `free` 가중치는 7.476, 190샘플 A/B는 3.878로 약 2배 달랐다(§7.2).
   두 run의 loss 값을 직접 비교할 수 없다는 뜻이다.
+
+> **[2026-08-18 갱신] 이 항목은 더 이상 미결이 아니다.** 본학습을 돌렸고 결론이 나왔다:
+> `MAX_CLASS_WEIGHT`는 상한을 고르는 문제가 아니고, CE가 면적 loss인데 `occupied`가 표면이라는
+> 것이 근본 원인이다. 실측과 다음 단계 설계는
+> [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §12–§13이 정본이다.
+> 아래 목록은 그때 세운 후보들로서 남겨 둔다.
 
 **나중에 할 일 (본학습으로 기준 숫자를 확보한 뒤)**
 
@@ -339,7 +345,8 @@ dilation해서 IoU를 안정화하면 지표 문제를 라벨 정의로 감추�
     precision_τ = |{p ∈ O_pred : d(p, O_gt) ≤ τ}| / |O_pred|
     recall_τ    = |{g ∈ O_gt   : d(g, O_pred) ≤ τ}| / |O_gt|
 
-**실측 (로봇 2 epoch fine-tune, val=rawos3, 같은 체크포인트):**
+**실측 (로봇 2 epoch fine-tune, **옛** val=rawos3 기준. split이 바뀌어
+`val = raws1,rawos3`가 됐으므로 새 런과 직접 비교하지 않는다):**
 
 | | 값 |
 |---|---|

@@ -3,6 +3,9 @@
 이 문서는 AI agent와 협업할 때 항상 참고할 **핵심 지침**입니다. 특정 플랫폼에 종속되지 않는 공통 규칙만 둡니다. 상세 내용은 `docs/`의 개별 문서를 필요할 때만 찾아봅니다.
 
 > **현재 작업 인수인계: [`docs/next_session_threeclass_training.md`](docs/next_session_threeclass_training.md)**
+>
+> 지금 막힌 곳과 다음 단계는 [`docs/finetune_overfitting_diagnosis.md`](docs/finetune_overfitting_diagnosis.md) §13.
+> 학습 산출물 정리 규약은 같은 문서 §14 (`tools/prune_runs.py`).
 > — 새 세션을 시작할 때 이 문서를 먼저 읽습니다. 지금 어디까지 됐고 다음에 무엇을 결정해야 하는지가 여기 있습니다.
 
 ## [중요] 소통 규칙

@@ -284,7 +284,7 @@ GPU는 `CUDA_VISIBLE_DEVICES`로 지정한다(config 기본값 0번).
 
 **1위 — `val iou_obstacle`. 사실상 유일한 주 지표다.**
 
-`iou_drivable`은 무시한다. 마스킹된 영역에서 drivable이 92~95%라 "항상 drivable"이
+(옛 `iou_drivable`은 제거됐다 -- 마스킹된 영역에서 drivable이 92~95%라 "항상 drivable"이
 그 값을 그대로 받는다. 배너의 `trivial 'always drivable' baseline IoU`가 그 기준선이고,
 모델이 그보다 낮으면 drivable 쪽은 아무것도 배우지 못한 것이다.
 
@@ -388,8 +388,9 @@ IPM을 넣은 이유가 여기 있다. GT와 예측만 보면 "이 셀이 왜 �
 | 배너에 `train과 크게 다르다` 경고 | split 분포 불일치 | `VAL_SEQUENCES`로 시퀀스 단위 분리 |
 | `false_obstacle`이 높음 | 통로를 장애물로 봄 | 시각화로 위치 확인. pretrain 도메인 갭이면 학습으로 해소됨 |
 | `missed_obstacle`이 높음 | **위험한 방향** | `pos_weight`를 자동값보다 낮춰 obstacle 가중 ↑ |
-| `deploy_visible_coverage` 하락 | visibility head가 도망감 | `lambda_vis` ↑ 또는 `vis_neg_weight` 조정 |
-| `iou_drivable` ≈ trivial baseline | drivable 학습 안 됨 | 정상이다. obstacle IoU만 본다 |
+| `share u/f/o`가 한쪽으로 쏠림 | 클래스 가중치가 학습을 지배 | `MAX_CLASS_WEIGHT` 조정 (진단 §12) |
+| `f1@20cm`은 높은데 `iou_occupied`가 낮음 | 정상이다 -- 예측이 몇 셀 두껍다는 뜻 (진단 §9) |  |
+| `missed_obstacle_rate` 상승 | 장애물을 아예 놓치는 광선이 늘었다 | `range_mae`와 **함께** 읽는다 |
 | 예측이 IPM 통로와 어긋남 | 캘리브레이션 | §2 재검증. 학습 문제가 아니다 |
 | loss는 내려가는데 IoU가 안 오름 | 마스크/좌표 규약 | §2, §3 확인 |
 

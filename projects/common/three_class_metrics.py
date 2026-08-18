@@ -20,14 +20,17 @@ from projects.common.free_space_metrics import free_metrics_from_masks
 CLASS_ORDER = (UNKNOWN, FREE, OCCUPIED)
 _PART_BY_CLASS = {UNKNOWN: "unknown", FREE: "free", OCCUPIED: "occupied"}
 
-# 역빈도 가중치의 상한. **근거가 없는 임의값이고, 실제로 작동 중이다** -- 로봇 train split에서
-# `occupied`를 67.93 -> 20으로 자른다(4샘플 overfit split에서는 ~112 -> 20). 즉 loss 균형을
-# 실질적으로 결정하는 하이퍼파라미터인데 한 번도 실측 검증되지 않았고, 하필 `fatal_rate`
-# (장애물을 free로 오인 -- planner 안전상 가장 비싼 오류)와 직결된다.
+# 역빈도 가중치의 기본 상한. 로봇 train split에서 `occupied`를 67.4 -> 20으로 자른다.
 #
-# 본학습으로 기준 숫자를 확보한 뒤 이 값을 스윕하거나 다른 완화 방식(median-frequency,
-# √/log 역빈도) 또는 다른 loss(Focal, Lovasz-Softmax, Dice)로 바꾸는 것을 검토한다.
-# 배경과 실측값은 `docs/BEV_loss_and_metrics_design.md` §1.7이 정본이다.
+# **2026-08-18 실측 결론: 20은 해롭고, 그렇다고 상한을 고르는 문제도 아니다.**
+# `occupied`는 셀의 1.1 %인데 val loss의 67 %를 만들고, 가중치를 제거한 raw CE가 7.25 nats
+# (정답 클래스 확률 0.07 %)까지 간다 -- 확신을 갖고 틀린다. 반대로 상한 1(가중치 없음)은
+# 초기에 occupied 예측이 붕괴한다. 근본 원인은 CE가 **면적** loss인데 `occupied`는 두께 1셀
+# **표면**이라 셀 단위 정확도가 본질적으로 달성 불가능하다는 것이다.
+#
+# 다음 단계는 상한 스윕이 아니라 loss를 바꾸는 것이다(면적 클래스는 CE, occupied는 거리 항).
+# **정본: `docs/finetune_overfitting_diagnosis.md` §12(실측)·§13(설계).**
+# 호출부는 `max_class_weight=`로 이 값을 덮어쓸 수 있다(`1`이면 가중치 없음).
 MAX_CLASS_WEIGHT = 20.0
 
 

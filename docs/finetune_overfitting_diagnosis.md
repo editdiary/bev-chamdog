@@ -318,3 +318,155 @@ ImageNet trunk만으로 더 잘된다는 것은 SynWoodScape pretrain이 **추�
   모두 pretrain 초기화였으므로 상대 비교로서는 유효하다. 다만 두 수치 모두 지금은 낡았다.
 - **핸드오프의 "pretrain -> fine-tuning" 학습 순서 자체가 재검토 대상이 됐다.** pretrain 진단
   (§7)에서 얻은 결론(체크포인트 선택 기준 등)은 pretrain을 계속 쓴다는 전제에 있다.
+
+---
+
+## 12. 클래스 가중치의 실제 병리 -- 셀 비율과 loss 기여도
+
+| | 셀 비율 (`valid` 안) | 가중치 | **총 loss 기여 (val)** |
+|---|---|---|---|
+| unknown | 78.5 % | 1.0 | 14 % |
+| free | 20.4 % | 3.85 | 19 % |
+| **occupied** | **1.1 %** | **20.0** | **67 %** |
+
+(train에서는 occupied가 21 %. 즉 **val loss 곡선은 사실상 occupied 항이다.**)
+
+`val loss_occupied` 145.0을 가중치로 나누면 raw CE 7.25 nats이고, 정답 클래스에 준 확률이
+**0.07 %**다. 단순히 틀린 것이 아니라 확신을 갖고 틀린다.
+
+로그에 `share u/f/o`를 추가한 이유가 이것이다 -- 클래스별 평균(`loss_*`)만으로는 "셀의 1.1 %가
+loss의 67 %"라는 사실이 보이지 않아 셀 비율을 손으로 곱해야 알 수 있었다.
+
+### 12.1 상한 스윕 -- 양쪽 끝이 모두 실패한다
+
+`MAX_CLASS_WEIGHT=1`(= 가중치 없음, 한 번도 돌린 적 없는 기준선)을 44 epoch까지 돌린 부분 결과
+(사용자가 자리를 비우게 되어 중단):
+
+| | val `loss_occupied` | share u/f/o | `f1@20cm` | `f1@10cm` | `iou_free` |
+|---|---|---|---|---|---|
+| 가중치 20 (scratch+aug) | 145 계열 | 0.14/0.19/**0.67** | **0.8227** | **0.6182** | 0.7979 |
+| **가중치 1** (ep44, 미완) | **3.8** | 0.55/0.31/**0.15** | 0.768 | 0.549 | **0.799** |
+
+- 가중치 1이 `iou_free`로는 지금까지 최고이고 `loss_occupied`가 38배 줄어든다.
+- epoch 3에서 occupied가 붕괴했다가(`f1@10cm` 0.030) ep44에 0.549로 **회복한다** -- 붕괴는
+  일시적이었다. 그 붕괴를 잡아낸 것은 `f1@τ`다. `iou_free`만 보면 0.759로 정상이었다.
+- 다만 `f1@20cm`은 0.768 대 0.823으로 가중치를 준 쪽이 낫다. 공짜가 아니라 trade다.
+
+**결론: 상한을 고르는 문제가 아니다.** 20은 과신을, 1은 (일시적) 붕괴를 만든다.
+
+---
+
+## 13. 다음 세션에서 할 일 -- loss를 표면에 맞게 바꾼다
+
+### 13.1 진단: CE는 면적 loss인데 `occupied`는 표면이다
+
+CE는 **셀마다 한 번씩 더하는** loss라 각 클래스가 받는 gradient 총량이 셀 개수에 비례한다.
+클래스 가중치는 그 크기를 곱해 바꾸지만 **목적함수의 성질은 그대로다** -- 여전히 "셀 단위로
+정확히 맞춰라"를 요구한다.
+
+그런데 GT `occupied`는 **두께 1셀 frontier**이고(실측 shell 비율 0.998) 그 정확한 위치는
+raycast 세부에 달려 있어 **본질적으로 맞출 수 없다.** 시각화가 이를 확인했다: `iou_occ` 0.09
+대 `f1@40cm` 0.92 -- 예측이 틀린 위치에 있는 것이 아니라 **두껍다**(§9).
+
+**즉 줄일 수 없는 오차에 가중치를 곱하고 있고, 어떤 가중치도 이것을 고치지 못한다.**
+
+그리고 더 큰 비일관성이 있다: **지표는 고쳤는데 loss는 안 고쳤다.** `iou_obstacle`을 버리고
+`f1@τ`를 넣은 이유가 "두께 1셀 표면에 면적 겹침을 쓰면 안 된다"였는데, loss는 여전히 셀 단위
+정확도를 요구한다. **모델은 우리가 명시적으로 "잘못된 측정"이라고 결론 낸 것을 최적화하고 있다.**
+
+### 13.2 (C) 채택 -- 역할을 분리한 복합 loss  ← **먼저 할 것**
+
+- `free`/`unknown`은 **면적**이다 -> CE가 맞는 도구
+- `occupied`는 **표면**이다 -> 거리 항이 맞는 도구
+
+```
+L = CE_3class(가중치 상한 1, 즉 가중치 없음)  +  lambda * L_boundary(occupied)
+
+L_boundary = mean over cells [ p_occupied(x) * d(x, O_gt) ]
+```
+
+`d(x, O_gt)`는 GT occupied 집합까지의 거리(m). 예측 occupied가 GT 근처면 비용 ≈ 0, 멀수록 선형
+증가 -- **`f1@τ`가 재는 것의 미분 가능한 짝이다.** CE가 분할 일관성과 recall 압력을,
+boundary 항이 "허용오차를 갖는 precision"을 담당한다.
+
+문헌 근거: **Boundary loss** (Kervadec et al., MIDL 2019). "얇고 작은 구조에서 region 기반
+loss가 실패한다"는 문제를 위해 설계된 것으로 우리 상황과 정확히 일치한다.
+
+구현 범위:
+
+1. GT occupied 거리 맵을 데이터셋에서 계산해 배치에 실어 보낸다.
+   `scipy.ndimage.distance_transform_edt(~occupied, sampling=cell_m)` -- 120x120에서 무시할
+   비용이고, **GT가 고정이므로 캐시/사전계산도 가능하다.**
+   `projects/common/occupied_metrics.py`의 `_distance_field_m`가 이미 같은 계산을 한다
+   (거리장 정의가 갈리지 않도록 그 함수를 재사용할 것).
+2. `compute_three_class_loss`에 boundary 항 추가 + `--lambda_boundary` 플래그.
+   `loss_parts`에 `loss_boundary`와 `share_boundary`를 함께 내놓는다.
+3. `--max_class_weight` 기본값을 **1로 내린다**(실측이 20보다 낫다고 말한다). 단 pretrain은
+   클래스 분포가 다르므로(free 83 %) 별도 판단이 필요하다.
+4. 단위 테스트: 완벽 예측에서 0인지, τ 안 이동에 둔감하고 멀어질수록 증가하는지,
+   `sampling=cell_m`을 빼면 깨지는지(스케일), 그리고 변이를 실제로 넣어 확인.
+
+판정 기준: `f1@10cm`/`f1@20cm`(occupied 기하), `fatal_rate`(안전), `range_mae`, 그리고
+`share u/f/o`가 한쪽으로 쏠리지 않는지.
+
+### 13.3 (D) 그다음 -- `occupied`를 예측 클래스에서 뺀다
+
+`free` vs `not-free` 이진으로 예측하고 장애물 경계는 **예측된 free 영역의 경계**로 유도한다.
+1 %짜리 클래스가 아예 사라진다.
+
+정합성 근거: M3는 이미 occupied와 unknown을 동일하게 취급하고(광선이 첫 non-free에서 멈춤),
+`iou_free`/`fatal_rate`/`free_miss_rate`도 전부 free 기준이다. occupied가 필요한 지표는
+`iou_occupied`(보고용)와 `f1@τ`뿐이고 둘 다 예측 free의 경계에서 유도할 수 있다.
+
+비용: 출력에서 "왜 못 가는가"(장애물인가 미관측인가)를 구별할 수 없어진다. 그리고 3-class
+결정(§8 A/B)을 되돌리는 것이다. **(C)를 먼저 판정한 뒤에 비교군으로 돌린다.**
+
+### 13.4 이 세션에서 정리해 둔 것
+
+- `--max_class_weight`가 CLI/환경변수로 노출됐다(`MAX_CLASS_WEIGHT`). `1`이면 가중치 없음.
+- `--weight_decay`, `--num_epochs`도 config에서 노출됐다.
+- `INIT_CHECKPOINT=none`이 "pretrain 없이"로 동작한다(`from_scratch`).
+- `keep_checkpoints` 기본값 6 -- 옛 `keep_latest=3`은 유효 구간을 지웠다(§5).
+- 로그에 `share u/f/o`가 찍힌다.
+- `tools/prune_runs.py`로 산출물을 정리한다(§14).
+
+---
+
+## 14. 산출물 정리 규약
+
+체크포인트 하나가 약 465 MB, 한 런이 주기 6개 + best 1개 = **약 3.2 GB**다. ablation을 몇 번만
+돌려도 수십 GB가 된다(이 세션에서 8개 런 = 22 GB).
+
+**남기는 것 / 지우는 것:**
+
+| | 정책 | 이유 |
+|---|---|---|
+| TensorBoard 이벤트 | **항상 남긴다** | 수십 KB인데 실험의 결론이 전부 여기 있다 |
+| `split_*.txt` | 남긴다 | 그 런이 쓴 샘플 목록. 작다 |
+| `model_best-*.pth` | 기본적으로 남긴다 | 재채점·시각화가 이것만 필요로 한다 |
+| `model-*.pth` (주기) | **조사가 끝나면 지운다** | 곡선이 남아 있으면 다시 볼 일이 없다 |
+| 콘솔 로그(`*.log`) | `runs/console/`에 모은다 | `runs/` 최상위가 지저분해진다 |
+
+```bash
+python tools/prune_runs.py --pattern='ft_*'            # dry-run (기본). 무엇이 지워지나
+python tools/prune_runs.py --pattern='ft_*' --apply    # 실제 삭제
+python tools/prune_runs.py --pattern='ft_cw*' --apply --keep_best=False   # 런을 통째로 버릴 때
+```
+
+**주의: `model_best`는 재학습 말고는 복구 수단이 없다.** 그래서 선택 규칙을 코드로 고정하고
+테스트로 못박았다(`tests/tools/test_prune_runs.py`) -- 특히 `model_best-`가 `model`로 시작하므로
+접두사 검사 순서가 뒤바뀌면 best가 주기 저장으로 분류되어 삭제된다.
+
+**2026-08-18 정리 결과: 50 GB -> 3.7 GB.** ablation 런들의 주기 체크포인트를 지우고(TB 로그와
+`model_best`는 남김), 사용자 결정으로 `runs/_archive_2-head/`(25 GB)를 삭제했다 -- 2-head 코드가
+제거되어 **재채점이 불가능한** 산출물이었고, 그 런들의 숫자는
+`free_space_metric_migration.md` §6·§8에 이미 기록돼 있다.
+
+남은 3.7 GB의 구성:
+
+```
+runs/synwoodscape_threeclass/ckpt/.../model_best-000000048.pth   # pretrain
+runs/robot_bev/ckpt/<8개 런>/model_best-*.pth                    # fine-tuning ablation
+runs/robot_bev/logs/, runs/synwoodscape_threeclass/logs/          # TensorBoard (작다)
+runs/console/                                                    # tee로 남긴 콘솔 로그
+```
