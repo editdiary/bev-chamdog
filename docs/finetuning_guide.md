@@ -223,12 +223,15 @@ occupancy loss가 덮는 셀이 줄어든다. raws1 전체 기준:
 ### 4.1 명령어
 
 ```bash
-# 시퀀스가 2개 이상 — 이것이 정상 경로
-TRAIN_SEQUENCES=raws1,raws2,raws3,rawos1,rawos4 VAL_SEQUENCES=rawos3 \
+# 정상 경로 -- split은 config 기본값이 이미 아래와 같으므로 체크포인트만 넘기면 된다.
+#   train = raws2,raws3,rawos1,rawos2,rawos4  (192 frames)
+#   val   = raws1,rawos3                      (75 frames)
+INIT_CHECKPOINT=runs/synwoodscape_threeclass/ckpt/<run>/model_best-<step>.pth \
   bash configs/train_robot_bev_finetune.sh
 
-# 시퀀스가 하나뿐일 때만 (임시)
-bash configs/train_robot_bev_finetune.sh
+# split을 바꿔 볼 때만 명시한다
+TRAIN_SEQUENCES=raws2,raws3,rawos1,rawos2,rawos4 VAL_SEQUENCES=raws1,rawos3 \
+  INIT_CHECKPOINT=<...>.pth bash configs/train_robot_bev_finetune.sh
 
 # 한 값만 바꾸는 스윕 -- config 파일을 복사하지 말 것.
 # 나머지 인자가 한 곳에만 있어야 두 런이 정말 같은 조건인지 확인할 수 있다.
@@ -242,12 +245,12 @@ GPU는 `CUDA_VISIBLE_DEVICES`로 지정한다(config 기본값 0번).
 
 | 환경변수 | 기본값 | 언제 바꾸나 |
 |---|---|---|
-| `TRAIN_SEQUENCES` | `raws1,raws2,raws3,rawos1,rawos4` | 시퀀스 추가할 때마다 |
-| `VAL_SEQUENCES` | `rawos3` | **시퀀스가 2개 이상이면 반드시 지정** |
+| `TRAIN_SEQUENCES` | `raws2,raws3,rawos1,rawos2,rawos4` (192) | 시퀀스 추가할 때마다 |
+| `VAL_SEQUENCES` | `raws1,rawos3` (75) | split을 바꿀 때만 |
 | `VAL_TAIL_FRACTION` | `0.2` | `VAL_SEQUENCES`가 있으면 무시된다 |
 | `LR` | `1e-4` | 과적합이 심하면 `3e-5` |
 | `AUGMENT` | `False` | 광도 증강. train/val 격차가 클 때 후보 |
-| `INIT_CHECKPOINT` | pretrain best | pretrain을 다시 돌렸다면 갱신 |
+| `INIT_CHECKPOINT` | **없음 (필수)** | 안 넘기면 스크립트가 즉시 에러를 낸다 |
 
 ### 4.3 split 전략 — 가장 중요한 결정
 

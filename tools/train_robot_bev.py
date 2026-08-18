@@ -12,7 +12,7 @@ SynWoodScape pretrain(`tools/train_synwoodscape.py`)과 지표·로깅을 공유
 
 실행 예:
     CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py \\
-        --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3 \\
+        --train_sequences=raws2,raws3,rawos1,rawos2,rawos4 --val_sequences=raws1,rawos3 \\
         --init_checkpoint=<pretrain best>.pth
 """
 import sys
@@ -127,8 +127,8 @@ def _baseline_iou_free(val_samples, permanent_blind, invalid, constant_map, devi
 
 def main(
     exp_name="robot_finetune",
-    train_sequences="raws1,raws2,raws3,rawos1,rawos4",
-    val_sequences="rawos3",
+    train_sequences="raws2,raws3,rawos1,rawos2,rawos4",
+    val_sequences="raws1,rawos3",
     val_tail_fraction=0.0,  # val 시퀀스가 없을 때만 쓰는 임시 holdout (시퀀스 뒤쪽 연속 구간)
     init_checkpoint=None,
     num_epochs=60,

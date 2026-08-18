@@ -11,7 +11,7 @@
 실행:
     CUDA_VISIBLE_DEVICES=0 python tools/rescore_checkpoints.py \\
         --checkpoint=runs/robot_bev/ckpt/<run>/model_best-000000030.pth \\
-        --train_sequences=raws1,raws2,raws3,rawos1,rawos4 --val_sequences=rawos3
+        --train_sequences=raws2,raws3,rawos1,rawos2,rawos4 --val_sequences=raws1,rawos3
 """
 import sys
 from pathlib import Path
@@ -186,8 +186,8 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
 
 def main(
     checkpoint,
-    train_sequences="raws1,raws2,raws3,rawos1,rawos4",
-    val_sequences="rawos3",
+    train_sequences="raws2,raws3,rawos1,rawos2,rawos4",
+    val_sequences="raws1,rawos3",
     dataset_root=DEFAULT_DATASET_ROOT,
     common_root=DEFAULT_COMMON_ROOT,
     encoder_type="res101",

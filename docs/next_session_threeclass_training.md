@@ -341,7 +341,11 @@ range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있�
 - GPU는 **`CUDA_VISIBLE_DEVICES=0`**. GPU1은 점유 중이다.
 - **실측 없이 숫자를 적지 않는다.** 게이트/판정 결과는 명령 출력을 문서에 붙여 남긴다.
 - 커밋 메시지는 **영어**, 코드 주석·문서는 **한국어**(주변 스타일).
-- 로봇 split은 별도 지시 없으면 `train = raws1,raws2,raws3,rawos1,rawos4`, `val = rawos3`.
+- 로봇 split은 별도 지시 없으면 **`train = raws2,raws3,rawos1,rawos2,rawos4`(192프레임),
+  `val = raws1,rawos3`(75프레임)**. 2026-08-18에 사용자가 `rawos2`(40프레임)를 추가하고
+  `raws1`을 val로 옮겼다. **이 문서와 `free_space_metric_migration.md`에 기록된 로봇 숫자는
+  전부 옛 `val = rawos3` 37프레임 기준이라 새 split의 값과 직접 비교할 수 없다** --
+  constant-map baseline(0.398)도 train split이 바뀌었으므로 다시 실측된다.
 
 ## 4. 판정을 읽을 때 계속 유효한 주의사항
 
