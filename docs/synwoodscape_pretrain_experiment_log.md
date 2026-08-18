@@ -391,7 +391,7 @@ d0e089a Separate valid mask from visibility, add deployment metrics
 
 ---
 
-## 7. 3-class 진단용 pretrain (2026-08-18, 커밋 `7109945`)
+## 7. 3-class 진단용 pretrain (2026-08-18, 커밋 `ca954e3`)
 
 **목적**: 본학습이 아니라 **어떤 지표로 best epoch을 고를지 결정하기 위한 진단 런**이다.
 확장된 지표(occupied `f1@τ`, `range_mae`/`bias`, `missed_obstacle_rate`, 거리별 층화)가

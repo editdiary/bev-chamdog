@@ -157,7 +157,7 @@ return weights.clamp(max=MAX_CLASS_WEIGHT)       # MAX_CLASS_WEIGHT = 20.0
 **이 로직은 Simple-BEV 원본이 아니다.** 원본 `train_nuscenes.py:361`은
 `SimpleLoss(2.13)` — 이진 BCE에 스칼라 `pos_weight` 하나를 하드코딩하고, 그 값도 데이터에서
 유도한 것이 아니라 Lift-Splat-Shoot 논문에서 가져온 상수다(`# value from lift-splat`).
-3-class 역빈도 가중은 이 프로젝트에서 커밋 `e6a2fe0`으로 추가했다.
+3-class 역빈도 가중은 이 프로젝트에서 커밋 `dd3d474`으로 추가했다.
 
 **[당시 미해결] `MAX_CLASS_WEIGHT = 20`의 근거가 없다** (이 절 끝의 갱신 블록 참고):
 

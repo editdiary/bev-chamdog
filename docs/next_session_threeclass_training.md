@@ -105,7 +105,7 @@ runs/robot_bev/ckpt/ft_aug_*, ft_wd*_*                                          
 
 ## 1. 이번 세션(2026-08-17~18)에 실제로 한 일
 
-### 1.1 Task 17 -- 4샘플 overfit 게이트 (커밋 `6d0febf`)
+### 1.1 Task 17 -- 4샘플 overfit 게이트 (커밋 `0bb113c`)
 
 3-class head/loss/라벨 변환 배선이 학습 신호를 흘리는지 확인하는 게이트. 세 구성 전부 통과:
 
@@ -121,7 +121,7 @@ runs/robot_bev/ckpt/ft_aug_*, ft_wd*_*                                          
 2000 epoch으로 올렸는데, 200으로 충분했고 from scratch가 오히려 빨랐다. 4장 암기에서는 pretrain
 가중치가 제약으로 작동한다. **재실행할 일이 있으면 계획서 원본 명령 그대로가 맞다.**
 
-### 1.2 Task 18 -- 2-head vs 3-class A/B (커밋 `c306411`)
+### 1.2 Task 18 -- 2-head vs 3-class A/B (커밋 `0bb113c`)
 
 `--head`와 loss만 바꾸고 나머지를 전부 고정해 3-class만 새로 학습, Task 13의 2-head 기준선과 대조.
 인자를 하나씩 대조해 조건 일치를 확인했다(§8.1).
@@ -143,7 +143,7 @@ runs/robot_bev/ckpt/ft_aug_*, ft_wd*_*                                          
 기여하는 유일한 지표가 그것이고, planner 안전 관점에서 비싼 오류다. `free_miss_rate`가 반대로
 개선된 것과 합쳐 읽으면 free에 대한 precision/recall 교환이다.
 
-### 1.3 3-class pretrain 지원 + 2-head 전면 제거 (커밋 `78e1fa1`, 사용자 지시)
+### 1.3 3-class pretrain 지원 + 2-head 전면 제거 (커밋 `6ec96ee`, 사용자 지시)
 
 사용자가 "앞으로 3-class로만 학습·테스트한다"고 결정 -> 2-head 전부 삭제를 선택했다.
 
@@ -260,7 +260,7 @@ run-to-run 잡음과 같은 자릿수일 가능성이 크다.**
 **[2026-08-18 진행] 지표 확장으로 이 문제의 해결 경로가 생겼다.**
 
 원인이 "free가 셀의 82%라 레이아웃 prior만으로 맞는다"는 것이므로, **occupied를 재는 지표는
-그 포화가 없다.** 그래서 커밋 `1703a34`에서 occupied `f1@τ`, range `mae`/`bias`,
+그 포화가 없다.** 그래서 커밋 `4f71565`에서 occupied `f1@τ`, range `mae`/`bias`,
 `missed_obstacle_rate`, 거리별 층화를 넣었다(정의와 실측은
 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §2.8).
 
