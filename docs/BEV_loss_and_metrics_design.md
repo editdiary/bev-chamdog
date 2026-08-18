@@ -307,6 +307,102 @@ traj_recall = (occ_p[t][future_traj_cells] > 0.5).mean()
 
 이 지표의 특별한 가치는 **라벨 품질과 독립적**이라는 점이다. 라벨 파이프라인 자체에 버그가 있어도 (슬래브 높이 오설정, raycasting 오류, map drift) 이 지표는 그것을 잡아낸다. 라벨과 모델을 동시에 검증하는 유일한 수단이므로, 배포 전 필수 항목으로 둔다.
 
+### 2.8 현재 구현된 지표 집합 (2026-08-18 확장) — 이 절이 코드의 정본이다
+
+위 §2.1–2.7은 2-head 시절의 **설계** 문서다. 실제로 코드가 계산하는 것은 아래다.
+`docs/free_space_metric_migration.md`가 M1–M4가 왜 이 형태인지의 근거 정본이고, 여기서는
+2026-08-18에 추가된 것과 그 이유를 적는다.
+
+| 지표 | 코드 | 역할 |
+|---|---|---|
+| `iou_free` (M1) | `free_space_metrics.iou_free` | **체크포인트 선택 기준.** 주 지표 |
+| `fatal_rate` (M2) | 같은 모듈 | 1 − precision(free). "믿은 영역의 오류율" |
+| `free_miss_rate` (M2b) | 같은 모듈 | 1 − recall(free). 보수성 |
+| `range_*` (M3) | `range_error` | 방위각별 첫 장애물 거리 오차 `dr = r_pred − r_gt` |
+| ring별 M1·M2 (M4) | `metrics_per_ring` | 셀을 거리 링으로 나눈 재측정 |
+| **`f1@τ`** (신규) | `occupied_metrics.py` | **occupied 전용.** τ = 10/20/40 cm |
+| **`range_mae` / `bias`** (신규) | `_delta_stats` | 평균 절대오차와 순수 편향 |
+| **`missed_obstacle_rate`** (신규) | `_delta_rates` | M3 표본에서 빠진 광선의 비율 |
+| **거리별 `range_mae`** (신규) | `summarize_range_error_by_gt_range` | 광선을 `r_gt`로 층화 |
+| **`iou_occupied` / `iou_unknown` / `iou_free_known`** (신규) | `free_metrics_from_masks` | 보고 전용 비교값 |
+
+#### (a) 왜 `f1@τ`를 추가했는가 — 가장 큰 구멍이었다
+
+`iou_obstacle`을 버린 뒤(두께 1셀 표면에 IoU를 씌우면 한 칸 밀리는 것만으로 반토막, §1
+진단에서 0.312가 frontier 규칙 0.473에 졌다) **occupied를 직접 재는 지표가 하나도 없었다.**
+M1/M2/M2b는 전부 free 기준이고 M3는 방위각마다 첫 경계 하나만 본다.
+
+해결 방향은 라벨을 두껍게 만드는 것이 아니라 **지표에 거리 허용오차를 주는 것**이다. GT를
+dilation해서 IoU를 안정화하면 지표 문제를 라벨 정의로 감추는 셈이 되고, GT 두께가 센서·맵
+구축의 물리적 정의를 벗어난다.
+
+    precision_τ = |{p ∈ O_pred : d(p, O_gt) ≤ τ}| / |O_pred|
+    recall_τ    = |{g ∈ O_gt   : d(g, O_pred) ≤ τ}| / |O_gt|
+
+**실측 (로봇 2 epoch fine-tune, val=rawos3, 같은 체크포인트):**
+
+| | 값 |
+|---|---|
+| `iou_occupied` | **0.063** |
+| `f1@10cm` | 0.449 (precision 0.334 / recall 0.683) |
+| `f1@20cm` | **0.665** (precision 0.565 / recall 0.808) |
+| `f1@40cm` | 0.843 (precision 0.801 / recall 0.889) |
+
+면적 IoU 0.063과 `f1@20cm` 0.665의 격차가 이 지표를 넣은 이유 그대로다 — "몇 셀 밀렸다"와
+"장애물을 못 찾았다"를 면적 IoU는 구별하지 못한다. precision(0.565) < recall(0.808)이라
+모델이 occupied를 과잉 예측하고 있다는 방향까지 읽힌다.
+
+#### (b) M3의 표본 선택 효과 — `missed_obstacle_rate`가 필수다
+
+회귀 통계는 GT와 예측이 **둘 다** `RAY_OK`인 광선만 쓴다(censored를 `r_max`로 대체해 섞으면
+통계가 그 상수에 눌린다). 그래서 **장애물을 완전히 놓친 광선은 표본에서 빠지고, 많이 놓치면
+`mae`가 오히려 좋아진다.** 이것은 이 프로젝트가 처음에 잡은 결함(`iou_drivable`이 레이아웃
+prior를 재고 있었다)과 같은 부류다 — 분모/표본 선택이 지표를 실제 위험과 반대로 움직인다.
+
+`missed_obstacle_rate` = (GT는 `RAY_OK`, 예측은 `RAY_CENSORED`) / (GT가 `RAY_OK`). 로봇
+2 epoch에서 **0.069** (834/12070 광선)다. `RAY_NO_FREE` 예측은 세지 않는다 — 그건 "전부
+막혔다고 봤다"는 과잉 보수로 비용의 종류가 정반대다. 로그에서 `mae` 바로 옆에 붙여 둔다.
+
+#### (c) 부호 규약 — 문헌과 반대다
+
+`dr > 0`은 **장애물을 실제보다 멀다고 예측 = free의 과대추정 = 위험한 쪽**이고 코드에서
+`over_*`다. 여러 문헌은 같은 사건을 "장애물의 과소추정(over-estimation of free는 아님)"이라
+부르므로 `over`/`under`라는 단어만 옮겨 읽으면 부호가 뒤집힌다. `bias = mean(dr)`이 그
+방향을 한 숫자로 보여준다: SynWoodScape pretrain은 −0.794(보수적), 로봇 fine-tune은
++0.047(약간 낙관적)로 **두 데이터셋에서 부호가 반대**다.
+
+#### (d) `iou_free_known` — 두 데이터셋에서 다르게 움직인다
+
+`valid`를 GT가 관측한 셀(free ∪ occupied)로 더 좁힌 `iou_free`다. `iou_free`는 unknown
+셀까지 분모에 넣으므로 "가려진 곳을 unknown이라 맞히는 능력"이 섞인다.
+
+- SynWoodScape pretrain: `iou_free` 0.855 = `iou_free_known` 0.855 (**완전 일치**).
+  `fatal_rate`가 0.000이면 `pred_free ⊆ gt_free`이므로 unknown 영역에 free 예측이 없어
+  정의상 같아진다. 즉 일치는 버그가 아니라 보수적 예측의 결과다.
+- 로봇 fine-tune: `iou_free` 0.751 대 `iou_free_known` 0.882 (**+0.131**). 여기서는
+  unknown 영역에서의 free 오예측이 `iou_free`를 실제로 끌어내리고 있다.
+
+어느 쪽을 주 지표로 둘지는 **본학습 곡선을 보고** 결정한다. 정의를 바꾸는 것은 재채점으로
+복구되지 않는 부류다.
+
+#### (e) 채택하지 않은 후보
+
+| 후보 | 판정 |
+|---|---|
+| `RMSE_range` | **거부.** "큰 오차 벌주기"는 `abs_p90`이 이미 하고, censoring으로 표본 구성이 흔들리는 상황에서 RMSE는 불안정하다. 둘을 다 두면 서로 다른 말을 할 때 판단 규칙이 없다 |
+| Chamfer distance | **거부.** EDT에서 공짜로 나오지만 상한이 없고 한쪽 집합이 비면 정의가 깨진다. `f1@τ`가 같은 정보를 유계로 준다 |
+| HD95 | **보류.** 역시 공짜지만 이 숫자로 바꿀 행동이 없다. 필요해지면 1줄 |
+| occupied PR curve / AP | **보류.** 결정 규칙이 3-class argmax이고 배포도 그렇다. threshold 스윕은 배포와 다른 것을 잰다 |
+| GT dilation | **거부.** 지표 문제를 라벨 정의로 감추는 것 (위 (a)) |
+
+#### (f) 집계 규칙 — batch-size 불변이 계약이다
+
+`f1@τ`는 **카운트를 모아 마지막에 한 번 나눈다**(micro-average). 배치별 F1을 평균하면
+프레임당 occupied 셀 수가 수십 배 차이 나므로 batch 크기에 따라 값이 달라진다. 백분위수에서
+이미 같은 함정을 한 번 밟았다(§9.4). `missed_obstacle_rate`도 합산 카운트에서 재계산한다.
+거리별 층화는 **`r_gt`로** 묶는다 — `r_pred`로 묶으면 구간 정의가 모델에 따라 움직여 run 간
+비교가 무의미해진다.
+
 ---
 
 ## 3. 흔히 놓치는 함정

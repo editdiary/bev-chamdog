@@ -84,7 +84,7 @@ def test_free_metrics_from_masks_is_the_shared_aggregator():
     valid = torch.ones_like(occ)
     gt_parts = decompose(occ, vis, valid)
 
-    result = free_metrics_from_masks(gt_parts["free"], gt_parts, valid)
+    result = free_metrics_from_masks(gt_parts, gt_parts, valid)
 
     assert result["iou_free"] == pytest.approx(1.0)
     assert result["partition_defects"] == 0
@@ -130,11 +130,24 @@ def test_free_metrics_from_masks_wires_every_key_correctly():
     pred_free = torch.tensor(
         [[[[True, True, False, False], [True, False, False, False]]]]
     )
+    # 나머지 칸은 occupied/unknown으로 채워 예측도 완전한 분할이 되게 한다.
+    #     pred_occupied = {5, 6, 7},  pred_unknown = {2, 3}
+    # `iou_occupied`는 inter {5,6,7}=3 / union {4,5,6,7}=4 = 0.75로 `iou_free`(0.4)와 값이
+    # 달라, free와 occupied 배선이 뒤바뀌면 이 테스트가 깨진다.
+    pred_occupied = torch.tensor(
+        [[[[False, False, False, False], [False, True, True, True]]]]
+    )
+    pred_unknown = torch.tensor(
+        [[[[False, False, True, True], [False, False, False, False]]]]
+    )
+    pred_parts = {"free": pred_free, "occupied": pred_occupied, "unknown": pred_unknown}
 
-    result = free_metrics_from_masks(pred_free, gt_parts, valid)
+    result = free_metrics_from_masks(pred_parts, gt_parts, valid)
 
     assert result["iou_free"] == pytest.approx(0.4)
     assert result["iou_free_count"] == 1
+    assert result["iou_occupied"] == pytest.approx(0.75)
+    assert result["iou_occupied_count"] == 1
     assert result["fatal_rate"] == pytest.approx(1 / 3)
     assert result["fatal_denom"] == 3
     assert result["free_miss_rate"] == pytest.approx(0.5)
@@ -142,12 +155,63 @@ def test_free_metrics_from_masks_wires_every_key_correctly():
     assert result["partition_defects"] == 0
     assert torch.equal(result["pred_free"], pred_free)
     assert torch.equal(result["gt_free"], gt_parts["free"])
+    assert torch.equal(result["pred_occupied"], pred_occupied)
+    assert torch.equal(result["gt_occupied"], gt_parts["occupied"])
+
+
+def test_iou_free_known_excludes_the_cells_the_gt_never_observed():
+    """`iou_free_known`은 `valid`를 GT가 관측한 셀(free ∪ occupied)로 더 좁힌 `iou_free`다.
+
+    두 지표가 같은 값이면 아무것도 분리하지 못하므로, GT에 unknown이 있고 예측이 그 안에서
+    free를 틀리는 배치를 만든다.
+
+    격자 4칸, valid=1:
+        vis      = [T, T, F, F]        -> gt_unknown = {2, 3}
+        occ      = [T, F, T, T]        -> gt_free = {0}, gt_occupied = {1}
+        pred_free = [T, F, T, F]
+
+    `iou_free` (valid 전체 4칸):
+        inter = {0}                 -> 1
+        union = {0, 2}              -> 2        -> 0.5
+    `iou_free_known` (known = {0, 1}만):
+        inter = {0}                 -> 1
+        union = {0}                 -> 1        -> 1.0
+    즉 unknown 영역에서 free를 잘못 예측한 셀(2번)이 known 지표에서는 빠진다. 0.5 != 1.0이라
+    `known` 마스크를 빼먹으면 반드시 깨진다.
+    """
+    from projects.common.free_space import decompose
+    from projects.common.free_space_metrics import free_metrics_from_masks
+
+    occ = torch.tensor([[[[1.0, 0.0, 1.0, 1.0]]]])
+    vis = torch.tensor([[[[1.0, 1.0, 0.0, 0.0]]]])
+    valid = torch.ones_like(occ)
+    gt_parts = decompose(occ, vis, valid)
+
+    pred_free = torch.tensor([[[[True, False, True, False]]]])
+    pred_parts = {
+        "free": pred_free,
+        "occupied": torch.tensor([[[[False, True, False, False]]]]),
+        "unknown": torch.tensor([[[[False, False, False, True]]]]),
+    }
+
+    result = free_metrics_from_masks(pred_parts, gt_parts, valid)
+
+    assert result["iou_free"] == pytest.approx(0.5)
+    assert result["iou_free_known"] == pytest.approx(1.0)
+    # gt_unknown = {2, 3}, pred_unknown = {3} -> inter 1 / union 2
+    assert result["iou_unknown"] == pytest.approx(0.5)
 
 
 import numpy as np
 
 from projects.bev_gt.grid import OccupancyGridSpec
-from projects.common.free_space_metrics import _delta_stats, range_error, summarize_range_error
+from projects.common.free_space_metrics import (
+    _delta_rates,
+    _delta_stats,
+    range_error,
+    summarize_range_error,
+    summarize_range_error_by_gt_range,
+)
 from projects.common.polar import build_ray_index
 
 RANGE_SPEC = OccupancyGridSpec(front_m=1.0, rear_m=1.0, half_width_m=1.0, cell_m=0.05)
@@ -197,21 +261,32 @@ def test_censored_rays_are_counted_but_excluded_from_the_regression():
     assert math.isnan(result["abs_p50"])
 
 
-def _range_batch(deltas):
+def _range_batch(deltas, *, missed_obstacle=0):
     """`range_error`가 돌려주는 것과 **같은 키를 전부** 갖는 batch 결과 하나를 만든다.
 
     batch별 통계(`abs_p50` 등)까지 채우는 것이 중요하다 -- 이게 없으면 옛 구현(batch별 값을
     가중평균)으로 되돌렸을 때 테스트가 값이 틀려서가 아니라 `KeyError`로 죽어서, 실제로
     무엇을 검증하는지 알 수 없게 된다.
+
+    `missed_obstacle`은 짝지어지지 않은(=회귀 통계에 없는) 광선이므로 `ok_gt`에는 더해지되
+    `deltas`에는 들어가지 않는다 -- 실제 `range_error`가 세는 방식과 같다.
     """
     delta = np.asarray(deltas, dtype=float)
-    return {
-        "deltas": delta,
-        **_delta_stats(delta),
+    counts = {
         "n_paired_rays": delta.size,
         "over_count": int((delta > 0).sum()),
         "under_count": int((delta < 0).sum()),
         "censored_gt": 0, "censored_pred": 0, "no_free_gt": 0,
+        # 짝지어진 광선은 정의상 GT가 RAY_OK이고, 놓친 광선도 GT는 OK다.
+        "ok_gt": delta.size + missed_obstacle, "missed_obstacle": missed_obstacle,
+    }
+    return {
+        "deltas": delta,
+        # GT 거리를 짝지어 보관하는 것도 계약이다 -- 거리별 층화가 이 배열을 쓴다.
+        "gt_ranges": np.full(delta.shape, 1.0),
+        **_delta_stats(delta),
+        **counts,
+        **_delta_rates(counts),
     }
 
 
@@ -369,3 +444,153 @@ def test_ring_masks_assign_front_m_to_rows_and_half_width_m_to_cols():
     assert inner_mask[5, 1]
     # row/col을 뒤바꾸면 origin이 (1.5, 5.5)가 되어 이 셀까지 거리가 ≈2.85m로 늘어나
     # 0.0-0.5m 링 밖으로 밀려난다 -- 이 assert 하나로 뒤바뀜을 잡는다.
+
+
+def _open_to_grid_edge():
+    """전방이 격자 끝까지 열려 있는 예측 -- 전방 광선이 `RAY_CENSORED`가 된다.
+
+    `_forward_corridor(19)`가 정확히 그 경계다(실측 확인: status 0 -> 2로 바뀐다).
+    """
+    return _forward_corridor(19)
+
+
+def test_mae_and_bias_pin_the_sign_convention_of_the_range_error():
+    """`bias > 0` = 장애물을 실제보다 **멀다**고 예측 = free의 과대추정 = 위험한 쪽.
+
+    다른 문헌은 같은 사건을 "장애물의 과소추정"이라 부르므로, 부호 규약을 코드 밖에서
+    옮겨 읽으면 뒤집힌다. 그래서 두 방향을 각각 고정한다.
+
+    전방 광선만 `RAY_OK`인 격자를 쓴다(나머지 세 방향은 free가 없어 `RAY_NO_FREE`):
+        gt corridor(6)  -> r_gt   = 0.35 m
+        pred corridor(10) -> r_pred = 0.55 m     -> dr = +0.20  (멀다고 예측)
+    """
+    valid = torch.ones_like(_forward_corridor(6))
+    rays = build_ray_index(RANGE_SPEC, n_theta=4)
+
+    too_far = range_error(_forward_corridor(10), _forward_corridor(6), valid, rays)
+    assert too_far["mae"] == pytest.approx(0.2, abs=RANGE_SPEC.cell_m)
+    assert too_far["bias"] == pytest.approx(0.2, abs=RANGE_SPEC.cell_m)
+
+    too_near = range_error(_forward_corridor(6), _forward_corridor(10), valid, rays)
+    assert too_near["mae"] == pytest.approx(0.2, abs=RANGE_SPEC.cell_m)
+    # mae는 같고 bias만 부호가 뒤집힌다 -- 절댓값만 보면 두 실패가 구별되지 않는다.
+    assert too_near["bias"] == pytest.approx(-0.2, abs=RANGE_SPEC.cell_m)
+
+
+def test_missed_obstacle_rate_counts_the_rays_the_regression_silently_drops():
+    """거리 통계가 정직하지 않을 수 있는 지점. GT에는 장애물이 있는데 예측이 격자 끝까지
+    free라고 보면(=완전히 놓쳤다) 그 광선은 `RAY_CENSORED`가 되어 **회귀 통계에서 빠진다.**
+
+    즉 이 배치에서 모델은 최대로 틀렸는데 `mae`는 nan이다. `missed_obstacle_rate`가 1.0으로
+    그 사실을 드러내야 한다. 이 숫자가 없으면 "mae가 좋아졌다"를 혼자 읽게 된다.
+    """
+    valid = torch.ones_like(_forward_corridor(6))
+    rays = build_ray_index(RANGE_SPEC, n_theta=4)
+
+    result = range_error(_open_to_grid_edge(), _forward_corridor(6), valid, rays)
+
+    assert result["ok_gt"] == 1
+    assert result["missed_obstacle"] == 1
+    assert result["missed_obstacle_rate"] == pytest.approx(1.0)
+    assert result["n_paired_rays"] == 0
+    assert math.isnan(result["mae"])
+
+
+def test_a_perfect_mae_can_coexist_with_missed_obstacles():
+    """앞 테스트를 강화한다: 한 샘플은 완벽히 맞히고 다른 샘플은 통째로 놓치면
+    `mae`는 0.000인데 절반의 광선을 놓친 상태다. 두 숫자를 항상 같이 읽어야 하는 이유다.
+    """
+    gt = torch.cat([_forward_corridor(6), _forward_corridor(6)])
+    pred = torch.cat([_forward_corridor(6), _open_to_grid_edge()])
+    rays = build_ray_index(RANGE_SPEC, n_theta=4)
+
+    result = range_error(pred, gt, torch.ones_like(gt), rays)
+
+    assert result["mae"] == pytest.approx(0.0)
+    assert result["missed_obstacle_rate"] == pytest.approx(0.5)
+
+
+def test_range_error_stratified_by_gt_range_uses_the_gt_distance_not_the_prediction():
+    """거리별 층화는 **GT 거리**로 묶는다 -- 예측 거리로 묶으면 구간 정의가 모델에 따라
+    움직여 run 간 비교가 무의미해진다.
+
+    샘플 두 장, 전방 광선만 `RAY_OK`:
+        A: gt corridor(4)  r_gt 0.25 m, pred corridor(6)  -> dr = +0.10
+        B: gt corridor(16) r_gt 0.85 m, pred corridor(16) -> dr =  0.00
+    경계 (0, 0.5, 1.0)이면 A는 근거리 구간, B는 원거리 구간에 들어간다. 예측 거리로 묶으면
+    A의 r_pred가 0.35라 여전히 근거리 구간이므로, 이 테스트만으로는 GT/예측 구분이 안 된다 --
+    그래서 예측을 원거리로 크게 밀어 구간이 바뀌는 경우를 아래에서 따로 본다.
+    """
+    gt = torch.cat([_forward_corridor(4), _forward_corridor(16)])
+    pred = torch.cat([_forward_corridor(6), _forward_corridor(16)])
+    rays = build_ray_index(RANGE_SPEC, n_theta=4)
+
+    result = range_error(pred, gt, torch.ones_like(gt), rays)
+    bins = summarize_range_error_by_gt_range([result], (0.0, 0.5, 1.0))
+
+    assert bins["0.0-0.5m"]["mae"] == pytest.approx(0.1, abs=1e-9)
+    assert bins["0.0-0.5m"]["n_paired_rays"] == 1
+    assert bins["0.5-1.0m"]["mae"] == pytest.approx(0.0)
+    assert bins["0.5-1.0m"]["n_paired_rays"] == 1
+
+
+def test_stratification_bin_membership_follows_the_gt_even_when_the_prediction_is_far_off():
+    """근거리 장애물을 원거리로 예측한 광선은 **근거리 구간**에 들어가야 한다.
+
+        gt corridor(4)   r_gt   = 0.25 m   -> 0.0-0.5m 구간
+        pred corridor(16) r_pred = 0.85 m  -> 예측으로 묶으면 0.5-1.0m 구간
+
+    예측 거리로 묶는 구현이면 근거리 구간이 비고 원거리 구간에 0.6 m 오차가 찍힌다.
+    """
+    gt = _forward_corridor(4)
+    pred = _forward_corridor(16)
+    rays = build_ray_index(RANGE_SPEC, n_theta=4)
+
+    bins = summarize_range_error_by_gt_range(
+        [range_error(pred, gt, torch.ones_like(gt), rays)], (0.0, 0.5, 1.0)
+    )
+
+    assert bins["0.0-0.5m"]["n_paired_rays"] == 1
+    assert bins["0.0-0.5m"]["mae"] == pytest.approx(0.6, abs=RANGE_SPEC.cell_m)
+    assert bins["0.5-1.0m"]["n_paired_rays"] == 0
+    assert math.isnan(bins["0.5-1.0m"]["mae"])
+
+
+def test_predicting_everything_blocked_is_not_counted_as_a_missed_obstacle():
+    """예측에 free가 전혀 없는 광선(`RAY_NO_FREE`)은 "놓쳤다"가 아니다.
+
+    그건 "전부 막혔다고 봤다"는 과잉 보수라서 비용의 종류가 정반대다 -- planner를 세울 뿐
+    위험하게 만들지 않는다. 두 실패를 한 숫자에 합치면 `missed_obstacle_rate`가 "위험한
+    실패율"이라는 의미를 잃는다.
+
+    GT는 전방 광선이 `RAY_OK`이고, 예측은 free가 한 칸도 없어 같은 광선이 `RAY_NO_FREE`다.
+    """
+    gt = _forward_corridor(6)
+    pred = torch.zeros_like(gt)
+    rays = build_ray_index(RANGE_SPEC, n_theta=4)
+
+    result = range_error(pred, gt, torch.ones_like(gt), rays)
+
+    assert result["ok_gt"] == 1
+    assert result["missed_obstacle"] == 0
+    assert result["missed_obstacle_rate"] == pytest.approx(0.0)
+    assert result["n_paired_rays"] == 0
+
+
+def test_summarize_recomputes_the_missed_rate_from_the_summed_counts():
+    """비율은 batch별로 평균낼 수 없다 -- 합산된 카운트에서 다시 계산해야 batch-size 불변이다.
+
+        batch A: ok_gt 1, missed 1   -> 비율 1.0
+        batch B: ok_gt 9, missed 0   -> 비율 0.0
+        카운트 합산: 1 / 10 = 0.1  (참값)
+        batch별 단순 평균: (1.0 + 0.0) / 2 = 0.5   <- 참값의 5배
+    """
+    merged = summarize_range_error([
+        _range_batch([], missed_obstacle=1),
+        _range_batch([0.0] * 9),
+    ])
+
+    assert merged["ok_gt"] == 10
+    assert merged["missed_obstacle"] == 1
+    assert merged["missed_obstacle_rate"] == pytest.approx(0.1)
+    assert merged["missed_obstacle_rate"] != pytest.approx(0.5)

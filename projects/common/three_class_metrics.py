@@ -78,7 +78,7 @@ def compute_free_metrics(logits, seg_g, vis_g, valid_g) -> dict:
     """Convert 3-class logits to free-space metrics with the shared aggregator."""
     gt = decompose(seg_g, vis_g, valid_g)
     pred = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid_g)
-    return free_metrics_from_masks(pred["free"], gt, valid_g)
+    return free_metrics_from_masks(pred, gt, valid_g)
 
 
 def run_batch(model, batch, vox_util, class_weights, device):

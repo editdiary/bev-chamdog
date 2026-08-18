@@ -213,33 +213,55 @@ pred = decompose_from_class_index(logits.argmax(dim=1), valid_g)   # pred["free"
 
 ### 5.1 매 배치 (train + val) — `free_space_metrics.py`
 
-| 지표 | 정의 | 코드 |
+| 지표 | 정의 | 비고 |
 |---|---|---|
-| `iou_free` ↑ | **샘플별** IoU의 평균. union=0인 샘플은 평균에서 제외 | `:27` |
-| `fatal_rate` ↓ | `\|pred_free & ~gt_free\| / \|pred_free\|` = **1 − precision**. "갈 수 있다고 믿은 곳 중 틀린 비율" | `:52` |
-| `free_miss_rate` ↓ | `\|~pred_free & gt_free\| / \|gt_free\|` = **1 − recall**. 보수성(정보 낭비) | `:64` |
+| `iou_free` ↑ | **샘플별** IoU의 평균. union=0인 샘플은 평균에서 제외 | **체크포인트 선택 기준** |
+| `fatal_rate` ↓ | `\|pred_free & ~gt_free\| / \|pred_free\|` = **1 − precision**. "갈 수 있다고 믿은 곳 중 틀린 비율" | |
+| `free_miss_rate` ↓ | `\|~pred_free & gt_free\| / \|gt_free\|` = **1 − recall**. 보수성(정보 낭비) | |
+| `iou_free_known` ↑ | `valid`를 GT 관측 영역(free ∪ occupied)으로 좁힌 `iou_free` | 보고 전용 |
+| `iou_occupied` ↑ | occupied 면적 IoU | 보고 전용. **선택에 쓰지 않는다** |
+| `iou_unknown` ↑ | unknown 면적 IoU | 보고 전용 |
 
-epoch 집계는 단순 평균이 아니라 **count 가중 평균**이다(`bev_occupancy_metrics.py:310`).
-배치마다 분모가 다르기 때문이다.
+전부 `free_metrics_from_masks` 한 곳에서 나온다. epoch 집계는 단순 평균이 아니라 **count 가중
+평균**이고, IoU마다 count가 **다르다** — 그 클래스가 없는 샘플이 지표별로 다르게 빠지기 때문이다.
 
-`fatal_rate`의 분모를 `|pred_free|`로 잡은 이유는 `:55-57`에 있다 — `|~free_gt|`로 잡으면
+`fatal_rate`의 분모를 `|pred_free|`로 잡은 이유는 코드 주석에 있다 — `|~free_gt|`로 잡으면
 분모가 격자의 83%라 값이 항상 작아 변별력이 없다(같은 체크포인트에서 0.0113 vs 0.0587).
 
-### 5.2 val에서만 — `bev_occupancy_metrics.py:245` `evaluate_split`
+`iou_occupied`는 **두께 1셀 표면에 면적 IoU를 씌운 것**이라 신뢰하면 안 된다. 로봇 2 epoch
+실측에서 0.063이었고 같은 체크포인트의 `f1@20cm`은 0.665다. 문헌 비교용으로만 남겨 둔다.
 
-train에서 안 하는 이유: 광선 루프가 CPU numpy라 매 스텝 돌리면 병목이 된다.
+### 5.2 val에서만 — `bev_occupancy_metrics.py` `evaluate_split`
 
-**M3 range error** (`free_space_metrics.py:103` + `polar.py`)
+train에서 안 하는 이유: 광선 루프와 거리변환이 CPU numpy라 매 스텝 돌리면 병목이 된다.
+
+**M3 range error** (`free_space_metrics.py` `range_error` + `polar.py`)
 720개 방위각(`DEFAULT_N_THETA=720`)으로 광선을 쏴 각 방향의 "첫 free 이후 첫 non-free까지의
 거리" `r(θ)`를 구하고, `dr = r_pred − r_gt`를 모은다. **GT와 예측이 둘 다 `RAY_OK`인 광선만**
 넣는다 — censored(격자 끝까지 free)를 r_max로 대체해 섞으면 통계가 그 상수에 눌린다.
 
-- `abs_p50` / `abs_p90`: `|dr|`의 50 / 90 백분위수 (m). **거리 오차의 대푯값과 꼬리**
-- `over_mean`: `dr > 0`인 광선들의 평균 = "통로가 실제보다 길다" = **안전 실패 방향**
-- `under_mean`: `dr < 0`인 광선들의 평균 = 과보수
+- `mae`: `|dr|`의 평균 (m). 단위가 meter라 해석이 직접적이다
+- `abs_p50` / `abs_p90`: `|dr|`의 50 / 90 백분위수. 실측 분포가 꼬리가 두꺼워
+  (로봇에서 p50 0.150 대 p90 0.610) 평균과 백분위수를 **같이** 본다
+- `bias`: `mean(dr)`. **`> 0`이면 장애물을 실제보다 멀다고 예측 = free 과대추정 = 위험한 쪽**
+- `over_mean` / `under_mean`: 부호별 조건부 평균(둘 다 양수 크기)
+- `missed_obstacle_rate`: **이 지표 없이 위 숫자들을 읽으면 안 된다.** 장애물을 완전히 놓친
+  광선(`RAY_CENSORED` 예측)은 위 통계의 표본에서 빠지므로, 많이 놓치면 `mae`가 **좋아진다**.
+  로봇 2 epoch에서 0.069 (834/12070 광선)
 
-**M4 ring** (`:190`) 거리 링별 `iou_free`/`fatal_rate`. `valid`에 링 마스크를 곱해 같은 함수를
-재사용한다. pretrain은 `(0,2,4,6,8) m`, 로봇은 `(0,1.5,3,4) m`.
+**거리별 `range_mae`** (`summarize_range_error_by_gt_range`) 광선을 그 광선의 **`r_gt`로**
+층화한다. `r_pred`로 묶으면 구간 정의가 모델에 따라 움직여 run 간 비교가 안 된다. M4와 다른
+것을 재는 이유: 광선 하나는 여러 링을 지나므로 셀 마스크로는 나눌 수 없다.
+로봇 2 epoch 실측: 0.276 / 0.242 / **0.457** m — 원거리 링이 1.9배 나쁘다.
+
+**M4 ring** (`metrics_per_ring`) 거리 링별 `iou_free`/`fatal_rate`. `valid`에 링 마스크를 곱해
+같은 함수를 재사용한다. pretrain은 `(0,2,4,6,8) m`, 로봇은 `(0,1.5,3,4) m`.
+
+**occupied `f1@τ`** (`occupied_metrics.py`) τ = 10/20/40 cm. 예측/GT occupied 각각에서 상대
+집합까지의 거리변환(`scipy.ndimage.distance_transform_edt`, `sampling=cell_m`)을 만들고 τ
+이내를 맞은 것으로 센다. **카운트를 모아 마지막에 한 번 나눈다**(micro-average) — 배치별 F1을
+평균하면 프레임당 occupied 셀 수가 수십 배 차이 나 batch 크기에 값이 딸려 간다.
+정의와 실측은 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §2.8이 정본이다.
 
 ### 5.3 체크포인트 선택
 

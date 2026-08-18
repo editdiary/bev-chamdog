@@ -17,6 +17,7 @@ from projects.common.bev_occupancy_metrics import (
     append_free_metrics,
     mean_loss_parts,
     summarize_free_metrics,
+    write_epoch_scalars,
 )
 from tools.train_synwoodscape import format_epoch_log, weighted_mean
 
@@ -156,16 +157,31 @@ def test_mean_loss_parts_of_an_empty_epoch_is_empty():
 
 
 def test_summarize_free_metrics_weights_iou_by_sample_count():
+    # IoU마다 count가 **다르다** -- 클래스가 없는 샘플이 지표별로 다르게 빠지므로, 하나의
+    # count로 전부 가중하면(또는 batch 수로 나누면) 값이 틀린다. 그걸 잡으려고 일부러
+    # `iou_occupied`의 count를 다르게 둔다.
     dicts = [
-        {"iou_free": 0.8, "iou_free_count": 3, "fatal_rate": 0.1, "fatal_denom": 100,
+        {"iou_free": 0.8, "iou_free_count": 3,
+         "iou_free_known": 0.9, "iou_free_known_count": 3,
+         "iou_occupied": 0.2, "iou_occupied_count": 1,
+         "iou_unknown": 0.7, "iou_unknown_count": 3,
+         "fatal_rate": 0.1, "fatal_denom": 100,
          "free_miss_rate": 0.2, "free_miss_denom": 10, "partition_defects": 0},
-        {"iou_free": 0.4, "iou_free_count": 1, "fatal_rate": 0.5, "fatal_denom": 100,
+        {"iou_free": 0.4, "iou_free_count": 1,
+         "iou_free_known": 0.5, "iou_free_known_count": 1,
+         "iou_occupied": 0.6, "iou_occupied_count": 3,
+         "iou_unknown": 0.3, "iou_unknown_count": 1,
+         "fatal_rate": 0.5, "fatal_denom": 100,
          "free_miss_rate": 0.6, "free_miss_denom": 90, "partition_defects": 0},
     ]
 
     merged = summarize_free_metrics(dicts)
 
     assert merged["iou_free"] == pytest.approx((0.8 * 3 + 0.4 * 1) / 4)
+    assert merged["iou_free_known"] == pytest.approx((0.9 * 3 + 0.5 * 1) / 4)
+    # count가 뒤바뀌면 (0.2*3 + 0.6*1)/4 = 0.30이 되므로 0.50과 구별된다.
+    assert merged["iou_occupied"] == pytest.approx((0.2 * 1 + 0.6 * 3) / 4)
+    assert merged["iou_unknown"] == pytest.approx((0.7 * 3 + 0.3 * 1) / 4)
     assert merged["fatal_rate"] == pytest.approx(0.3)
     assert merged["free_miss_rate"] == pytest.approx((0.2 * 10 + 0.6 * 90) / 100)
 
@@ -181,20 +197,25 @@ def test_append_free_metrics_drops_batch_masks_before_epoch_accumulation():
     gt_free = torch.zeros_like(pred_free)
     batches = []
 
-    append_free_metrics(batches, {
+    scalars = {
         "iou_free": 0.5, "iou_free_count": 1,
+        "iou_free_known": 0.6, "iou_free_known_count": 1,
+        "iou_occupied": 0.1, "iou_occupied_count": 1,
+        "iou_unknown": 0.4, "iou_unknown_count": 1,
         "fatal_rate": 0.25, "fatal_denom": 4,
         "free_miss_rate": 0.75, "free_miss_denom": 2,
         "partition_defects": 0,
+    }
+
+    append_free_metrics(batches, {
+        **scalars,
+        # 마스크는 4개 전부 버려져야 한다 -- epoch 내내 들고 있으면 240x240 bool이
+        # 배치 수만큼 쌓인다.
         "pred_free": pred_free, "gt_free": gt_free,
+        "pred_occupied": pred_free, "gt_occupied": gt_free,
     })
 
-    assert batches == [{
-        "iou_free": 0.5, "iou_free_count": 1,
-        "fatal_rate": 0.25, "fatal_denom": 4,
-        "free_miss_rate": 0.75, "free_miss_denom": 2,
-        "partition_defects": 0,
-    }]
+    assert batches == [scalars]
 
 
 def test_epoch_log_shows_iou_free_with_the_baseline_delta():
@@ -250,3 +271,98 @@ def test_epoch_log_flags_a_broken_partition_loudly():
     )
 
     assert "partition" in text.lower()
+
+
+class _ScalarWriter:
+    def __init__(self):
+        self.scalars = []
+
+    def add_scalar(self, tag, value, step):
+        self.scalars.append((tag, value, step))
+
+
+def _tags(writer):
+    return [tag for tag, _, _ in writer.scalars]
+
+
+def test_epoch_scalars_write_each_class_loss_term():
+    """세 클래스 loss 항이 각각 별도 tag로 나가야 한다 -- 총 loss만 보면 unknown이 셀의 85%를
+    차지하는 데이터에서 occupied 항이 언제 죽었는지 알 수 없다."""
+    writer = _ScalarWriter()
+
+    write_epoch_scalars(writer, "train", {
+        "loss": 1.0,
+        "loss_parts": {"loss_unknown": 0.4, "loss_free": 0.2, "loss_occupied": 0.3},
+    }, epoch=4)
+
+    assert writer.scalars == [
+        ("train/loss_epoch", 1.0, 4),
+        ("train/loss_unknown_epoch", 0.4, 4),
+        ("train/loss_free_epoch", 0.2, 4),
+        ("train/loss_occupied_epoch", 0.3, 4),
+    ]
+
+
+def test_epoch_scalars_skip_non_finite_values():
+    """val을 돌리지 않은 epoch은 loss가 NaN이다. TensorBoard에 NaN을 쓰면
+    `NaN or Inf found` 경고가 나고 그래프가 끊긴다 (Task 16에서 실제로 겪었다)."""
+    writer = _ScalarWriter()
+
+    write_epoch_scalars(writer, "train", {
+        "loss": float("nan"),
+        "loss_parts": {"loss_unknown": float("nan"), "loss_free": 0.5},
+    }, epoch=4)
+
+    assert writer.scalars == [("train/loss_free_epoch", 0.5, 4)]
+
+
+def test_epoch_scalars_write_every_metric_family_for_a_validation_epoch():
+    """지표를 하나 추가하고 writer 배선을 잊으면 TensorBoard에 관측값이 없다 -- 학습을 33분
+    돌린 뒤에야 알게 되는 종류의 누락이라 여기서 계약으로 고정한다."""
+    writer = _ScalarWriter()
+
+    write_epoch_scalars(writer, "val", {
+        "loss": 1.0,
+        "loss_parts": {},
+        "free": {"iou_free": 0.8, "iou_free_known": 0.9, "iou_occupied": 0.3,
+                 "iou_unknown": 0.7, "fatal_rate": 0.1, "free_miss_rate": 0.2},
+        "range": {"mae": 0.25, "abs_p50": 0.3, "abs_p90": 0.6, "bias": -0.05,
+                  "over_mean": 0.2, "under_mean": 0.1, "missed_obstacle_rate": 0.04},
+        "range_bins": {"0.0-1.5m": {"mae": 0.1}},
+        "rings": {"0.0-1.5m": {"iou_free": 0.9}},
+        "tolerance": {"20cm": {"f1": 0.5, "precision": 0.6, "recall": 0.4}},
+    }, epoch=4)
+
+    assert _tags(writer) == [
+        "val/loss_epoch",
+        "val/iou_free_epoch", "val/iou_free_known_epoch",
+        "val/iou_occupied_epoch", "val/iou_unknown_epoch",
+        "val/fatal_rate_epoch", "val/free_miss_rate_epoch",
+        "val/range_mae_epoch", "val/range_abs_p50_epoch", "val/range_abs_p90_epoch",
+        "val/range_bias_epoch", "val/range_over_epoch", "val/range_under_epoch",
+        "val/range_missed_obstacle_rate_epoch",
+        "val/range_mae_0.0-1.5m_epoch",
+        "val/ring_0.0-1.5m_iou_free_epoch",
+        "val/occupied_f1_20cm_epoch",
+        "val/occupied_precision_20cm_epoch",
+        "val/occupied_recall_20cm_epoch",
+    ]
+
+
+def test_epoch_scalars_of_a_train_epoch_skip_the_val_only_families():
+    """train dict에는 range/ring/tolerance 키가 아예 없다 -- 광선·거리변환은 val에서만 돈다.
+    `.get()`이 아니라 `[]`로 읽는 순간 학습 첫 epoch에서 KeyError로 죽는다."""
+    writer = _ScalarWriter()
+
+    write_epoch_scalars(writer, "train", {
+        "loss": 1.0, "loss_parts": {},
+        "free": {"iou_free": 0.8, "iou_free_known": 0.9, "iou_occupied": 0.3,
+                 "iou_unknown": 0.7, "fatal_rate": 0.1, "free_miss_rate": 0.2},
+    }, epoch=4)
+
+    assert _tags(writer) == [
+        "train/loss_epoch",
+        "train/iou_free_epoch", "train/iou_free_known_epoch",
+        "train/iou_occupied_epoch", "train/iou_unknown_epoch",
+        "train/fatal_rate_epoch", "train/free_miss_rate_epoch",
+    ]

@@ -6,8 +6,6 @@ import torch
 
 from tools.train_robot_bev import (
     _baseline_iou_free,
-    _write_epoch_metric_scalars,
-    _write_free_space_scalars,
     compute_label_statistics,
 )
 
@@ -96,80 +94,14 @@ def test_constant_map_baseline_scores_masked_validation_free_space_on_cpu(tmp_pa
     assert score == pytest.approx(0.625)
 
 
-class _ScalarWriter:
-    def __init__(self):
-        self.scalars = []
-
-    def add_scalar(self, tag, value, step):
-        self.scalars.append((tag, value, step))
-
-
-def test_free_space_scalars_include_train_free_and_validation_range_and_rings():
-    """free/range/ring metrics가 writer 경로에서 빠지면 TensorBoard에 관측값이 없다."""
-    writer = _ScalarWriter()
-    free = {"iou_free": 0.8, "fatal_rate": 0.1, "free_miss_rate": 0.2}
-    range_metrics = {"abs_p50": 0.3, "abs_p90": 0.6, "over_mean": 0.2, "under_mean": 0.1}
-    rings = {"0-1m": {"iou_free": 0.9}}
-
-    _write_free_space_scalars(writer, "train", free, epoch=4)
-    _write_free_space_scalars(writer, "val", free, epoch=4,
-                              range_metrics=range_metrics, ring_metrics=rings)
-
-    assert writer.scalars == [
-        ("train/iou_free_epoch", 0.8, 4),
-        ("train/fatal_rate_epoch", 0.1, 4),
-        ("train/free_miss_rate_epoch", 0.2, 4),
-        ("val/iou_free_epoch", 0.8, 4),
-        ("val/fatal_rate_epoch", 0.1, 4),
-        ("val/free_miss_rate_epoch", 0.2, 4),
-        ("val/range_abs_p50_epoch", 0.3, 4),
-        ("val/range_abs_p90_epoch", 0.6, 4),
-        ("val/range_over_epoch", 0.2, 4),
-        ("val/range_under_epoch", 0.1, 4),
-        ("val/ring_0-1m_iou_free_epoch", 0.9, 4),
-    ]
-
-
-def test_epoch_metric_scalars_write_each_class_loss_term():
-    """세 클래스 loss 항이 각각 별도 tag로 나가야 한다 -- 총 loss만 보면 unknown이 셀의 85%를
-    차지하는 데이터에서 occupied 항이 언제 죽었는지 알 수 없다."""
-    writer = _ScalarWriter()
-    metrics = {
-        "loss": 1.0,
-        "loss_parts": {"loss_unknown": 0.4, "loss_free": 0.2, "loss_occupied": 0.3},
-    }
-
-    _write_epoch_metric_scalars(writer, "train", metrics, epoch=4)
-
-    assert writer.scalars == [
-        ("train/loss_epoch", 1.0, 4),
-        ("train/loss_unknown_epoch", 0.4, 4),
-        ("train/loss_free_epoch", 0.2, 4),
-        ("train/loss_occupied_epoch", 0.3, 4),
-    ]
-
-
-def test_epoch_metric_scalars_skip_non_finite_values():
-    """val을 돌리지 않은 epoch은 loss가 NaN이다. TensorBoard에 NaN을 쓰면
-    `NaN or Inf found` 경고가 나고 그래프가 끊긴다 (Task 16에서 실제로 겪었다)."""
-    writer = _ScalarWriter()
-    metrics = {
-        "loss": float("nan"),
-        "loss_parts": {"loss_unknown": float("nan"), "loss_free": 0.5},
-    }
-
-    _write_epoch_metric_scalars(writer, "train", metrics, epoch=4)
-
-    assert writer.scalars == [("train/loss_free_epoch", 0.5, 4)]
-
-
 def test_empty_epoch_metrics_matches_the_evaluate_split_contract():
     """val을 건너뛴 epoch의 자리표시자가 `evaluate_split` 반환과 키가 같아야 한다 --
     다르면 로그 포매터나 scalar writer가 KeyError로 죽는다."""
     from projects.common.bev_occupancy_metrics import empty_epoch_metrics, evaluate_split
 
     empty = empty_epoch_metrics()
-    real = evaluate_split(lambda batch: None, [], "cpu", rays=None, ring_masks=[])
+    real = evaluate_split(lambda batch: None, [], "cpu", rays=None, ring_masks=[],
+                          cell_m=0.05, range_edges_m=(0.0, 1.0))
 
     assert set(empty) == set(real)
 

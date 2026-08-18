@@ -40,7 +40,11 @@ from projects.common.three_class_metrics import (  # noqa: E402
     run_batch as three_class_run_batch,
 )
 from projects.common.free_space import decompose  # noqa: E402
-from projects.common.free_space_metrics import build_ring_masks, iou_free  # noqa: E402
+from projects.common.free_space_metrics import (  # noqa: E402
+    DEFAULT_RING_EDGES_M,
+    build_ring_masks,
+    iou_free,
+)
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.common.bev_occupancy_metrics import (  # noqa: E402
     _Ansi,
@@ -54,6 +58,7 @@ from projects.common.bev_occupancy_metrics import (  # noqa: E402
     select_checkpoint_score,
     summarize_free_metrics,
     weighted_mean,
+    write_epoch_scalars,
 )
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
@@ -118,36 +123,6 @@ def _baseline_iou_free(val_samples, permanent_blind, invalid, constant_map, devi
         values.append(value)
         counts.append(count)
     return weighted_mean(values, counts)
-
-
-def _write_free_space_scalars(writer, split, free_metrics, epoch, *,
-                              range_metrics=None, ring_metrics=None):
-    """free-space epoch scalar를 기록한다; range/ring은 validation에서만 넘긴다."""
-    for key, tb in (("iou_free", "iou_free_epoch"),
-                    ("fatal_rate", "fatal_rate_epoch"),
-                    ("free_miss_rate", "free_miss_rate_epoch")):
-        _write_scalar_if_finite(writer, f"{split}/{tb}", free_metrics[key], epoch)
-    if range_metrics is not None:
-        for key, tb in (("abs_p50", "range_abs_p50_epoch"),
-                        ("abs_p90", "range_abs_p90_epoch"),
-                        ("over_mean", "range_over_epoch"),
-                        ("under_mean", "range_under_epoch")):
-            _write_scalar_if_finite(writer, f"{split}/{tb}", range_metrics[key], epoch)
-    for name, values in (ring_metrics or {}).items():
-        _write_scalar_if_finite(writer, f"{split}/ring_{name}_iou_free_epoch", values["iou_free"], epoch)
-
-
-def _write_scalar_if_finite(writer, tag, value, step):
-    if np.isfinite(float(value)):
-        writer.add_scalar(tag, value, step)
-
-
-def _write_epoch_metric_scalars(writer, split, metrics, epoch):
-    """총 loss와 클래스별 loss 항. 클래스별 항을 개별 tag로 쓰는 이유는 unknown이 압도적
-    다수라 총 loss만 보면 occupied가 언제 죽었는지 알 수 없기 때문이다."""
-    _write_scalar_if_finite(writer, f"{split}/loss_epoch", metrics["loss"], epoch)
-    for key, value in metrics["loss_parts"].items():
-        _write_scalar_if_finite(writer, f"{split}/{key}_epoch", value, epoch)
 
 
 def main(
@@ -328,18 +303,15 @@ def main(
                 "loss_parts": mean_loss_parts(parts_dicts),
                 "free": summarize_free_metrics(free_dicts),
             }
-            _write_epoch_metric_scalars(writer, "train", train, epoch)
-            _write_free_space_scalars(writer, "train", train["free"], epoch)
+            write_epoch_scalars(writer, "train", train, epoch)
 
             val = empty_epoch_metrics()
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
-                val = evaluate_split(step, val_loader, device, rays, ring_masks)
-                _write_epoch_metric_scalars(writer, "val", val, epoch)
-                _write_free_space_scalars(
-                    writer, "val", val["free"], epoch,
-                    range_metrics=val["range"], ring_metrics=val["rings"],
-                )
+                val = evaluate_split(step, val_loader, device, rays, ring_masks,
+                                     cell_m=GRID_SPEC.cell_m,
+                                     range_edges_m=DEFAULT_RING_EDGES_M)
+                write_epoch_scalars(writer, "val", val, epoch)
 
             val_score = select_checkpoint_score(val["free"])
             is_new_best = val_score > best_val_score  # NaN > x는 항상 False
@@ -349,7 +321,8 @@ def main(
                 train_free_metrics=train["free"],
                 val_loss=val["loss"], val_loss_parts=val["loss_parts"],
                 val_free_metrics=val["free"],
-                val_range_metrics=val["range"], baseline_iou_free=baseline_iou_free,
+                val_range_metrics=val["range"], val_tolerance_metrics=val["tolerance"],
+                baseline_iou_free=baseline_iou_free,
                 val_score=val_score, best_val_score=best_val_score, is_new_best=is_new_best,
             ))
 

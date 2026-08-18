@@ -8,15 +8,35 @@ Last updated: 2026-08-18
 
 ## 한 줄 상태
 
-**3-class 단일 head로 확정, 2-head 제거 완료. 양쪽 학습이 전체 규모로 돌아가는 것을 재검증했고
-(2 epoch 실측), 코드 정독 문서화와 정리 작업 3건까지 끝냈다. 아직 본학습은 돌리지 않았다.**
+**3-class 단일 head로 확정, 2-head 제거 완료. 지표 확장(occupied `f1@τ`, range `mae`/`bias`,
+`missed_obstacle_rate`, 거리별 층화)까지 끝냈다. 아직 본학습은 돌리지 않았다.**
 
-## ▶ 지금 진행 중인 안건: 평가 지표 수정 — 남은 것은 §2.1(b) 하나다
+## ▶ 지금 진행 중인 안건: 진단용 pretrain 1회 → 그 곡선으로 선택 기준 결정
 
-§2.1(a) `range` 백분위수의 batch-size 의존은 **해결됐다**. 남은 것은 **(b) SynWoodScape에서
-`iou_free`의 변별력이 좁아 pretrain의 best epoch 선택이 노이즈에 가까울 수 있다**는 문제이고,
-**본학습 전에 결정해야 한다**(선택 기준을 나중에 고치면 pretrain을 다시 돌려야 한다).
-논의에 필요한 숫자와 선택지는 전부 §2.1(b)에 있다. 아직 사용자와 결론을 내지 않았다.
+지표 확장은 **끝났다**(2026-08-18, 커밋 `1703a34`). 남은 것은 하나:
+
+> **어떤 지표로 pretrain의 best epoch을 고를 것인가.**
+
+현재 기준은 `iou_free`인데 SynWoodScape에서 변별력이 좁다(constant-map baseline 0.866,
+2 epoch 모델이 이미 0.951). 원인은 free가 셀의 82%라 레이아웃 prior만으로 대부분 맞는 것이고,
+**새로 넣은 occupied 지표는 그 포화가 없다.** 그래서 두 안건이 하나로 합쳐졌다.
+
+**다음 단계 (합의된 순서):**
+
+1. ~~지표 구현~~ 완료. 전부 보고 전용으로 넣었고 **선택 기준은 아직 `iou_free`다.**
+2. **진단용 pretrain 1회 (약 33분).** `val_freq_epochs=1`이라 60 epoch 전부의 모든 지표가
+   TensorBoard에 찍힌다. 어떤 지표가 포화하고 어떤 게 움직이는지를 추측이 아니라 곡선으로 본다.
+3. 그 데이터로 선택 기준을 결정 → 본학습.
+
+**선택 기준 후보에 대한 현재 판단** (2번의 곡선으로 확정할 것):
+
+- `f1@20cm` (occupied) -- **가장 안전하다.** 분모(`|O_pred|`, `|O_gt|`)가 고정이고 유계다
+- `MAE_range` -- 해석은 가장 직접적이지만 **선택 기준으로는 위험하다.** 표본이 예측에 의존해서
+  (장애물을 놓친 광선이 빠진다) 이 지표로 순위를 매기면 "어려운 광선을 버리는" 체크포인트가
+  유리해진다. 보고용 headline으로는 좋지만 선택은 다른 지표에 맡기는 것이 맞다
+- 원거리 링 `iou_free` -- 추가 비용 0이지만 여전히 free 기준이라 포화 문제를 완전히 벗지 못한다
+
+주의: **선택 기준 변경은 본학습 전에 해야 한다** -- 재채점으로 복구되지 않는 부류다.
 
 ## 브랜치와 git 상태
 
@@ -26,14 +46,17 @@ git branch --show-current
 ```
 
 ```text
-27f555b Document the training pipeline and the open loss questions              <- HEAD
+1703a34 Add occupied tolerance F1 and make the range metrics honest             <- HEAD
+b78c6ef Bring the handoff doc up to the current state
+27f555b Document the training pipeline and the open loss questions
 f766026 Clean up the three-class training path before the real run
 1ec89ca Document the three-class training handoff for the next session
-78e1fa1 Train the three-class formulation on both datasets and drop two-head
-c306411 Record the three-class versus two-head comparison                       (Task 18)
 ```
 
-워킹트리 clean. 테스트: `python -m pytest tests/ -q` -> **233 passed**, 실패 0.
+워킹트리 clean. 테스트: `python -m pytest tests/ -q` -> **251 passed**, 실패 0.
+
+지표 정의의 정본은 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) **§2.8**이다
+(신규 지표, 실측값, 채택하지 않은 후보와 그 이유, 집계 규칙).
 
 `runs/`에는 `_archive_2-head/`만 있다 -- 본학습 결과물은 아직 하나도 없다.
 
@@ -53,10 +76,11 @@ INIT_CHECKPOINT=runs/synwoodscape_threeclass/ckpt/<run>/model_best-<step>.pth \
 GPU는 **`CUDA_VISIBLE_DEVICES=0`**을 쓴다 (config 기본값이 이미 0이다). GPU1은 다른 프로세스가
 90GB 가까이 점유하고 있어 쓰면 OOM이 난다.
 
-**[2026-08-18 갱신] GPU0도 더 이상 비어 있지 않다.** 다른 사용자의 학습(chamnet)이 GPU0에서
-35~56GB를 쓰고 있고, 우리 pretrain은 48GB를 쓴다 -- 합산 84GB/97.9GB까지 올라간다. 실제로
-돌아가는 것은 확인했지만 상대 job이 peak를 치면 OOM 위험이 있다. 같은 이유로 epoch 시간도
-24.8s -> **33.2s**로 늘어, pretrain 60 epoch은 25분이 아니라 **약 33분**으로 봐야 한다.
+**GPU0 점유 상황은 그날그날 다르다.** 이 세션 앞부분에는 다른 사용자의 학습(chamnet)이 GPU0에서
+35~56GB를 쓰고 있었고(우리 pretrain 48GB, 합산 84GB/97.9GB) 그때 epoch 시간이 24.8s ->
+**33.2s**로 늘었다. 세션 뒷부분에는 그 job이 끝나 GPU0이 비었다(888MiB). **돌리기 전에
+`nvidia-smi`로 확인한다** -- 공유 중이면 pretrain 60 epoch을 25분이 아니라 약 33분으로 보고,
+상대 job이 peak를 치면 OOM 위험이 있다.
 (2 epoch 실행으로 실측: pretrain·fine-tuning 모두 정상 완주, fine-tuning의 weight transfer가
 `loaded 668 tensors, skipped 0` -- 3-class pretrain 체크포인트는 출력 head까지 전이된다.
 §8.4가 A/B의 최대 교란으로 지목한 head 전이 비대칭이 본학습에서는 사라진다는 뜻이다.)
@@ -217,20 +241,42 @@ ego 주변이 대체로 도로라 레이아웃 prior만으로 거의 맞는다. 
 seed로도 재현이 안 된다(§1.5 마지막 항목: 같은 조건 두 번이 0.930 vs 0.931). **선택 폭이
 run-to-run 잡음과 같은 자릿수일 가능성이 크다.**
 
-**논의해야 할 선택지 (아직 결정 안 됨):**
+**[2026-08-18 진행] 지표 확장으로 이 문제의 해결 경로가 생겼다.**
 
-1. **그대로 둔다.** pretrain은 fine-tuning의 초기값을 주는 것이 목적이므로 best epoch이 다소
-   임의여도 무해할 수 있다. 근거를 만들려면 여러 pretrain epoch에서 fine-tuning을 돌려
-   "pretrain `iou_free`가 fine-tune 결과와 상관이 있는가"를 봐야 한다(fine-tuning이 8분).
-2. **pretrain의 선택 기준을 바꾼다.** 후보: `fatal_rate`를 함께 보는 복합 기준, baseline 대비
-   초과분(`iou_free - constant_baseline`), 원거리 링(`ring 4-6m`/`6-8m`)의 `iou_free`
-   -- 레이아웃 prior가 가장 안 통하는 구간이다.
-3. **pretrain 그리드/데이터를 손본다.** free 비율 82%가 근본 원인이므로 ROI를 넓히거나 free가
-   적은 장면을 고르면 변별력이 올라간다. 가장 비싸다(라벨 재생성).
+원인이 "free가 셀의 82%라 레이아웃 prior만으로 맞는다"는 것이므로, **occupied를 재는 지표는
+그 포화가 없다.** 그래서 커밋 `1703a34`에서 occupied `f1@τ`, range `mae`/`bias`,
+`missed_obstacle_rate`, 거리별 층화를 넣었다(정의와 실측은
+[`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §2.8).
 
-주의: 2번이나 3번을 고르면 **본학습 전에** 해야 한다 -- pretrain의 체크포인트 선택 기준을
-바꾸는 것은 `iou_free` 정의를 바꾸는 것과 같은 부류라 재채점으로 복구되지 않는다.
-돌린 뒤에 고치면 pretrain을 다시 돌려야 한다(약 33분이라 비용 자체는 크지 않다).
+**전부 보고 전용으로 넣었고 선택 기준은 아직 `iou_free`다.** 근거 없이 기준을 바꾸는 대신
+**진단용 pretrain 1회(약 33분)로 60 epoch 전부의 곡선을 보고** 결정한다 -- `val_freq_epochs=1`
+이라 모든 지표가 매 epoch TensorBoard에 찍힌다.
+
+새 지표가 실제로 변별력이 있다는 방증 (로봇 2 epoch fine-tune, 같은 체크포인트):
+
+| 지표 | 값 | 읽는 법 |
+|---|---|---|
+| `iou_occupied` | 0.063 | 면적 IoU는 두께 1셀 표면에서 무의미하다 |
+| `f1@20cm` | **0.665** | 같은 예측인데 값이 완전히 다르다 |
+| `missed_obstacle_rate` | 0.069 | 이전에는 로그에 없던 숫자 |
+| 거리별 `range_mae` | 0.276 / 0.242 / **0.457** | 원거리가 1.9배 나쁘다 -- 근/원거리가 분리된다 |
+| `iou_free_known` − `iou_free` | +0.131 | 로봇에서는 갈리고 SynWoodScape에서는 완전 일치 |
+
+**선택 기준 후보에 대한 현재 판단:**
+
+1. **`f1@20cm` (occupied)** -- 가장 안전하다. 분모(`|O_pred|`, `|O_gt|`)가 고정이고 유계이며
+   레이아웃 prior로 맞을 수 없다.
+2. **`MAE_range`** -- 해석은 가장 직접적(단위가 meter)이지만 **선택 기준으로는 위험하다.**
+   표본이 예측에 의존해서(장애물을 놓친 광선이 `RAY_CENSORED`가 되어 빠진다) 이 지표로 순위를
+   매기면 "어려운 광선을 버리는" 체크포인트가 유리해진다. **보고용 headline으로는 좋고 선택은
+   다른 지표에 맡긴다**가 결론. `missed_obstacle_rate`를 함께 조건으로 걸면 완화되지만
+   복합 기준은 가중치가 또 임의값이 된다.
+3. **원거리 링 `iou_free`** -- 추가 비용 0이지만 여전히 free 기준이라 포화를 완전히 벗지 못한다.
+4. **그대로 둔다** -- pretrain은 초기값 제공이 목적이라 무해할 수도 있다. 여러 pretrain epoch에서
+   fine-tuning을 돌려(8분/회) 상관을 실측하면 근거가 생긴다.
+
+주의: 선택 기준을 바꾸는 것은 **본학습 전에** 해야 한다 -- `iou_free` 정의를 바꾸는 것과 같은
+부류라 재채점으로 복구되지 않는다. 돌린 뒤에 고치면 pretrain 재실행이다(약 33분).
 
 ### 2.2 [완료 2026-08-18] pretrain / fine-tuning 코드 파악
 
@@ -277,11 +323,14 @@ range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있�
 `iou_free`의 **정의**를 건드리지 않으므로 §2.1의 지표 수정과 독립적이다 -- 단 loss를 바꾸면
 재채점이 아니라 재학습이 필요하다.
 
-### 2.4 본학습 -- 위 두 개가 끝난 뒤
+### 2.4 본학습 -- §2.1(b)의 선택 기준이 정해진 뒤
 
-명령은 이 문서 맨 위 "지금 바로 돌릴 수 있는 것"에 있다. 내가 권장한 순서는 **지표 수정 -> 코드
-파악 -> 본학습**이고, 근거는 §2.1(b)다(선택 기준을 나중에 고치면 pretrain 재실행). 사용자가
-"숫자를 먼저 보고 판단"을 택할 수도 있다 -- 아직 정하지 않았다.
+명령은 이 문서 맨 위 "지금 바로 돌릴 수 있는 것"에 있다. 합의된 순서:
+
+1. ~~지표 수정~~ 완료 (`1703a34`)
+2. ~~코드 파악~~ 완료 ([`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md))
+3. **진단용 pretrain 1회** -> 곡선으로 선택 기준 결정
+4. 본학습 (pretrain -> fine-tuning)
 
 ---
 

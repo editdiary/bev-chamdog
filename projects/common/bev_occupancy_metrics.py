@@ -29,7 +29,14 @@ from projects.common.free_space_metrics import (  # noqa: E402
     metrics_per_ring,
     range_error,
     summarize_range_error,
+    summarize_range_error_by_gt_range,
     weighted_mean,
+)
+from projects.common.occupied_metrics import (  # noqa: E402
+    DEFAULT_TOLERANCES_M,
+    summarize_tolerance_f1,
+    tolerance_counts,
+    tolerance_key,
 )
 
 
@@ -128,17 +135,47 @@ def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None):
 
 
 def _format_range_line(metrics):
-    """광선 통계는 train/val 행을 과도하게 넓히지 않도록 별도 줄에 표시한다."""
+    """광선 통계는 train/val 행을 과도하게 넓히지 않도록 별도 줄에 표시한다.
+
+    `missed↓`를 같은 줄에 붙여 둔다: 거리 통계는 GT·예측이 둘 다 `RAY_OK`인 광선만 쓰므로
+    장애물을 완전히 놓친 광선이 표본에서 빠진다. 두 숫자를 떨어뜨려 놓으면 "mae가 좋아졌다"를
+    혼자 읽게 되고, 그것이 바로 이 프로젝트가 이미 한 번 밟은 함정이다.
+    """
     if metrics is None:
         return []
     fields = [
-        _field("abs_p50↓", metrics["abs_p50"], emphasis=_Ansi.BOLD),
-        _field("abs_p90↓", metrics["abs_p90"]),
+        _field("mae↓", metrics["mae"], emphasis=_Ansi.BOLD),
+        _field("p50↓", metrics["abs_p50"]),
+        _field("p90↓", metrics["abs_p90"]),
+        _field("bias", metrics["bias"], "+.3f"),
         _field("over↓", metrics["over_mean"]),
         _field("under", metrics["under_mean"]),
-        _c(_Ansi.DIM, f"rays {metrics['n_paired_rays']} censored {metrics['censored_gt']}"),
+        _field("missed↓", metrics["missed_obstacle_rate"]),
+        _c(_Ansi.DIM, f"rays {metrics['n_paired_rays']}"),
     ]
     return [_format_row("range", _Ansi.BLUE, fields)]
+
+
+def _format_occupied_line(tolerance_metrics, free_metrics):
+    """occupied 전용 줄. 면적 IoU와 tolerance F1을 **나란히** 둔다.
+
+    두 숫자를 같은 줄에 두는 것이 요점이다: `iou_occ`가 낮은데 `f1@20cm`이 높으면 "예측이
+    몇 셀 밀렸을 뿐"이고, 둘이 같이 낮으면 실제로 장애물을 못 찾은 것이다. 떨어뜨려 놓으면
+    이 구별을 매번 손으로 해야 한다.
+    """
+    if not tolerance_metrics and not free_metrics:
+        return []
+    fields = [
+        _field(f"f1@{tolerance_key(t)}↑", (tolerance_metrics or {}).get(tolerance_key(t), {}).get("f1"),
+               emphasis=_Ansi.BOLD if t == 0.20 else "")
+        for t in DEFAULT_TOLERANCES_M
+    ]
+    fields += [
+        _field("iou_occ↑", (free_metrics or {}).get("iou_occupied")),
+        _field("iou_unk↑", (free_metrics or {}).get("iou_unknown")),
+        _field("iou_free_known↑", (free_metrics or {}).get("iou_free_known")),
+    ]
+    return [_format_row("occ", _Ansi.MAGENTA, fields)]
 
 
 def _format_partition_warning(train_free, val_free):
@@ -164,6 +201,7 @@ def format_epoch_log(
     val_loss_parts=None,
     val_free_metrics=None,
     val_range_metrics=None,
+    val_tolerance_metrics=None,
     baseline_iou_free=None,
     val_score,
     best_val_score,
@@ -196,7 +234,67 @@ def format_epoch_log(
         _format_metric_row("train", _Ansi.YELLOW, train_loss, train_loss_parts, train_free_metrics),
         _format_metric_row("val", _Ansi.CYAN, val_loss, val_loss_parts, val_free_metrics),
         *_format_range_line(val_range_metrics),
+        *_format_occupied_line(val_tolerance_metrics, val_free_metrics),
     ])
+
+
+def _add_scalar_if_finite(writer, tag, value, step) -> None:
+    if value is not None and math.isfinite(float(value)):
+        writer.add_scalar(tag, value, step)
+
+
+# TensorBoard tag는 한 번 쓰기 시작하면 바꿀 수 없다(옛 run과 축이 갈린다). 그래서 지표 키와
+# tag를 여기 한 곳에 나란히 적어 둔다.
+_FREE_SCALAR_TAGS = (
+    ("iou_free", "iou_free_epoch"),
+    ("iou_free_known", "iou_free_known_epoch"),
+    ("iou_occupied", "iou_occupied_epoch"),
+    ("iou_unknown", "iou_unknown_epoch"),
+    ("fatal_rate", "fatal_rate_epoch"),
+    ("free_miss_rate", "free_miss_rate_epoch"),
+)
+_RANGE_SCALAR_TAGS = (
+    ("mae", "range_mae_epoch"),
+    ("abs_p50", "range_abs_p50_epoch"),
+    ("abs_p90", "range_abs_p90_epoch"),
+    ("bias", "range_bias_epoch"),
+    ("over_mean", "range_over_epoch"),
+    ("under_mean", "range_under_epoch"),
+    ("missed_obstacle_rate", "range_missed_obstacle_rate_epoch"),
+)
+
+
+def write_epoch_scalars(writer, split, metrics, epoch) -> None:
+    """epoch scalar 전부를 TensorBoard에 쓴다. **두 학습 스크립트가 공유한다.**
+
+    원래 두 스크립트가 각자 거의 같은 함수를 갖고 있었다. 지표를 하나 추가할 때 한쪽에만
+    반영되면 pretrain과 fine-tune 곡선을 나란히 볼 수 없고, 그 비교가 이 프로젝트의 학습
+    순서 전체의 근거다. 지표 집합이 커진 지금은 그 위험이 더 크므로 한 벌만 둔다.
+
+    train split은 `range`/`rings`/`tolerance`가 없는 dict를 넘긴다 -- 광선·거리변환은 val에서만
+    돌린다. 그래서 전부 `.get()`으로 읽고, 없으면 조용히 건너뛴다.
+    """
+    _add_scalar_if_finite(writer, f"{split}/loss_epoch", metrics.get("loss"), epoch)
+    for key, value in (metrics.get("loss_parts") or {}).items():
+        _add_scalar_if_finite(writer, f"{split}/{key}_epoch", value, epoch)
+
+    free_metrics = metrics.get("free") or {}
+    for key, tag in _FREE_SCALAR_TAGS:
+        _add_scalar_if_finite(writer, f"{split}/{tag}", free_metrics.get(key), epoch)
+
+    range_metrics = metrics.get("range") or {}
+    for key, tag in _RANGE_SCALAR_TAGS:
+        _add_scalar_if_finite(writer, f"{split}/{tag}", range_metrics.get(key), epoch)
+
+    for name, values in (metrics.get("range_bins") or {}).items():
+        _add_scalar_if_finite(writer, f"{split}/range_mae_{name}_epoch", values["mae"], epoch)
+    for name, values in (metrics.get("rings") or {}).items():
+        _add_scalar_if_finite(writer, f"{split}/ring_{name}_iou_free_epoch",
+                              values["iou_free"], epoch)
+    for name, values in (metrics.get("tolerance") or {}).items():
+        for stat in ("f1", "precision", "recall"):
+            _add_scalar_if_finite(writer, f"{split}/occupied_{stat}_{name}_epoch",
+                                  values[stat], epoch)
 
 
 def select_checkpoint_score(free_metrics):
@@ -223,9 +321,21 @@ def compute_iou(pred, target, valid_g):
 
 _FREE_METRIC_SCALAR_KEYS = (
     "iou_free", "iou_free_count",
+    "iou_free_known", "iou_free_known_count",
+    "iou_occupied", "iou_occupied_count",
+    "iou_unknown", "iou_unknown_count",
     "fatal_rate", "fatal_denom",
     "free_miss_rate", "free_miss_denom",
     "partition_defects",
+)
+
+# `(집계 키, count 키)`. IoU는 전부 "평균에 들어간 샘플 수"로 가중해야 한다 -- 클래스가
+# 없는 샘플이 빠지므로 분모가 지표마다 다르고, batch 수로 평균하면 그 차이가 무시된다.
+_IOU_KEYS = (
+    ("iou_free", "iou_free_count"),
+    ("iou_free_known", "iou_free_known_count"),
+    ("iou_occupied", "iou_occupied_count"),
+    ("iou_unknown", "iou_unknown_count"),
 )
 
 
@@ -242,18 +352,22 @@ def summarize_ring_metrics(ring_dicts, ring_masks) -> dict:
     }
 
 
-def evaluate_split(step, loader, device, rays, ring_masks) -> dict:
+def evaluate_split(step, loader, device, rays, ring_masks, *,
+                   cell_m, range_edges_m) -> dict:
     """validation 한 바퀴. **pretrain과 fine-tuning이 공유한다.**
 
     두 학습 스크립트가 각자 이 루프를 갖고 있으면 한쪽만 고쳐지는 순간 pretrain과 fine-tune
     숫자를 나란히 읽을 수 없게 된다 -- 그 비교가 이 프로젝트의 학습 순서(SynWoodScape ->
     자체 데이터셋) 전체의 근거이므로 한 벌만 둔다.
 
-    M3(range)·M4(ring)는 여기서만 계산한다. train에서는 계산하지 않는다 -- 광선 추출이
-    배치마다 비싸고, 학습 중에 볼 값이 아니다.
+    M3(range)·M4(ring)·F1@τ는 여기서만 계산한다. train에서는 계산하지 않는다 -- 광선 추출과
+    거리변환이 배치마다 비싸고, 학습 중에 볼 값이 아니다.
+
+    `cell_m`/`range_edges_m`을 키워드 필수로 둔 이유: 기본값을 주면 격자 해상도가 다른
+    데이터셋에서 호출부가 조용히 틀린 스케일로 τ를 재고, 그 결과가 그럴듯한 숫자로 나온다.
     """
     losses, parts_dicts = [], []
-    free_dicts, range_dicts, ring_dicts = [], [], []
+    free_dicts, range_dicts, ring_dicts, tolerance_dicts = [], [], [], []
     with torch.no_grad():
         for batch in loader:
             loss, parts, free_metrics = step(batch)
@@ -266,13 +380,18 @@ def evaluate_split(step, loader, device, rays, ring_masks) -> dict:
             ring_dicts.append(metrics_per_ring(
                 free_metrics["pred_free"], free_metrics["gt_free"], valid, ring_masks
             ))
+            tolerance_dicts.append(tolerance_counts(
+                free_metrics["pred_occupied"], free_metrics["gt_occupied"], valid, cell_m
+            ))
             append_free_metrics(free_dicts, free_metrics)
     return {
         "loss": (sum(losses) / len(losses)) if losses else float("nan"),
         "loss_parts": mean_loss_parts(parts_dicts),
         "free": summarize_free_metrics(free_dicts),
         "range": summarize_range_error(range_dicts),
+        "range_bins": summarize_range_error_by_gt_range(range_dicts, range_edges_m),
         "rings": summarize_ring_metrics(ring_dicts, ring_masks),
+        "tolerance": summarize_tolerance_f1(tolerance_dicts),
     }
 
 
@@ -283,7 +402,9 @@ def empty_epoch_metrics() -> dict:
         "loss_parts": {},
         "free": summarize_free_metrics([]),
         "range": summarize_range_error([]),
+        "range_bins": {},
         "rings": {},
+        "tolerance": {},
     }
 
 
@@ -309,11 +430,12 @@ def append_free_metrics(metric_dicts, free_metrics) -> None:
 
 def summarize_free_metrics(dicts) -> dict:
     if not dicts:
-        return {"iou_free": float("nan"), "fatal_rate": float("nan"),
+        return {**{key: float("nan") for key, _ in _IOU_KEYS},
+                "fatal_rate": float("nan"),
                 "free_miss_rate": float("nan"), "partition_defects": 0}
     return {
-        "iou_free": weighted_mean([d["iou_free"] for d in dicts],
-                                  [d["iou_free_count"] for d in dicts]),
+        **{key: weighted_mean([d[key] for d in dicts], [d[count] for d in dicts])
+           for key, count in _IOU_KEYS},
         "fatal_rate": weighted_mean([d["fatal_rate"] for d in dicts],
                                     [d["fatal_denom"] for d in dicts]),
         "free_miss_rate": weighted_mean([d["free_miss_rate"] for d in dicts],

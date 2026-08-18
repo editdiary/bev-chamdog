@@ -64,6 +64,7 @@ from projects.common.bev_occupancy_metrics import (  # noqa: E402
     select_checkpoint_score,
     summarize_free_metrics,
     weighted_mean,
+    write_epoch_scalars,
 )
 from projects.common.three_class_metrics import (  # noqa: E402
     class_weights_from_labels,
@@ -124,33 +125,6 @@ def baseline_iou_free(val_ids, occupancy_gt_root: Path, constant_map, device) ->
         values.append(value)
         counts.append(count)
     return weighted_mean(values, counts)
-
-
-def _write_scalar_if_finite(writer, tag, value, step) -> None:
-    if np.isfinite(float(value)):
-        writer.add_scalar(tag, value, step)
-
-
-def _write_epoch_scalars(writer, split, metrics, epoch, *,
-                         range_metrics=None, ring_metrics=None) -> None:
-    """총 loss·클래스별 loss·free 지표. range/ring은 validation에서만 넘긴다."""
-    _write_scalar_if_finite(writer, f"{split}/loss_epoch", metrics["loss"], epoch)
-    for key, value in metrics["loss_parts"].items():
-        _write_scalar_if_finite(writer, f"{split}/{key}_epoch", value, epoch)
-    for key, tb in (("iou_free", "iou_free_epoch"),
-                    ("fatal_rate", "fatal_rate_epoch"),
-                    ("free_miss_rate", "free_miss_rate_epoch")):
-        _write_scalar_if_finite(writer, f"{split}/{tb}", metrics["free"][key], epoch)
-    if range_metrics is not None:
-        for key, tb in (("abs_p50", "range_abs_p50_epoch"),
-                        ("abs_p90", "range_abs_p90_epoch"),
-                        ("over_mean", "range_over_epoch"),
-                        ("under_mean", "range_under_epoch")):
-            _write_scalar_if_finite(writer, f"{split}/{tb}", range_metrics[key], epoch)
-    for name, values in (ring_metrics or {}).items():
-        _write_scalar_if_finite(writer, f"{split}/ring_{name}_iou_free_epoch",
-                                values["iou_free"], epoch)
-
 
 
 def main(
@@ -296,14 +270,15 @@ def main(
                 "loss_parts": mean_loss_parts(train_parts_dicts),
                 "free": summarize_free_metrics(train_free_metric_dicts),
             }
-            _write_epoch_scalars(writer, "train", train, epoch)
+            write_epoch_scalars(writer, "train", train, epoch)
 
             val = empty_epoch_metrics()
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
-                val = evaluate_split(step, val_loader, device, rays, ring_masks)
-                _write_epoch_scalars(writer, "val", val, epoch,
-                                     range_metrics=val["range"], ring_metrics=val["rings"])
+                val = evaluate_split(step, val_loader, device, rays, ring_masks,
+                                     cell_m=GRID_SPEC.cell_m,
+                                     range_edges_m=PRETRAIN_RING_EDGES_M)
+                write_epoch_scalars(writer, "val", val, epoch)
 
             epoch_time = time.time() - epoch_start
             val_score = select_checkpoint_score(val["free"])
@@ -320,6 +295,7 @@ def main(
                 val_loss_parts=val["loss_parts"],
                 val_free_metrics=val["free"],
                 val_range_metrics=val["range"],
+                val_tolerance_metrics=val["tolerance"],
                 baseline_iou_free=constant_baseline,
                 val_score=val_score,
                 best_val_score=best_val_score,

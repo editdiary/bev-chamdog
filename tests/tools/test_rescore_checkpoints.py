@@ -190,6 +190,7 @@ def test_score_split_derives_free_from_argmax_and_applies_the_valid_mask():
     result = score_split(
         model, [batch1, batch2], vox_util=None, rays=_dummy_rays(),
         ring_masks=[], device="cpu", constant_map=np.zeros((4, 4), dtype=bool),
+        cell_m=0.05,
     )
 
     cases = [
@@ -231,7 +232,7 @@ def test_score_split_free_prediction_responds_to_the_predicted_class():
         return score_split(
             model, [_batch(_ALL_ONES, _ALL_ONES, _ALL_ONES)], vox_util=None,
             rays=_dummy_rays(), ring_masks=[], device="cpu",
-            constant_map=np.zeros((4, 4), dtype=bool),
+            constant_map=np.zeros((4, 4), dtype=bool), cell_m=0.05,
         )
 
     assert run(FREE)["iou_free"] == pytest.approx(1.0, abs=1e-9)

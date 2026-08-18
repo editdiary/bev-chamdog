@@ -14,6 +14,9 @@ import tools.train_synwoodscape as synwoodscape_trainer
 
 _FREE_METRICS = {
     "iou_free": 0.20, "iou_free_count": 1,
+    "iou_free_known": 0.30, "iou_free_known_count": 1,
+    "iou_occupied": 0.10, "iou_occupied_count": 1,
+    "iou_unknown": 0.40, "iou_unknown_count": 1,
     "fatal_rate": 0.0, "fatal_denom": 1,
     "free_miss_rate": 0.0, "free_miss_denom": 1,
     "partition_defects": 0,
@@ -64,9 +67,12 @@ def _install_common_cpu_doubles(monkeypatch, trainer, captured, selected, saved,
             "loss_parts": {"loss_unknown": 0.4, "loss_free": 0.2, "loss_occupied": 0.3},
             "free": dict(_FREE_METRICS),
             "range": None,
+            "range_bins": {},
             "rings": {},
+            "tolerance": {},
         },
     )
+    monkeypatch.setattr(trainer, "write_epoch_scalars", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         trainer, "format_epoch_log", lambda **kwargs: captured.append(kwargs) or "epoch log"
     )
@@ -128,7 +134,6 @@ def test_robot_trainer_uses_free_score_at_checkpoint_selection_boundary(monkeypa
     monkeypatch.setattr(
         robot_trainer, "build_double_sphere_vox_util", lambda *args, **kwargs: object()
     )
-    monkeypatch.setattr(robot_trainer, "_write_free_space_scalars", lambda *args, **kwargs: None)
 
     robot_trainer.main(
         train_sequences="train", val_sequences="val", num_epochs=1, batch_size=2,
@@ -166,7 +171,6 @@ def test_synwoodscape_trainer_uses_free_score_at_checkpoint_selection_boundary(
         lambda *args, **kwargs: _Dataset(),
     )
     monkeypatch.setattr(synwoodscape_trainer, "build_vox_util", lambda *args, **kwargs: object())
-    monkeypatch.setattr(synwoodscape_trainer, "_write_epoch_scalars", lambda *a, **kw: None)
 
     synwoodscape_trainer.main(
         num_epochs=1, batch_size=2, num_workers=0, use_fisheye=False,

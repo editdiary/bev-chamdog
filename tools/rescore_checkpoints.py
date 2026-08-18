@@ -27,14 +27,21 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 from projects.common.baselines import all_free_map, as_batch, constant_free_map  # noqa: E402
 from projects.common.free_space import decompose, decompose_from_class_index  # noqa: E402
 from projects.common.free_space_metrics import (  # noqa: E402
+    DEFAULT_RING_EDGES_M,
     build_ring_masks,
     fatal_rate,
     free_miss_rate,
     iou_free,
+    iou_masked,
     metrics_per_ring,
     range_error,
     summarize_range_error,
+    summarize_range_error_by_gt_range,
     weighted_mean,
+)
+from projects.common.occupied_metrics import (  # noqa: E402
+    summarize_tolerance_f1,
+    tolerance_counts,
 )
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.datasets.robot_simplebev import (  # noqa: E402
@@ -99,11 +106,13 @@ def _collect_free_masks(samples, permanent_blind, invalid):
     ]
 
 
-def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map) -> dict:
+def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
+                cell_m) -> dict:
     ious, iou_counts, fatals, fatal_denoms, misses, miss_denoms = [], [], [], [], [], []
     base_ious, base_counts, base_fatals, base_denoms = [], [], [], []
     allfree_ious, allfree_counts = [], []
-    range_dicts, ring_dicts = [], []
+    occ_ious, occ_counts = [], []
+    range_dicts, ring_dicts, tolerance_dicts = [], [], []
 
     with torch.no_grad():
         for batch in loader:
@@ -115,11 +124,12 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map)
             vis_g = batch["vis_bev_g"].to(device)
             valid = batch["valid_bev_g"].to(device)
 
-            gt = decompose(seg_g, vis_g, valid)["free"]
+            gt_parts = decompose(seg_g, vis_g, valid)
             # 학습 루프(`three_class_metrics.compute_free_metrics`)와 같은 방식으로 예측을
-            # free 마스크로 바꾼다 -- 여기가 argmax가 아닌 다른 규칙을 쓰면 재채점 값이
-            # 학습 로그의 값과 달라져 두 숫자를 나란히 읽을 수 없다.
-            pred = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid)["free"]
+            # 분해한다 -- 여기가 argmax가 아닌 다른 규칙을 쓰면 재채점 값이 학습 로그의
+            # 값과 달라져 두 숫자를 나란히 읽을 수 없다.
+            pred_parts = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid)
+            gt, pred = gt_parts["free"], pred_parts["free"]
             batch_size = gt.shape[0]
             base = as_batch(constant_map, batch_size, device)
             allfree = as_batch(all_free_map(constant_map.shape), batch_size, device)
@@ -141,8 +151,15 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map)
                 values.append(value)
                 denoms.append(denom)
 
+            value, count = iou_masked(pred_parts["occupied"], gt_parts["occupied"], valid)
+            occ_ious.append(value)
+            occ_counts.append(count)
+
             range_dicts.append(range_error(pred, gt, valid, rays))
             ring_dicts.append(metrics_per_ring(pred, gt, valid, ring_masks))
+            tolerance_dicts.append(tolerance_counts(
+                pred_parts["occupied"], gt_parts["occupied"], valid, cell_m
+            ))
 
     rings = {}
     for name, _ in ring_masks:
@@ -159,8 +176,11 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map)
         "fatal_rate": weighted_mean(fatals, fatal_denoms),
         "baseline_fatal_rate": weighted_mean(base_fatals, base_denoms),
         "free_miss_rate": weighted_mean(misses, miss_denoms),
+        "iou_occupied": weighted_mean(occ_ious, occ_counts),
         "range": summarize_range_error(range_dicts),
+        "range_bins": summarize_range_error_by_gt_range(range_dicts, DEFAULT_RING_EDGES_M),
         "rings": rings,
+        "tolerance": summarize_tolerance_f1(tolerance_dicts),
     }
 
 
@@ -207,17 +227,28 @@ def main(
     scores = score_split(
         model, loader, vox_util,
         rays,
-        build_ring_masks(GRID_SPEC), device, constant_map,
+        build_ring_masks(GRID_SPEC), device, constant_map, GRID_SPEC.cell_m,
     )
     row = {"name": Path(checkpoint).parent.name, "split": val_sequences, **scores}
     print(format_markdown_table([row]))
     print()
-    print(f"range: p50 {scores['range']['abs_p50']:.3f} m | p90 {scores['range']['abs_p90']:.3f} m"
-          f" | over {scores['range']['over_mean']:.3f} m | under {scores['range']['under_mean']:.3f} m"
-          f" | paired rays {scores['range']['n_paired_rays']}")
+    r = scores["range"]
+    print(f"range: mae {r['mae']:.3f} m | p50 {r['abs_p50']:.3f} m | p90 {r['abs_p90']:.3f} m"
+          f" | bias {r['bias']:+.3f} m | over {r['over_mean']:.3f} m"
+          f" | under {r['under_mean']:.3f} m")
+    # `missed`를 거리 통계 바로 옆에 찍는다 -- 놓친 광선은 위 통계의 표본에서 빠지므로
+    # mae만 혼자 읽으면 "장애물을 많이 놓칠수록 좋아 보이는" 방향으로 오독된다.
+    print(f"       missed_obstacle_rate {r['missed_obstacle_rate']:.3f}"
+          f" ({r['missed_obstacle']}/{r['ok_gt']} rays)"
+          f" | paired rays {r['n_paired_rays']}")
+    print(f"occupied: iou {scores['iou_occupied']:.3f}  <- 면적 IoU (참고용)")
+    for name, values in scores["tolerance"].items():
+        print(f"  f1@{name:5s} {values['f1']:.3f}"
+              f"  precision {values['precision']:.3f}  recall {values['recall']:.3f}")
     for name, values in scores["rings"].items():
         print(f"  ring {name:10s} iou_free {values['iou_free']:.3f}"
-              f"  fatal {values['fatal_rate']:.3f}")
+              f"  fatal {values['fatal_rate']:.3f}"
+              f"  range_mae {scores['range_bins'].get(name, {}).get('mae', float('nan')):.3f}")
 
 
 if __name__ == "__main__":

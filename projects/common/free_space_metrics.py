@@ -24,14 +24,14 @@ def weighted_mean(values, weights) -> float:
     return sum(v * w for v, w in zip(values, weights) if w > 0) / total
 
 
-def iou_free(free_pred, free_gt, valid):
-    """M1. per-sample IoU의 평균과, 평균에 실제로 들어간 샘플 수.
+def iou_masked(pred_mask, gt_mask, valid):
+    """per-sample IoU의 평균과, 평균에 실제로 들어간 샘플 수.
 
-    GT에도 예측에도 free가 없는 샘플은 union이 0이라 IoU가 정의되지 않는다. 0점으로 세면
-    "free가 없는 장면을 완벽히 맞혔는데 0점"이 되어 지표가 왜곡되므로 평균에서 뺀다.
+    GT에도 예측에도 그 클래스가 없는 샘플은 union이 0이라 IoU가 정의되지 않는다. 0점으로 세면
+    "그 클래스가 없는 장면을 완벽히 맞혔는데 0점"이 되어 지표가 왜곡되므로 평균에서 뺀다.
     """
     valid_b = valid.bool()
-    pred, gt = free_pred.bool() & valid_b, free_gt.bool() & valid_b
+    pred, gt = pred_mask.bool() & valid_b, gt_mask.bool() & valid_b
     dims = list(range(1, pred.ndim))
     intersection = (pred & gt).sum(dim=dims).float()
     union = (pred | gt).sum(dim=dims).float()
@@ -40,6 +40,15 @@ def iou_free(free_pred, free_gt, valid):
     if count == 0:
         return float("nan"), 0
     return float((intersection[has_union] / union[has_union]).mean().item()), count
+
+
+def iou_free(free_pred, free_gt, valid):
+    """M1. 주 지표. `iou_masked`의 free 전용 이름이다.
+
+    이름을 남겨 두는 이유: 체크포인트 선택과 baseline 대조가 전부 이 이름을 통과하므로,
+    일반화된 함수로 바꾸면서 호출부가 다른 클래스를 실수로 넣는 일이 없도록 고정한다.
+    """
+    return iou_masked(free_pred, free_gt, valid)
 
 
 def _rate(numerator_mask, denominator_mask):
@@ -68,53 +77,100 @@ def free_miss_rate(free_pred, free_gt, valid):
     return _rate(~pred & gt, gt)
 
 
-def free_metrics_from_masks(pred_free, gt_parts, valid) -> dict:
-    """M1·M2·M2b + 분할 불변식을 한 번에. **2-head와 3-class가 공유한다.**
+def free_metrics_from_masks(pred_parts, gt_parts, valid) -> dict:
+    """셀 단위 지표 전부 + 분할 불변식을 한 번에. 학습 루프와 재채점이 공유한다.
 
-    두 정식화는 `pred_free`를 만드는 방식만 다르고(두 sigmoid의 AND vs. softmax argmax)
-    그 이후 집계는 완전히 같다. 집계를 각자 복사해 두면 한쪽만 고쳐지는 순간 A/B가
-    무의미해지므로 여기 한 벌만 둔다.
+    집계를 호출부마다 복사해 두면 한쪽만 고쳐지는 순간 두 학습 스크립트의 숫자를 나란히
+    읽을 수 없으므로 여기 한 벌만 둔다.
 
-    `pred_free`/`gt_free`를 함께 실어 보내는 이유: M3·M4는 광선 루프가 CPU numpy라 학습
-    step마다 돌리면 병목이 된다(이 리그는 이미 데이터 로딩이 병목이다). val 경로가
-    forward를 다시 하지 않고 이 마스크를 받아 따로 계산한다.
+    `iou_occupied`/`iou_unknown`은 **보고용이고 체크포인트 선택에 쓰지 않는다.** occupied는
+    두께 1셀 표면이라 한 칸 정렬 오차가 IoU를 반토막 내고(실측: `iou_obstacle` 0.312가
+    frontier 규칙 0.473에 졌다) 그래서 주 지표에서 내렸다. 그래도 계산해 두는 이유는
+    (a) 기존 BEV segmentation 문헌과 비교할 때 필요하고 (b) 같은 체크포인트에서
+    `occupied_metrics`의 tolerance F1과 나란히 놓으면 "면적 IoU가 왜 부족한가"를 숫자로
+    보여줄 수 있기 때문이다.
+
+    `iou_free_known`은 `valid`를 **GT가 관측한 셀**(free ∪ occupied)로 더 좁힌 `iou_free`다.
+    `iou_free`는 unknown 셀까지 분모에 넣으므로 "가려진 곳을 unknown이라 맞히는 능력"이
+    섞여 들어간다. 둘을 나란히 보면 그 기여를 분리할 수 있다. 어느 쪽을 주 지표로 둘지는
+    실측 뒤에 결정한다 -- 정의를 바꾸면 재채점으로 복구되지 않는 부류이기 때문이다.
+
+    마스크를 함께 실어 보내는 이유: M3(range)·F1@τ는 광선 루프와 거리변환이 CPU numpy라
+    학습 step마다 돌리면 병목이 된다. val 경로가 forward를 다시 하지 않고 이 마스크를
+    받아 따로 계산한다.
     """
-    gt_free = gt_parts["free"]
+    pred_free, gt_free = pred_parts["free"], gt_parts["free"]
+    pred_occupied, gt_occupied = pred_parts["occupied"], gt_parts["occupied"]
+    known = gt_free | gt_occupied  # GT가 실제로 관측한 영역 (unknown 제외)
+
     iou, iou_count = iou_free(pred_free, gt_free, valid)
+    iou_known, iou_known_count = iou_free(pred_free, gt_free, valid.bool() & known)
+    iou_occ, iou_occ_count = iou_masked(pred_occupied, gt_occupied, valid)
+    iou_unk, iou_unk_count = iou_masked(pred_parts["unknown"], gt_parts["unknown"], valid)
     fatal, fatal_denom = fatal_rate(pred_free, gt_free, valid)
     miss, miss_denom = free_miss_rate(pred_free, gt_free, valid)
     return {
         "iou_free": iou, "iou_free_count": iou_count,
+        "iou_free_known": iou_known, "iou_free_known_count": iou_known_count,
+        "iou_occupied": iou_occ, "iou_occupied_count": iou_occ_count,
+        "iou_unknown": iou_unk, "iou_unknown_count": iou_unk_count,
         "fatal_rate": fatal, "fatal_denom": fatal_denom,
         "free_miss_rate": miss, "free_miss_denom": miss_denom,
         # 배선이 틀리면 조용히 이상한 숫자가 나오는 대신 여기서 0이 아니게 된다.
         "partition_defects": partition_defect_count(gt_parts, valid.bool()),
         "pred_free": pred_free, "gt_free": gt_free,
+        "pred_occupied": pred_occupied, "gt_occupied": gt_occupied,
     }
 
 
-_RANGE_STAT_KEYS = ("abs_p50", "abs_p90", "over_mean", "under_mean")
+_RANGE_STAT_KEYS = ("mae", "abs_p50", "abs_p90", "bias", "over_mean", "under_mean")
 _RANGE_COUNTS = ("n_paired_rays", "over_count", "under_count",
-                 "censored_gt", "censored_pred", "no_free_gt")
+                 "censored_gt", "censored_pred", "no_free_gt",
+                 "ok_gt", "missed_obstacle")
+_RANGE_RATE_KEYS = ("missed_obstacle_rate",)
 
 
 def _delta_stats(delta: np.ndarray) -> dict:
-    """`dr = r_pred - r_gt` 표본 하나에서 range 통계 네 개를 낸다.
+    """`dr = r_pred - r_gt` 표본 하나에서 range 통계를 낸다. 단위는 전부 meter다.
 
     batch별로도, epoch 전체를 모은 뒤에도 **같은 함수**를 쓴다 -- 그래야 "배치별로 낸 값"과
     "전체로 낸 값"이 정의상 같은 것이 되고, 집계가 통계 종류마다 다른 규칙을 갖지 않는다.
+
+    **부호 규약: `dr > 0`은 장애물을 실제보다 멀다고 예측한 것 = free의 과대추정 = 위험한
+    쪽이다.** `over_*`가 그 쪽이다. 다른 문헌은 같은 사건을 "장애물의 과소추정"이라 부르므로
+    `over`/`under`라는 단어만 옮겨 읽으면 부호가 뒤집힌다.
+
+    `mae`와 `abs_p50`/`abs_p90`을 함께 두는 이유: 실측 분포가 꼬리가 두꺼워(p50 0.175 m 대
+    p90 0.700 m) 평균은 소수 광선에 끌려다니고, 백분위수만 보면 "평균 몇 cm 틀리나"에
+    답할 수 없다. `bias`는 `over`/`under`가 상쇄된 순수 편향이라 보수적/낙관적 성향을 한
+    숫자로 보여준다.
     """
     if delta.size == 0:
         return dict.fromkeys(_RANGE_STAT_KEYS, float("nan"))
     over, under = delta[delta > 0], -delta[delta < 0]
     return {
+        "mae": float(np.abs(delta).mean()),
         "abs_p50": float(np.percentile(np.abs(delta), 50)),
         "abs_p90": float(np.percentile(np.abs(delta), 90)),
+        "bias": float(delta.mean()),
         # 빈 부분집합은 0.0으로 둔다: over/under는 강한 부등호로 나눈 진짜 분할이라 원소가
         # 하나라도 있으면 평균이 0일 수 없다. 따라서 0.0은 "over 사건이 없었다"만 뜻한다.
         "over_mean": float(over.mean()) if over.size else 0.0,
         "under_mean": float(under.mean()) if under.size else 0.0,
     }
+
+
+def _delta_rates(counts: dict) -> dict:
+    """카운트에서 유도되는 비율. **합산된 카운트에서 다시 계산해야** batch-size 불변이다.
+
+    `missed_obstacle_rate` = (GT에는 장애물이 있는데 예측은 격자 끝까지 free인 광선) /
+    (GT에 장애물이 있는 광선). 이것이 없으면 위의 거리 통계가 정직하지 않다 -- 회귀 통계는
+    GT와 예측이 **둘 다** `RAY_OK`인 광선만 쓰므로, 장애물을 완전히 놓친 광선은 표본에서
+    빠진다. 즉 많이 놓치면 `mae`가 오히려 **좋아진다.** 두 숫자는 항상 같이 읽는다.
+    """
+    ok = counts["ok_gt"]
+    return {"missed_obstacle_rate":
+            counts["missed_obstacle"] / ok if ok else float("nan")}
 
 
 def range_error(free_pred, free_gt, valid, rays) -> dict:
@@ -129,23 +185,32 @@ def range_error(free_pred, free_gt, valid, rays) -> dict:
     pred_np = (free_pred.bool() & valid.bool()).cpu().numpy()
     gt_np = (free_gt.bool() & valid.bool()).cpu().numpy()
 
-    deltas, counts = [], dict.fromkeys(_RANGE_COUNTS, 0)
+    deltas, gt_ranges, counts = [], [], dict.fromkeys(_RANGE_COUNTS, 0)
     for i in range(gt_np.shape[0]):
         r_gt, s_gt = first_free_range(gt_np[i, 0], rays)
         r_pred, s_pred = first_free_range(pred_np[i, 0], rays)
+        ok_gt = s_gt == RAY_OK
         counts["censored_gt"] += int((s_gt == RAY_CENSORED).sum())
         counts["censored_pred"] += int((s_pred == RAY_CENSORED).sum())
         counts["no_free_gt"] += int((s_gt == RAY_NO_FREE).sum())
-        paired = (s_gt == RAY_OK) & (s_pred == RAY_OK)
+        counts["ok_gt"] += int(ok_gt.sum())
+        # 놓친 장애물: GT에는 있는데 예측은 격자 끝까지 free. `RAY_NO_FREE`는 세지 않는다 --
+        # 그건 "전부 막혔다고 봤다"는 과잉 보수라서 비용의 종류가 정반대다.
+        counts["missed_obstacle"] += int((ok_gt & (s_pred == RAY_CENSORED)).sum())
+        paired = ok_gt & (s_pred == RAY_OK)
         deltas.append(r_pred[paired] - r_gt[paired])
+        gt_ranges.append(r_gt[paired])
 
     delta = np.concatenate(deltas) if deltas else np.empty(0)
+    gt_range = np.concatenate(gt_ranges) if gt_ranges else np.empty(0)
     counts["n_paired_rays"] = int(delta.size)
     counts["over_count"] = int((delta > 0).sum())
     counts["under_count"] = int((delta < 0).sum())
     # `deltas`를 그대로 실어 보낸다 -- `summarize_range_error`가 epoch 전체를 모아 한 번에
     # 백분위수를 내야 하기 때문이다. batch당 수천 개 float이라 비용은 무시할 수준이다.
-    return {"deltas": delta, **_delta_stats(delta), **counts}
+    # `gt_range`는 같은 표본을 GT 거리로 층화하기 위해 짝지어 보관한다.
+    return {"deltas": delta, "gt_ranges": gt_range,
+            **_delta_stats(delta), **counts, **_delta_rates(counts)}
 
 
 def summarize_range_error(dicts) -> dict:
@@ -169,11 +234,39 @@ def summarize_range_error(dicts) -> dict:
     """
     if not dicts:
         return {**dict.fromkeys(_RANGE_STAT_KEYS, float("nan")),
+                **dict.fromkeys(_RANGE_RATE_KEYS, float("nan")),
                 **dict.fromkeys(_RANGE_COUNTS, 0)}
     delta = np.concatenate([d["deltas"] for d in dicts])
     result = _delta_stats(delta)
     for key in _RANGE_COUNTS:
         result[key] = sum(d[key] for d in dicts)
+    result.update(_delta_rates(result))
+    return result
+
+
+def summarize_range_error_by_gt_range(dicts, edges_m) -> dict:
+    """같은 표본을 **GT 거리**로 층화한다 -- "이 거리의 장애물을 얼마나 정확히 찾나".
+
+    M4(`metrics_per_ring`)와 다른 것을 잰다: M4는 셀을 링 마스크로 나누는데, 광선 하나는
+    여러 링을 지나므로 거리 오차를 셀 기준으로 나눌 수 없다. 그래서 광선을 그 광선의
+    **GT 거리**로 묶는다.
+
+    예측 거리로 묶으면 안 된다 -- 구간의 정의 자체가 모델에 따라 움직여 run 간 비교가
+    무의미해진다. GT 거리로 묶으면 구간은 데이터가 고정한다.
+
+    왜 필요한가: 전체 평균 하나로는 "근거리 5 cm / 원거리 1.5 m"인 모델과 "전 구간 40 cm"인
+    모델이 구별되지 않는다. BEV 변환이 거리에 따라 기하를 얼마나 잘 복원하는지가 여기서
+    드러난다.
+    """
+    if not dicts:
+        return {}
+    delta = np.concatenate([d["deltas"] for d in dicts])
+    gt_range = np.concatenate([d["gt_ranges"] for d in dicts])
+    result = {}
+    for lo, hi in zip(edges_m[:-1], edges_m[1:]):
+        selected = (gt_range >= lo) & (gt_range < hi)
+        result[f"{lo}-{hi}m"] = {**_delta_stats(delta[selected]),
+                                 "n_paired_rays": int(selected.sum())}
     return result
 
 
