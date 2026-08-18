@@ -50,9 +50,19 @@ Last updated: 2026-08-18
 
 ## 브랜치와 git 상태
 
+**free-space 재정의 작업은 끝났고 `develop`과 `main`에 머지됐다.**
+`feat/bev-free-space-task`는 머지 후 삭제됐다 -- 그 18개 커밋은 `develop`의 조상으로 남아 있어
+문서가 참조하는 해시들은 그대로 유효하다.
+
 ```bash
-git branch --show-current
-# feat/bev-free-space-task     <- merge/push는 사용자가 직접 한다 (AGENTS.md)
+git log --oneline develop | head -18   # 이 작업의 커밋 18개 (type: subject)
+```
+
+**다음 작업은 새 브랜치에서 시작한다** (`docs/git_workflow.md`: 새 작업마다 develop에서 분기):
+
+```bash
+git switch develop && git pull
+git switch -c feat/bev-surface-aware-loss     # loss 재설계용. 이미 만들어 뒀다
 ```
 
 워킹트리 clean. `python -m pytest tests/ -q` -> **275 passed**.
