@@ -15,6 +15,12 @@ EXP_NAME="${EXP_NAME:-robot_finetune}"
 LR="${LR:-1e-4}"
 AUGMENT="${AUGMENT:-False}"
 
+# 아래 둘은 과적합 스윕 대상이라 환경변수로 노출한다
+# (`docs/finetune_overfitting_diagnosis.md` §2). 1e-7은 Simple-BEV 기본값이고 실질적으로
+# 정규화가 없다 -- 192장 로봇 데이터에서 val loss가 epoch 4부터 올라간다.
+WEIGHT_DECAY="${WEIGHT_DECAY:-1e-7}"
+NUM_EPOCHS="${NUM_EPOCHS:-60}"
+
 # 시퀀스가 늘어나면 여기에 콤마로 추가한다. VAL_SEQUENCES는 **train에 없는 시퀀스**여야
 # 한다 -- 한 시퀀스는 연속 주행을 거리 기반으로 샘플링한 것이라 프레임을 섞어 나누면
 # val이 train을 그대로 들여다본다.
@@ -52,10 +58,10 @@ python tools/train_robot_bev.py \
     --val_sequences="${VAL_SEQUENCES}" \
     --val_tail_fraction="${VAL_TAIL_FRACTION}" \
     --init_checkpoint="${INIT_CHECKPOINT}" \
-    --num_epochs=60 \
+    --num_epochs="${NUM_EPOCHS}" \
     --batch_size=8 \
     --lr="${LR}" \
-    --weight_decay=1e-7 \
+    --weight_decay="${WEIGHT_DECAY}" \
     --num_workers=8 \
     --encoder_type=res101 \
     --augment="${AUGMENT}" \

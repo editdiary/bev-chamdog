@@ -1,21 +1,27 @@
 """자체 수집 데이터셋의 3-class BEV 예측을 패널 이미지로 저장한다.
 
-`occupancy`/`visibility` 패널은 3-class 분해에서 같은 뜻의 마스크를 꺼내 그린 것이다
-(`vis = free | occupied`, 관측 영역 안에서 `drivable = free`) -- 2-head를 되살린 것이 아니다.
+**샘플별 숫자는 학습 로그와 같은 함수로 계산한다** (`free_space_metrics`, `occupied_metrics`).
+시각화가 자기만의 지표를 다시 구현하면 그림과 로그가 다른 말을 하게 되고, 그러면 어느 쪽을
+믿어야 할지 알 수 없다. 그래서 여기서는 마스크를 만들어 넘기는 일만 한다.
 
-SynWoodScape 쪽(`tools/visualize_predictions.py`)과 같은 팔레트·배치를 쓰되
-(`projects/common/bev_panels.py`), 두 가지가 다르다:
+패널 구성 (`projects/common/three_class_panels.py`):
 
-1. **IPM 패널을 함께 그린다.** 자체 데이터셋은 val 샘플이 매우 적어 정량 지표의 노이즈가
-   크므로, 실제 판정은 눈으로 하게 된다. 같은 좌표계에 장면을 깔아주면 예측이 통로를
-   따라가는지 바로 보인다.
-2. **최악 샘플부터 골라볼 수 있다** (`--sort_by`). 전체를 다 볼 수 없을 때 평균 뒤에 숨은
-   실패 유형을 먼저 만난다.
+    IPM (실제 장면)   |   GT 3-class
+    pred 3-class      |   오차 지도
+
+`occupancy`/`visibility`를 따로 그리지 않는다 -- 3-class 분해가 그 둘을 이미 담고 있어
+(`vis = free | occupied`, 관측 영역 안에서 `drivable = free`) 같은 정보를 세 번 보는 셈이었다.
+
+**IPM 패널을 함께 그리는 이유**: val 샘플이 75장뿐이라 정량 지표의 노이즈가 크고 실제 판정은
+눈으로 하게 된다. 같은 좌표계에 장면을 깔아주면 예측이 통로를 따라가는지 바로 보인다.
+
+**최악 샘플부터 골라볼 수 있다** (`--sort_by`). 전체를 다 볼 수 없을 때 평균 뒤에 숨은 실패
+유형을 먼저 만난다.
 
 실행 예:
-    CUDA_VISIBLE_DEVICES=1 python tools/visualize_robot_predictions.py \\
-        --ckpt=runs/robot_bev/ckpt/<run>/model_best-000000030.pth \\
-        --sort_by=obstacle_iou --limit=8
+    CUDA_VISIBLE_DEVICES=0 python tools/visualize_robot_predictions.py \\
+        --ckpt=runs/robot_bev/ckpt/<run>/model_best-000000033.pth \\
+        --sequences=raws1,rawos3 --sort_by=fatal_rate --limit=8
 """
 import sys
 import warnings
@@ -35,15 +41,29 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 from projects.bev_gt.grid import ROBOT_GRID_SPEC  # noqa: E402
 from projects.bev_gt.ipm import render_ipm  # noqa: E402
-from projects.common.bev_panels import (  # noqa: E402
-    build_panel,
-    compute_iou,
-    format_obstacle_iou,
-    occupancy_to_image,
-    visibility_to_image,
-)
 from projects.common.free_space import decompose, decompose_from_class_index  # noqa: E402
-from projects.common.polar import build_ray_index, first_free_range  # noqa: E402
+from projects.common.free_space_metrics import (  # noqa: E402
+    fatal_rate,
+    free_miss_rate,
+    iou_free,
+    iou_masked,
+    range_error,
+)
+from projects.common.occupied_metrics import (  # noqa: E402
+    summarize_tolerance_f1,
+    tolerance_counts,
+)
+from projects.common.polar import RAY_OK, build_ray_index, first_free_range  # noqa: E402
+from projects.common.three_class_panels import (  # noqa: E402
+    CLASS_COLOURS,
+    ERROR_COLOURS,
+    RANGE_COLOURS,
+    build_panel,
+    draw_range_profile,
+    render_classes,
+    render_errors,
+    upscale,
+)
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
     DEFAULT_DATASET_ROOT,
@@ -59,86 +79,78 @@ from projects.geometry.double_sphere import (  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 
-CELL_UPSCALE = 4  # 120x120 -> 480x480. pretrain은 240x240이라 2를 썼다.
-CAM_THUMB_WH = (240, 135)  # 16:9 (자체 리그는 1280x720)
+CELL_UPSCALE = 5  # 120x120 -> 600x600
+TOLERANCE_M = 0.20  # 패널에 적을 대표 tolerance. 전체 집합은 `occupied_metrics`가 정한다
 
-# GT와 pred를 같은 팔레트로 그려야 눈으로 뺄셈이 된다. `invalid`는 `unknown`과 반드시
-# 달라야 한다 -- 하나는 배포 때 사라지는 수집 아티팩트고 다른 하나는 진짜 미관측이다.
-FREE_SPACE_PALETTE = {
-    "free": (60, 200, 90),
-    "occupied": (220, 60, 60),
-    "unknown": (25, 25, 30),
-    "invalid": (150, 60, 190),
+# `--sort_by`: 값이 "클수록 나쁨"이 되도록 부호를 맞춰 두면 정렬이 한 줄로 끝난다.
+_SORT_KEYS = {
+    "index": lambda s: 0.0,
+    "fatal_rate": lambda s: s["fatal_rate"],
+    "free_miss_rate": lambda s: s["free_miss_rate"],
+    "iou_free": lambda s: -s["iou_free"],
+    "f1_occupied": lambda s: -s["f1_occupied"],
+    "range_mae": lambda s: s["range_mae"],
 }
-RANGE_PROFILE_COLOURS = {"gt": (255, 255, 255), "pred": (250, 220, 60)}
+
+LEGEND_CLASSES = [
+    ("free", CLASS_COLOURS["free"]),
+    ("occupied", CLASS_COLOURS["occupied"]),
+    ("unknown (vis=0)", CLASS_COLOURS["unknown"]),
+    ("invalid (valid=0, loss 제외)", CLASS_COLOURS["invalid"]),
+]
+LEGEND_ERRORS = [
+    ("fatal: pred free, GT 아님", ERROR_COLOURS["fatal"]),
+    ("miss: GT free, pred 아님", ERROR_COLOURS["miss"]),
+    ("occupied<->unknown 혼동", ERROR_COLOURS["occ_unknown"]),
+    ("correct", ERROR_COLOURS["correct"]),
+]
 
 
-def render_free_space_panel(parts, valid) -> np.ndarray:
-    """분해 -> (H, W, 3) uint8. 입력은 `(H, W)` 또는 `(1, 1, H, W)` bool 텐서."""
-    def squeeze(tensor):
-        array = tensor.detach().cpu().numpy() if hasattr(tensor, "detach") else np.asarray(tensor)
-        return array.reshape(array.shape[-2], array.shape[-1])
-
-    valid_2d = squeeze(valid)
-    panel = np.zeros((*valid_2d.shape, 3), np.uint8)
-    panel[...] = FREE_SPACE_PALETTE["invalid"]
-    panel[valid_2d] = FREE_SPACE_PALETTE["unknown"]
-    for name in ("unknown", "occupied", "free"):
-        panel[squeeze(parts[name])] = FREE_SPACE_PALETTE[name]
-    return panel
+def _nan_to_inf(value: float) -> float:
+    """정렬에서 NaN이 임의의 위치로 가지 않게 한다 -- 잴 수 없는 샘플은 맨 뒤로 보낸다."""
+    return -np.inf if np.isnan(value) else value
 
 
-def draw_range_profile(panel, r_m, status, rays, grid_spec, colour) -> np.ndarray:
-    """`r(theta)`를 격자 위 점렬로 찍는다 -- M3 오차를 눈으로 보게 하는 것이 목적이다."""
-    from projects.common.polar import RAY_OK
-
-    origin_row = grid_spec.front_m / grid_spec.cell_m - 0.5
-    origin_col = grid_spec.half_width_m / grid_spec.cell_m - 0.5
-    thetas = np.linspace(0.0, 2 * np.pi, len(r_m), endpoint=False)
-    for i, theta in enumerate(thetas):
-        if status[i] != RAY_OK:
-            continue
-        radius_cells = r_m[i] / grid_spec.cell_m
-        row = int(round(origin_row - radius_cells * np.cos(theta)))
-        col = int(round(origin_col - radius_cells * np.sin(theta)))
-        if 0 <= row < panel.shape[0] and 0 <= col < panel.shape[1]:
-            panel[row, col] = colour
-    return panel
-
-
-def _free_space_to_image(parts, valid, upscale: int = CELL_UPSCALE) -> Image.Image:
-    image = render_free_space_panel(parts, valid)
-    h, w = image.shape[:2]
-    return Image.fromarray(image).resize((w * upscale, h * upscale), Image.NEAREST)
-
-
-def _ipm_to_image(ipm: np.ndarray, upscale: int = CELL_UPSCALE) -> Image.Image:
-    h, w = ipm.shape[:2]
-    return Image.fromarray(ipm).resize((w * upscale, h * upscale), Image.NEAREST)
-
-
-def _sample_scores(pred_occ, gt_occ, mask) -> dict:
-    """샘플 하나의 정렬 기준. 전부 "클수록 나쁨"으로 맞춰 정렬을 단순하게 둔다."""
-    gt_obstacle = (gt_occ == 0) & mask
-    pred_obstacle = (pred_occ == 0) & mask
-    missed = int((gt_obstacle & ~pred_obstacle).sum())
-    false_alarm = int((pred_obstacle & ~gt_obstacle).sum())
-    obstacle_iou = compute_iou(pred_obstacle, gt_obstacle, mask) if gt_obstacle.any() else np.nan
+def sample_scores(pred_parts, gt_parts, valid, rays, cell_m) -> dict:
+    """샘플 하나의 지표. **학습 로그와 같은 함수만 부른다.**"""
+    pred_free, gt_free = pred_parts["free"], gt_parts["free"]
+    iou, _ = iou_free(pred_free, gt_free, valid)
+    fatal, _ = fatal_rate(pred_free, gt_free, valid)
+    miss, _ = free_miss_rate(pred_free, gt_free, valid)
+    iou_occ, _ = iou_masked(pred_parts["occupied"], gt_parts["occupied"], valid)
+    tolerance = summarize_tolerance_f1([tolerance_counts(
+        pred_parts["occupied"], gt_parts["occupied"], valid, cell_m,
+        tolerances=(TOLERANCE_M,),
+    )])
+    ranges = range_error(pred_free, gt_free, valid, rays)
+    f1 = next(iter(tolerance.values()))["f1"] if tolerance else float("nan")
     return {
-        # GT에 obstacle이 없으면 IoU가 구조적으로 0이라 최악 순위를 독차지한다 -> 제외.
-        "obstacle_iou": -obstacle_iou if gt_obstacle.any() else -np.inf,
-        "missed_obstacle": missed / max(int(gt_obstacle.sum()), 1),
-        "false_obstacle": false_alarm / max(int((~gt_obstacle & mask).sum()), 1),
-        "_obstacle_iou_text": format_obstacle_iou(pred_obstacle, gt_obstacle, mask),
-        "_missed": missed,
-        "_false": false_alarm,
-        "_gt_obstacle_cells": int(gt_obstacle.sum()),
+        "iou_free": iou, "fatal_rate": fatal, "free_miss_rate": miss,
+        "iou_occupied": iou_occ, "f1_occupied": f1,
+        "range_mae": ranges["mae"],
+        "missed_obstacle_rate": ranges["missed_obstacle_rate"],
+        "n_paired_rays": ranges["n_paired_rays"],
     }
+
+
+def _metric_lines(scores) -> list:
+    def fmt(value, digits=3):
+        return "  n/a" if np.isnan(value) else f"{value:.{digits}f}"
+
+    tolerance_label = f"f1@{round(TOLERANCE_M * 100)}cm"
+    return [
+        f"iou_free {fmt(scores['iou_free'])}   fatal {fmt(scores['fatal_rate'])}"
+        f"   free_miss {fmt(scores['free_miss_rate'])}",
+        f"{tolerance_label} {fmt(scores['f1_occupied'])}   iou_occupied {fmt(scores['iou_occupied'])}"
+        f"   (면적 IoU는 두께 1셀 표면에서 무의미하다 -- f1@tau와 함께 읽는다)",
+        f"range_mae {fmt(scores['range_mae'])} m   missed_obstacle {fmt(scores['missed_obstacle_rate'])}"
+        f"   paired rays {scores['n_paired_rays']}",
+    ]
 
 
 def main(
     ckpt,
-    sequences="raws1",
+    sequences="raws1,rawos3",
     out_dir="runs/robot_bev/viz",
     sort_by="index",
     limit=8,
@@ -149,15 +161,13 @@ def main(
     common_root=DEFAULT_COMMON_ROOT,
     device="cuda",
 ):
-    """`sort_by`: index | obstacle_iou | missed_obstacle | false_obstacle.
+    """`sort_by`: index | fatal_rate | free_miss_rate | iou_free | f1_occupied | range_mae.
 
-    `index`를 빼면 전부 "나쁜 순"이다 -- `obstacle_iou`는 IoU가 낮은 순, 나머지는 오류율이
-    높은 순. GT에 obstacle이 없는 샘플은 `obstacle_iou` 정렬에서 제외한다(완벽히 맞혀도
-    IoU가 0이라 순위를 독차지한다).
+    `index`를 빼면 전부 **"나쁜 순"**이다. 잴 수 없는 샘플(예: GT에 짝지어진 광선이 없어
+    `range_mae`가 NaN)은 순위를 왜곡하지 않도록 맨 뒤로 보낸다.
     """
-    valid_sorts = {"index", "obstacle_iou", "missed_obstacle", "false_obstacle"}
-    if sort_by not in valid_sorts:
-        raise ValueError(f"sort_by는 {sorted(valid_sorts)} 중 하나여야 한다: {sort_by!r}")
+    if sort_by not in _SORT_KEYS:
+        raise ValueError(f"sort_by는 {sorted(_SORT_KEYS)} 중 하나여야 한다: {sort_by!r}")
 
     dataset_root = Path(dataset_root)
     samples = []
@@ -175,46 +185,40 @@ def main(
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
     ).to(device)
-    checkpoint = torch.load(ckpt, map_location="cpu", weights_only=False)
-    model.load_state_dict(checkpoint.get("model_state_dict", checkpoint), strict=False)
+    state = torch.load(ckpt, map_location="cpu", weights_only=False)
+    # `strict=True`로 얹는다 -- 체크포인트 경로나 `encoder_type`이 어긋나면 일부가 랜덤
+    # 초기화된 채로 그럴듯한 그림이 나오고, 그것을 보고 모델을 판정하게 된다.
+    model.load_state_dict(state.get("model_state_dict", state))
     model.eval()
     rays = build_ray_index(ROBOT_GRID_SPEC)
 
     records = []
     with torch.no_grad():
         for batch in loader:
+            valid = batch["valid_bev_g"].to(device)
             _, _, logits, _, _ = model(
                 batch["rgb_camXs"].to(device), batch["pix_T_cams"].to(device),
                 batch["cam0_T_camXs"].to(device), vox_util,
             )
-            valid_dev = batch["valid_bev_g"].to(device)
-            pred_parts = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid_dev)
-            # 3-class 예측을 옛 occupancy/visibility 패널이 기대하는 두 bool로 되돌린다.
-            # 정의상 `vis = free | occupied`(= unknown이 아님)이고 관측 영역 안에서
-            # `occ(drivable) = free`다. 새 정식화에서 두 head를 다시 만드는 것이 아니라,
-            # 3-class 분해에서 같은 뜻의 마스크를 꺼내는 것이다.
-            pred_vis_bool = pred_parts["free"] | pred_parts["occupied"]
-            pred_occ_bool = pred_parts["free"]
-            gt_parts = decompose(batch["seg_bev_g"], batch["vis_bev_g"], batch["valid_bev_g"])
-            pred_occ = pred_occ_bool.cpu().numpy()[:, 0].astype(np.uint8)
-            pred_vis = pred_vis_bool.cpu().numpy()[:, 0]
-            for i in range(len(pred_occ)):
-                gt_occ = batch["seg_bev_g"][i, 0].numpy().astype(np.uint8)
-                gt_vis = batch["vis_bev_g"][i, 0].numpy().astype(bool)
-                valid = batch["valid_bev_g"][i, 0].numpy().astype(bool)
-                mask = gt_vis & valid
+            pred_parts = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid)
+            gt_parts = decompose(batch["seg_bev_g"].to(device), batch["vis_bev_g"].to(device), valid)
+            for i in range(valid.shape[0]):
+                one = slice(i, i + 1)
+                pred_one = {k: v[one] for k, v in pred_parts.items()}
+                gt_one = {k: v[one] for k, v in gt_parts.items()}
                 records.append({
                     "sample_id": batch["sample_id"][i],
-                    "rgb": batch["rgb_camXs"][i].numpy(),
-                    "pred_occ": pred_occ[i], "pred_vis": pred_vis[i],
-                    "gt_occ": gt_occ, "gt_vis": gt_vis, "valid": valid, "mask": mask,
-                    "gt_parts": {name: values[i, 0].cpu().numpy() for name, values in gt_parts.items()},
-                    "pred_parts": {name: values[i, 0].cpu().numpy() for name, values in pred_parts.items()},
-                    **_sample_scores(pred_occ[i], gt_occ, mask),
+                    "camera_images": (
+                        batch["rgb_camXs"][i].numpy().transpose(0, 2, 3, 1) * 255
+                    ).clip(0, 255).astype(np.uint8),
+                    "pred_parts": {k: v[i, 0].cpu().numpy() for k, v in pred_parts.items()},
+                    "gt_parts": {k: v[i, 0].cpu().numpy() for k, v in gt_parts.items()},
+                    "valid": valid[i, 0].cpu().numpy().astype(bool),
+                    **sample_scores(pred_one, gt_one, valid[one], rays, ROBOT_GRID_SPEC.cell_m),
                 })
 
     if sort_by != "index":
-        records.sort(key=lambda r: r[sort_by], reverse=True)
+        records.sort(key=lambda r: _nan_to_inf(_SORT_KEYS[sort_by](r)), reverse=True)
     selected = records[:limit] if limit else records
 
     cameras = load_cameras(Path(common_root) / "calibration/calib.yaml")
@@ -232,47 +236,34 @@ def main(
         }
         ipm = render_ipm(images, cameras, ego_T_cams, ROBOT_GRID_SPEC)
 
-        drivable_iou = compute_iou(
-            (record["pred_occ"] == 1), (record["gt_occ"] == 1), record["mask"]
-        )
-        gt_free_space = _free_space_to_image(record["gt_parts"], record["valid"])
-        pred_free_space = render_free_space_panel(record["pred_parts"], record["valid"])
-        gt_range, gt_status = first_free_range(record["gt_parts"]["free"], rays)
-        pred_range, pred_status = first_free_range(record["pred_parts"]["free"], rays)
-        draw_range_profile(
-            pred_free_space, gt_range, gt_status, rays, ROBOT_GRID_SPEC,
-            RANGE_PROFILE_COLOURS["gt"],
-        )
-        draw_range_profile(
-            pred_free_space, pred_range, pred_status, rays, ROBOT_GRID_SPEC,
-            RANGE_PROFILE_COLOURS["pred"],
-        )
-        pred_free_space = Image.fromarray(pred_free_space).resize(
-            (pred_free_space.shape[1] * CELL_UPSCALE, pred_free_space.shape[0] * CELL_UPSCALE),
-            Image.NEAREST,
-        )
+        # range 프로파일은 pred 패널 위에 얹는다 -- 확대 **전에** 찍어야 한 셀이
+        # upscale x upscale 블록이 되어 실제로 보인다.
+        pred_image = render_classes(record["pred_parts"], record["valid"])
+        for parts_key, colour_key in (("gt_parts", "gt"), ("pred_parts", "pred")):
+            r_m, status = first_free_range(record[parts_key]["free"], rays)
+            draw_range_profile(pred_image, r_m, status, rays, ROBOT_GRID_SPEC,
+                               RANGE_COLOURS[colour_key], RAY_OK)
+
         panel = build_panel(
-            record["rgb"], FINETUNE_CAMERA_NAMES,
-            [
-                ("IPM (actual scene)", _ipm_to_image(ipm)),
-                ("GT occupancy", occupancy_to_image(record["gt_occ"], record["mask"], CELL_UPSCALE)),
-                ("pred occupancy", occupancy_to_image(record["pred_occ"], record["mask"], CELL_UPSCALE)),
-                ("GT visibility", visibility_to_image(record["gt_vis"], CELL_UPSCALE)),
-                ("pred visibility", visibility_to_image(record["pred_vis"] & record["valid"], CELL_UPSCALE)),
-                ("GT free-space", gt_free_space),
-                ("pred free-space + range", pred_free_space),
+            camera_images=record["camera_images"],
+            camera_names=FINETUNE_CAMERA_NAMES,
+            bev_grid=[
+                [("IPM (실제 장면)", upscale(ipm, CELL_UPSCALE)),
+                 ("GT 3-class", upscale(render_classes(record["gt_parts"], record["valid"]),
+                                       CELL_UPSCALE))],
+                [("pred 3-class  (흰 점 = GT 거리, 노란 점 = pred 거리)",
+                  upscale(pred_image, CELL_UPSCALE)),
+                 ("오차 지도", upscale(render_errors(record["pred_parts"], record["gt_parts"],
+                                                  record["valid"]), CELL_UPSCALE))],
             ],
-            [
-                f"{record['sample_id']}   (sort_by={sort_by}, rank {rank + 1}/{len(selected)})",
-                f"obstacle IoU: {record['_obstacle_iou_text']}   drivable IoU: {drivable_iou:.3f}",
-                f"GT obstacle cells: {record['_gt_obstacle_cells']}   "
-                f"missed: {record['_missed']}   false alarm: {record['_false']}",
-                "grey = excluded from loss (permanent blind vis=0 + collection artifact valid=0)",
-            ],
-            cam_thumb_wh=CAM_THUMB_WH,
+            headline=f"{record['sample_id']}"
+                     + (f"    [{sort_by} 나쁜 순 {rank + 1}/{len(selected)}]"
+                        if sort_by != "index" else ""),
+            metric_lines=_metric_lines(record),
+            legend=LEGEND_CLASSES + LEGEND_ERRORS,
         )
-        name = f"{rank:02d}_{sequence_name}_{sample_id}.png" if sort_by != "index" \
-            else f"{sequence_name}_{sample_id}.png"
+        name = (f"{rank:02d}_{sequence_name}_{sample_id}.png" if sort_by != "index"
+                else f"{sequence_name}_{sample_id}.png")
         panel.save(out_path / name)
 
     print(f"{len(selected)} panels -> {out_path}")
