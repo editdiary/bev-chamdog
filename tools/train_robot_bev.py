@@ -145,6 +145,12 @@ def main(
     log_dir="runs/robot_bev/logs",
     ckpt_dir="runs/robot_bev/ckpt",
     device="cuda",
+    # 주기 저장분을 몇 개까지 남길지. **기본값 3은 유효 구간을 지운다** -- `save_freq_epochs=10`
+    # 으로 60 epoch을 돌리면 10/20/30/40/50/60에 저장되는데 3개만 남아 40/50/60이 되고,
+    # 과적합이 빠른 리그에서 정작 쓸 만한 초기 epoch이 통째로 사라진다(2026-08-18 fine-tuning
+    # 진단에서 실제로 겪었다: `docs/finetune_overfitting_diagnosis.md` §5). 체크포인트 하나가
+    # 약 487 MB이므로 `num_epochs / save_freq_epochs` 만큼 남기는 것을 기본으로 둔다.
+    keep_checkpoints=6,
     n_theta=None,
 ):
     torch.manual_seed(0)
@@ -327,7 +333,8 @@ def main(
             ))
 
             if epoch % save_freq_epochs == 0 or epoch == num_epochs:
-                saverloader.save(str(ckpt_path), optimizer, model, epoch, keep_latest=3)
+                saverloader.save(str(ckpt_path), optimizer, model, epoch,
+                                 keep_latest=keep_checkpoints)
             if is_new_best:
                 best_val_score = val_score
                 saverloader.save(str(ckpt_path), optimizer, model, epoch,

@@ -129,3 +129,28 @@ def test_real_dataset_statistics_are_in_the_expected_range():
     assert 0.01 < stats["obstacle_fraction"] < 0.20
     # 같은 말을 반대쪽에서 한 번 더 고정한다: drivable이 다수여야 한다.
     assert stats["trivial_iou"] > 0.5
+
+
+def test_periodic_checkpoints_are_kept_for_every_saved_epoch_by_default():
+    """`keep_latest=3`이 주기 저장분을 지워 유효 구간이 사라졌던 회귀를 막는다.
+
+    2026-08-18 fine-tuning 진단에서 실제로 겪었다: `save_freq_epochs=10`으로 60 epoch을
+    돌렸는데 40/50/60만 남고, val 지표가 최고였던 epoch 10~30이 전부 삭제돼 재채점으로
+    복구할 수 없었다(`docs/finetune_overfitting_diagnosis.md` §5).
+
+    기본값이 `num_epochs / save_freq_epochs`(= 60/10 = 6)보다 작아지면 같은 일이 반복된다.
+    """
+    import inspect
+
+    import tools.train_robot_bev as robot_trainer
+    import tools.train_synwoodscape as synwoodscape_trainer
+
+    for trainer in (robot_trainer, synwoodscape_trainer):
+        defaults = {
+            name: parameter.default
+            for name, parameter in inspect.signature(trainer.main).parameters.items()
+        }
+        periodic_saves = defaults["num_epochs"] // defaults["save_freq_epochs"]
+        assert defaults["keep_checkpoints"] >= periodic_saves, (
+            trainer.__name__, defaults["keep_checkpoints"], periodic_saves,
+        )

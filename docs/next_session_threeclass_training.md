@@ -11,7 +11,19 @@ Last updated: 2026-08-18
 **3-class 단일 head로 확정, 2-head 제거 완료. 지표 확장(occupied `f1@τ`, range `mae`/`bias`,
 `missed_obstacle_rate`, 거리별 층화)까지 끝냈다. 아직 본학습은 돌리지 않았다.**
 
-## ▶ 지금 진행 중인 안건: 진단용 pretrain 1회 → 그 곡선으로 선택 기준 결정
+## ▶ 지금 진행 중인 안건: fine-tuning 과적합 진단 결과 처리
+
+pretrain(33.5분)과 fine-tuning(60 epoch) 진단 런을 **둘 다 돌렸다.** 결과:
+
+- pretrain 분석: `synwoodscape_pretrain_experiment_log.md` **§7**
+- fine-tuning 분석: **[`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md)**
+
+fine-tuning에서 심각한 과적합이 확인됐고 원인이 셋이다(정규화 부재, `MAX_CLASS_WEIGHT=20`,
+수렴한 pretrain 초기화 가설). **이월 안건이었던 `MAX_CLASS_WEIGHT`가 이제 최우선이 됐다** --
+val `loss_occupied`가 145까지 올라 raw CE 7.25 nats(정답 확률 0.07 %)다. 조치 후보와
+우선순위는 그 문서 §7에 있다. 각 fine-tuning이 10분이라 전부 실측 가능하다.
+
+<details><summary>이전 안건: 진단용 pretrain으로 선택 기준 결정 (완료, 답이 나왔다)</summary>
 
 지표 확장은 **끝났다**(2026-08-18, 커밋 `1703a34`). 남은 것은 하나:
 
@@ -37,6 +49,16 @@ Last updated: 2026-08-18
 - 원거리 링 `iou_free` -- 추가 비용 0이지만 여전히 free 기준이라 포화 문제를 완전히 벗지 못한다
 
 주의: **선택 기준 변경은 본학습 전에 해야 한다** -- 재채점으로 복구되지 않는 부류다.
+
+**[답] 두 런을 다 돌린 뒤의 결론**: `iou_free`의 선택 폭이 pretrain에서 0.4 %,
+로봇에서 2.1 %(절대 0.0170 < 노이즈 대역 0.02)로 **양쪽 다 부족하다.** 대안은 데이터셋마다
+다르다 -- pretrain은 `range_mae`(140 %)만 살아남고, 로봇은 `fatal_rate`(34.8 %)와
+`f1@20cm`(6.7 %)가 작동한다. `f1@τ`가 SynWoodScape에서 포화하는 이유는 두 데이터셋의
+`occupied`가 다른 물체이기 때문이다(frontier shell 0.0135 대 0.998, §7.3).
+단 pretrain에서는 어느 기준을 써도 epoch 44~52를 고르고 그 체크포인트들이 구별되지 않아
+**재실행은 불필요했다**(epoch 48 사용 중).
+
+</details>
 
 ## 브랜치와 git 상태
 

@@ -1,4 +1,7 @@
-"""자체 수집 데이터셋의 two-head BEV 예측을 패널 이미지로 저장한다.
+"""자체 수집 데이터셋의 3-class BEV 예측을 패널 이미지로 저장한다.
+
+`occupancy`/`visibility` 패널은 3-class 분해에서 같은 뜻의 마스크를 꺼내 그린 것이다
+(`vis = free | occupied`, 관측 영역 안에서 `drivable = free`) -- 2-head를 되살린 것이 아니다.
 
 SynWoodScape 쪽(`tools/visualize_predictions.py`)과 같은 팔레트·배치를 쓰되
 (`projects/common/bev_panels.py`), 두 가지가 다르다:

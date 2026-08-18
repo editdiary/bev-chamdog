@@ -388,3 +388,126 @@ af150b6 Document metric fixes and reprioritize improvement plan
 d0e089a Separate valid mask from visibility, add deployment metrics
 45bec64 Exclude obstacle-free samples from occupancy IoU
 ```
+
+---
+
+## 7. 3-class 진단용 pretrain (2026-08-18, 커밋 `7109945`)
+
+**목적**: 본학습이 아니라 **어떤 지표로 best epoch을 고를지 결정하기 위한 진단 런**이다.
+확장된 지표(occupied `f1@τ`, `range_mae`/`bias`, `missed_obstacle_rate`, 거리별 층화)가
+실제로 epoch을 구별하는지 60 epoch 곡선으로 본다.
+
+```text
+run  threeclass_pretrain_photo_aug_res101_bs16_lr3e-04_260818_170231
+400 train / 100 val | bs16 | lr 3e-4 | res101 | fisheye | augment=True | 60 epoch
+33.5분 (평균 33.5s/epoch, 26.1~36.9s) | best epoch 48 (기준 `iou_free`)
+trivial baseline 0.875 | constant-map baseline 0.866
+```
+
+### 7.1 `iou_free`의 문제는 "여유폭"이 아니라 **조기 포화**였다
+
+이전 세션의 진단(`next_session_threeclass_training.md` §2.1(b))은 "constant-map baseline
+0.866에 대해 여유폭이 +0.052뿐"이었는데, **그 숫자는 1~2 epoch 모델에서 나온 것이라 틀렸다.**
+60 epoch 학습하면 `iou_free`가 **0.9862**까지 가고 여유폭은 **+0.120**이다.
+
+진짜 문제는 다른 것이고, 확인됐다 — **2 epoch에 0.9617, 11 epoch에 0.9829**에 도달한 뒤
+남은 49 epoch의 개선폭이 **+0.0033**이다. epoch 20~60 구간의 전체 spread가 **0.0043**으로,
+이 프로젝트가 스스로 정한 노이즈 대역(0.02)의 **1/5**다. 즉 `iou_free`로 best epoch을 고르는
+것은 실질적으로 임의 선택에 가깝다.
+
+### 7.2 상대 변별력 — SynWoodScape에서는 **range 계열만** 구별한다
+
+epoch 20~60 구간의 `spread / best` (지표 자기 스케일 대비 얼마나 움직이나):
+
+| 지표 | spread | best | 상대 |
+|---|---|---|---|
+| `missed_obstacle_rate` | 0.0405 | 0.0218 | **186 %** |
+| `range_mae` | 0.1309 | 0.0932 | **140 %** |
+| `range_mae` 4–6 m | 0.1074 | 0.0966 | 111 % |
+| `range_mae` 2–4 m | 0.0474 | 0.0708 | 67 % |
+| `range_mae` 6–8 m | 0.0740 | 0.1929 | 38 % |
+| `iou_occupied` | 0.0311 | 0.8289 | 3.8 % |
+| `iou_free` | 0.0043 | 0.9863 | 0.4 % |
+| `f1@20cm` | 0.0024 | 0.9873 | **0.2 %** |
+| `f1@40cm` | 0.0015 | 0.9942 | 0.2 % |
+
+`range_mae`는 0.2241 → 0.0932(epoch 20→52, 58 % 감소)로 계속 움직이는데 같은 구간에서
+`iou_free`는 +0.2 %만 움직인다. 거리 지표의 변별력이 **두 자릿수 배** 크다.
+
+### 7.3 `f1@τ`는 pretrain 선택 기준으로 쓸 수 없다 — 두 데이터셋의 `occupied`가 다른 물체다
+
+로봇에서 `f1@20cm` 0.665 대 `iou_occupied` 0.063이었던 것을 근거로 `f1@20cm`을 선택 기준
+후보로 올렸는데, **SynWoodScape에서는 0.9873으로 포화하고 spread가 0.0024뿐이다.** 원인을
+실측했다:
+
+| | occupied 비율 | frontier shell 비율 |
+|---|---|---|
+| SynWoodScape (60프레임) | 0.121 | **0.0135** |
+| 로봇 (267프레임) | 0.060 | **0.998** |
+
+**SynWoodScape의 `occupied`는 채워진 면적이고, 로봇의 `occupied`는 두께 1셀 표면이다.**
+전자는 시맨틱 래스터화에서 나오고 후자는 raycast가 멈춘 자리다. 그래서 면적 IoU가
+SynWoodScape에서는 0.827로 잘 작동하고 로봇에서는 0.063으로 무너진다. **occupied 계열 지표의
+값은 두 데이터셋 사이에서 옮겨 읽을 수 없다.**
+
+### 7.4 `abs_p50` / `abs_p90`은 양자화 때문에 순위를 매길 수 없다
+
+epoch 20~60의 41개 값 중:
+
+- `abs_p50`: **39개가 동일한 0.0500**, 나머지 0.075와 0.1 각 1개
+- `abs_p90`: **34개가 동일한 0.2500**, 나머지 0.275(5) / 0.3(1) / 0.35(1)
+
+광선의 반지름 표본 간격이 `step_cells=0.5 × 0.05 m = 0.025 m`라 백분위수가 그 격자 위의
+값만 취한다. 세 개 남짓한 값만 갖는 지표로는 체크포인트를 고를 수 없다.
+**`mae`를 추가한 것이 이 런에서 결정적이었다** -- 없었으면 range 계열 전체가 순위를 못 매겼다.
+
+### 7.5 `range_mae`의 게이밍 위험은 이 런에서 실현되지 않았다
+
+`range_mae`는 표본이 예측에 의존해(장애물을 놓친 광선이 `RAY_CENSORED`가 되어 빠진다)
+"어려운 광선을 버리는" 체크포인트가 유리해질 수 있다는 것이 이론적 우려였다. 실측:
+
+    Pearson r(range_mae, missed_obstacle_rate) = +0.915   (Spearman +0.682)
+
+**둘이 함께 좋아진다.** 즉 이 런에서 모델은 광선을 버려서 거리 오차를 줄이는 것이 아니라
+실제로 둘 다 개선했다. 위험은 여전히 구조적으로 존재하므로 `missed_obstacle_rate`를 항상
+병기해 읽는다(로그 같은 줄에 있다).
+
+### 7.6 val loss는 epoch 13부터 나빠지는데 기하 지표는 50까지 좋아진다
+
+| | epoch 13 | epoch 60 |
+|---|---|---|
+| val loss | **0.1952** (최소) | 0.3385 (+73 %) |
+| train loss | -- | 0.0231 (val의 1/15) |
+| train `iou_free` | -- | 0.998 |
+| val `range_mae` | ~0.24 | **0.0946** |
+
+**클래스 가중 CE와 기하 지표가 "언제 멈춰야 하는가"에 대해 서로 다른 말을 한다.**
+val `loss_occupied`가 1.7504(train 0.0738)까지 벌어지는데 `range_mae`는 계속 줄어든다.
+결론 두 가지: (a) **val loss를 선택 기준으로 쓰면 안 된다** -- epoch 21을 고르는데 그 지점의
+`range_mae`는 0.1444로 최적 대비 55 % 나쁘다. (b) 이월 안건인
+`MAX_CLASS_WEIGHT`/loss 재설계(§1.7)에 이 과적합 양상을 근거로 추가한다.
+
+### 7.7 그러나 **이 런에서는 어느 기준을 써도 결과가 같다**
+
+val loss를 뺀 모든 후보가 epoch 44~52를 고르고, 그 체크포인트들은 서로 구별되지 않는다:
+
+| epoch | 고르는 기준 | `iou_free` | `f1@20cm` | `range_mae` | `missed` |
+|---|---|---|---|---|---|
+| 44 | `f1@τ`, `iou_occupied` | 0.9862 | 0.9873 | 0.0965 | 0.0261 |
+| 47 | `missed_obstacle_rate` | 0.9856 | 0.9869 | 0.0995 | 0.0218 |
+| **48** | **`iou_free` (현행, 저장됨)** | 0.9863 | 0.9866 | 0.0942 | 0.0263 |
+| 52 | `range_mae` | 0.9863 | 0.9868 | 0.0932 | 0.0242 |
+
+차이가 전부 jitter 수준이다(`range_mae` jitter 0.0068, 48↔52 차이 0.0010).
+**따라서 pretrain을 다시 돌릴 이유가 없고 `model_best-000000048.pth`를 그대로 쓴다.**
+선택 기준 변경은 이 체크포인트를 위해서가 아니라 **앞으로의 런**을 위해 하는 것이다.
+
+### 7.8 부수 관측
+
+- **근거리는 사실상 완벽, 원거리가 병목.** `range_mae` 0–2 m는 **0.0101 m**(0.2셀)까지
+  내려가는데 6–8 m는 0.2048 m(4셀)에서 멈춘다. **20배 차이.** BEV 변환이 거리에 따라 기하를
+  얼마나 복원하는지가 그대로 보인다 -- 거리별 층화를 넣은 이유가 이것이다.
+- **occupied precision은 오르고 recall은 내려간다** (20 cm 기준: precision 0.9730 → 0.9906,
+  recall 0.9860 → 0.9832). 학습이 진행되며 occupied 예측이 보수적으로 변한다.
+- `bias`가 epoch 60에서 **+0.010 m**로 거의 0이다(초기에는 음수 = 보수적). 편향이 사라지고
+  분산만 남은 상태다.
