@@ -32,7 +32,14 @@ MAX_CLASS_WEIGHT = 20.0
 
 
 def compute_three_class_loss(logits, class_index, valid, class_weights):
-    """Masked weighted cross-entropy over valid BEV cells only."""
+    """Masked weighted cross-entropy over valid BEV cells only.
+
+    `loss_*`는 그 클래스 셀의 **평균**이고 `share_*`는 그 클래스가 **총 loss에 실제로 기여하는
+    몫**이다. 둘을 같이 내놓는 이유: 평균만 보면 병리가 안 보인다. 2026-08-18 실측에서 val
+    `loss_occupied`가 145였는데, 그것만으로는 occupied가 셀의 1.1 %인데 **총 loss의 67 %**를
+    차지한다는 사실이 드러나지 않았다 -- 셀 비율을 손으로 곱해 봐야 알 수 있었다.
+    `share_*`는 정의상 합이 1이므로 어느 클래스가 학습을 지배하는지 바로 읽힌다.
+    """
     valid_f = valid.float()
     per_cell = F.cross_entropy(
         logits,
@@ -40,19 +47,21 @@ def compute_three_class_loss(logits, class_index, valid, class_weights):
         weight=class_weights.to(logits.device),
         reduction="none",
     ).unsqueeze(1)
-    total = (per_cell * valid_f).sum() / (valid_f.sum() + 1e-6)
+    weighted_sum = (per_cell * valid_f).sum()
+    total = weighted_sum / (valid_f.sum() + 1e-6)
 
     parts = {}
     valid_b = valid.bool()
     for class_id in CLASS_ORDER:
+        name = _PART_BY_CLASS[class_id]
         selector = ((class_index == class_id) & valid_b).float()
-        parts[f"loss_{_PART_BY_CLASS[class_id]}"] = (
-            (per_cell * selector).sum() / (selector.sum() + 1e-6)
-        )
+        class_sum = (per_cell * selector).sum()
+        parts[f"loss_{name}"] = class_sum / (selector.sum() + 1e-6)
+        parts[f"share_{name}"] = class_sum / (weighted_sum + 1e-6)
     return total, parts
 
 
-def class_weights_from_labels(label_triples) -> torch.Tensor:
+def class_weights_from_labels(label_triples, max_class_weight=None) -> torch.Tensor:
     """Inverse-frequency class weights from an iterable of ``(occ, vis, valid)`` triples.
 
     데이터셋을 모른다 -- 호출자가 자기 방식으로 라벨을 읽어 세 마스크만 넘긴다. 로봇 쪽은
@@ -71,7 +80,10 @@ def class_weights_from_labels(label_triples) -> torch.Tensor:
 
     weights = counts.sum() / counts.clamp(min=1.0)
     weights = weights / weights.min().clamp(min=1e-12)
-    return weights.clamp(max=MAX_CLASS_WEIGHT).float()
+    cap = MAX_CLASS_WEIGHT if max_class_weight is None else float(max_class_weight)
+    # `cap=1`은 "가중치를 아예 쓰지 않는다"가 된다 -- 최소값이 1로 정규화돼 있으므로 전부 1로
+    # 눌린다. 한 번도 돌려 본 적이 없는 기준선이고, 스윕의 한쪽 끝이다.
+    return weights.clamp(max=cap).float()
 
 
 def compute_free_metrics(logits, seg_g, vis_g, valid_g) -> dict:

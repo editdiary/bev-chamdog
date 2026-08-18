@@ -48,7 +48,9 @@ def _install_common_cpu_doubles(monkeypatch, trainer, captured, selected, saved,
         return (
             torch.tensor(1.0, requires_grad=True),
             {"loss_unknown": torch.tensor(0.4), "loss_free": torch.tensor(0.2),
-             "loss_occupied": torch.tensor(0.3)},
+             "loss_occupied": torch.tensor(0.3),
+             "share_unknown": torch.tensor(0.5), "share_free": torch.tensor(0.2),
+             "share_occupied": torch.tensor(0.3)},
             dict(_FREE_METRICS),
         )
 
@@ -57,7 +59,7 @@ def _install_common_cpu_doubles(monkeypatch, trainer, captured, selected, saved,
         {"valid_bev_g": torch.ones(1, 1, 1, 1)}
     ])
     monkeypatch.setattr(trainer, "ThreeClassSegnet", _Model)
-    monkeypatch.setattr(trainer, "class_weights_from_labels", lambda *args: torch.ones(3))
+    monkeypatch.setattr(trainer, "class_weights_from_labels", lambda *args, **kwargs: torch.ones(3))
     monkeypatch.setattr(trainer, "build_ring_masks", lambda *args, **kwargs: [])
     monkeypatch.setattr(trainer, "build_ray_index", lambda *args, **kwargs: object())
     monkeypatch.setattr(
@@ -94,7 +96,8 @@ def _assert_free_score_reaches_checkpoint_path(captured, selected, saved, calls)
     assert captured[0]["val_score"] == pytest.approx(0.20)
     # 세 loss 항이 로그까지 전달돼야 한다 -- 항이 두 칸뿐이던 옛 계약으로 돌아가면 깨진다.
     assert captured[0]["train_loss_parts"] == pytest.approx(
-        {"loss_unknown": 0.4, "loss_free": 0.2, "loss_occupied": 0.3}
+        {"loss_unknown": 0.4, "loss_free": 0.2, "loss_occupied": 0.3,
+         "share_unknown": 0.5, "share_free": 0.2, "share_occupied": 0.3}
     )
     assert "model_best" in saved
 

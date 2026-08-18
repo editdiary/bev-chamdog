@@ -154,3 +154,15 @@ def test_periodic_checkpoints_are_kept_for_every_saved_epoch_by_default():
         assert defaults["keep_checkpoints"] >= periodic_saves, (
             trainer.__name__, defaults["keep_checkpoints"], periodic_saves,
         )
+
+
+def test_none_as_a_string_means_from_scratch():
+    """config가 `INIT_CHECKPOINT`를 필수로 만들었으므로 셸에서 "pretrain 없이"를 표현할 값이
+    필요하다. `"none"`을 경로로 취급하면 `load_trunk_weights`가 파일을 못 찾고 죽는다
+    (2026-08-18 클래스 가중치 스윕 첫 시도가 이걸로 실패했다)."""
+    from tools.train_robot_bev import from_scratch
+
+    for value in (None, "", "none", "None", " NONE ", "no"):
+        assert from_scratch(value), value
+    for value in ("runs/x/model_best-000000048.pth", "none.pth", "checkpoint_none"):
+        assert not from_scratch(value), value

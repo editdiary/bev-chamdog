@@ -81,6 +81,16 @@ from projects.models.simplebev_three_class import (  # noqa: E402
 )
 
 
+def from_scratch(init_checkpoint) -> bool:
+    """`--init_checkpoint`가 "체크포인트 없음"을 뜻하는가.
+
+    `None` 외에 문자열 `"none"`/`"no"`/`""`도 받는다. 셸 config에서 변수를 비우는 것으로는
+    표현할 수 없기 때문이다(비우면 필수 검사에 걸린다). 이 분기가 없으면 `"none"`이 경로로
+    취급되어 `load_trunk_weights`가 파일을 못 찾고 죽는다.
+    """
+    return init_checkpoint is None or str(init_checkpoint).strip().lower() in ("", "none", "no")
+
+
 def compute_label_statistics(samples, permanent_blind, invalid) -> dict:
     """라벨 분포를 **마스킹이 적용된 셀**에서만 실측한다.
 
@@ -130,6 +140,9 @@ def main(
     train_sequences="raws2,raws3,rawos1,rawos2,rawos4",
     val_sequences="raws1,rawos3",
     val_tail_fraction=0.0,  # val 시퀀스가 없을 때만 쓰는 임시 holdout (시퀀스 뒤쪽 연속 구간)
+    # `"none"`/`""`도 from scratch로 받는다 -- config가 이 변수를 필수로 만들었으므로
+    # (죽은 기본값을 없애면서) "pretrain 없이"를 셸에서 표현할 방법이 필요하다. 문자열
+    # `"none"`을 경로로 취급하면 `load_trunk_weights`가 파일을 못 찾고 죽는다(실제로 겪었다).
     init_checkpoint=None,
     num_epochs=60,
     batch_size=8,
@@ -151,6 +164,9 @@ def main(
     # 진단에서 실제로 겪었다: `docs/finetune_overfitting_diagnosis.md` §5). 체크포인트 하나가
     # 약 487 MB이므로 `num_epochs / save_freq_epochs` 만큼 남기는 것을 기본으로 둔다.
     keep_checkpoints=6,
+    # 역빈도 가중치의 상한. 기본값(20)의 근거와 실측 병리는
+    # `docs/finetune_overfitting_diagnosis.md` §3, §12에 있다. `1`이면 가중치 없음.
+    max_class_weight=None,
     n_theta=None,
 ):
     torch.manual_seed(0)
@@ -190,8 +206,9 @@ def main(
     rays = build_ray_index(GRID_SPEC) if n_theta is None else build_ray_index(GRID_SPEC, n_theta=n_theta)
     ring_masks = build_ring_masks(GRID_SPEC)
     class_weights = class_weights_from_labels(
-        load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
-        for sequence_root, sample_id in train_samples
+        (load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
+         for sequence_root, sample_id in train_samples),
+        max_class_weight=max_class_weight,
     )
 
     _print_banner([
@@ -200,7 +217,8 @@ def main(
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
         f" train sequences={','.join(names) or '-'} ({len(train_samples)} samples)",
         f" val   split={split_note} ({len(val_samples)} samples)",
-        f" init_checkpoint={init_checkpoint or 'none (from scratch)'}",
+        f" init_checkpoint="
+        f"{'none (from scratch)' if from_scratch(init_checkpoint) else init_checkpoint}",
         f" masks: vis=0 on {permanent_blind.sum()} cells | valid=0 on {invalid.sum()} cells",
         f" observed (vis&valid) covers {100 * stats['supervised_fraction']:.2f}% of cells"
         f" (obstacle {100 * stats['obstacle_fraction']:.2f}% inside it)",
@@ -244,7 +262,9 @@ def main(
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
     ).to(device)
-    if init_checkpoint:
+    if from_scratch(init_checkpoint):
+        print(_c(_Ansi.YELLOW, " weight transfer: 없음 -- ImageNet trunk + 랜덤 BEV decoder"))
+    else:
         # shape가 맞는 키를 전부 복사한다. 2-head pretrain 체크포인트에서는 출력 head 6개가
         # 형상이 달라 skip되고(674/6), 3-class pretrain 체크포인트에서는 head까지 함께
         # 전이돼 skipped가 0이어야 한다 -- 그 숫자가 곧 "head가 전이됐는지"의 확인이다.

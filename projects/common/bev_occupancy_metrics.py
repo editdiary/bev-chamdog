@@ -119,6 +119,20 @@ _LOSS_PART_FIELDS = (
 )
 
 
+def _format_share_field(loss_parts):
+    """세 클래스가 총 loss에 기여하는 몫을 한 칸에 담는다.
+
+    합이 1이라 세 숫자를 붙여 놓는 것이 가장 읽기 쉽다. 이것을 로그에 넣는 이유: 클래스별
+    평균(`loss_*`)만으로는 "occupied가 셀의 1.1 %인데 총 loss의 67 %"라는 사실이 보이지 않아
+    실측에서 셀 비율을 손으로 곱해 봐야 알 수 있었다
+    (`docs/finetune_overfitting_diagnosis.md` §12).
+    """
+    values = [(loss_parts or {}).get(f"share_{name}") for name in ("unknown", "free", "occupied")]
+    if any(value is None or (isinstance(value, float) and math.isnan(value)) for value in values):
+        return None
+    return _field("share u/f/o", "/".join(f"{value:.2f}" for value in values), fmt="")
+
+
 def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None):
     """train/val 한 줄. `iou_free`가 주 지표이고 나머지는 그것을 해석하기 위한 것이다."""
     fields = []
@@ -131,6 +145,9 @@ def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None):
     fields.append(_field("loss_total↓", loss, ".4f"))
     parts = loss_parts or {}
     fields += [_field(label, parts.get(key), ".4f") for label, key in _LOSS_PART_FIELDS]
+    share_field = _format_share_field(parts)
+    if share_field is not None:
+        fields.append(share_field)
     return _format_row(tag, tag_color, fields)
 
 

@@ -151,6 +151,9 @@ def main(
     # 진단에서 실제로 겪었다: `docs/finetune_overfitting_diagnosis.md` §5). 체크포인트 하나가
     # 약 487 MB이므로 `num_epochs / save_freq_epochs` 만큼 남기는 것을 기본으로 둔다.
     keep_checkpoints=6,
+    # 역빈도 가중치의 상한. 기본값(20)의 근거와 실측 병리는
+    # `docs/finetune_overfitting_diagnosis.md` §3, §12에 있다. `1`이면 가중치 없음.
+    max_class_weight=None,
     n_theta=None,
 ):
     torch.manual_seed(0)
@@ -165,7 +168,8 @@ def main(
 
     trivial_iou = compute_trivial_baseline_iou(val_ids, DEFAULT_OCCUPANCY_GT_ROOT)
     class_weights = class_weights_from_labels(
-        load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT)
+        load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT),
+        max_class_weight=max_class_weight,
     )
     train_free_masks = [
         decompose(*triple)["free"]

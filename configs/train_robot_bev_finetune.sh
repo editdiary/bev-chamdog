@@ -20,6 +20,9 @@ AUGMENT="${AUGMENT:-False}"
 # 정규화가 없다 -- 192장 로봇 데이터에서 val loss가 epoch 4부터 올라간다.
 WEIGHT_DECAY="${WEIGHT_DECAY:-1e-7}"
 NUM_EPOCHS="${NUM_EPOCHS:-60}"
+# 역빈도 가중치의 상한. 1이면 가중치 없음. 20이 기존 기본값이고 근거가 없다
+# (`docs/finetune_overfitting_diagnosis.md` §3, §12).
+MAX_CLASS_WEIGHT="${MAX_CLASS_WEIGHT:-20}"
 
 # 시퀀스가 늘어나면 여기에 콤마로 추가한다. VAL_SEQUENCES는 **train에 없는 시퀀스**여야
 # 한다 -- 한 시퀀스는 연속 주행을 거리 기반으로 샘플링한 것이라 프레임을 섞어 나누면
@@ -45,6 +48,7 @@ VAL_TAIL_FRACTION="${VAL_TAIL_FRACTION:-0.2}"
 # 3-class pretrain 체크포인트를 넘기면 출력 head까지 전이돼 배너에 `skipped 0`이 찍힌다
 # (실측 `loaded 668 tensors, skipped 0`). Phase 3 A/B의 가장 큰 교란이었던 head 전이
 # 비대칭(`docs/free_space_metric_migration.md` §8.4)이 그래서 사라진다.
+# `INIT_CHECKPOINT=none`은 "pretrain 없이"를 뜻한다 (trainer의 `from_scratch`가 해석한다).
 if [ -z "${INIT_CHECKPOINT:-}" ]; then
     echo "ERROR: INIT_CHECKPOINT를 지정해야 한다. 예:" >&2
     echo "  INIT_CHECKPOINT=runs/synwoodscape_threeclass/ckpt/<run>/model_best-<step>.pth \\" >&2
@@ -62,6 +66,7 @@ python tools/train_robot_bev.py \
     --batch_size=8 \
     --lr="${LR}" \
     --weight_decay="${WEIGHT_DECAY}" \
+    --max_class_weight="${MAX_CLASS_WEIGHT}" \
     --num_workers=8 \
     --encoder_type=res101 \
     --augment="${AUGMENT}" \
