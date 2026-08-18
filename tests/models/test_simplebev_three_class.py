@@ -2,8 +2,11 @@ import torch
 
 from projects.common.free_space import FREE, OCCUPIED, UNKNOWN
 from projects.models.simplebev_three_class import (  # noqa: F401  (sys.path 부작용이 필요하다)
+    DISCARDED_HEADS,
     ThreeClassDecoder,
+    head_was_transferred,
     load_trunk_weights,
+    unexpected_skips,
 )
 from nets.segnet import Decoder  # noqa: E402  (위 import가 third_party 경로를 넣어준다)
 
@@ -19,6 +22,45 @@ def test_decoder_emits_three_logit_channels():
     out = decoder(x)
 
     assert out["three_class"].shape == (2, 3, 16, 16)
+
+
+def test_unused_instance_heads_are_gone():
+    """3-class 학습이 쓰지 않는 head는 만들지도 실행하지도 않는다.
+
+    파라미터가 없어야 임베디드 배포에 안 실리고, forward에서 안 돌아야 연산이 줄어든다.
+    `Segnet.forward`가 5-튜플로 언패킹하므로 키 자체는 남아 있어야 한다(값은 None).
+    """
+    decoder = ThreeClassDecoder(in_channels=8)
+
+    for name in DISCARDED_HEADS:
+        assert not hasattr(decoder, name), f"{name}이 아직 남아 있다"
+    assert not any(name.startswith(head) for name, _ in decoder.named_parameters()
+                   for head in DISCARDED_HEADS)
+
+    out = decoder(torch.randn(1, 8, 16, 16))
+    assert set(out) >= {"raw_feat", "feat", "segmentation", "instance_center", "instance_offset"}
+    assert out["instance_center"] is None and out["instance_offset"] is None
+
+
+def test_trunk_matches_the_upstream_decoder_after_removing_the_heads():
+    """head를 뺀 forward가 원본 trunk와 **같은 값**을 내는지 대조한다.
+
+    `Decoder.forward`를 복사해 다시 구현했으므로, 원본이 바뀌거나 복사가 틀리면 여기서 잡힌다.
+    (이 테스트가 없으면 trunk를 잘못 베껴도 학습은 그냥 돌아간다 -- 값만 조용히 달라진다.)
+    """
+    torch.manual_seed(0)
+    upstream = Decoder(in_channels=8, n_classes=1, predict_future_flow=False).eval()
+    three_class = ThreeClassDecoder(in_channels=8).eval()
+    # segmentation_head를 뺀 나머지(=trunk)를 그대로 옮긴다.
+    three_class.load_state_dict(
+        {k: v for k, v in upstream.state_dict().items()
+         if k in three_class.state_dict() and three_class.state_dict()[k].shape == v.shape},
+        strict=False,
+    )
+
+    x = torch.randn(2, 8, 16, 16)
+    with torch.no_grad():
+        assert torch.allclose(three_class(x)["raw_feat"], upstream(x)["raw_feat"], atol=1e-6)
 
 
 def test_head_is_skipped_when_the_checkpoint_head_shape_differs(tmp_path):
@@ -37,7 +79,10 @@ def test_head_is_skipped_when_the_checkpoint_head_shape_differs(tmp_path):
 
     assert report["loaded"] > 0
     assert report["skipped"]
-    assert all("segmentation_head" in name for name in report["skipped"])
+    assert not head_was_transferred(report["skipped"])
+    # skip되는 것은 형상이 다른 출력 head와, 이 모델이 갖고 있지 않은 DISCARDED_HEADS뿐이다.
+    # trunk가 하나라도 빠지면 unexpected_skips가 비지 않는다.
+    assert unexpected_skips(report["skipped"]) == []
 
 
 def test_trunk_transfer_actually_changes_the_weights(tmp_path):

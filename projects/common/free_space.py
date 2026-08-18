@@ -21,13 +21,22 @@ OCCUPIED = 2
 PART_NAMES = ("free", "occupied", "unknown")
 
 
-def _as_bool(tensor: torch.Tensor) -> torch.Tensor:
-    """확률·0/1 float·bool을 모두 받는다 -- 예측(sigmoid 출력)과 GT가 같은 함수를 타야 한다."""
+def _as_bool(tensor):
+    """확률·0/1 float·bool을 모두 받는다 -- 예측(sigmoid 출력)과 GT가 같은 함수를 타야 한다.
+
+    **torch 텐서와 numpy 배열을 모두 받는다.** 학습 루프는 텐서를 넘기지만, 베이스라인·클래스
+    가중치를 실측하는 코드는 `.npy`를 읽은 직후의 numpy 배열을 넘긴다. 둘 다 같은 정의를
+    타야 하므로 여기서 dtype만 보고 처리한다(`tests/common/test_free_space.py`가 고정한다).
+    """
     return tensor if tensor.dtype == torch.bool else tensor > 0.5
 
 
 def decompose(occ, vis, valid) -> dict:
-    """`(B, 1, H, W)` occupancy / visibility / valid -> 세 bool 마스크."""
+    """occupancy / visibility / valid -> 세 bool 마스크.
+
+    입력은 `(B, 1, H, W)` torch 텐서이거나 `(H, W)` numpy 배열이며, 출력은 입력과 같은 종류다.
+    **`occ=1`이 free(drivable)이고 `occ=0`이 장애물이다** -- 이름과 반대이므로 주의한다.
+    """
     occ_b, vis_b, valid_b = _as_bool(occ), _as_bool(vis), _as_bool(valid)
     return {
         "free": occ_b & vis_b & valid_b,

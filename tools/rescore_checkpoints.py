@@ -93,11 +93,10 @@ def load_checkpoint_state_dict(model, checkpoint_path, device) -> None:
 
 
 def _collect_free_masks(samples, permanent_blind, invalid):
-    masks = []
-    for sequence_root, sample_id in samples:
-        occ, vis, valid = load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
-        masks.append(occ & vis & valid)
-    return masks
+    return [
+        decompose(*load_masked_labels(sequence_root, sample_id, permanent_blind, invalid))["free"]
+        for sequence_root, sample_id in samples
+    ]
 
 
 def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map) -> dict:

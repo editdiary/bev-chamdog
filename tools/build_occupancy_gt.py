@@ -5,9 +5,9 @@
 - `robot` (`ROBOT_GRID_SPEC`, 전방4m/후방2m/좌우±3m=6m×6m): 자체 로봇 fine-tuning 타깃 스펙.
   SynWoodScape에서는 ego(풀사이즈 승용차) 차체가 그리드 상당 부분을 덮어 GT 변별력이 낮다.
   비교/추적용으로만 함께 뽑는다.
-- `synwoodscape_pretrain` (`SYNWOODSCAPE_PRETRAIN_GRID_SPEC`, 전방5m/후방3m/좌우±4m=8m×8m):
-  SynWoodScape pretraining에 실제로 쓸 스펙. 로봇의 최종 fine-tuning 목표(6m×6m)와
-  비슷한 거리대를 유지하면서 ego 차체 차지 비율을 ~10% 선으로 낮춘 절충안이다.
+- `synwoodscape_pretrain` (`SYNWOODSCAPE_PRETRAIN_GRID_SPEC`, 전방8m/후방4m/좌우±6m=12m×12m):
+  SynWoodScape pretraining에 실제로 쓰는 스펙. 수동 검수를 마친 라벨
+  (`dataset/synwoodscape_2head_roi_8_4_6_h08`)의 ROI와 같은 값이다.
 
 출력 배열/이미지는 `crop_bev_occupancy`가 이미 표시용 방향(row 0=최전방, col 0=차량 좌측)으로
 돌려주므로 flip 없이 그대로 저장한다.

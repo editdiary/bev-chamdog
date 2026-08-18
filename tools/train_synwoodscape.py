@@ -69,6 +69,7 @@ from projects.common.three_class_metrics import (  # noqa: E402
     class_weights_from_labels,
     run_batch,
 )
+from projects.common.free_space import decompose  # noqa: E402
 from projects.common.free_space_metrics import build_ring_masks  # noqa: E402
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.common.baselines import as_batch, constant_free_map  # noqa: E402
@@ -97,11 +98,12 @@ def compute_trivial_baseline_iou(sample_ids, occupancy_gt_root: Path) -> float:
     """"항상 drivable로 예측"의 IoU = drivable_fraction. 모델 IoU가 이 값 근처면 학습이 아니라
     다수 클래스를 그냥 외운 것일 수 있다 (`docs/training_guide.md` 참고).
     """
-    pos = valid = 0
-    for occupancy, visible, _ in load_label_triples(sample_ids, occupancy_gt_root):
-        pos += int((occupancy & visible).sum())
-        valid += int(visible.sum())
-    return pos / max(valid, 1)
+    free = observed = 0
+    for triple in load_label_triples(sample_ids, occupancy_gt_root):
+        parts = decompose(*triple)
+        free += int(parts["free"].sum())
+        observed += int((parts["free"] | parts["occupied"]).sum())
+    return free / max(observed, 1)
 
 
 def baseline_iou_free(val_ids, occupancy_gt_root: Path, constant_map, device) -> float:
@@ -114,8 +116,9 @@ def baseline_iou_free(val_ids, occupancy_gt_root: Path, constant_map, device) ->
     if constant_map is None or not val_ids:
         return float("nan")
     values, counts = [], []
-    for occ, vis, valid in load_label_triples(val_ids, occupancy_gt_root):
-        free_gt = torch.from_numpy(occ & vis & valid).view(1, 1, *occ.shape).to(device)
+    for triple in load_label_triples(val_ids, occupancy_gt_root):
+        occ, _, valid = triple
+        free_gt = torch.from_numpy(decompose(*triple)["free"]).view(1, 1, *occ.shape).to(device)
         valid_t = torch.from_numpy(valid).view(1, 1, *valid.shape).to(device)
         value, count = iou_free(as_batch(constant_map, 1, device), free_gt, valid_t)
         values.append(value)
@@ -163,7 +166,7 @@ def main(
     use_fisheye=True,
     augment=False,
     val_freq_epochs=1,
-    save_freq_epochs=5,
+    save_freq_epochs=10,  # fine-tuning(`tools/train_robot_bev.py`)과 같은 값으로 맞춰 둔다
     log_dir="work_dirs/logs_synwoodscape",
     ckpt_dir="work_dirs/checkpoints_synwoodscape",
     max_samples=None,
@@ -185,8 +188,8 @@ def main(
         load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT)
     )
     train_free_masks = [
-        occ & vis & valid
-        for occ, vis, valid in load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT)
+        decompose(*triple)["free"]
+        for triple in load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT)
     ]
     constant_map = constant_free_map(train_free_masks) if train_free_masks else None
     del train_free_masks  # 240x240 bool을 train split 전체만큼 들고 있을 이유가 없다

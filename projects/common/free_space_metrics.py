@@ -93,11 +93,28 @@ def free_metrics_from_masks(pred_free, gt_parts, valid) -> dict:
     }
 
 
-_RANGE_ABS_KEYS = ("abs_p50", "abs_p90")          # 전체 delta 통계 -> n_paired_rays로 가중
-# 부분집합 통계 -> 그 부분집합의 크기로 가중해야 한다. 아래 summarize_range_error 참고.
-_RANGE_PARTITION_KEYS = {"over_mean": "over_count", "under_mean": "under_count"}
+_RANGE_STAT_KEYS = ("abs_p50", "abs_p90", "over_mean", "under_mean")
 _RANGE_COUNTS = ("n_paired_rays", "over_count", "under_count",
                  "censored_gt", "censored_pred", "no_free_gt")
+
+
+def _delta_stats(delta: np.ndarray) -> dict:
+    """`dr = r_pred - r_gt` 표본 하나에서 range 통계 네 개를 낸다.
+
+    batch별로도, epoch 전체를 모은 뒤에도 **같은 함수**를 쓴다 -- 그래야 "배치별로 낸 값"과
+    "전체로 낸 값"이 정의상 같은 것이 되고, 집계가 통계 종류마다 다른 규칙을 갖지 않는다.
+    """
+    if delta.size == 0:
+        return dict.fromkeys(_RANGE_STAT_KEYS, float("nan"))
+    over, under = delta[delta > 0], -delta[delta < 0]
+    return {
+        "abs_p50": float(np.percentile(np.abs(delta), 50)),
+        "abs_p90": float(np.percentile(np.abs(delta), 90)),
+        # 빈 부분집합은 0.0으로 둔다: over/under는 강한 부등호로 나눈 진짜 분할이라 원소가
+        # 하나라도 있으면 평균이 0일 수 없다. 따라서 0.0은 "over 사건이 없었다"만 뜻한다.
+        "over_mean": float(over.mean()) if over.size else 0.0,
+        "under_mean": float(under.mean()) if under.size else 0.0,
+    }
 
 
 def range_error(free_pred, free_gt, valid, rays) -> dict:
@@ -124,48 +141,37 @@ def range_error(free_pred, free_gt, valid, rays) -> dict:
 
     delta = np.concatenate(deltas) if deltas else np.empty(0)
     counts["n_paired_rays"] = int(delta.size)
-    over, under = delta[delta > 0], -delta[delta < 0]
-    counts["over_count"] = int(over.size)
-    counts["under_count"] = int(under.size)
-    if delta.size == 0:
-        return {**dict.fromkeys(_RANGE_ABS_KEYS, float("nan")),
-                **dict.fromkeys(_RANGE_PARTITION_KEYS, float("nan")), **counts}
-    return {
-        "abs_p50": float(np.percentile(np.abs(delta), 50)),
-        "abs_p90": float(np.percentile(np.abs(delta), 90)),
-        # 빈 부분집합은 0.0이 아니라 0.0 그대로 둔다: over/under는 강한 부등호로 나눈
-        # 진짜 분할이라 원소가 하나라도 있으면 평균이 0일 수 없다. 따라서 batch 안에서
-        # 0.0은 "over 사건이 없었다"만 뜻하고 "상쇄돼 0"과 헷갈리지 않는다.
-        "over_mean": float(over.mean()) if over.size else 0.0,
-        "under_mean": float(under.mean()) if under.size else 0.0,
-        **counts,
-    }
+    counts["over_count"] = int((delta > 0).sum())
+    counts["under_count"] = int((delta < 0).sum())
+    # `deltas`를 그대로 실어 보낸다 -- `summarize_range_error`가 epoch 전체를 모아 한 번에
+    # 백분위수를 내야 하기 때문이다. batch당 수천 개 float이라 비용은 무시할 수준이다.
+    return {"deltas": delta, **_delta_stats(delta), **counts}
 
 
 def summarize_range_error(dicts) -> dict:
-    """batch 단위 결과를 합친다.
+    """batch 단위 결과를 합친다. **delta 표본을 모두 모아 한 번에 통계를 낸다.**
 
-    **가중치가 통계마다 다르다.** `abs_p50`/`abs_p90`은 delta 전체에 대한 통계라
-    `n_paired_rays`로 가중하는 것이 맞지만, `over_mean`은 **over 사건들만**의 평균이므로
-    `over_count`로 가중해야 한다. `n_paired_rays`로 가중하면 다음처럼 크게 틀어진다:
+    백분위수는 평균낼 수 없다 -- 배치별 중위수의 가중평균은 전체 분포의 중위수가 아니다.
+    예: 전체 |dr|이 [0.1, 0.1, 0.9]이면 참값은 0.10인데, [0.1, 0.9]와 [0.1]로 잘라
+    가중평균하면 (0.5*2 + 0.1*1)/3 = 0.37이 나온다. 자르는 방식만 바뀌어도 숫자가 달라진다.
 
-        batch A: paired 100, over 1건 x 1.00 m -> over_mean 1.00
-        batch B: paired 100, over 99건 x 0.01 m -> over_mean 0.01
-        올바른 값 (1*1.00 + 99*0.01)/100 = 0.02
-        n_paired_rays 가중 (1.00*100 + 0.01*100)/200 = 0.505   <- 25배 과대
+    실제로 같은 체크포인트를 bs4/bs8로 재채점했을 때 `abs_p50`이 0.177 vs 0.172,
+    `abs_p90`이 0.701 vs 0.718로 갈렸고, 스위트에서 이 두 지표만 batch-size 불변이 아니었다
+    (`docs/free_space_metric_migration.md` §9.4). 표본을 모아 한 번에 계산하면 그 의존이
+    정의상 사라진다.
 
-    over-prediction은 "통로가 실제보다 길다"는 안전 실패라 이 숫자가 그대로 배포 판단과
-    논문에 들어간다. 카운트는 **합**으로 둔다 -- batch당 평균으로 나누면 batch 크기가
-    바뀔 때 숫자가 따라 움직여 run 간 비교가 안 된다.
+    `over_mean`/`under_mean`도 같은 표본에서 직접 낸다. 예전에는 부분집합 평균이라
+    `over_count`로 가중해야 하는 별도 규칙이 필요했는데(`n_paired_rays`로 가중하면 25배까지
+    틀어졌다), 모아서 계산하면 그 규칙 자체가 필요 없어진다.
+
+    카운트는 **합**으로 둔다 -- batch당 평균으로 나누면 batch 크기가 바뀔 때 숫자가 따라
+    움직여 run 간 비교가 안 된다.
     """
     if not dicts:
-        return {**dict.fromkeys(_RANGE_ABS_KEYS, float("nan")),
-                **dict.fromkeys(_RANGE_PARTITION_KEYS, float("nan")),
+        return {**dict.fromkeys(_RANGE_STAT_KEYS, float("nan")),
                 **dict.fromkeys(_RANGE_COUNTS, 0)}
-    paired = [d["n_paired_rays"] for d in dicts]
-    result = {key: weighted_mean([d[key] for d in dicts], paired) for key in _RANGE_ABS_KEYS}
-    for key, count_key in _RANGE_PARTITION_KEYS.items():
-        result[key] = weighted_mean([d[key] for d in dicts], [d[count_key] for d in dicts])
+    delta = np.concatenate([d["deltas"] for d in dicts])
+    result = _delta_stats(delta)
     for key in _RANGE_COUNTS:
         result[key] = sum(d[key] for d in dicts)
     return result

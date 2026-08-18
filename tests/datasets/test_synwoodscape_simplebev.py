@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from projects.bev_gt.grid import SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC
+from projects.bev_gt.grid import SYNWOODSCAPE_PRETRAIN_GRID_SPEC
 from projects.datasets.synwoodscape_simplebev import (
     CAMERA_NAMES,
     RESIZE_HEIGHT,
@@ -36,7 +36,7 @@ def test_getitem_returns_expected_shapes_and_dtypes():
     assert item["rgb_camXs"].shape == (S, 3, RESIZE_HEIGHT, RESIZE_WIDTH)
     assert item["pix_T_cams"].shape == (S, 4, 4)
     assert item["cam0_T_camXs"].shape == (S, 4, 4)
-    assert item["seg_bev_g"].shape == (1, SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC.n_rows, SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC.n_cols)
+    assert item["seg_bev_g"].shape == (1, SYNWOODSCAPE_PRETRAIN_GRID_SPEC.n_rows, SYNWOODSCAPE_PRETRAIN_GRID_SPEC.n_cols)
     assert item["vis_bev_g"].shape == item["seg_bev_g"].shape
     assert item["valid_bev_g"].shape == item["seg_bev_g"].shape
 

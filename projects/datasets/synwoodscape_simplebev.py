@@ -22,7 +22,7 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
-from projects.bev_gt.grid import SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC
+from projects.bev_gt.grid import SYNWOODSCAPE_PRETRAIN_GRID_SPEC
 from projects.datasets.photometric import apply_photometric, sample_photometric_params
 from projects.datasets.simplebev_calib import ego_T_cam_from_camera, pinhole_pix_T_cam_from_camera
 from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
@@ -31,7 +31,7 @@ from projects.geometry.fisheye import load_camera
 CAMERA_NAMES = ("FV", "MVL", "MVR", "RV")
 DEFAULT_DATASET_ROOT = Path("dataset/synwoodscape/SynWoodScape_V0.1.0")
 DEFAULT_OCCUPANCY_GT_ROOT = Path("dataset/synwoodscape_2head_roi_8_4_6_h08")
-GRID_SPEC = SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC
+GRID_SPEC = SYNWOODSCAPE_PRETRAIN_GRID_SPEC
 
 # 원본 종횡비(1280/966≈1.325)에 가까운 32의 배수 -- 왜곡을 최소화하면서 conv stride와도 맞는다.
 RESIZE_WIDTH, RESIZE_HEIGHT = 512, 384

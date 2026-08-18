@@ -147,7 +147,7 @@ def test_free_metrics_from_masks_wires_every_key_correctly():
 import numpy as np
 
 from projects.bev_gt.grid import OccupancyGridSpec
-from projects.common.free_space_metrics import range_error, summarize_range_error
+from projects.common.free_space_metrics import _delta_stats, range_error, summarize_range_error
 from projects.common.polar import build_ray_index
 
 RANGE_SPEC = OccupancyGridSpec(front_m=1.0, rear_m=1.0, half_width_m=1.0, cell_m=0.05)
@@ -197,55 +197,77 @@ def test_censored_rays_are_counted_but_excluded_from_the_regression():
     assert math.isnan(result["abs_p50"])
 
 
-def test_summarize_range_error_weights_by_paired_ray_count():
-    """`abs_p50`/`abs_p90`은 delta 전체 통계이므로 `n_paired_rays`로 가중해야 한다.
+def _range_batch(deltas):
+    """`range_error`가 돌려주는 것과 **같은 키를 전부** 갖는 batch 결과 하나를 만든다.
 
-    (`over_count`/`under_count` 키는 이 라운드에서 인터페이스에 추가된 필수 필드라
-    dict를 유효하게 만들기 위해 채워 넣었을 뿐, 이 테스트의 검증 대상은 여전히
-    `n_paired_rays` 가중이다 -- `over_mean`/`under_mean` 가중 검증은 아래
-    `test_summarize_range_error_weights_over_and_under_by_their_own_counts`가 맡는다.)
+    batch별 통계(`abs_p50` 등)까지 채우는 것이 중요하다 -- 이게 없으면 옛 구현(batch별 값을
+    가중평균)으로 되돌렸을 때 테스트가 값이 틀려서가 아니라 `KeyError`로 죽어서, 실제로
+    무엇을 검증하는지 알 수 없게 된다.
     """
-    a = {"abs_p50": 0.1, "abs_p90": 0.2, "over_mean": 0.0, "under_mean": 0.1,
-         "n_paired_rays": 30, "over_count": 0, "under_count": 30,
-         "censored_gt": 1, "censored_pred": 2, "no_free_gt": 3}
-    b = {"abs_p50": 0.3, "abs_p90": 0.4, "over_mean": 0.0, "under_mean": 0.3,
-         "n_paired_rays": 10, "over_count": 0, "under_count": 10,
-         "censored_gt": 0, "censored_pred": 0, "no_free_gt": 1}
+    delta = np.asarray(deltas, dtype=float)
+    return {
+        "deltas": delta,
+        **_delta_stats(delta),
+        "n_paired_rays": delta.size,
+        "over_count": int((delta > 0).sum()),
+        "under_count": int((delta < 0).sum()),
+        "censored_gt": 0, "censored_pred": 0, "no_free_gt": 0,
+    }
+
+
+def test_summarize_range_error_pools_the_samples_before_taking_percentiles():
+    """백분위수는 평균낼 수 없다 -- 표본을 다 모은 뒤 한 번만 계산해야 한다.
+
+    손계산: 전체 |dr| = [0.1, 0.1, 0.9] -> 중위수 0.10 (참값).
+    배치별 중위수를 `n_paired_rays`로 가중평균하면
+        batch A [0.1, 0.9] -> 0.50,  batch B [0.1] -> 0.10
+        (0.50*2 + 0.10*1) / 3 = 0.3667   <- 참값의 3.7배
+
+    같은 표본을 어떻게 자르느냐만 달라져도 값이 바뀌던 것이 이 지표의 batch-size 의존이었다.
+    """
+    merged = summarize_range_error([_range_batch([0.1, 0.9]), _range_batch([0.1])])
+
+    assert merged["abs_p50"] == pytest.approx(0.1)
+    wrong_if_batch_averaged = (0.5 * 2 + 0.1 * 1) / 3
+    assert wrong_if_batch_averaged == pytest.approx(0.3667, abs=1e-4)
+    assert merged["abs_p50"] != pytest.approx(wrong_if_batch_averaged)
+    assert merged["n_paired_rays"] == 3
+
+
+def test_summarize_range_error_does_not_depend_on_how_the_samples_are_batched():
+    """같은 표본이면 batch로 어떻게 잘라도 결과가 같아야 한다 -- 실측 회귀 가드.
+
+    같은 체크포인트를 bs4/bs8로 재채점했을 때 `abs_p50` 0.177 vs 0.172,
+    `abs_p90` 0.701 vs 0.718로 갈렸던 것이 이 성질이 없어서였다.
+    """
+    sample = [0.05, 0.4, 0.02, 0.9, 0.3, 0.15, 0.7, 0.01, 0.25, 0.6, 0.11]
+    one = summarize_range_error([_range_batch(sample)])
+    split_by_2 = summarize_range_error([_range_batch(sample[i:i + 2])
+                                        for i in range(0, len(sample), 2)])
+    split_by_5 = summarize_range_error([_range_batch(sample[i:i + 5])
+                                        for i in range(0, len(sample), 5)])
+
+    for key in ("abs_p50", "abs_p90", "over_mean", "under_mean", "n_paired_rays"):
+        assert one[key] == pytest.approx(split_by_2[key]), key
+        assert one[key] == pytest.approx(split_by_5[key]), key
+
+
+def test_summarize_range_error_averages_over_events_over_their_own_subset():
+    """`over_mean`은 over 사건들만의 평균이다. 표본을 모아서 재면 자동으로 그렇게 된다.
+
+    예전에는 batch별 `over_mean`을 합치느라 `over_count` 가중이라는 별도 규칙이 필요했고,
+    `n_paired_rays`로 가중하면 25배까지 틀어졌다. 표본을 모으면 그 규칙 자체가 사라진다.
+
+    손계산: over 사건 = 1건 x 1.00 m + 99건 x 0.01 m -> (1.00 + 0.99) / 100 = 0.0199
+    """
+    a = _range_batch([1.00] + [-0.5] * 99)      # over 1건, under 99건
+    b = _range_batch([0.01] * 99 + [-0.5])      # over 99건, under 1건
 
     merged = summarize_range_error([a, b])
 
-    assert merged["abs_p50"] == pytest.approx((0.1 * 30 + 0.3 * 10) / 40)
-    assert merged["censored_gt"] == 1
-    assert merged["n_paired_rays"] == 40
-
-
-def test_summarize_range_error_weights_over_and_under_by_their_own_counts():
-    """`over_mean`은 over 사건들만의 평균이므로 `n_paired_rays`가 아니라 `over_count`로
-    가중해야 한다. 두 배치의 `n_paired_rays`는 같게(100, 100) 두고 `over_count`는
-    크게 다르게(1 vs 99) 만들어서, `n_paired_rays` 가중과 `over_count` 가중이 뚜렷이
-    다른 값을 내도록 설계했다 (batch 예시: PR 코멘트의 25배 과대 사례).
-
-    손계산:
-        올바름 (over_count 가중):  (1 * 1.00 + 99 * 0.01) / (1 + 99)
-                                  = (1.00 + 0.99) / 100 = 0.0199
-        틀림   (n_paired_rays 가중): (1.00 * 100 + 0.01 * 100) / (100 + 100)
-                                  = (100 + 1) / 200 = 0.505   <- 25배 이상 과대
-    """
-    a = {"abs_p50": 0.5, "abs_p90": 0.9, "over_mean": 1.00, "under_mean": 0.0,
-         "n_paired_rays": 100, "over_count": 1, "under_count": 0,
-         "censored_gt": 0, "censored_pred": 0, "no_free_gt": 0}
-    b = {"abs_p50": 0.5, "abs_p90": 0.9, "over_mean": 0.01, "under_mean": 0.0,
-         "n_paired_rays": 100, "over_count": 99, "under_count": 0,
-         "censored_gt": 0, "censored_pred": 0, "no_free_gt": 0}
-
-    merged = summarize_range_error([a, b])
-
-    correct = (1 * 1.00 + 99 * 0.01) / 100
-    wrong_if_paired_weighted = (1.00 * 100 + 0.01 * 100) / 200
-    assert correct == pytest.approx(0.0199)
-    assert wrong_if_paired_weighted == pytest.approx(0.505)
-    assert merged["over_mean"] == pytest.approx(correct)
+    assert merged["over_mean"] == pytest.approx((1.00 + 99 * 0.01) / 100)
     assert merged["over_count"] == 100
+    assert merged["under_count"] == 100
     assert merged["n_paired_rays"] == 200
 
 

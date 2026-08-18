@@ -19,6 +19,15 @@ from projects.common.free_space_metrics import free_metrics_from_masks
 
 CLASS_ORDER = (UNKNOWN, FREE, OCCUPIED)
 _PART_BY_CLASS = {UNKNOWN: "unknown", FREE: "free", OCCUPIED: "occupied"}
+
+# 역빈도 가중치의 상한. **근거가 없는 임의값이고, 실제로 작동 중이다** -- 로봇 train split에서
+# `occupied`를 67.93 -> 20으로 자른다(4샘플 overfit split에서는 ~112 -> 20). 즉 loss 균형을
+# 실질적으로 결정하는 하이퍼파라미터인데 한 번도 실측 검증되지 않았고, 하필 `fatal_rate`
+# (장애물을 free로 오인 -- planner 안전상 가장 비싼 오류)와 직결된다.
+#
+# 본학습으로 기준 숫자를 확보한 뒤 이 값을 스윕하거나 다른 완화 방식(median-frequency,
+# √/log 역빈도) 또는 다른 loss(Focal, Lovasz-Softmax, Dice)로 바꾸는 것을 검토한다.
+# 배경과 실측값은 `docs/BEV_loss_and_metrics_design.md` §1.7이 정본이다.
 MAX_CLASS_WEIGHT = 20.0
 
 
@@ -53,13 +62,12 @@ def class_weights_from_labels(label_triples) -> torch.Tensor:
     """
     counts = torch.zeros(3, dtype=torch.float64)
     for occ, vis, valid in label_triples:
-        occ = torch.as_tensor(occ).bool()
-        vis = torch.as_tensor(vis).bool()
-        valid = torch.as_tensor(valid).bool()
-
-        counts[UNKNOWN] += float(((~vis) & valid).sum())
-        counts[FREE] += float((occ & vis & valid).sum())
-        counts[OCCUPIED] += float(((~occ) & vis & valid).sum())
+        # 분해는 `free_space.decompose` 하나만 쓴다 -- 여기서 조합을 다시 쓰면 loss가 보는
+        # 클래스 정의와 가중치가 세는 정의가 갈라질 수 있다. 예전에 `pos_weight`가 마스크를
+        # 무시하고 원본 라벨을 세는 바람에 클래스 보정이 통째로 어긋난 적이 있다.
+        parts = decompose(occ, vis, valid)
+        for class_id in CLASS_ORDER:
+            counts[class_id] += float(parts[_PART_BY_CLASS[class_id]].sum())
 
     weights = counts.sum() / counts.clamp(min=1.0)
     weights = weights / weights.min().clamp(min=1e-12)

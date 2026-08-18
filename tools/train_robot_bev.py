@@ -39,6 +39,7 @@ from projects.common.three_class_metrics import (  # noqa: E402
     class_weights_from_labels,
     run_batch as three_class_run_batch,
 )
+from projects.common.free_space import decompose  # noqa: E402
 from projects.common.free_space_metrics import build_ring_masks, iou_free  # noqa: E402
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.common.bev_occupancy_metrics import (  # noqa: E402
@@ -67,7 +68,12 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
 )
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
-from projects.models.simplebev_three_class import ThreeClassSegnet, load_trunk_weights  # noqa: E402
+from projects.models.simplebev_three_class import (  # noqa: E402
+    ThreeClassSegnet,
+    head_was_transferred,
+    load_trunk_weights,
+    unexpected_skips,
+)
 
 
 def compute_label_statistics(samples, permanent_blind, invalid) -> dict:
@@ -79,20 +85,22 @@ def compute_label_statistics(samples, permanent_blind, invalid) -> dict:
     수준이다(온실 통로에서 raycast visibility가 장애물에 닿으며 멈춰 장애물 대부분이 경계
     바깥에 놓이기 때문).
     """
-    pos = neg = supervised = total = 0
+    free = occupied = supervised = total = 0
     for sequence_root, sample_id in samples:
-        occupancy, vis, valid = load_masked_labels(
+        # 조합은 `free_space.decompose` 하나만 쓴다 -- 여기서 다시 쓰면 loss/지표가 보는
+        # 클래스 정의와 이 통계가 세는 정의가 갈라질 수 있다.
+        parts = decompose(*load_masked_labels(
             sequence_root, sample_id, permanent_blind, invalid
-        )
-        mask = vis & valid
-        pos += int((occupancy & mask).sum())
-        neg += int((~occupancy & mask).sum())
-        supervised += int(mask.sum())
-        total += mask.size
+        ))
+        observed = parts["free"] | parts["occupied"]        # == vis & valid
+        free += int(parts["free"].sum())
+        occupied += int(parts["occupied"].sum())
+        supervised += int(observed.sum())
+        total += observed.size
     return {
-        "trivial_iou": pos / max(supervised, 1),
+        "trivial_iou": free / max(supervised, 1),
         "supervised_fraction": supervised / max(total, 1),
-        "obstacle_fraction": neg / max(supervised, 1),
+        "obstacle_fraction": occupied / max(supervised, 1),
     }
 
 
@@ -102,8 +110,9 @@ def _baseline_iou_free(val_samples, permanent_blind, invalid, constant_map, devi
         return float("nan")
     values, counts = [], []
     for sequence_root, sample_id in val_samples:
-        occ, vis, valid = load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
-        free_gt = torch.from_numpy(occ & vis & valid).view(1, 1, *occ.shape).to(device)
+        triple = load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
+        occ, _, valid = triple
+        free_gt = torch.from_numpy(decompose(*triple)["free"]).view(1, 1, *occ.shape).to(device)
         valid_t = torch.from_numpy(valid).view(1, 1, *valid.shape).to(device)
         value, count = iou_free(as_batch(constant_map, 1, device), free_gt, valid_t)
         values.append(value)
@@ -189,10 +198,10 @@ def main(
     permanent_blind, invalid = build_bev_masks(common_root, GRID_SPEC, FINETUNE_CAMERA_NAMES)
     stats = compute_label_statistics(train_samples, permanent_blind, invalid)
     val_stats = compute_label_statistics(val_samples, permanent_blind, invalid)
-    train_free_masks = []
-    for sequence_root, sample_id in train_samples:
-        occ, vis, valid = load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
-        train_free_masks.append(occ & vis & valid)
+    train_free_masks = [
+        decompose(*load_masked_labels(sequence_root, sample_id, permanent_blind, invalid))["free"]
+        for sequence_root, sample_id in train_samples
+    ]
     constant_map = constant_free_map(train_free_masks) if train_free_masks else None
     baseline_iou_free = _baseline_iou_free(
         val_samples, permanent_blind, invalid, constant_map, device
@@ -262,9 +271,10 @@ def main(
         print(_c(
             _Ansi.CYAN,
             f" weight transfer: loaded {report['loaded']} tensors, skipped {len(report['skipped'])}"
-            + ("  <- 출력 head까지 전이됨" if not report["skipped"] else "  <- 출력 head는 랜덤 초기화"),
+            + ("  <- 출력 head까지 전이됨" if head_was_transferred(report["skipped"])
+               else "  <- 출력 head는 랜덤 초기화"),
         ))
-        unexpected = [name for name in report["skipped"] if "segmentation_head" not in name]
+        unexpected = unexpected_skips(report["skipped"])
         if unexpected:
             raise RuntimeError(f"trunk keys were skipped: {unexpected[:5]}")
 

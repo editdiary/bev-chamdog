@@ -31,6 +31,7 @@ from projects.common.polar import (  # noqa: E402
     first_free_range,
     reconstruct_free,
 )
+from projects.common.free_space import decompose  # noqa: E402
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
     DEFAULT_DATASET_ROOT,
@@ -50,10 +51,9 @@ def main(sequences="raws1,raws2,raws3,rawos1", dataset_root=DEFAULT_DATASET_ROOT
         if not (root / "occupancy_npy").exists():
             continue
         for sequence_root, sample_id in list_sequence_samples(root):
-            occ, vis, valid = load_masked_labels(
+            frees.append(decompose(*load_masked_labels(
                 sequence_root, sample_id, permanent_blind, invalid
-            )
-            frees.append(occ & vis & valid)
+            ))["free"])
     print(f"frames = {len(frees)}")
     print(
         f"permanent_blind ∪ invalid area = {mask_out.sum()}/{mask_out.size} "

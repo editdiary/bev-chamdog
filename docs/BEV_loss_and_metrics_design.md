@@ -126,6 +126,76 @@ w_occ = torch.clamp(vis_gt, min=0.05) * valid
 
 **(d) Soft/Rigid 분리** — 잎(스쳐도 됨)과 지주대·유인끈(충돌 시 파손)은 밀도가 비슷하지만 물리적 결과가 완전히 다르다. 임계값 하나로는 구분 불가. occupancy를 다중 클래스로 확장하는 것을 검토한다.
 
+### 1.7 현재 구현된 loss와 미해결 항목 (2026-08-18 기록)
+
+> **§1.1–1.6은 2-head(occupancy + visibility) 시절의 설계다.** 그 정식화는 Phase 3 A/B 이후
+> 코드에서 제거됐다([`free_space_metric_migration.md`](free_space_metric_migration.md) §8–9).
+> 아래가 **실제로 돌아가는 loss**이고, 구현은 `projects/common/three_class_metrics.py`다.
+
+**지금의 loss: valid 셀에 한정한 가중 3-class cross-entropy**
+
+클래스 순서는 `(unknown, free, occupied)`이고, `valid=0`인 셀은 채점에서 빠진다.
+클래스 가중치는 **하드코딩이 아니라 train split의 라벨에서 역빈도로 계산**된다
+(`class_weights_from_labels`). 최빈 클래스를 1.0으로 정규화한 뒤 `MAX_CLASS_WEIGHT`로 자른다.
+
+```python
+weights = counts.sum() / counts.clamp(min=1.0)   # 역빈도
+weights = weights / weights.min()                # 최빈 클래스 = 1.0
+return weights.clamp(max=MAX_CLASS_WEIGHT)       # MAX_CLASS_WEIGHT = 20.0
+```
+
+실측값(2026-08-18):
+
+| split | unknown | free | occupied |
+|---|---|---|---|
+| SynWoodScape train (400장) 셀 비율 | 6.21% | **82.21%** | 11.58% |
+| → 가중치 (캡 안 걸림) | 13.24 | 1.00 | 7.10 |
+| 로봇 train (190장) 셀 비율 | **78.58%** | 20.26% | **1.16%** |
+| → 순수 역빈도 | 1.00 | 3.88 | **67.93** |
+| → **실제 사용값 (캡 적용)** | 1.00 | 3.88 | **20.00** ← 잘림 |
+
+**이 로직은 Simple-BEV 원본이 아니다.** 원본 `train_nuscenes.py:361`은
+`SimpleLoss(2.13)` — 이진 BCE에 스칼라 `pos_weight` 하나를 하드코딩하고, 그 값도 데이터에서
+유도한 것이 아니라 Lift-Splat-Shoot 논문에서 가져온 상수다(`# value from lift-splat`).
+3-class 역빈도 가중은 이 프로젝트에서 커밋 `e6a2fe0`으로 추가했다.
+
+**미해결: `MAX_CLASS_WEIGHT = 20`의 근거가 없다.**
+
+- 역빈도 가중 CE 자체는 semantic segmentation의 표준 처방 중 하나다. 하지만 **순수 역빈도는
+  그중 가장 공격적인 축**이고, 실무에서는 median-frequency balancing(SegNet 논문), √역빈도,
+  log 스케일 역빈도처럼 완화한 변형을 더 자주 쓴다. 캡 20은 그 완화를 가장 거칠게 구현한 것에
+  해당한다.
+- **캡이 지금 실제로 작동 중이다.** 로봇 데이터에서 `occupied`를 67.93 → 20으로, 4샘플
+  overfit split에서는 ~112 → 20으로 자른다(같은 문서 §7.2). 즉 "혹시 몰라 넣어둔 안전장치"가
+  아니라 **loss 균형을 실제로 결정하고 있는 하이퍼파라미터**다.
+- 그런데 이 값이 어떻게 정해졌는지가 코드·문서·테스트 어디에도 없다. 테스트
+  (`tests/common/test_three_class_metrics.py:88`)는 "캡이 걸린다"는 동작만 확인한다.
+- **하필 `fatal_rate`와 직결된다.** `occupied` 가중치를 낮추면 장애물을 free로 오인하는 방향
+  (planner 안전상 가장 비싼 오류)으로 기울고, 높이면 반대로 free를 과소 예측해 `iou_free`와
+  `free_miss_rate`가 나빠진다. 3-class vs 2-head A/B에서 **유일하게 후퇴한 지표가
+  `fatal_rate`**였다는 점(§8)을 생각하면, 그 판정은 검증되지 않은 캡 값 위에서 내려진 것이다.
+- 또 하나: 가중치가 split마다 다시 계산되므로 **train 구성이 바뀌면 loss 균형도 같이 바뀐다.**
+  4샘플 overfit run의 `free` 가중치는 7.476, 190샘플 A/B는 3.878로 약 2배 달랐다(§7.2).
+  두 run의 loss 값을 직접 비교할 수 없다는 뜻이다.
+
+**나중에 할 일 (본학습으로 기준 숫자를 확보한 뒤)**
+
+1. 캡 값을 스윕한다: 10 / 20 / 50 / 캡 없음. `iou_free`와 `fatal_rate`가 어떻게 교환되는지
+   본다. fine-tuning이 약 8분이라 비용이 싸다.
+2. 캡이 정답이 아닐 수 있다. 대안: median-frequency balancing, √역빈도 또는 log 역빈도로
+   완화 곡선 자체를 바꾸기, Focal loss, Lovász-Softmax / Dice 계열(IoU를 직접 최적화하므로
+   주 지표가 `iou_free`인 지금 구조와 궁합이 좋다).
+3. **§1.6의 원칙이 여기에도 그대로 적용된다** — 하나씩 넣고 지표 변화를 측정한다.
+   §1.6(a)가 이미 "불균형이 실제로 문제가 아니라면 넣지 않는다"라고 적어 뒀는데, 3-class로
+   옮기면서 그 확인 단계를 건너뛰고 역빈도를 바로 넣었다.
+4. 클래스 가중치에는 **CLI 플래그가 없다**(의도적이다 — 같은 데이터에 두 run이 다른 가중치를
+   쓰면 비교가 무너진다). 스윕하려면 코드를 고쳐야 하고, 어떤 값으로 돌렸는지는 학습 배너에
+   매 run 기록된다.
+
+> 주의: 이 항목은 `iou_free`의 **정의**를 건드리지 않으므로 평가 지표 수정 안건과 독립적이다.
+> 다만 loss를 바꾸면 학습 결과 자체가 달라지므로 `rescore_checkpoints.py`로는 복구되지 않고
+> 재학습이 필요하다.
+
 ---
 
 ## 2. 평가 지표 설계

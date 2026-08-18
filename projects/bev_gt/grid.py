@@ -30,25 +30,22 @@ class OccupancyGridSpec:
 # 적이 없었을 뿐, 로봇 물리적 크기와는 애초에 무관하다.)
 ROBOT_GRID_SPEC = OccupancyGridSpec(front_m=4.0, rear_m=2.0, half_width_m=3.0, cell_m=0.05)
 
-# SynWoodScape pretraining 전용 그리드.
+# SynWoodScape pretraining 전용 그리드. 전방8m/후방4m/좌우±6m(=12m×12m, 240×240).
 #
 # 왜 별도로 두는가: SynWoodScape의 ego는 **풀사이즈 승용차**(3D 박스 x∈[-1.85,1.85],
-# y∈[-0.89,0.90])다. ROBOT_GRID_SPEC(전방3m/후방1m/좌우±1m = 4m×2m)에 이 차체를 얹으면
-# 그리드 셀의 56%가 ego 차체 자신에 덮여 항상 non-drivable로 고정되고, 실측상 샘플 간에
-# 값이 바뀌는 셀이 ~1.5%뿐이다 → 학습 신호가 거의 없는 상수 GT가 된다.
+# y∈[-0.89,0.90])다. ROBOT_GRID_SPEC 정도의 좁은 그리드에 이 차체를 얹으면 그리드 셀의
+# 절반 이상이 ego 차체 자신에 덮여 항상 non-drivable로 고정되고, 샘플 간에 값이 바뀌는
+# 셀이 ~1.5%뿐이다 → 학습 신호가 거의 없는 상수 GT가 된다. 그래서 로봇보다 넓게 잡는다.
 #
-# 전방5m/후방3m/좌우±4m(=8m×8m)로 잡은 이유: 자체 로봇의 최종 fine-tuning 타깃이
-# 0.05m/cell × 120×120(=6m×6m)으로 정해졌고, pretrain 거리 스케일을 그 목표와 같은
-# 자릿수(근~중거리)로 맞추는 편이 원거리 위주 자율주행 분포와의 괴리를 줄인다.
-# 다만 6m×6m에 그대로 맞추면 ego 차체 차지 비율이 다시 ~18%까지 올라가 GT 변별력이
-# 줄어드므로, ego 비율을 ~10% 선으로 낮추면서도 로봇 목표와 가까운 거리대를 유지하는
-# 절충점으로 8m×8m을 택했다. cell 수는 160×160(0.05m/cell 기준 8의 배수).
+# 이 값은 수동 검수를 마친 라벨(`dataset/synwoodscape_2head_roi_8_4_6_h08`, ROI 8/4/±6,
+# visibility H=0.8)의 ROI와 일치해야 한다 -- 라벨이 그 ROI로 잘려서 저장돼 있으므로
+# 여기를 바꾸면 라벨을 다시 만들어야 한다.
+#
+# (이력) 2026-07-29 설계 초안의 전방5m/후방3m/좌우±4m(=8m×8m, 160×160)이 한동안 같은
+# 이름으로 남아 있었으나, 실제 라벨링과 학습은 위 8/4/±6으로 진행됐다. 이름은 같고 값만
+# 다른 상수가 둘 있어 혼동을 일으켜 하나로 합쳤다. 옛 8m×8m 스펙의 근거는
+# `docs/dataset_analysis/synwoodscape_geometry_findings.md`에 기록으로 남아 있다.
 SYNWOODSCAPE_PRETRAIN_GRID_SPEC = OccupancyGridSpec(
-    front_m=5.0, rear_m=3.0, half_width_m=4.0, cell_m=0.05
-)
-
-# Finalized two-head SynWoodScape pretraining grid for manual occupancy + H=0.8 visibility labels.
-SYNWOODSCAPE_TWO_HEAD_PRETRAIN_GRID_SPEC = OccupancyGridSpec(
     front_m=8.0, rear_m=4.0, half_width_m=6.0, cell_m=0.05
 )
 

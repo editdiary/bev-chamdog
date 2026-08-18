@@ -31,6 +31,6 @@ python tools/train_synwoodscape.py \
     --use_fisheye=True \
     --augment=True \
     --val_freq_epochs=1 \
-    --save_freq_epochs=5 \
+    --save_freq_epochs=10 \
     --log_dir=runs/synwoodscape_threeclass/logs \
     --ckpt_dir=runs/synwoodscape_threeclass/ckpt

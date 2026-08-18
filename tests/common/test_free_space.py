@@ -88,3 +88,33 @@ def test_partition_defect_count_catches_overlap():
     }
 
     assert partition_defect_count(broken, valid) == 1
+
+
+import numpy as np
+
+
+def test_decompose_accepts_numpy_arrays_and_agrees_with_the_tensor_path():
+    """베이스라인·클래스 가중치 실측 코드는 `.npy`를 읽은 numpy 배열을 그대로 넘긴다.
+
+    두 학습 스크립트와 `class_weights_from_labels`가 예전에는 `occ & vis & valid`를 각자
+    다시 쓰고 있었다. 그것을 `decompose` 하나로 모았으므로, numpy 경로가 텐서 경로와
+    **같은 값**을 낸다는 것이 이제 계약이다. `_as_bool`을 리팩터할 때 이 테스트가 잡는다.
+    """
+    occ_np = np.array([[True, False], [True, False]])
+    vis_np = np.array([[True, True], [False, False]])
+    valid_np = np.array([[True, True], [True, False]])
+
+    np_parts = decompose(occ_np, vis_np, valid_np)
+    tensor_parts = decompose(
+        _grid([[1.0, 0.0], [1.0, 0.0]]),
+        _grid([[1.0, 1.0], [0.0, 0.0]]),
+        _grid([[1.0, 1.0], [1.0, 0.0]]),
+    )
+
+    for name in ("free", "occupied", "unknown"):
+        assert isinstance(np_parts[name], np.ndarray)
+        assert np_parts[name].dtype == np.bool_
+        assert np_parts[name].tolist() == tensor_parts[name][0, 0].tolist(), name
+    # valid=0인 칸은 어느 part에도 없다 -- numpy 경로에서도 성립해야 한다.
+    covered = sum(np_parts[name].astype(int) for name in ("free", "occupied", "unknown"))
+    assert covered.tolist() == valid_np.astype(int).tolist()
