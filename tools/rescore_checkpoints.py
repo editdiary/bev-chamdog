@@ -40,6 +40,7 @@ from projects.common.free_space_metrics import (  # noqa: E402
     weighted_mean,
 )
 from projects.common.occupied_metrics import (  # noqa: E402
+    derive_occupied,
     summarize_tolerance_f1,
     tolerance_counts,
 )
@@ -112,6 +113,7 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
     base_ious, base_counts, base_fatals, base_denoms = [], [], [], []
     allfree_ious, allfree_counts = [], []
     occ_ious, occ_counts = [], []
+    derived_ious, derived_counts, derived_tolerance_dicts = [], [], []
     range_dicts, ring_dicts, tolerance_dicts = [], [], []
 
     with torch.no_grad():
@@ -155,6 +157,17 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
             occ_ious.append(value)
             occ_counts.append(count)
 
+            # (D) 정식화의 검증: occupied head를 쓰지 않고 **예측 free의 경계**에서 유도한
+            # occupied를 같은 지표로 채점한다. 같은 체크포인트의 두 값을 나란히 놓아야
+            # "occupied 채널이 free 경계보다 나은가"에 답할 수 있다.
+            derived = derive_occupied(pred, valid, rays)
+            value, count = iou_masked(derived, gt_parts["occupied"], valid)
+            derived_ious.append(value)
+            derived_counts.append(count)
+            derived_tolerance_dicts.append(tolerance_counts(
+                derived, gt_parts["occupied"], valid, cell_m
+            ))
+
             range_dicts.append(range_error(pred, gt, valid, rays))
             ring_dicts.append(metrics_per_ring(pred, gt, valid, ring_masks))
             tolerance_dicts.append(tolerance_counts(
@@ -177,6 +190,8 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
         "baseline_fatal_rate": weighted_mean(base_fatals, base_denoms),
         "free_miss_rate": weighted_mean(misses, miss_denoms),
         "iou_occupied": weighted_mean(occ_ious, occ_counts),
+        "iou_occupied_derived": weighted_mean(derived_ious, derived_counts),
+        "tolerance_derived": summarize_tolerance_f1(derived_tolerance_dicts),
         "range": summarize_range_error(range_dicts),
         "range_bins": summarize_range_error_by_gt_range(range_dicts, DEFAULT_RING_EDGES_M),
         "rings": rings,
@@ -241,10 +256,19 @@ def main(
     print(f"       missed_obstacle_rate {r['missed_obstacle_rate']:.3f}"
           f" ({r['missed_obstacle']}/{r['ok_gt']} rays)"
           f" | paired rays {r['n_paired_rays']}")
-    print(f"occupied: iou {scores['iou_occupied']:.3f}  <- 면적 IoU (참고용)")
-    for name, values in scores["tolerance"].items():
-        print(f"  f1@{name:5s} {values['f1']:.3f}"
-              f"  precision {values['precision']:.3f}  recall {values['recall']:.3f}")
+    # occupied head의 출력과, 같은 체크포인트의 **예측 free 경계에서 유도한** occupied를
+    # 나란히 찍는다 -- (D) 정식화가 무엇을 잃는지(또는 얻는지)의 직접 증거다.
+    for tag, iou_key, tolerance_key_name in (
+        ("head   ", "iou_occupied", "tolerance"),
+        ("derived", "iou_occupied_derived", "tolerance_derived"),
+    ):
+        print(f"occupied[{tag}]: iou {scores[iou_key]:.3f}  <- 면적 IoU (참고용)")
+        for name, values in scores[tolerance_key_name].items():
+            print(f"  f1@{name:5s} {values['f1']:.3f}"
+                  f"  precision {values['precision']:.3f}  recall {values['recall']:.3f}"
+                  # 예측 셀 수를 함께 찍는다 -- occupied는 두께 1셀 표면이라 "몇 셀을
+                  # 칠했나"가 precision의 해석을 바꾼다(§9의 17배 과잉 예측).
+                  f"  | pred {values['n_pred']} gt {values['n_gt']}")
     for name, values in scores["rings"].items():
         print(f"  ring {name:10s} iou_free {values['iou_free']:.3f}"
               f"  fatal {values['fatal_rate']:.3f}"

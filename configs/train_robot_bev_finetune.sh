@@ -1,5 +1,5 @@
 #!/bin/bash
-# 자체 수집 데이터셋 -> 3-class 단일 head Simple-BEV fine-tuning 설정.
+# 자체 수집 데이터셋 -> 단일 head Simple-BEV fine-tuning 설정 (`FORMULATION` 참고).
 #
 # pretrain 설정(`configs/train_synwoodscape_threeclass_pretrain.sh`)과 같은 관례를 따른다:
 # Simple-BEV에는 config 파일 체계가 없고 Fire 키워드 인자 + 셸 스크립트로 값을 남긴다.
@@ -23,6 +23,13 @@ NUM_EPOCHS="${NUM_EPOCHS:-60}"
 # 역빈도 가중치의 상한. 1이면 가중치 없음. 20이 기존 기본값이고 근거가 없다
 # (`docs/finetune_overfitting_diagnosis.md` §3, §12).
 MAX_CLASS_WEIGHT="${MAX_CLASS_WEIGHT:-20}"
+
+# 정식화. `three_class`(free/occupied/unknown) 또는 `binary`(free/not-free).
+# binary는 `occupied`를 예측하지 않고 예측 free의 경계에서 유도해 보고한다 -- 근거와 상한
+# 실측은 `docs/finetune_overfitting_diagnosis.md` §15. 지표 집합과 체크포인트 선택 기준은
+# 두 정식화가 완전히 같으므로 두 런을 한 표에 놓고 비교할 수 있다.
+# binary에서는 순수 역빈도가 free 3.94라 MAX_CLASS_WEIGHT가 아예 걸리지 않는다.
+FORMULATION="${FORMULATION:-three_class}"
 
 # 시퀀스가 늘어나면 여기에 콤마로 추가한다. VAL_SEQUENCES는 **train에 없는 시퀀스**여야
 # 한다 -- 한 시퀀스는 연속 주행을 거리 기반으로 샘플링한 것이라 프레임을 섞어 나누면
@@ -67,6 +74,7 @@ python tools/train_robot_bev.py \
     --lr="${LR}" \
     --weight_decay="${WEIGHT_DECAY}" \
     --max_class_weight="${MAX_CLASS_WEIGHT}" \
+    --formulation="${FORMULATION}" \
     --num_workers=8 \
     --encoder_type=res101 \
     --augment="${AUGMENT}" \

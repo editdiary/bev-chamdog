@@ -97,6 +97,32 @@ def first_free_range(free: np.ndarray, rays: RayIndex):
     return r_m, status
 
 
+def frontier_cells(r_m, status, rays: RayIndex, shape) -> np.ndarray:
+    """광선이 멈춘 셀들의 마스크 -- **free 경계에서 유도한 `occupied`**.
+
+    `reconstruct_free`가 "free를 되돌리는" 짝이라면 이쪽은 "표면을 되돌리는" 짝이다.
+    라벨 정의(`free_space.decompose`)에서 `occupied = ~occ & vis`이고 `vis`가 ego 원점
+    raycast이므로, **보이는 장애물 셀은 정의상 어떤 광선의 첫 hit**이다. 즉 GT `occupied`는
+    free 영역의 ego 기준 경계이고 이 함수가 그것을 복원한다. 그래서 free만 예측하는
+    정식화에서도 `iou_occupied`/`f1@τ`를 계속 보고할 수 있다.
+
+    `RAY_OK`인 광선만 셀을 낸다. `RAY_CENSORED`(격자 끝까지 free)와 `RAY_NO_FREE`
+    (광선 위에 free가 없다)는 멈춘 셀이 없으므로 아무것도 찍지 않는다 -- 격자 경계를
+    장애물로 세면 모든 프레임의 ROI 테두리가 occupied가 된다.
+
+    복원 셀이 GT `occupied` 대신 `unknown`이나 `valid=0`으로 떨어질 수 있다(경계가 장애물이
+    아니라 정적 사각·수집 아티팩트인 경우). 그 비율이 이 유도의 정확도를 결정하므로
+    `tools/measure_derived_occupied.py`가 실측한다.
+    """
+    frontier = np.zeros(shape, bool)
+    for i in np.nonzero(status == RAY_OK)[0]:
+        # radii_m은 단조증가이고 r_m은 그중 한 값과 정확히 같다(`first_free_range`가
+        # 표본 반지름을 그대로 돌려준다) -- test_polar.py가 쓰는 것과 같은 관용구다.
+        step = int(np.searchsorted(rays.radii_m, r_m[i]))
+        frontier[rays.rows[i, step], rays.cols[i, step]] = True
+    return frontier
+
+
 def reconstruct_free(r_m, status, rays: RayIndex, shape) -> np.ndarray:
     """`r(θ)`만으로 free 영역을 복원한다.
 

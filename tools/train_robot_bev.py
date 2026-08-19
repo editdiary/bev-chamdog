@@ -1,4 +1,9 @@
-"""자체 수집 데이터셋 -> 3-class 단일 head Simple-BEV fine-tuning (ROADMAP Phase 4).
+"""자체 수집 데이터셋 -> 단일 head Simple-BEV fine-tuning (ROADMAP Phase 4).
+
+정식화는 `--formulation`으로 고른다: `three_class`(free/occupied/unknown) 또는
+`binary`(free/not-free). 갈리는 것은 출력 채널 수·loss·로그 항 이름뿐이고 데이터·지표·
+체크포인트 선택 기준은 공유한다 -- 두 런을 한 표에 놓고 비교하기 위해서다
+(`docs/finetune_overfitting_diagnosis.md` §15).
 
 SynWoodScape pretrain(`tools/train_synwoodscape.py`)과 지표·로깅을 공유하며
 (`projects/common/bev_occupancy_metrics.py`), 다른 것은 세 가지뿐이다:
@@ -35,10 +40,7 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 import saverloader  # noqa: E402  (simple_bev submodule; see docs/project_structure.md)
 from projects.common.baselines import as_batch, constant_free_map  # noqa: E402
-from projects.common.three_class_metrics import (  # noqa: E402
-    class_weights_from_labels,
-    run_batch as three_class_run_batch,
-)
+from projects.common import binary_metrics, three_class_metrics  # noqa: E402
 from projects.common.free_space import decompose  # noqa: E402
 from projects.common.free_space_metrics import (  # noqa: E402
     DEFAULT_RING_EDGES_M,
@@ -135,6 +137,24 @@ def _baseline_iou_free(val_samples, permanent_blind, invalid, constant_map, devi
     return weighted_mean(values, counts)
 
 
+# 정식화별로 갈리는 것 전부. 이 dict 하나로 모아 두는 이유: 학습 루프 안에 `if binary`가
+# 흩어지면 한쪽 경로만 조용히 다른 loss나 다른 가중치를 쓰게 되고, 그러면 두 런을 비교하는
+# 것 자체가 무의미해진다. 갈리는 것은 **출력 채널 수·loss 함수·가중치 계산·로그 항 이름**뿐이고
+# 데이터·지표·체크포인트 선택 기준(`iou_free`)은 완전히 공유한다.
+_FORMULATIONS = {
+    "three_class": {
+        "num_classes": 3,
+        "module": three_class_metrics,
+        "weight_label": "unknown/free/occupied",
+    },
+    "binary": {
+        "num_classes": 2,
+        "module": binary_metrics,
+        "weight_label": "not_free/free",
+    },
+}
+
+
 def main(
     exp_name="robot_finetune",
     train_sequences="raws2,raws3,rawos1,rawos2,rawos4",
@@ -168,9 +188,17 @@ def main(
     # `docs/finetune_overfitting_diagnosis.md` §3, §12에 있다. `1`이면 가중치 없음.
     max_class_weight=None,
     n_theta=None,
+    # 정식화. `three_class` = free/occupied/unknown (기존), `binary` = free/not-free (§15).
+    # binary는 `occupied`를 예측하지 않고 예측 free의 경계에서 유도해 보고하므로 지표 집합은
+    # 완전히 같다 -- 두 런을 한 표에 놓고 비교하는 것이 이 플래그의 목적이다.
+    formulation="three_class",
 ):
     torch.manual_seed(0)
     np.random.seed(0)
+
+    if formulation not in _FORMULATIONS:
+        raise ValueError(f"formulation은 {tuple(_FORMULATIONS)} 중 하나여야 한다: {formulation}")
+    spec = _FORMULATIONS[formulation]
 
     dataset_root = Path(dataset_root)
     names = parse_sequence_names(train_sequences)
@@ -205,14 +233,14 @@ def main(
     )
     rays = build_ray_index(GRID_SPEC) if n_theta is None else build_ray_index(GRID_SPEC, n_theta=n_theta)
     ring_masks = build_ring_masks(GRID_SPEC)
-    class_weights = class_weights_from_labels(
+    class_weights = spec["module"].class_weights_from_labels(
         (load_masked_labels(sequence_root, sample_id, permanent_blind, invalid)
          for sequence_root, sample_id in train_samples),
         max_class_weight=max_class_weight,
     )
 
     _print_banner([
-        " robot dataset -> Simple-BEV three-class fine-tuning",
+        f" robot dataset -> Simple-BEV {formulation} fine-tuning",
         f" exp_name={exp_name} | encoder={encoder_type} | cameras={','.join(FINETUNE_CAMERA_NAMES)}",
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
         f" train sequences={','.join(names) or '-'} ({len(train_samples)} samples)",
@@ -231,7 +259,9 @@ def main(
             abs(val_stats["supervised_fraction"] - stats["supervised_fraction"]) > 0.05
             or abs(val_stats["obstacle_fraction"] - stats["obstacle_fraction"]) > 0.02
         ) else ""),
-        f" class weights (unknown/free/occupied) = {class_weights.tolist()}",
+        f" class weights ({spec['weight_label']}) = {class_weights.tolist()}"
+        + ("  <- occupied는 예측하지 않고 free 경계에서 유도한다 (§15)"
+           if formulation == "binary" else ""),
         f" photometric augment (train only) = {bool(augment)}",
         f" trivial 'always drivable' baseline IoU = {stats['trivial_iou']:.3f}  <- compare against this",
         f" constant-map baseline iou_free = {baseline_iou_free:.3f}  <- compare against this",
@@ -260,7 +290,7 @@ def main(
     model = ThreeClassSegnet(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
-        encoder_type=encoder_type, rand_flip=False,
+        encoder_type=encoder_type, rand_flip=False, num_classes=spec["num_classes"],
     ).to(device)
     if from_scratch(init_checkpoint):
         print(_c(_Ansi.YELLOW, " weight transfer: 없음 -- ImageNet trunk + 랜덤 BEV decoder"))
@@ -286,8 +316,14 @@ def main(
         pct_start=0.05, cycle_momentum=False, anneal_strategy="linear",
     )
     class_weights = class_weights.to(device)
-    step = lambda batch: three_class_run_batch(  # noqa: E731
-        model, batch, vox_util, class_weights, device
+    # binary는 예측 free의 경계에서 occupied를 유도하므로 `rays`가 필요하다(bs8에서 25 ms).
+    # train에서도 매번 계산한다 -- val에서만 계산하면 두 곡선이 다른 것을 재게 된다.
+    step = (
+        (lambda batch: three_class_metrics.run_batch(  # noqa: E731
+            model, batch, vox_util, class_weights, device))
+        if formulation == "three_class" else
+        (lambda batch: binary_metrics.run_batch(  # noqa: E731
+            model, batch, vox_util, class_weights, device, rays))
     )
 
     run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}"
@@ -350,6 +386,7 @@ def main(
                 val_range_metrics=val["range"], val_tolerance_metrics=val["tolerance"],
                 baseline_iou_free=baseline_iou_free,
                 val_score=val_score, best_val_score=best_val_score, is_new_best=is_new_best,
+                loss_part_names=spec["module"].LOSS_PART_NAMES,
             ))
 
             if epoch % save_freq_epochs == 0 or epoch == num_epochs:

@@ -109,31 +109,36 @@ def _format_row(tag: str, tag_color: str, fields) -> str:
 
 
 
-# loss 파트 표시 순서. 3-class CE의 클래스별 항이고, `three_class_metrics.compute_three_class_loss`
-# 가 돌려주는 키와 이름이 같아야 한다 -- 옛 2-head 시절에는 이 자리를 loss_occ/loss_vis 두 칸이
-# 차지하고 있어서, 3-class의 세 항 중 하나(unknown)가 로그에서 아예 보이지 않았다.
-_LOSS_PART_FIELDS = (
-    ("loss_unknown↓", "loss_unknown"),
-    ("loss_free↓", "loss_free"),
-    ("loss_occupied↓", "loss_occupied"),
-)
+# loss 파트 표시 순서. CE의 클래스별 항이고, loss 함수가 돌려주는 키와 이름이 같아야 한다 --
+# 옛 2-head 시절에는 이 자리를 loss_occ/loss_vis 두 칸이 차지하고 있어서, 3-class의 세 항 중
+# 하나(unknown)가 로그에서 아예 보이지 않았다.
+#
+# **정식화마다 항의 집합이 다르므로 호출부가 이름을 넘긴다**(3-class는 unknown/free/occupied,
+# binary는 not_free/free). 여기 하드코딩하면 binary의 항이 로그에서 통째로 사라진다. 기본값을
+# 3-class로 두는 이유는 pretrain 스크립트와 기존 테스트가 그 형태를 전제하기 때문이다.
+DEFAULT_LOSS_PART_NAMES = ("unknown", "free", "occupied")
+
+# 몫 칸의 헤더에 쓰는 약자. 이름이 길어 `share not_free/free`로 쓰면 줄이 넘친다.
+_PART_INITIALS = {"unknown": "u", "free": "f", "occupied": "o", "not_free": "nf"}
 
 
-def _format_share_field(loss_parts):
-    """세 클래스가 총 loss에 기여하는 몫을 한 칸에 담는다.
+def _format_share_field(loss_parts, part_names):
+    """각 클래스가 총 loss에 기여하는 몫을 한 칸에 담는다.
 
-    합이 1이라 세 숫자를 붙여 놓는 것이 가장 읽기 쉽다. 이것을 로그에 넣는 이유: 클래스별
+    합이 1이라 숫자를 붙여 놓는 것이 가장 읽기 쉽다. 이것을 로그에 넣는 이유: 클래스별
     평균(`loss_*`)만으로는 "occupied가 셀의 1.1 %인데 총 loss의 67 %"라는 사실이 보이지 않아
     실측에서 셀 비율을 손으로 곱해 봐야 알 수 있었다
     (`docs/finetune_overfitting_diagnosis.md` §12).
     """
-    values = [(loss_parts or {}).get(f"share_{name}") for name in ("unknown", "free", "occupied")]
+    values = [(loss_parts or {}).get(f"share_{name}") for name in part_names]
     if any(value is None or (isinstance(value, float) and math.isnan(value)) for value in values):
         return None
-    return _field("share u/f/o", "/".join(f"{value:.2f}" for value in values), fmt="")
+    label = "share " + "/".join(_PART_INITIALS.get(name, name) for name in part_names)
+    return _field(label, "/".join(f"{value:.2f}" for value in values), fmt="")
 
 
-def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None):
+def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None,
+                       part_names=DEFAULT_LOSS_PART_NAMES):
     """train/val 한 줄. `iou_free`가 주 지표이고 나머지는 그것을 해석하기 위한 것이다."""
     fields = []
     if free_metrics is not None:
@@ -144,8 +149,8 @@ def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None):
         ]
     fields.append(_field("loss_total↓", loss, ".4f"))
     parts = loss_parts or {}
-    fields += [_field(label, parts.get(key), ".4f") for label, key in _LOSS_PART_FIELDS]
-    share_field = _format_share_field(parts)
+    fields += [_field(f"loss_{name}↓", parts.get(f"loss_{name}"), ".4f") for name in part_names]
+    share_field = _format_share_field(parts, part_names)
     if share_field is not None:
         fields.append(share_field)
     return _format_row(tag, tag_color, fields)
@@ -223,6 +228,7 @@ def format_epoch_log(
     val_score,
     best_val_score,
     is_new_best,
+    loss_part_names=DEFAULT_LOSS_PART_NAMES,
 ):
     displayed_best = val_score if is_new_best else best_val_score
     # 직전 best 대비 증감. "이번 epoch이 나아졌나"를 숫자 두 개를 눈으로 빼지 않고 보려는 것.
@@ -248,8 +254,10 @@ def format_epoch_log(
                else _c(_Ansi.DIM, "checkpoint: -"))
         ),
         *_format_partition_warning(train_free_metrics, val_free_metrics),
-        _format_metric_row("train", _Ansi.YELLOW, train_loss, train_loss_parts, train_free_metrics),
-        _format_metric_row("val", _Ansi.CYAN, val_loss, val_loss_parts, val_free_metrics),
+        _format_metric_row("train", _Ansi.YELLOW, train_loss, train_loss_parts,
+                           train_free_metrics, loss_part_names),
+        _format_metric_row("val", _Ansi.CYAN, val_loss, val_loss_parts,
+                           val_free_metrics, loss_part_names),
         *_format_range_line(val_range_metrics),
         *_format_occupied_line(val_tolerance_metrics, val_free_metrics),
     ])

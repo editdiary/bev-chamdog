@@ -2,7 +2,12 @@
 
 The upstream Simple-BEV submodule stays untouched. This module reuses its
 encoder, lifting, BEV compressor, and decoder trunk, then replaces the final
-segmentation projection with one 3-channel softmax-ready head.
+segmentation projection with one N-channel softmax-ready head.
+
+**출력 채널 수는 `num_classes`로 정한다** (기본 3 = free/occupied/unknown).
+`num_classes=2`는 (D) binary 정식화(free / not-free)이고 나머지는 전부 같다 --
+클래스 이름은 역사적이지만 채널 수는 호출부가 명시하고 학습 배너에 찍힌다.
+근거는 `docs/finetune_overfitting_diagnosis.md` §15.
 """
 import sys
 from pathlib import Path
@@ -27,12 +32,12 @@ NUM_CLASSES = 3
 DISCARDED_HEADS = ("feat_head", "instance_center_head", "instance_offset_head")
 
 
-def build_three_class_head(channels: int) -> nn.Sequential:
+def build_three_class_head(channels: int, num_classes: int = NUM_CLASSES) -> nn.Sequential:
     return nn.Sequential(
         nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False),
         nn.InstanceNorm2d(channels),
         nn.ReLU(inplace=True),
-        nn.Conv2d(channels, NUM_CLASSES, kernel_size=1, padding=0),
+        nn.Conv2d(channels, num_classes, kernel_size=1, padding=0),
     )
 
 
@@ -44,9 +49,10 @@ class ThreeClassDecoder(Decoder):
     `tests/models/test_simplebev_three_class.py`가 원본 trunk와 같은 값을 내는지 대조한다.
     """
 
-    def __init__(self, in_channels: int, predict_future_flow: bool = False):
+    def __init__(self, in_channels: int, predict_future_flow: bool = False,
+                 num_classes: int = NUM_CLASSES):
         super().__init__(in_channels=in_channels, n_classes=1, predict_future_flow=predict_future_flow)
-        self.segmentation_head = build_three_class_head(in_channels)
+        self.segmentation_head = build_three_class_head(in_channels, num_classes)
         for name in DISCARDED_HEADS:
             delattr(self, name)
 
@@ -85,10 +91,12 @@ class ThreeClassDecoder(Decoder):
 class ThreeClassSegnet(Segnet):
     """`Segnet` variant whose segmentation output has free/occupied/unknown logits."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, num_classes: int = NUM_CLASSES, **kwargs):
         latent_dim = kwargs.get("latent_dim", 128)
         super().__init__(*args, **kwargs)
-        self.decoder = ThreeClassDecoder(in_channels=latent_dim, predict_future_flow=False)
+        self.decoder = ThreeClassDecoder(
+            in_channels=latent_dim, predict_future_flow=False, num_classes=num_classes
+        )
 
 
 def unexpected_skips(skipped) -> list:

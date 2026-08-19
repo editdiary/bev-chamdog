@@ -26,7 +26,10 @@
 전부 세므로 "planner가 실제로 쓰는 자유거리"를 재지 못한다. 두 지표는 서로의 사각을 덮는다.
 """
 import numpy as np
+import torch
 from scipy.ndimage import distance_transform_edt
+
+from projects.common.polar import first_free_range, frontier_cells
 
 # 격자 셀이 0.05 m이므로 2 / 4 / 8 셀에 해당한다. 셀 하나(0.05 m)는 라벨 자체의 이산화
 # 오차와 구별되지 않아 넣지 않았다.
@@ -49,6 +52,29 @@ def _distance_field_m(mask: np.ndarray, cell_m: float):
     if not mask.any():
         return None
     return distance_transform_edt(~mask, sampling=cell_m)
+
+
+def derive_occupied(free_pred, valid, rays) -> torch.Tensor:
+    """**free 예측만으로 occupied를 유도한다** -- 광선이 멈춘 셀 (`polar.frontier_cells`).
+
+    라벨에서 `occupied = ~occ & vis`이고 `vis`가 ego 원점 raycast이므로 GT occupied는
+    free 영역의 ego 기준 경계다. 그래서 occupied를 예측 클래스에서 빼도(§13.3 (D))
+    `iou_occupied`/`f1@τ`를 계속 보고할 수 있다. GT free를 넣은 상한 실측은
+    `tools/measure_derived_occupied.py`에 있다.
+
+    3-class head의 occupied 채널과 **같은 지표 함수로** 채점되도록 같은 계약
+    `(B, 1, H, W)` bool 텐서를 돌려준다. numpy 광선 루프라 CPU로 내리고 val에서만 부른다.
+
+    정적 마스크(`permanent_blind`/`invalid`)로 경계가 생긴 셀을 빼면 실측에서 `f1@10cm`이
+    0.003 오르는데(GT 상한 기준), 그 이득이 마스크를 이 함수까지 끌고 들어올 값은 아니라고
+    보고 넣지 않았다.
+    """
+    free_np = (free_pred.bool() & valid.bool()).cpu().numpy()
+    derived = np.stack([
+        frontier_cells(*first_free_range(free_np[i, 0], rays), rays, free_np[i, 0].shape)
+        for i in range(free_np.shape[0])
+    ])[:, None]
+    return torch.from_numpy(derived).to(free_pred.device)
 
 
 def tolerance_counts(occ_pred, occ_gt, valid, cell_m,

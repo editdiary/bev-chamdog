@@ -8,12 +8,15 @@ import math
 import pytest
 import torch
 
+from projects.bev_gt.grid import OccupancyGridSpec
 from projects.common.free_space_metrics import iou_masked
 from projects.common.occupied_metrics import (
+    derive_occupied,
     summarize_tolerance_f1,
     tolerance_counts,
     tolerance_key,
 )
+from projects.common.polar import build_ray_index
 
 CELL_M = 0.05  # 실제 격자와 같은 해상도 -- τ를 셀 수로 환산해 손계산할 수 있게 맞춘다
 
@@ -32,6 +35,51 @@ def test_tolerance_key_is_stable_and_readable():
     assert tolerance_key(0.10) == "10cm"
     assert tolerance_key(0.20) == "20cm"
     assert tolerance_key(0.40) == "40cm"
+
+
+_DERIVE_SPEC = OccupancyGridSpec(front_m=1.0, rear_m=1.0, half_width_m=1.0, cell_m=0.05)
+
+
+def test_derive_occupied_returns_the_boundary_per_sample_in_a_batch():
+    """batch의 각 샘플을 독립으로 처리하고 `(B, 1, H, W)` bool 계약을 지킨다.
+
+    샘플 0은 원점을 포함하는 사각형 free, 샘플 1은 free가 전혀 없다. 하나로 뭉쳐 처리하면
+    (예: 배치 전체를 OR) 샘플 1에도 표면이 생겨 이 테스트가 깨진다. 유도 규칙 자체의 기하는
+    `tests/common/test_polar.py`가 고정한다.
+    """
+    size = _DERIVE_SPEC.n_rows
+    free = torch.zeros(2, 1, size, size, dtype=torch.bool)
+    free[0, 0, 10:30, 10:30] = True
+    valid = torch.ones_like(free)
+
+    derived = derive_occupied(free, valid, build_ray_index(_DERIVE_SPEC, n_theta=720))
+
+    assert derived.shape == free.shape and derived.dtype == torch.bool
+    assert not derived[1].any()                      # free가 없으면 표면도 없다
+    assert derived[0].any()
+    assert not (derived[0] & free[0]).any()          # free 셀은 표면이 아니다
+    border = torch.zeros_like(free[0])
+    border[0, 9:31, 9:31] = True
+    assert not (derived[0] & ~(border & ~free[0])).any()
+
+
+def test_derive_occupied_respects_the_valid_mask():
+    """`valid=0`은 수집 아티팩트라 free로 취급할 수 없다 -- 그 경계에서 표면이 생겨야 한다."""
+    size = _DERIVE_SPEC.n_rows
+    free = torch.zeros(1, 1, size, size, dtype=torch.bool)
+    free[0, 0, 10:30, 10:30] = True
+    valid = torch.ones_like(free)
+    valid[0, 0, :20] = False                          # 전방 절반을 무효로 만든다
+
+    rays = build_ray_index(_DERIVE_SPEC, n_theta=720)
+    derived = derive_occupied(free, valid, rays)
+
+    # 무효 영역은 free가 아니므로 그 경계(row 19)에서 광선이 멈춘다 -- 원래 사각형의
+    # 앞쪽 테두리(row 9)까지 뚫고 나가면 `valid`를 무시한 것이다.
+    effective_free = free & valid
+    assert not (derived & effective_free).any()
+    assert derived[0, 0, 19].any()
+    assert not derived[0, 0, :19].any()
 
 
 def test_a_shifted_wall_scores_zero_iou_but_full_f1_within_tolerance():

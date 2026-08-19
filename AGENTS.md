@@ -4,7 +4,9 @@
 
 > **현재 작업 인수인계: [`docs/next_session_threeclass_training.md`](docs/next_session_threeclass_training.md)**
 >
-> 지금 막힌 곳과 다음 단계는 [`docs/finetune_overfitting_diagnosis.md`](docs/finetune_overfitting_diagnosis.md) §13.
+> 지금 막힌 곳과 다음 단계는 [`docs/finetune_overfitting_diagnosis.md`](docs/finetune_overfitting_diagnosis.md) §15–§16
+> (§13이 세운 (C)/(D) 중 **(D) binary 정식화**를 먼저 돌렸다. 전제는 §15에서 확인됐고,
+> 결과는 §16 -- `iou_free` 동률·occupied 기하 손해. 남은 갈래는 §16.3).
 > 학습 산출물 정리 규약은 같은 문서 §14 (`tools/prune_runs.py`).
 > — 새 세션을 시작할 때 이 문서를 먼저 읽습니다. 지금 어디까지 됐고 다음에 무엇을 결정해야 하는지가 여기 있습니다.
 

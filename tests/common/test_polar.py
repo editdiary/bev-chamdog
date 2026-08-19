@@ -8,6 +8,7 @@ from projects.common.polar import (
     RAY_OK,
     build_ray_index,
     first_free_range,
+    frontier_cells,
     reconstruct_free,
 )
 
@@ -108,6 +109,53 @@ def test_star_convex_region_survives_the_polar_roundtrip():
     # root cause(원점-fill이 정적 마스크를 되살린다)를 이 단위 테스트 안에서 재현한다.
     union = (restored | free).sum()
     assert (restored & free).sum() / union <= 0.85
+
+
+def test_frontier_cells_marks_the_cell_the_range_points_at():
+    """`r_m`이 가리키는 셀 자체를 찍는다 -- off-by-one이면 마지막 free 셀을 찍는다."""
+    free = np.zeros((SPEC.n_rows, SPEC.n_cols), bool)
+    free[8:19, 20] = True
+
+    rays = build_ray_index(SPEC, n_theta=4)
+    r_m, status = first_free_range(free, rays)
+    frontier = frontier_cells(r_m, status, rays, free.shape)
+
+    # 전방 광선은 row 7에서 멈춘다(`test_first_free_range_...`의 손계산과 같은 fixture).
+    assert frontier[7, 20]
+    assert not (frontier & free).any()      # free 셀은 절대 표면이 아니다
+
+
+def test_frontier_cells_ignores_censored_and_no_free_rays():
+    """격자 끝까지 free인 광선을 표면으로 세면 모든 프레임의 ROI 테두리가 occupied가 된다."""
+    rays = build_ray_index(SPEC, n_theta=8)
+    shape = (SPEC.n_rows, SPEC.n_cols)
+
+    all_free = np.ones(shape, bool)                                  # 전부 RAY_CENSORED
+    assert not frontier_cells(*first_free_range(all_free, rays), rays, shape).any()
+
+    nothing_free = np.zeros(shape, bool)                             # 전부 RAY_NO_FREE
+    assert not frontier_cells(*first_free_range(nothing_free, rays), rays, shape).any()
+
+
+def test_frontier_cells_recovers_the_boundary_of_a_convex_free_region():
+    """유도된 표면 = free 영역의 경계라는 계약. (D) 정식화가 occupied를 보고하는 근거다.
+
+    원점을 포함하는 볼록 영역이면 모든 광선의 첫 non-free가 그 영역의 바로 밖 테두리이므로,
+    유도 결과는 테두리의 **부분집합**이어야 하고(거짓양성 0) 테두리를 거의 다 덮어야 한다.
+    720 광선에서 실측 커버리지는 1.0이지만 모서리에서 각도 표본이 성길 수 있어 0.9로 둔다.
+    """
+    free = np.zeros((SPEC.n_rows, SPEC.n_cols), bool)
+    free[10:30, 10:30] = True                        # 원점(19.5, 19.5)을 포함하는 사각형
+    border = np.zeros_like(free)
+    border[9:31, 9:31] = True
+    border &= ~free                                  # 두께 1셀 테두리
+
+    rays = build_ray_index(SPEC, n_theta=720)
+    frontier = frontier_cells(*first_free_range(free, rays), rays, free.shape)
+
+    assert frontier.any()
+    assert not (frontier & ~border).any()
+    assert (frontier & border).sum() / border.sum() >= 0.9
 
 
 def test_first_free_range_is_directionally_correct_left_vs_right():

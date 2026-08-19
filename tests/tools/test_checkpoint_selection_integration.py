@@ -36,8 +36,13 @@ class _Dataset:
 
 
 class _Model(torch.nn.Module):
+    """생성 kwargs를 클래스에 남긴다 -- 정식화가 출력 채널 수까지 바꾸는지 확인하기 위해서다."""
+
+    last_kwargs = {}
+
     def __init__(self, *args, **kwargs):
         super().__init__()
+        type(self).last_kwargs = kwargs
         self.weight = torch.nn.Parameter(torch.tensor(0.0))
 
 
@@ -59,7 +64,8 @@ def _install_common_cpu_doubles(monkeypatch, trainer, captured, selected, saved,
         {"valid_bev_g": torch.ones(1, 1, 1, 1)}
     ])
     monkeypatch.setattr(trainer, "ThreeClassSegnet", _Model)
-    monkeypatch.setattr(trainer, "class_weights_from_labels", lambda *args, **kwargs: torch.ones(3))
+    # `class_weights_from_labels`와 `run_batch`는 호출부마다 어느 모듈에서 오는지가 달라
+    # (robot trainer는 정식화별 모듈에서 꺼낸다) 각 테스트가 직접 패치한다.
     monkeypatch.setattr(trainer, "build_ring_masks", lambda *args, **kwargs: [])
     monkeypatch.setattr(trainer, "build_ray_index", lambda *args, **kwargs: object())
     monkeypatch.setattr(
@@ -89,29 +95,8 @@ def _install_common_cpu_doubles(monkeypatch, trainer, captured, selected, saved,
     return step
 
 
-def _assert_free_score_reaches_checkpoint_path(captured, selected, saved, calls):
-    assert len(calls) == 1, "train step이 정확히 한 번 돌아야 한다"
-    assert len(selected) == 1
-    assert selected[0]["iou_free"] == pytest.approx(0.20)
-    assert captured[0]["val_score"] == pytest.approx(0.20)
-    # 세 loss 항이 로그까지 전달돼야 한다 -- 항이 두 칸뿐이던 옛 계약으로 돌아가면 깨진다.
-    assert captured[0]["train_loss_parts"] == pytest.approx(
-        {"loss_unknown": 0.4, "loss_free": 0.2, "loss_occupied": 0.3,
-         "share_unknown": 0.5, "share_free": 0.2, "share_occupied": 0.3}
-    )
-    assert "model_best" in saved
-
-
-def test_robot_trainer_uses_free_score_at_checkpoint_selection_boundary(monkeypatch, tmp_path):
-    """robot trainer를 옛 IoU 평균으로 되돌리면 selection spy가 호출되지 않아 실패한다."""
-    captured, selected, saved, calls = [], [], [], []
-    dataset_root = tmp_path / "data"
-    for name in ("train", "val"):
-        (dataset_root / name / "occupancy_npy").mkdir(parents=True)
-    step = _install_common_cpu_doubles(
-        monkeypatch, robot_trainer, captured, selected, saved, calls
-    )
-    monkeypatch.setattr(robot_trainer, "three_class_run_batch", step)
+def _install_robot_dataset_doubles(monkeypatch):
+    """robot trainer의 데이터셋·마스크·lifting을 전부 더블로. 정식화와 무관한 부분이다."""
     monkeypatch.setattr(
         robot_trainer, "parse_sequence_names",
         lambda names: names.split(",") if names else [],
@@ -138,6 +123,34 @@ def test_robot_trainer_uses_free_score_at_checkpoint_selection_boundary(monkeypa
         robot_trainer, "build_double_sphere_vox_util", lambda *args, **kwargs: object()
     )
 
+
+def _assert_free_score_reaches_checkpoint_path(captured, selected, saved, calls):
+    assert len(calls) == 1, "train step이 정확히 한 번 돌아야 한다"
+    assert len(selected) == 1
+    assert selected[0]["iou_free"] == pytest.approx(0.20)
+    assert captured[0]["val_score"] == pytest.approx(0.20)
+    # 세 loss 항이 로그까지 전달돼야 한다 -- 항이 두 칸뿐이던 옛 계약으로 돌아가면 깨진다.
+    assert captured[0]["train_loss_parts"] == pytest.approx(
+        {"loss_unknown": 0.4, "loss_free": 0.2, "loss_occupied": 0.3,
+         "share_unknown": 0.5, "share_free": 0.2, "share_occupied": 0.3}
+    )
+    assert "model_best" in saved
+
+
+def test_robot_trainer_uses_free_score_at_checkpoint_selection_boundary(monkeypatch, tmp_path):
+    """robot trainer를 옛 IoU 평균으로 되돌리면 selection spy가 호출되지 않아 실패한다."""
+    captured, selected, saved, calls = [], [], [], []
+    dataset_root = tmp_path / "data"
+    for name in ("train", "val"):
+        (dataset_root / name / "occupancy_npy").mkdir(parents=True)
+    step = _install_common_cpu_doubles(
+        monkeypatch, robot_trainer, captured, selected, saved, calls
+    )
+    monkeypatch.setattr(robot_trainer.three_class_metrics, "run_batch", step)
+    monkeypatch.setattr(robot_trainer.three_class_metrics, "class_weights_from_labels",
+                        lambda *args, **kwargs: torch.ones(3))
+    _install_robot_dataset_doubles(monkeypatch)
+
     robot_trainer.main(
         train_sequences="train", val_sequences="val", num_epochs=1, batch_size=2,
         num_workers=0, dataset_root=dataset_root, common_root=tmp_path,
@@ -145,6 +158,46 @@ def test_robot_trainer_uses_free_score_at_checkpoint_selection_boundary(monkeypa
     )
 
     _assert_free_score_reaches_checkpoint_path(captured, selected, saved, calls)
+
+
+def test_binary_formulation_switches_head_width_loss_module_and_log_terms(monkeypatch, tmp_path):
+    """`--formulation=binary`가 실제로 세 곳을 동시에 바꾸는지 -- 하나라도 빠지면 조용히 깨진다.
+
+    출력 채널만 2로 바꾸고 loss를 3-class 그대로 두면 CE가 클래스 3을 찾다 죽고, 반대로
+    loss만 바꾸고 head를 3채널로 두면 안 쓰는 채널이 학습된다. 로그 항 이름이 안 바뀌면
+    binary의 두 항이 로그에서 통째로 사라진다(`share nf/f`가 그 확인이다).
+    """
+    captured, selected, saved, calls = [], [], [], []
+    dataset_root = tmp_path / "data"
+    for name in ("train", "val"):
+        (dataset_root / name / "occupancy_npy").mkdir(parents=True)
+    step = _install_common_cpu_doubles(
+        monkeypatch, robot_trainer, captured, selected, saved, calls
+    )
+    monkeypatch.setattr(robot_trainer.binary_metrics, "run_batch", step)
+    monkeypatch.setattr(robot_trainer.binary_metrics, "class_weights_from_labels",
+                        lambda *args, **kwargs: torch.ones(2))
+    # 3-class 경로가 실수로 불리면 즉시 드러나게 둔다.
+    monkeypatch.setattr(robot_trainer.three_class_metrics, "run_batch",
+                        lambda *args, **kwargs: pytest.fail("binary인데 3-class run_batch가 불렸다"))
+    _install_robot_dataset_doubles(monkeypatch)
+
+    robot_trainer.main(
+        train_sequences="train", val_sequences="val", num_epochs=1, batch_size=2,
+        num_workers=0, dataset_root=dataset_root, common_root=tmp_path,
+        log_dir=tmp_path / "logs", ckpt_dir=tmp_path / "ckpts", device="cpu",
+        formulation="binary",
+    )
+
+    assert _Model.last_kwargs["num_classes"] == 2
+    assert captured[0]["loss_part_names"] == ("not_free", "free")
+    assert len(calls) == 1
+
+
+def test_an_unknown_formulation_fails_before_training_starts(tmp_path):
+    """오타를 조용히 3-class로 떨어뜨리면 잘못된 런을 몇 시간 뒤에 발견하게 된다."""
+    with pytest.raises(ValueError, match="formulation"):
+        robot_trainer.main(formulation="binry", dataset_root=tmp_path)
 
 
 def test_synwoodscape_trainer_uses_free_score_at_checkpoint_selection_boundary(
@@ -156,6 +209,8 @@ def test_synwoodscape_trainer_uses_free_score_at_checkpoint_selection_boundary(
         monkeypatch, synwoodscape_trainer, captured, selected, saved, calls
     )
     monkeypatch.setattr(synwoodscape_trainer, "run_batch", step)
+    monkeypatch.setattr(synwoodscape_trainer, "class_weights_from_labels",
+                        lambda *args, **kwargs: torch.ones(3))
     monkeypatch.setattr(
         synwoodscape_trainer, "discover_all_sample_ids", lambda *args: ["train", "val"]
     )
