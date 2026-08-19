@@ -177,3 +177,30 @@ def test_run_batch_returns_loss_parts_and_free_metrics():
     assert set(parts) == _PART_KEYS
     assert free_metrics["iou_free"] == pytest.approx(1.0)
     assert torch.equal(model.seen_rgb, torch.full_like(batch["rgb_camXs"], 0.5))
+
+
+def test_label_smoothing_caps_the_loss_a_confident_cell_can_produce():
+    """val loss가 오르는 이유가 "확신을 갖고 틀리는 것"이므로(§17) 그 상한을 직접 건다.
+
+    같은 예측에 대해 (a) 완전히 맞은 셀은 loss가 0이 아니게 되고(smoothing이 다른 클래스에도
+    질량을 주므로), (b) 확신을 갖고 틀린 셀의 loss는 **줄어든다**. 둘 다 확인해야 한다 --
+    (a)만 보면 상수를 더한 것과 구별되지 않는다.
+    """
+    valid = torch.ones((1, 1, 2, 2), dtype=torch.bool)
+    right = torch.full((1, 1, 2, 2), FREE, dtype=torch.long)
+    wrong = torch.full((1, 1, 2, 2), NOT_FREE, dtype=torch.long)
+    logits = _logits_favouring(FREE)
+
+    plain_right, _ = compute_binary_loss(logits, right, valid, torch.ones(2))
+    smooth_right, _ = compute_binary_loss(logits, right, valid, torch.ones(2),
+                                          label_smoothing=0.1)
+    plain_wrong, _ = compute_binary_loss(logits, wrong, valid, torch.ones(2))
+    smooth_wrong, _ = compute_binary_loss(logits, wrong, valid, torch.ones(2),
+                                          label_smoothing=0.1)
+
+    assert float(smooth_right) > float(plain_right)
+    assert float(smooth_wrong) < float(plain_wrong)
+    # 기본값은 smoothing 없음 -- 옛 런과 loss 값이 비교 가능해야 한다.
+    assert float(compute_binary_loss(logits, right, valid, torch.ones(2))[0]) == pytest.approx(
+        float(plain_right)
+    )

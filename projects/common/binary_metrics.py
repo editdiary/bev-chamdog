@@ -46,13 +46,14 @@ def to_class_index(parts: dict) -> torch.Tensor:
     return parts["free"].long()
 
 
-def compute_binary_loss(logits, class_index, valid, class_weights):
+def compute_binary_loss(logits, class_index, valid, class_weights, label_smoothing=0.0):
     """`valid` 셀에 한정한 가중 2-class cross-entropy.
 
     구현은 3-class와 **같은 함수**(`segmentation_loss.masked_weighted_ce`)다. 정식화만 바꾸고
     loss의 정규화·집계는 그대로 두어야 두 런의 loss 곡선을 나란히 읽을 수 있다.
     """
-    return masked_weighted_ce(logits, class_index, valid, class_weights, _PART_BY_CLASS)
+    return masked_weighted_ce(logits, class_index, valid, class_weights, _PART_BY_CLASS,
+                              label_smoothing)
 
 
 def class_weights_from_labels(label_triples, max_class_weight=None) -> torch.Tensor:
@@ -94,7 +95,7 @@ def compute_free_metrics(logits, seg_g, vis_g, valid_g, rays) -> dict:
     return free_metrics_from_masks(pred, gt, valid_g)
 
 
-def run_batch(model, batch, vox_util, class_weights, device, rays):
+def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothing=0.0):
     """Run one binary train/eval batch."""
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5
     pix_T_cams = batch["pix_T_cams"].to(device)
@@ -105,7 +106,9 @@ def run_batch(model, batch, vox_util, class_weights, device, rays):
 
     _, _, logits, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
     class_index = to_class_index(decompose(seg_bev_g, vis_bev_g, valid_bev_g))
-    loss, loss_parts = compute_binary_loss(logits, class_index, valid_bev_g, class_weights)
+    loss, loss_parts = compute_binary_loss(
+        logits, class_index, valid_bev_g, class_weights, label_smoothing
+    )
     return loss, loss_parts, compute_free_metrics(
         logits, seg_bev_g, vis_bev_g, valid_bev_g, rays
     )

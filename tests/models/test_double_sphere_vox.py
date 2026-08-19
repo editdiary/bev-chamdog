@@ -165,3 +165,68 @@ def test_rear_of_the_grid_is_covered_by_the_side_cameras():
     seen = seen.reshape(spec.n_rows, spec.n_cols)
     rear_rows = forward_m < 0.0
     assert seen[rear_rows].mean() > 0.9, f"후방 커버리지 {seen[rear_rows].mean():.3f}"
+
+
+@requires_calib
+def test_mirror_x_lifts_a_flipped_feature_map_into_the_mirrored_bev():
+    """좌우 반전 증강의 기하 계약 -- **반전 입력이 정확히 반전된 BEV를 만든다.**
+
+    성립하지 않으면 (반전 이미지, 반전 라벨) 쌍이 존재하지 않는 기하를 가르치게 된다.
+    모델을 끼우지 않는 이유: conv encoder는 반전에 등변이 아니므로, 섞으면 "기하가 틀렸다"와
+    "네트워크가 등변이 아니다"를 구분할 수 없다. 여기서 재는 것은 lifting 기하뿐이다.
+
+    두 단계가 모두 필요하다는 것도 같은 테스트에서 확인한다(특징맵을 뒤집지 않으면 깨진다) --
+    한쪽만 해도 통과하면 이 테스트는 아무것도 고정하지 못한다.
+    """
+    torch.manual_seed(0)
+    spec = ROBOT_GRID_SPEC
+    cameras = [load_cameras(CALIB_PATH)[name] for name in FINETUNE_CAMERA_NAMES]
+    plain = build_double_sphere_vox_util(spec, cameras)
+    mirror = build_double_sphere_vox_util(spec, cameras, mirror_x=True)
+
+    ego_T_cams = load_ego_T_cams(CALIB_PATH)
+    ref_T_cams = np.stack([ref_T_cam_from_ego_T_cam(ego_T_cams[n]) for n in FINETUNE_CAMERA_NAMES])
+    camB_T_camA = torch.from_numpy(np.linalg.inv(ref_T_cams)).float()
+
+    Z, Y, X = spec.n_rows, 1, spec.n_cols
+    feat = torch.randn(len(cameras), 4, 36, 64)      # 512x288 입력 / stride 8
+
+    volume = plain.unproject_image_to_mem(feat, camB_T_camA, camB_T_camA, Z, Y, X)
+    mirrored = mirror.unproject_image_to_mem(
+        torch.flip(feat, dims=[-1]), camB_T_camA, camB_T_camA, Z, Y, X
+    )
+    expected = torch.flip(volume, dims=[-1])         # memory X = 마지막 축 = 횡방향
+
+    assert volume.abs().sum() > 0                     # 자명하게 0이면 아무것도 증명 못 한다
+    # 오차 상한은 특징값 표준편차(약 0.55)보다 네 자릿수 작다. 반픽셀 어긋남이 있었다면
+    # 이웃 값 차이(~1.4) 규모의 오차가 났을 것이므로, 이 상한이 곧 "어긋남 없음"이다.
+    assert (mirrored - expected).abs().max() < 1e-3
+
+    # 반증: 질의점만 반전하고 특징맵을 그대로 넣으면 데이터 자체 규모의 오차가 나야 한다.
+    without_input_flip = mirror.unproject_image_to_mem(
+        feat, camB_T_camA, camB_T_camA, Z, Y, X
+    )
+    assert (without_input_flip - expected).abs().max() > 1.0
+
+
+@requires_calib
+def test_flipping_memory_x_is_exactly_mirroring_ref_x():
+    """격자 규약 -- 라벨을 마지막 축으로 뒤집는 것이 ego 횡방향 반전과 같아야 한다.
+
+    ROI가 좌우 대칭(±half_width)이라 성립한다. 전후로는 비대칭(전방 4 m / 후방 2 m)이므로
+    같은 논리가 성립하지 않고, 그래서 반전은 횡방향으로만 한다.
+    """
+    import utils.basic  # simple_bev submodule -- vox util import가 sys.path를 세팅한다
+
+    spec = ROBOT_GRID_SPEC
+    cameras = [load_cameras(CALIB_PATH)[name] for name in FINETUNE_CAMERA_NAMES]
+    vox_util = build_double_sphere_vox_util(spec, cameras)
+    Z, Y, X = spec.n_rows, 1, spec.n_cols
+
+    xyz_ref = vox_util.Mem2Ref(
+        utils.basic.gridcloud3d(1, Z, Y, X, norm=False), Z, Y, X, assert_cube=False
+    ).reshape(Z, Y, X, 3)
+    x_ref = xyz_ref[..., 0]
+
+    assert (x_ref + torch.flip(x_ref, dims=[-1])).abs().max() < 1e-4
+    assert float(x_ref.max()) == pytest.approx(spec.half_width_m - spec.cell_m / 2, abs=1e-4)

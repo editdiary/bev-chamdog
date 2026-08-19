@@ -155,6 +155,28 @@ _FORMULATIONS = {
 }
 
 
+# 반전할 텐서. `sample_id`처럼 텐서가 아닌 항목과, 반전해도 값이 같은 캘리브레이션 항목은
+# 건드리지 않는다 -- 반전은 **vox util 쪽**에서 처리되므로 extrinsic은 그대로 넘어가는 것이 맞다.
+_MIRRORED_KEYS = ("rgb_camXs", "seg_bev_g", "vis_bev_g", "valid_bev_g")
+
+
+def _maybe_mirror(batch, vox_util, mirror_vox_util, flip_augment):
+    """확률 0.5로 배치 전체를 좌우 반전한다. **train에서만 호출한다.**
+
+    샘플 단위가 아니라 배치 단위인 이유: lifting 기하가 vox util에 들어 있고 그것은 forward
+    한 번에 하나만 쓸 수 있다. 배치가 8장이므로 epoch 전체로 보면 반전 비율은 여전히 절반이다.
+
+    이미지와 BEV 라벨을 **같은 축**으로 뒤집는다(마지막 축 = 이미지 폭 = BEV 횡방향). 기하
+    정합성은 `tests/models/test_double_sphere_vox.py`가 고정한다.
+    """
+    if not flip_augment or float(torch.rand(())) >= 0.5:
+        return batch, vox_util
+    mirrored = dict(batch)
+    for key in _MIRRORED_KEYS:
+        mirrored[key] = torch.flip(batch[key], dims=[-1])
+    return mirrored, mirror_vox_util
+
+
 def main(
     exp_name="robot_finetune",
     train_sequences="raws2,raws3,rawos1,rawos2,rawos4",
@@ -192,6 +214,17 @@ def main(
     # binary는 `occupied`를 예측하지 않고 예측 free의 경계에서 유도해 보고하므로 지표 집합은
     # 완전히 같다 -- 두 런을 한 표에 놓고 비교하는 것이 이 플래그의 목적이다.
     formulation="three_class",
+    # --- 과적합 손잡이 (§16.3 (b)). 근거는 `docs/finetune_overfitting_diagnosis.md` §17 ---
+    # encoder를 얼린다. 40.6 M 파라미터 중 37.0 M(91 %)이 encoder인데 train은 192장이다.
+    # ImageNet 특징을 그대로 쓰고 BEV decoder만 학습하면 학습 가능한 파라미터가 1/12로 준다.
+    freeze_encoder=False,
+    # CE의 label smoothing. val loss가 오르는 이유가 "더 많이 틀려서"가 아니라 "확신이
+    # 커져서"이므로(§17), 한 셀이 낼 수 있는 loss에 상한을 씌워 그 발산을 직접 막는다.
+    label_smoothing=0.0,
+    # 좌우 반전 증강(train 배치 단위, 확률 0.5). 광도 증강과 달리 **기하 다양성을 실제로
+    # 늘리는** 유일한 수단이다 -- 리그 ROI가 좌우 대칭(±3 m)이라 성립한다.
+    # 기하 정합성은 `tests/models/test_double_sphere_vox.py`가 실측으로 고정한다.
+    flip_augment=False,
 ):
     torch.manual_seed(0)
     np.random.seed(0)
@@ -262,7 +295,10 @@ def main(
         f" class weights ({spec['weight_label']}) = {class_weights.tolist()}"
         + ("  <- occupied는 예측하지 않고 free 경계에서 유도한다 (§15)"
            if formulation == "binary" else ""),
-        f" photometric augment (train only) = {bool(augment)}",
+        f" photometric augment (train only) = {bool(augment)}"
+        f" | flip augment = {bool(flip_augment)}"
+        f" | freeze_encoder = {bool(freeze_encoder)}"
+        f" | label_smoothing = {float(label_smoothing)}",
         f" trivial 'always drivable' baseline IoU = {stats['trivial_iou']:.3f}  <- compare against this",
         f" constant-map baseline iou_free = {baseline_iou_free:.3f}  <- compare against this",
     ])
@@ -285,6 +321,11 @@ def main(
 
     Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
     vox_util = build_double_sphere_vox_util(GRID_SPEC, train_ds.cameras, device=device)
+    # 반전 배치는 lifting 기하가 달라지므로 vox util을 하나 더 둔다. 캘리브레이션은 같고
+    # `mirror_x`만 다르다 -- 만드는 비용이 사실상 0이라 플래그와 무관하게 항상 준비해 둔다.
+    mirror_vox_util = build_double_sphere_vox_util(
+        GRID_SPEC, train_ds.cameras, device=device, mirror_x=True
+    )
     # rand_flip=False: 이 리그의 ROI는 전후 비대칭(전방 4 m / 후방 2 m)이라
     # Simple-BEV의 Z축 flip 증강이 물리적으로 성립하지 않는다.
     model = ThreeClassSegnet(
@@ -309,7 +350,17 @@ def main(
         if unexpected:
             raise RuntimeError(f"trunk keys were skipped: {unexpected[:5]}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    if freeze_encoder:
+        # optimizer에서도 빼 둔다 -- `requires_grad=False`만으로도 갱신은 안 되지만, 그러면
+        # AdamW가 상태 텐서를 그대로 들고 있어 "얼렸다"가 로그로 확인되지 않는다.
+        for parameter in model.encoder.parameters():
+            parameter.requires_grad = False
+    trainable = [p for p in model.parameters() if p.requires_grad]
+    print(_c(_Ansi.CYAN,
+             f" trainable params {sum(p.numel() for p in trainable) / 1e6:.1f}M"
+             f" / {sum(p.numel() for p in model.parameters()) / 1e6:.1f}M"
+             + ("  <- encoder 동결" if freeze_encoder else "")))
+    optimizer = torch.optim.AdamW(trainable, lr=lr, weight_decay=weight_decay)
     steps_per_epoch = max(1, len(train_loader))
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer, lr, num_epochs * steps_per_epoch + 10,
@@ -319,11 +370,11 @@ def main(
     # binary는 예측 free의 경계에서 occupied를 유도하므로 `rays`가 필요하다(bs8에서 25 ms).
     # train에서도 매번 계산한다 -- val에서만 계산하면 두 곡선이 다른 것을 재게 된다.
     step = (
-        (lambda batch: three_class_metrics.run_batch(  # noqa: E731
-            model, batch, vox_util, class_weights, device))
+        (lambda batch, vox=vox_util: three_class_metrics.run_batch(  # noqa: E731
+            model, batch, vox, class_weights, device, label_smoothing))
         if formulation == "three_class" else
-        (lambda batch: binary_metrics.run_batch(  # noqa: E731
-            model, batch, vox_util, class_weights, device, rays))
+        (lambda batch, vox=vox_util: binary_metrics.run_batch(  # noqa: E731
+            model, batch, vox, class_weights, device, rays, label_smoothing))
     )
 
     run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}"
@@ -347,7 +398,10 @@ def main(
             losses, parts_dicts, free_dicts = [], [], []
             for batch in train_loader:
                 optimizer.zero_grad()
-                loss, parts, free_metrics = step(batch)
+                batch, batch_vox_util = _maybe_mirror(
+                    batch, vox_util, mirror_vox_util, flip_augment
+                )
+                loss, parts, free_metrics = step(batch, batch_vox_util)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
                 optimizer.step()

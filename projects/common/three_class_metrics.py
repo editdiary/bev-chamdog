@@ -39,13 +39,14 @@ LOSS_PART_NAMES = ("unknown", "free", "occupied")
 MAX_CLASS_WEIGHT = DEFAULT_MAX_CLASS_WEIGHT
 
 
-def compute_three_class_loss(logits, class_index, valid, class_weights):
+def compute_three_class_loss(logits, class_index, valid, class_weights, label_smoothing=0.0):
     """Masked weighted cross-entropy over valid BEV cells only.
 
     항의 의미(`loss_*` 대 `share_*`)는 `segmentation_loss.masked_weighted_ce`가 정본이다.
     binary 경로와 **같은 함수**를 타야 두 정식화의 loss 곡선을 나란히 읽을 수 있다.
     """
-    return masked_weighted_ce(logits, class_index, valid, class_weights, _PART_BY_CLASS)
+    return masked_weighted_ce(logits, class_index, valid, class_weights, _PART_BY_CLASS,
+                              label_smoothing)
 
 
 def class_weights_from_labels(label_triples, max_class_weight=None) -> torch.Tensor:
@@ -77,7 +78,7 @@ def compute_free_metrics(logits, seg_g, vis_g, valid_g) -> dict:
     return free_metrics_from_masks(pred, gt, valid_g)
 
 
-def run_batch(model, batch, vox_util, class_weights, device):
+def run_batch(model, batch, vox_util, class_weights, device, label_smoothing=0.0):
     """Run one three-class train/eval batch."""
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5
     pix_T_cams = batch["pix_T_cams"].to(device)
@@ -88,5 +89,7 @@ def run_batch(model, batch, vox_util, class_weights, device):
 
     _, _, logits, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
     class_index = to_class_index(decompose(seg_bev_g, vis_bev_g, valid_bev_g))
-    loss, loss_parts = compute_three_class_loss(logits, class_index, valid_bev_g, class_weights)
+    loss, loss_parts = compute_three_class_loss(
+        logits, class_index, valid_bev_g, class_weights, label_smoothing
+    )
     return loss, loss_parts, compute_free_metrics(logits, seg_bev_g, vis_bev_g, valid_bev_g)

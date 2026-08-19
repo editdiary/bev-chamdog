@@ -18,7 +18,8 @@ import torch.nn.functional as F
 DEFAULT_MAX_CLASS_WEIGHT = 20.0
 
 
-def masked_weighted_ce(logits, class_index, valid, class_weights, part_by_class) -> tuple:
+def masked_weighted_ce(logits, class_index, valid, class_weights, part_by_class,
+                       label_smoothing=0.0) -> tuple:
     """`valid` 셀에 한정한 가중 cross-entropy. `(총 loss, 항별 dict)`.
 
     `loss_*`는 그 클래스 셀의 **평균**이고 `share_*`는 그 클래스가 **총 loss에 실제로 기여하는
@@ -28,6 +29,11 @@ def masked_weighted_ce(logits, class_index, valid, class_weights, part_by_class)
     `share_*`는 정의상 합이 1이므로 어느 클래스가 학습을 지배하는지 바로 읽힌다.
 
     `part_by_class`는 `{클래스 인덱스: 이름}`이고 이것이 곧 로그에 찍히는 항의 집합이다.
+
+    `label_smoothing`은 **과신을 직접 겨냥한 손잡이**다. 실측(§16.2)에서 val loss가 오르는
+    이유가 "더 많이 틀려서"가 아니라 "같은 만큼 틀리되 확신이 커져서"였다 -- 정답 확률의
+    기하평균이 train 0.995 대 val 0.620이다. smoothing은 한 셀이 낼 수 있는 loss에 상한을
+    씌워 그 발산을 막는다. 기본 0.0이면 동작이 전과 완전히 같다.
     """
     valid_f = valid.float()
     per_cell = F.cross_entropy(
@@ -35,6 +41,7 @@ def masked_weighted_ce(logits, class_index, valid, class_weights, part_by_class)
         class_index.squeeze(1),
         weight=class_weights.to(logits.device),
         reduction="none",
+        label_smoothing=label_smoothing,
     ).unsqueeze(1)
     weighted_sum = (per_cell * valid_f).sum()
     total = weighted_sum / (valid_f.sum() + 1e-6)

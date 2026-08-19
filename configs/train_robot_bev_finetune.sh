@@ -19,7 +19,10 @@ AUGMENT="${AUGMENT:-False}"
 # (`docs/finetune_overfitting_diagnosis.md` §2). 1e-7은 Simple-BEV 기본값이고 실질적으로
 # 정규화가 없다 -- 192장 로봇 데이터에서 val loss가 epoch 4부터 올라간다.
 WEIGHT_DECAY="${WEIGHT_DECAY:-1e-7}"
-NUM_EPOCHS="${NUM_EPOCHS:-60}"
+# **기본값을 60 -> 30으로 내렸다 (2026-08-19, 사용자 결정).** val이 ep19 근처에서 끝나고
+# 그 뒤 41 epoch은 train을 외우기만 한다(§16, §17). 30이면 best 지점을 여유 있게 덮으면서
+# 실험 한 번이 13분 -> 6분이 된다. 옛 60 epoch 런과 곡선을 비교할 때만 60으로 되돌린다.
+NUM_EPOCHS="${NUM_EPOCHS:-30}"
 # 역빈도 가중치의 상한. 1이면 가중치 없음. 20이 기존 기본값이고 근거가 없다
 # (`docs/finetune_overfitting_diagnosis.md` §3, §12).
 MAX_CLASS_WEIGHT="${MAX_CLASS_WEIGHT:-20}"
@@ -30,6 +33,15 @@ MAX_CLASS_WEIGHT="${MAX_CLASS_WEIGHT:-20}"
 # 두 정식화가 완전히 같으므로 두 런을 한 표에 놓고 비교할 수 있다.
 # binary에서는 순수 역빈도가 free 3.94라 MAX_CLASS_WEIGHT가 아예 걸리지 않는다.
 FORMULATION="${FORMULATION:-three_class}"
+
+# 과적합 손잡이 세 개 (`docs/finetune_overfitting_diagnosis.md` §16.3(b), §17).
+# train이 192장인데 res101은 40.6 M 파라미터(그중 encoder 37.0 M)다.
+ENCODER_TYPE="${ENCODER_TYPE:-res101}"      # res101 / res50 / res18 -- 용량 자체를 줄인다
+FREEZE_ENCODER="${FREEZE_ENCODER:-False}"   # ImageNet 특징 고정, BEV decoder만 학습(3.5 M)
+LABEL_SMOOTHING="${LABEL_SMOOTHING:-0.0}"   # 과신 억제. 0.05~0.1이 통상값
+# 좌우 반전 증강. 광도 증강과 달리 기하 다양성을 실제로 늘리는 유일한 수단이다.
+# ROI가 좌우 대칭(±3 m)이라 성립하고, 기하는 tests/models/test_double_sphere_vox.py가 고정한다.
+FLIP_AUGMENT="${FLIP_AUGMENT:-False}"
 
 # 시퀀스가 늘어나면 여기에 콤마로 추가한다. VAL_SEQUENCES는 **train에 없는 시퀀스**여야
 # 한다 -- 한 시퀀스는 연속 주행을 거리 기반으로 샘플링한 것이라 프레임을 섞어 나누면
@@ -76,7 +88,10 @@ python tools/train_robot_bev.py \
     --max_class_weight="${MAX_CLASS_WEIGHT}" \
     --formulation="${FORMULATION}" \
     --num_workers=8 \
-    --encoder_type=res101 \
+    --encoder_type="${ENCODER_TYPE}" \
+    --freeze_encoder="${FREEZE_ENCODER}" \
+    --label_smoothing="${LABEL_SMOOTHING}" \
+    --flip_augment="${FLIP_AUGMENT}" \
     --augment="${AUGMENT}" \
     --val_freq_epochs=1 \
     --save_freq_epochs=10 \

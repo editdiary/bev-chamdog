@@ -44,6 +44,8 @@ class _Model(torch.nn.Module):
         super().__init__()
         type(self).last_kwargs = kwargs
         self.weight = torch.nn.Parameter(torch.tensor(0.0))
+        # 실제 `Segnet`과 같은 이름의 하위 모듈. `--freeze_encoder`가 여기를 얼린다.
+        self.encoder = torch.nn.Linear(2, 2)
 
 
 def _install_common_cpu_doubles(monkeypatch, trainer, captured, selected, saved, calls):
@@ -192,6 +194,41 @@ def test_binary_formulation_switches_head_width_loss_module_and_log_terms(monkey
     assert _Model.last_kwargs["num_classes"] == 2
     assert captured[0]["loss_part_names"] == ("not_free", "free")
     assert len(calls) == 1
+
+
+def test_freeze_encoder_takes_the_encoder_out_of_the_optimizer(monkeypatch, tmp_path):
+    """`requires_grad=False`만 걸고 optimizer에 그대로 남겨 두면 얼린 것이 로그로 확인되지 않고,
+    AdamW가 상태 텐서를 계속 들고 있는다. 파라미터 목록에서도 빠져야 한다."""
+    captured, selected, saved, calls = [], [], [], []
+    dataset_root = tmp_path / "data"
+    for name in ("train", "val"):
+        (dataset_root / name / "occupancy_npy").mkdir(parents=True)
+    step = _install_common_cpu_doubles(
+        monkeypatch, robot_trainer, captured, selected, saved, calls
+    )
+    monkeypatch.setattr(robot_trainer.three_class_metrics, "run_batch", step)
+    monkeypatch.setattr(robot_trainer.three_class_metrics, "class_weights_from_labels",
+                        lambda *args, **kwargs: torch.ones(3))
+    _install_robot_dataset_doubles(monkeypatch)
+    seen = {}
+    real_adamw = torch.optim.AdamW
+
+    def spy_adamw(params, **kwargs):
+        params = list(params)
+        seen["n"] = len(params)
+        return real_adamw(params, **kwargs)
+
+    monkeypatch.setattr(robot_trainer.torch.optim, "AdamW", spy_adamw)
+
+    robot_trainer.main(
+        train_sequences="train", val_sequences="val", num_epochs=1, batch_size=2,
+        num_workers=0, dataset_root=dataset_root, common_root=tmp_path,
+        log_dir=tmp_path / "logs", ckpt_dir=tmp_path / "ckpts", device="cpu",
+        freeze_encoder=True,
+    )
+
+    # `_Model`은 weight 1개 + encoder(weight, bias) 2개다. 얼리면 1개만 남는다.
+    assert seen["n"] == 1
 
 
 def test_an_unknown_formulation_fails_before_training_starts(tmp_path):
