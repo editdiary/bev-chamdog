@@ -41,6 +41,7 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 from projects.bev_gt.grid import ROBOT_GRID_SPEC  # noqa: E402
 from projects.bev_gt.ipm import render_ipm  # noqa: E402
+from projects.common import binary_metrics  # noqa: E402
 from projects.common.free_space import decompose, decompose_from_class_index  # noqa: E402
 from projects.common.free_space_metrics import (  # noqa: E402
     fatal_rate,
@@ -157,6 +158,9 @@ def main(
     batch_size=4,
     num_workers=4,
     encoder_type="res101",
+    # 체크포인트의 정식화. `binary`는 출력이 2채널이고 `occupied`를 예측 free의 경계에서
+    # 유도한다 -- 학습 루프와 **같은 함수**(`binary_metrics.predicted_parts`)를 쓴다.
+    formulation="three_class",
     dataset_root=DEFAULT_DATASET_ROOT,
     common_root=DEFAULT_COMMON_ROOT,
     device="cuda",
@@ -184,6 +188,7 @@ def main(
         ROBOT_GRID_SPEC.n_rows, 1, ROBOT_GRID_SPEC.n_cols, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
+        num_classes=2 if formulation == "binary" else 3,
     ).to(device)
     state = torch.load(ckpt, map_location="cpu", weights_only=False)
     # `strict=True`로 얹는다 -- 체크포인트 경로나 `encoder_type`이 어긋나면 일부가 랜덤
@@ -197,10 +202,19 @@ def main(
         for batch in loader:
             valid = batch["valid_bev_g"].to(device)
             _, _, logits, _, _ = model(
-                batch["rgb_camXs"].to(device), batch["pix_T_cams"].to(device),
+                # **`- 0.5`를 빼먹으면 안 된다.** 학습(`*_metrics.run_batch`)·재채점
+                # (`rescore_checkpoints`)·이미지 의존성 측정이 모두 이 정규화를 적용한다.
+                # 2026-08-19까지 이 줄에 그것이 빠져 있어서 시각화가 학습과 **다른 입력**을
+                # 모델에 넣고 있었다 -- train 샘플이 `iou_free` 0.731로 보이던 원인이고
+                # (같은 샘플의 실제 값은 0.94), §9의 정성 판정이 그 위에서 내려졌다.
+                batch["rgb_camXs"].to(device) - 0.5, batch["pix_T_cams"].to(device),
                 batch["cam0_T_camXs"].to(device), vox_util,
             )
-            pred_parts = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid)
+            pred_parts = (
+                binary_metrics.predicted_parts(logits, valid, rays)
+                if formulation == "binary"
+                else decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid)
+            )
             gt_parts = decompose(batch["seg_bev_g"].to(device), batch["vis_bev_g"].to(device), valid)
             for i in range(valid.shape[0]):
                 one = slice(i, i + 1)

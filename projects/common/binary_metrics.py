@@ -75,24 +75,32 @@ def class_weights_from_labels(label_triples, max_class_weight=None) -> torch.Ten
     )
 
 
-def compute_free_metrics(logits, seg_g, vis_g, valid_g, rays) -> dict:
-    """binary logits -> 3-class와 **같은 지표 dict**.
+def predicted_parts(logits, valid, rays) -> dict:
+    """binary logits -> `free`/`occupied`/`unknown` 세 마스크 (3-class와 같은 계약).
 
-    `occupied`는 예측하지 않고 예측 free의 경계에서 유도하며, `unknown`은 나머지다. 이렇게
-    분할을 복원해 두면 `free_metrics_from_masks`·`f1@τ`·M3·ring이 전부 그대로 돌아가고,
-    3-class 런과 지표를 한 표에 놓을 수 있다. 유도 비용은 bs8에서 25 ms이므로 train에서도
-    매 배치 계산한다 -- val에서만 계산하면 train/val 곡선이 다른 것을 재게 된다.
+    `occupied`는 예측하지 않고 예측 free의 ego 기준 경계에서 유도하며, `unknown`은 나머지다.
+    지표와 시각화가 **같은 함수**를 타야 그림과 로그가 다른 말을 하지 않는다.
     """
-    gt = decompose(seg_g, vis_g, valid_g)
-    valid_b = valid_g.bool()
+    valid_b = valid.bool()
     pred_free = (logits.argmax(dim=1, keepdim=True) == FREE) & valid_b
-    pred_occupied = derive_occupied(pred_free, valid_g, rays) & valid_b
-    pred = {
+    pred_occupied = derive_occupied(pred_free, valid, rays) & valid_b
+    return {
         "free": pred_free,
         "occupied": pred_occupied,
         "unknown": valid_b & ~pred_free & ~pred_occupied,
     }
-    return free_metrics_from_masks(pred, gt, valid_g)
+
+
+def compute_free_metrics(logits, seg_g, vis_g, valid_g, rays) -> dict:
+    """binary logits -> 3-class와 **같은 지표 dict**.
+
+    분할을 복원해 두면 `free_metrics_from_masks`·`f1@τ`·M3·ring이 전부 그대로 돌아가고,
+    3-class 런과 지표를 한 표에 놓을 수 있다. 유도 비용은 bs8에서 25 ms이므로 train에서도
+    매 배치 계산한다 -- val에서만 계산하면 train/val 곡선이 다른 것을 재게 된다.
+    """
+    return free_metrics_from_masks(
+        predicted_parts(logits, valid_g, rays), decompose(seg_g, vis_g, valid_g), valid_g
+    )
 
 
 def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothing=0.0):
