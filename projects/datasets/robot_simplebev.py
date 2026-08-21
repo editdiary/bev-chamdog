@@ -46,6 +46,8 @@ from torch.utils.data import Dataset
 
 from projects.bev_gt.camera_coverage import compute_camera_coverage_mask
 from projects.bev_gt.grid import ROBOT_GRID_SPEC
+from projects.common.free_space import decompose
+from projects.common.soft_boundary import signed_distance_field
 from projects.datasets.photometric import apply_photometric, sample_photometric_params
 from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
 from projects.geometry.double_sphere import (
@@ -228,6 +230,23 @@ class RobotBEVDataset(Dataset):
         def as_tensor(mask):
             return torch.from_numpy(mask.astype(np.float32)).unsqueeze(0)
 
+        # `d_bev_g` -- GT 경계까지의 부호 있는 수직 거리 [m]. **라벨만으로 결정되는 값이고
+        # 하이퍼파라미터가 아니다** (`docs/soft_boundary_loss_design.md` §2.1). soft-boundary
+        # loss가 영역을 나누는 데 쓴다.
+        #
+        # 여기서 계산하는 이유: 거리변환이 CPU numpy(scipy)라 학습 루프에서 부르면 매 배치
+        # GPU->CPU 왕복이 생긴다. `__getitem__`에 두면 `num_workers`가 병렬로 처리하고
+        # 120x120 두 번이라 비용이 사실상 0이다. loss 종류와 무관하게 항상 넣는다 --
+        # 배치 계약이 갈리면 두 loss의 런을 같은 코드로 다룰 수 없다.
+        #
+        # `keep`에서 빠지는 셀(`permanent_blind`와 `valid=0`)은 거리 계산에서 free에 합쳐진다.
+        # 합치지 않으면 그 정적 마스크의 테두리가 경계로 잡혀 대역이 오염된다. **감독에서의
+        # 취급은 다르다** -- 원반은 hard `Ω_N`이다(같은 문서 §4.2).
+        keep = valid.astype(bool) & ~self.permanent_blind
+        distance = signed_distance_field(
+            decompose(occupancy, vis, valid)["free"], keep, self.grid_spec.cell_m
+        )
+
         return {
             "sample_id": f"{sequence_root.name}/{sample_id}",
             "rgb_camXs": rgb_tensor,
@@ -236,4 +255,5 @@ class RobotBEVDataset(Dataset):
             "seg_bev_g": as_tensor(occupancy),
             "vis_bev_g": as_tensor(vis),
             "valid_bev_g": as_tensor(valid),
+            "d_bev_g": torch.from_numpy(distance).unsqueeze(0),
         }

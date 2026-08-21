@@ -19,8 +19,9 @@
 1. [`experiment_history.md`](experiment_history.md) — **여기서 시작한다.** 무엇을 시도했고
    무엇을 배웠고 왜 지금 여기인지가 한 문서에 있다.
 2. [`../AGENTS.md`](../AGENTS.md) — 작업 규칙(소통·git·폴더·환경)
-3. [`finetuning_guide.md`](finetuning_guide.md) — 실제로 학습을 돌리는 순서
-4. [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) — 코드가 데이터를
+3. [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) — **현재 진행 중인 작업.** §12가 다음 할 일
+4. [`finetuning_guide.md`](finetuning_guide.md) — 실제로 학습을 돌리는 순서
+5. [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) — 코드가 데이터를
    어떻게 읽고 어떤 텐서가 되어 어떤 loss로 학습되는지
 
 ---
@@ -30,7 +31,8 @@
 | 문서 | 역할 | 이것만은 알아야 한다 |
 |---|---|---|
 | [`experiment_history.md`](experiment_history.md) | **서사 정본.** 2-head → 3-class → binary 전환 이유, 기각된 가설, 최종 결론과 근거, 방법론 교훈, 다음 수집 권고 | 개별 숫자의 근거 정본은 아니다 -- 각 절이 원본 문서 절 번호를 가리킨다 |
-| [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) | **근거 정본.** §1–§14 과적합 진단, §15–§19 binary 전환, §20–§21 분할·held-out test, §22 오차 구조, §23 `unknown`의 정체와 지표 축소 | 가장 길고(1200줄) 가장 자주 인용된다. 새 실측은 여기 절을 추가한다 |
+| [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) | **근거 정본.** §1–§14 과적합 진단, §15–§19 binary 전환, §20–§21 분할·held-out test, §22 오차 구조, §23 `unknown`의 정체와 지표 축소, §24 시드 분산, §25 요인 구조·CV, §26 경계 대역 loss 분해 | 가장 길고(1500줄) 가장 자주 인용된다. 새 실측은 여기 절을 추가한다 |
+| [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) | **loss 설계·결과 정본.** §2–§5 정식화, §6 구현 상태, §7 왜 하이퍼파라미터를 라벨에서 못 얻나, §8 실행법, §9–§10 스윕 10런 실측, §11 확정/기각, **§12 다음 세션 계획** | 새 세션이 loss 작업을 이어갈 때 **여기서 시작한다.** 근거의 원본은 진단 문서 §26 |
 | [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) | **지표 정의 정본.** 지표 하나하나의 정의와 채택/기각 사유 | 지표를 추가·삭제·변경할 때 **먼저 읽고 여기에 기록한다** |
 | [`finetuning_guide.md`](finetuning_guide.md) | fine-tuning 실행 절차 | 실행 전 데이터 점검 체크리스트가 여기 있다 |
 | [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드(데이터 → 텐서 → loss → 지표) | 코드를 처음 만질 때 |

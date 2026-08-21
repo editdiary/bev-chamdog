@@ -119,7 +119,8 @@ def _format_row(tag: str, tag_color: str, fields) -> str:
 DEFAULT_LOSS_PART_NAMES = ("unknown", "free", "occupied")
 
 # 몫 칸의 헤더에 쓰는 약자. 이름이 길어 `share not_free/free`로 쓰면 줄이 넘친다.
-_PART_INITIALS = {"unknown": "u", "free": "f", "occupied": "o", "not_free": "nf"}
+_PART_INITIALS = {"unknown": "u", "free": "f", "occupied": "o", "not_free": "nf",
+                  "boundary": "b"}
 
 
 def _format_share_field(loss_parts, part_names):
@@ -150,6 +151,14 @@ def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None,
     fields.append(_field("loss_total↓", loss, ".4f"))
     parts = loss_parts or {}
     fields += [_field(f"loss_{name}↓", parts.get(f"loss_{name}"), ".4f") for name in part_names]
+    # 경계 항의 **진짜 진행도**. `loss_boundary`는 target 엔트로피가 하한이라 0으로 가지
+    # 않으므로, 그것만 보면 하한에 붙어 평평한 것을 "수렴 실패"로 오독한다
+    # (`docs/soft_boundary_loss_design.md` §5.4). soft-boundary loss일 때만 존재한다.
+    if "kl_boundary" in parts:
+        fields.append(_field("kl_bnd↓", parts["kl_boundary"], ".4f"))
+        # 엔트로피 하한을 뺀 **축소 가능한** loss 중 경계 항의 몫. `share b`는 상수인 하한을
+        # 포함하므로 경계 항의 영향력을 과대평가한다(같은 문서 §5.6).
+        fields.append(_field("bnd_kl몫", parts.get("share_boundary_kl"), ".2f"))
     share_field = _format_share_field(parts, part_names)
     if share_field is not None:
         fields.append(share_field)

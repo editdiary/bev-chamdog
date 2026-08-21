@@ -47,6 +47,20 @@ FLIP_AUGMENT="${FLIP_AUGMENT:-False}"
 # 그 σ보다 작은 차이는 주장하지 않는다. 집계는 `tools/summarize_repeats.py`.
 SEED="${SEED:-0}"
 
+# loss 종류: `weighted_ce`(현행 역빈도 가중 CE, 대조군) 또는 `soft_boundary`.
+# 설계는 docs/soft_boundary_loss_design.md. 아래 넷은 soft_boundary에서만 쓰인다.
+#   DELTA_M      불확실 대역 반폭 [m]. 0.15 = 3셀
+#   LAMBDA_B     경계 항 가중치. 0.0으로 두면 "soft 항이 일을 하는가" ablation
+#   SOFT_TARGET  linear(먼저) 또는 gaussian
+#   SIGMA_ALPHA  gaussian의 모양 alpha=sigma/delta (권장; SIGMA_M과 동시 지정 금지)
+#   SIGMA_M      alpha 대신 sigma를 미터로 직접 줄 때
+LOSS="${LOSS:-weighted_ce}"
+DELTA_M="${DELTA_M:-0.15}"
+LAMBDA_B="${LAMBDA_B:-0.5}"
+SOFT_TARGET="${SOFT_TARGET:-linear}"
+SIGMA_ALPHA="${SIGMA_ALPHA:-None}"
+SIGMA_M="${SIGMA_M:-None}"
+
 # 산출물 위치. 반복 실험은 본 실험 폴더를 어지럽히지 않도록 별도 트리에 쌓는다:
 #   LOG_DIR=runs/robot_bev_cv/seeds/logs CKPT_DIR=runs/robot_bev_cv/seeds/ckpt
 LOG_DIR="${LOG_DIR:-runs/robot_bev/logs}"
@@ -102,6 +116,12 @@ python tools/train_robot_bev.py \
     --label_smoothing="${LABEL_SMOOTHING}" \
     --flip_augment="${FLIP_AUGMENT}" \
     --seed="${SEED}" \
+    --loss="${LOSS}" \
+    --delta_m="${DELTA_M}" \
+    --lambda_b="${LAMBDA_B}" \
+    --soft_target="${SOFT_TARGET}" \
+    --sigma_alpha="${SIGMA_ALPHA}" \
+    --sigma_m="${SIGMA_M}" \
     --augment="${AUGMENT}" \
     --val_freq_epochs=1 \
     --save_freq_epochs=10 \

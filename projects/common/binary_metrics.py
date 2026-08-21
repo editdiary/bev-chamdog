@@ -23,6 +23,12 @@ from projects.common.segmentation_loss import (
     inverse_frequency_weights,
     masked_weighted_ce,
 )
+from projects.common.soft_boundary import (
+    DEFAULT_DELTA_M,
+    DEFAULT_LAMBDA_B,
+    TARGET_LINEAR,
+    compute_soft_boundary_loss,
+)
 
 # `FREE`는 3-class와 같은 인덱스 1을 쓴다 -- 두 정식화의 logits를 같은 시각화·재채점 코드가
 # 다룰 때 "1번 채널이 free"라는 규약이 갈리지 않도록 한다.
@@ -30,6 +36,8 @@ NOT_FREE = 0
 CLASS_ORDER = (NOT_FREE, FREE)
 _PART_BY_CLASS = {NOT_FREE: "not_free", FREE: "free"}
 LOSS_PART_NAMES = ("not_free", "free")
+# soft-boundary loss의 항. 경계가 셋째 항으로 붙는다 -- 이름 순서가 콘솔 표의 칸 순서다.
+SOFT_BOUNDARY_LOSS_PART_NAMES = ("not_free", "free", "boundary")
 
 # 3-class와 같은 기본 상한을 쓰지만 **실제로는 걸리지 않는다** -- 로봇 train split에서
 # 순수 역빈도가 free 3.94 / not_free 1.00이다. 상한이 loss 균형을 결정하던 3-class의
@@ -116,6 +124,38 @@ def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothi
     class_index = to_class_index(decompose(seg_bev_g, vis_bev_g, valid_bev_g))
     loss, loss_parts = compute_binary_loss(
         logits, class_index, valid_bev_g, class_weights, label_smoothing
+    )
+    return loss, loss_parts, compute_free_metrics(
+        logits, seg_bev_g, vis_bev_g, valid_bev_g, rays
+    )
+
+
+def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blind,
+                            delta=DEFAULT_DELTA_M, lambda_b=DEFAULT_LAMBDA_B,
+                            target=TARGET_LINEAR, sigma=None, alpha=None):
+    """soft-boundary loss로 한 배치. 설계는 `docs/soft_boundary_loss_design.md`.
+
+    `run_batch`와 **지표 계산은 완전히 같다** -- 다른 것은 loss 하나뿐이다. 그래야 두 loss의
+    런을 한 표에 놓을 수 있고, 그 비교가 이 변경의 판정 근거다.
+
+    `class_weights`를 받지 않는다. per-set 평균(`½L_F + ½L_N`)이 역빈도 가중치를 **대체**하기
+    때문이다(설계 문서 §3.1) -- 둘을 같이 걸면 클래스 보정이 두 번 들어간다.
+
+    `permanent_blind`는 배치가 아니라 정적 마스크로 받는다. 프레임마다 같은 값이므로 배치에
+    실어 보내면 데이터 전송만 늘어난다. `(1, 1, H, W)`로 broadcast된다.
+    """
+    rgb_camXs = batch["rgb_camXs"].to(device) - 0.5
+    pix_T_cams = batch["pix_T_cams"].to(device)
+    cam0_T_camXs = batch["cam0_T_camXs"].to(device)
+    seg_bev_g = batch["seg_bev_g"].to(device)
+    vis_bev_g = batch["vis_bev_g"].to(device)
+    valid_bev_g = batch["valid_bev_g"].to(device)
+    d_bev_g = batch["d_bev_g"].to(device)
+
+    _, _, logits, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
+    loss, loss_parts = compute_soft_boundary_loss(
+        logits, d_bev_g, valid_bev_g, permanent_blind.to(device),
+        delta=delta, lambda_b=lambda_b, kind=target, sigma=sigma, alpha=alpha,
     )
     return loss, loss_parts, compute_free_metrics(
         logits, seg_bev_g, vis_bev_g, valid_bev_g, rays

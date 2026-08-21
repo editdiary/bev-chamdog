@@ -158,7 +158,9 @@ _FORMULATIONS = {
 
 # 반전할 텐서. `sample_id`처럼 텐서가 아닌 항목과, 반전해도 값이 같은 캘리브레이션 항목은
 # 건드리지 않는다 -- 반전은 **vox util 쪽**에서 처리되므로 extrinsic은 그대로 넘어가는 것이 맞다.
-_MIRRORED_KEYS = ("rgb_camXs", "seg_bev_g", "vis_bev_g", "valid_bev_g")
+# `d_bev_g`도 반드시 포함한다 -- 거리장은 라벨의 함수이므로 라벨을 뒤집으면 같이 뒤집혀야
+# 한다. 빼먹으면 soft-boundary loss가 **반전된 예측을 반전되지 않은 경계로 채점**한다.
+_MIRRORED_KEYS = ("rgb_camXs", "seg_bev_g", "vis_bev_g", "valid_bev_g", "d_bev_g")
 
 
 def _maybe_mirror(batch, vox_util, mirror_vox_util, flip_augment):
@@ -236,6 +238,34 @@ def main(
     # (3) 광도 증강 파라미터(worker 시드가 base 시드에서 파생된다). cuDNN 비결정성이
     # 남으므로 같은 시드라도 비트 단위로 같지는 않다 -- σ는 그 몫까지 포함한 값이다.
     seed=0,
+    # loss 종류. `weighted_ce`(현행, 역빈도 가중 CE) 또는 `soft_boundary`.
+    # **현행 경로를 지우지 않는 이유: 대조군이다.** soft-boundary가 이겼다는 판정은 같은
+    # 시드·같은 split에서 두 loss를 나란히 돌려서만 나온다
+    # (`docs/soft_boundary_loss_design.md` §6).
+    loss="weighted_ce",
+    # 이하 셋은 `--loss=soft_boundary`에서만 쓰인다.
+    # `delta_m` -- 불확실 대역의 반폭 [m]. 0.15 = 3셀. **라벨에서 추정할 수 없다** --
+    # `P(free | d)`가 완벽한 계단이라 적합할 분포가 없다(같은 문서 §7). 스윕으로 정한다.
+    delta_m=0.15,
+    # `lambda_b` -- 경계 항의 가중치. 0.5에서 `Ω_B` 셀은 `Ω_N` 셀의 7.6배를 받는다(§5.6).
+    # **뜻이 `delta_m`에 걸려 있으므로** 둘을 같이 움직이면 해석이 섞인다.
+    # `0.0`으로 두면 "soft 항이 실제로 일을 하는가"의 ablation이 된다.
+    lambda_b=0.5,
+    # `soft_target` -- `linear`(기본) 또는 `gaussian`. 선형은 `ε ~ Uniform(−δ, δ)`,
+    # Gaussian은 `ε ~ N(0, σ²)`의 사후확률이고 둘 다 정확한 유도가 있다(§5.1–5.2).
+    # **선형을 먼저 돌린다** -- 손잡이가 하나 적고 hard 영역과 연속이다.
+    soft_target="linear",
+    # `sigma_alpha` -- `gaussian`의 **모양 매개변수** `α = σ/δ`. `gaussian`일 때 이것이나
+    # `sigma_m` 중 하나를 준다(둘 다 주면 실패한다).
+    #
+    # **α로 주는 것을 권한다.** 정규화된 target은 `u = d/δ`로 쓰면 `α`만의 함수라 `δ`가
+    # 식에서 사라진다 -- 즉 `δ`는 폭(gradient 희석 → 수렴)만, `α`는 모양(경계 정밀도)만
+    # 정해 두 손잡이가 직교한다. `σ`를 미터로 주면 `δ`를 바꿀 때 모양이 조용히 딸려간다.
+    # `α → ∞`는 정확히 선형 target이고, `α ≲ 0.2`는 5 cm 격자에서 사실상 hard가 된다
+    # (`docs/soft_boundary_loss_design.md` §10).
+    sigma_alpha=None,
+    # `sigma_m` -- `α` 대신 σ를 미터로 직접 줄 때. 대역 안에서 정규화한다(§5.3).
+    sigma_m=None,
 ):
     # **첫 문장이어야 한다** -- 이 지점의 `locals()`는 정확히 인자 목록이다. 해석된 config를
     # 로그 폴더에 남기면 반복 실험을 집계할 때 런 이름을 파싱하지 않아도 되고, 논문 실행의
@@ -251,6 +281,12 @@ def main(
     torch.manual_seed(seed)
     np.random.seed(seed)
 
+    if loss not in ("weighted_ce", "soft_boundary"):
+        raise ValueError(f"loss는 weighted_ce 또는 soft_boundary여야 한다: {loss}")
+    # soft-boundary는 free/not-free 두 클래스를 전제로 유도됐다(부호 있는 거리 하나로
+    # 영역을 나눈다). 3-class에 붙이려면 정식화 자체를 다시 유도해야 하므로 여기서 막는다.
+    if loss == "soft_boundary" and formulation != "binary":
+        raise ValueError("soft_boundary loss는 --formulation=binary에서만 쓴다")
     if formulation not in _FORMULATIONS:
         raise ValueError(f"formulation은 {tuple(_FORMULATIONS)} 중 하나여야 한다: {formulation}")
     spec = _FORMULATIONS[formulation]
@@ -314,8 +350,18 @@ def main(
             abs(val_stats["supervised_fraction"] - stats["supervised_fraction"]) > 0.05
             or abs(val_stats["obstacle_fraction"] - stats["obstacle_fraction"]) > 0.02
         ) else ""),
+        f" loss = {loss}"
+        + (f" | δ={float(delta_m):.3f} m | λ_B={float(lambda_b):.2f}"
+           f" | target={soft_target}"
+           + (f" | α={float(sigma_alpha):.3f} (σ={float(sigma_alpha)*float(delta_m):.4f} m)"
+              if sigma_alpha is not None else "")
+           + (f" | σ={float(sigma_m):.4f} m" if sigma_m is not None else "")
+           + ("  <- λ_B=0: soft 항 ablation" if float(lambda_b) == 0.0 else "")
+           if loss == "soft_boundary" else "  (역빈도 가중 CE -- 대조군)"),
         f" class weights ({spec['weight_label']}) = {class_weights.tolist()}"
-        + ("  <- occupied는 예측하지 않고 free 경계에서 유도한다 (§15)"
+        + ("  <- soft_boundary에서는 쓰이지 않는다 (per-set 평균이 대체)"
+           if loss == "soft_boundary" else
+           "  <- occupied는 예측하지 않고 free 경계에서 유도한다 (§15)"
            if formulation == "binary" else ""),
         f" photometric augment (train only) = {bool(augment)}"
         f" | flip augment = {bool(flip_augment)}"
@@ -391,13 +437,26 @@ def main(
     class_weights = class_weights.to(device)
     # binary는 예측 free의 경계에서 occupied를 유도하므로 `rays`가 필요하다(bs8에서 25 ms).
     # train에서도 매번 계산한다 -- val에서만 계산하면 두 곡선이 다른 것을 재게 된다.
-    step = (
-        (lambda batch, vox=vox_util: three_class_metrics.run_batch(  # noqa: E731
-            model, batch, vox, class_weights, device, label_smoothing))
-        if formulation == "three_class" else
-        (lambda batch, vox=vox_util: binary_metrics.run_batch(  # noqa: E731
-            model, batch, vox, class_weights, device, rays, label_smoothing))
-    )
+    # soft-boundary는 `class_weights`를 받지 않는다 -- per-set 평균이 역빈도 가중치를
+    # **대체**하므로 둘을 같이 걸면 클래스 보정이 두 번 들어간다(설계 문서 §3.1).
+    blind_mask = torch.from_numpy(permanent_blind).view(1, 1, *permanent_blind.shape)
+    if loss == "soft_boundary":
+        def step(batch, vox=vox_util):
+            return binary_metrics.run_batch_soft_boundary(
+                model, batch, vox, device, rays, blind_mask,
+                delta=delta_m, lambda_b=lambda_b, target=soft_target,
+                sigma=sigma_m, alpha=sigma_alpha,
+            )
+        loss_part_names = binary_metrics.SOFT_BOUNDARY_LOSS_PART_NAMES
+    else:
+        step = (
+            (lambda batch, vox=vox_util: three_class_metrics.run_batch(  # noqa: E731
+                model, batch, vox, class_weights, device, label_smoothing))
+            if formulation == "three_class" else
+            (lambda batch, vox=vox_util: binary_metrics.run_batch(  # noqa: E731
+                model, batch, vox, class_weights, device, rays, label_smoothing))
+        )
+        loss_part_names = spec["module"].LOSS_PART_NAMES
 
     # 시드를 이름에 넣는다 -- 반복 실험은 config가 같고 시드만 다르므로, 이름에 없으면
     # 타임스탬프만으로 구별해야 하고 표를 만들 때 사람이 대조해야 한다.
@@ -467,7 +526,7 @@ def main(
                 val_range_metrics=val["range"], val_tolerance_metrics=val["tolerance"],
                 baseline_iou_free=baseline_iou_free,
                 val_score=val_score, best_val_score=best_val_score, is_new_best=is_new_best,
-                loss_part_names=spec["module"].LOSS_PART_NAMES,
+                loss_part_names=loss_part_names,
             ))
 
             if epoch % save_freq_epochs == 0 or epoch == num_epochs:

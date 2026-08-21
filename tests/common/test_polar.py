@@ -6,10 +6,12 @@ from projects.common.polar import (
     RAY_CENSORED,
     RAY_NO_FREE,
     RAY_OK,
+    build_cell_ray_map,
     build_ray_index,
     first_free_range,
     frontier_cells,
     reconstruct_free,
+    signed_boundary_distance,
 )
 
 # 원점이 정확히 격자 중앙에 오는 대칭 스펙 -- 손계산이 가능하다.
@@ -208,3 +210,64 @@ def test_first_free_range_handles_a_diagonal_ray():
 
     assert status[1] == RAY_OK
     assert r_m[1] == pytest.approx(0.375, abs=1e-9)
+
+
+def test_cell_ray_map_matches_ray_index_convention():
+    """셀->광선 각도 규약이 `build_ray_index`와 같아야 한다.
+
+    두 함수가 갈리면 `d_i`의 부호가 조용히 뒤집힌다. 전방(theta=0) 셀이 0번 광선을 받고
+    좌측(theta=pi/2)이 1/4 지점을 받는 것으로 고정한다.
+    """
+    # **원점이 셀 중심에 오는 스펙을 쓴다.** `front_m/cell`이 반정수가 아니면 원점이 셀
+    # 사이에 놓여 "정전방 셀"이 존재하지 않는다(그걸 모르고 쓴 첫 테스트가 6도 어긋났다).
+    spec = OccupancyGridSpec(front_m=1.05, rear_m=1.05, half_width_m=1.05, cell_m=0.1)
+    n_theta = 360
+    cell_rays = build_cell_ray_map(spec, n_theta)
+    origin_row = int(spec.front_m / spec.cell_m - 0.5)
+    origin_col = int(spec.half_width_m / spec.cell_m - 0.5)
+
+    assert cell_rays.theta_index[origin_row - 5, origin_col] == 0             # 정전방
+    assert cell_rays.theta_index[origin_row, origin_col - 5] == n_theta // 4  # 좌측
+    assert cell_rays.radius_m[origin_row - 5, origin_col] == pytest.approx(0.5)
+    assert cell_rays.radius_m[origin_row, origin_col] == pytest.approx(0.0)
+
+    # 진짜 계약: 셀이 받은 광선이 실제로 그 셀을 지나야 한다.
+    rays = build_ray_index(spec, n_theta=n_theta)
+    for row, col in ((origin_row - 5, origin_col), (origin_row, origin_col - 5),
+                     (origin_row - 3, origin_col - 4)):
+        k = cell_rays.theta_index[row, col]
+        step = int(np.argmin(np.abs(rays.radii_m - cell_rays.radius_m[row, col])))
+        assert abs(int(rays.rows[k, step]) - row) <= 1
+        assert abs(int(rays.cols[k, step]) - col) <= 1
+
+
+def test_signed_boundary_distance_uses_infinities_not_nan():
+    """경계가 없는 광선은 +-inf여야 한다 -- nan이면 비교가 False가 되어 셀이 사라진다."""
+    spec = OccupancyGridSpec(front_m=1.0, rear_m=1.0, half_width_m=1.0, cell_m=0.1)
+    rays = build_ray_index(spec, n_theta=180)
+    cell_rays = build_cell_ray_map(spec, 180)
+
+    all_free = np.ones((spec.n_rows, spec.n_cols), bool)
+    d_censored = signed_boundary_distance(all_free, rays, cell_rays)
+    assert np.isposinf(d_censored).all(), "격자 끝까지 free면 전부 확실한 drivable이다"
+
+    nothing_free = np.zeros((spec.n_rows, spec.n_cols), bool)
+    d_blocked = signed_boundary_distance(nothing_free, rays, cell_rays)
+    assert np.isneginf(d_blocked).all(), "free가 없으면 전부 확실한 non-drivable이다"
+    assert not np.isnan(d_censored).any() and not np.isnan(d_blocked).any()
+
+
+def test_signed_boundary_distance_sign_flips_at_the_frontier():
+    """전방으로 절반만 free일 때 부호가 경계에서 바뀌어야 한다."""
+    spec = OccupancyGridSpec(front_m=2.0, rear_m=0.5, half_width_m=1.0, cell_m=0.1)
+    rays = build_ray_index(spec, n_theta=360)
+    cell_rays = build_cell_ray_map(spec, 360)
+    free = np.zeros((spec.n_rows, spec.n_cols), bool)
+    # 원점 주변부터 전방 1.0 m까지만 free (원점 row는 front_m/cell - 0.5).
+    origin_row = int(spec.front_m / spec.cell_m - 0.5 + 0.5)
+    free[origin_row - 10:origin_row + 1, :] = True
+
+    d = signed_boundary_distance(free, rays, cell_rays)
+    forward_col = int(spec.half_width_m / spec.cell_m - 0.5 + 0.5)
+    assert d[origin_row - 2, forward_col] > 0, "free 안쪽은 양수"
+    assert d[origin_row - 15, forward_col] < 0, "경계 바깥은 음수"

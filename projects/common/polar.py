@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from projects.bev_gt.grid import OccupancyGridSpec
+from projects.bev_gt.grid import OccupancyGridSpec, cell_centers_m
 
 RAY_OK = 0          # 첫 free 이후 첫 non-free를 격자 안에서 만났다
 RAY_NO_FREE = 1     # 광선 위에 free 셀이 하나도 없다 (정적 사각·후방 등) -> 지표에서 제외
@@ -143,3 +143,59 @@ def reconstruct_free(r_m, status, rays: RayIndex, shape) -> np.ndarray:
         take = sampled_inside[i] & (rays.radii_m < limit)
         restored[rays.rows[i][take], rays.cols[i][take]] = True
     return restored
+
+
+@dataclass(frozen=True)
+class CellRayMap:
+    """셀 -> (방위각 광선 인덱스, ego로부터의 거리). 격자가 고정이므로 한 번만 만든다."""
+    theta_index: np.ndarray   # (n_rows, n_cols) int64, `RayIndex`의 광선 번호
+    radius_m: np.ndarray      # (n_rows, n_cols) float64
+
+
+def build_cell_ray_map(grid_spec: OccupancyGridSpec,
+                       n_theta: int = DEFAULT_N_THETA) -> CellRayMap:
+    """셀마다 자기 방위각에 가장 가까운 광선과 반경을 준다.
+
+    `build_ray_index`와 **같은 각도 규약**이어야 한다: `theta=0`이 전방(+x)이고 격자에서
+    forward는 row 감소, lateral(좌측 양수)은 col 감소다(`grid.cell_centers_m`). 그래서
+    `theta = atan2(lateral, forward)`다. 두 함수가 갈리면 `d_i`의 부호가 조용히 뒤집힌다.
+
+    **최근접 할당이고 보간하지 않는다.** `n_theta=720`에서 광선 간격은 0.5°이므로 반경
+    `r`에서 이웃 광선 사이 거리는 `r * 0.0087` m다 -- 격자 셀(0.05 m)보다 커지는 것은
+    `r > 5.7 m`부터이고 ROI 최대 반경이 5.0 m라 격자 안에서는 항상 셀보다 촘촘하다.
+    즉 어떤 셀도 광선을 못 받는 일은 없다.
+    """
+    forward_m, lateral_m = cell_centers_m(grid_spec)
+    forward = forward_m[:, None]
+    lateral = lateral_m[None, :]
+    radius = np.hypot(forward, lateral)
+    theta = np.mod(np.arctan2(lateral, forward), 2 * np.pi)
+    index = np.mod(np.round(theta / (2 * np.pi / n_theta)).astype(np.int64), n_theta)
+    return CellRayMap(theta_index=index, radius_m=np.broadcast_to(radius, index.shape).copy())
+
+
+def signed_boundary_distance(free: np.ndarray, rays: RayIndex,
+                             cell_rays: CellRayMap) -> np.ndarray:
+    """`d_i = R_gt(theta_i) - r_i` -- 셀별 부호 있는 GT 경계 거리 [m].
+
+    `d > 0`이면 경계보다 안쪽(drivable 쪽), `d < 0`이면 바깥쪽이다. soft-boundary loss가
+    영역을 나누는 양이고 정의는 `docs/soft_boundary_loss_design.md` §2가 정본이다.
+
+    **경계가 없는 광선은 무한으로 보낸다** -- `nan`으로 두면 비교 연산이 조용히 False가 되어
+    그 셀들이 세 영역 어디에도 안 들어가고 사라진다.
+
+    | 상태 | 뜻 | `d` |
+    |---|---|---|
+    | `RAY_OK` | 격자 안에서 경계를 만났다 | `R_gt - r` |
+    | `RAY_CENSORED` | 격자 끝까지 free | `+inf` (전부 확실한 drivable) |
+    | `RAY_NO_FREE` | 광선 위에 free가 없다 | `-inf` (전부 확실한 non-drivable) |
+
+    `R_gt`는 `first_free_range`가 준다 -- **ego 아래 `permanent_blind` 원반을 건너뛰고 재는
+    것이 그 함수의 계약**이므로 여기서 다시 다루지 않는다. 다만 그 원반의 셀들은 `r`이
+    작아 `d`가 큰 양수로 나오므로, **호출부가 `permanent_blind ∪ invalid`를 반드시 따로
+    제외해야 한다**(같은 문서 §4.2).
+    """
+    r_m, status = first_free_range(free, rays)
+    per_ray = np.where(status == RAY_CENSORED, np.inf,
+                       np.where(status == RAY_NO_FREE, -np.inf, r_m))
+    return per_ray[cell_rays.theta_index] - cell_rays.radius_m
