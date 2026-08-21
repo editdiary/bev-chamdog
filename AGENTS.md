@@ -2,13 +2,20 @@
 
 이 문서는 AI agent와 협업할 때 항상 참고할 **핵심 지침**입니다. 특정 플랫폼에 종속되지 않는 공통 규칙만 둡니다. 상세 내용은 `docs/`의 개별 문서를 필요할 때만 찾아봅니다.
 
-> **현재 작업 인수인계: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)** (2026-08-19)
+> **여기까지의 서사: [`docs/experiment_history.md`](docs/experiment_history.md)** (2026-08-21)
 >
-> binary 정식화 전환·과적합 손잡이 실측·파이프라인 검증까지의 상태와 다음 결정 사항이 전부
-> 여기 있다. 근거 정본은 [`docs/finetune_overfitting_diagnosis.md`](docs/finetune_overfitting_diagnosis.md) **§15–§19**.
+> 2-head → 3-class → binary로 정식화를 두 번 바꾼 이유, 각 단계에서 기각된 가설, 그리고
+> **병목이 모델·loss·지표가 아니라 라벨이 정의한 task 자체라는 결론**과 그 근거가 여기 있다.
+> 방법론 교훈 요약(§7)과 다음 데이터 수집 권고(§6)도 같은 문서다. **새 세션은 이것을 먼저
+> 읽는다** -- 개별 숫자의 근거 정본은 각 절이 가리키는 원본 문서다.
+>
+> **직전 작업 인수인계: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)** (2026-08-19)
+>
+> binary 정식화 전환·과적합 손잡이 실측·파이프라인 검증까지의 상태와 다음 결정 사항.
+> 근거 정본은 [`docs/finetune_overfitting_diagnosis.md`](docs/finetune_overfitting_diagnosis.md)
+> **§15–§23** (§20–§21 분할·test, §22 오차 구조, §23 `unknown`의 정체와 지표 축소).
 > 그 이전 단계(3-class 본학습) 인수인계는 [`docs/next_session_threeclass_training.md`](docs/next_session_threeclass_training.md).
 > 학습 산출물 정리 규약은 같은 문서 §14 (`tools/prune_runs.py`).
-> — 새 세션을 시작할 때 이 문서를 먼저 읽습니다. 지금 어디까지 됐고 다음에 무엇을 결정해야 하는지가 여기 있습니다.
 
 ## [중요] 소통 규칙
 
