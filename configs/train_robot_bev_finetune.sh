@@ -43,6 +43,15 @@ LABEL_SMOOTHING="${LABEL_SMOOTHING:-0.0}"   # 과신 억제. 0.05~0.1이 통상�
 # ROI가 좌우 대칭(±3 m)이라 성립하고, 기하는 tests/models/test_double_sphere_vox.py가 고정한다.
 FLIP_AUGMENT="${FLIP_AUGMENT:-False}"
 
+# 난수 시드. **반복 실험의 전제다** -- 같은 config를 시드만 바꿔 여러 번 돌려 σ를 실측하고,
+# 그 σ보다 작은 차이는 주장하지 않는다. 집계는 `tools/summarize_repeats.py`.
+SEED="${SEED:-0}"
+
+# 산출물 위치. 반복 실험은 본 실험 폴더를 어지럽히지 않도록 별도 트리에 쌓는다:
+#   LOG_DIR=runs/robot_bev_cv/seeds/logs CKPT_DIR=runs/robot_bev_cv/seeds/ckpt
+LOG_DIR="${LOG_DIR:-runs/robot_bev/logs}"
+CKPT_DIR="${CKPT_DIR:-runs/robot_bev/ckpt}"
+
 # 시퀀스가 늘어나면 여기에 콤마로 추가한다. VAL_SEQUENCES는 **train에 없는 시퀀스**여야
 # 한다 -- 한 시퀀스는 연속 주행을 거리 기반으로 샘플링한 것이라 프레임을 섞어 나누면
 # val이 train을 그대로 들여다본다.
@@ -92,8 +101,9 @@ python tools/train_robot_bev.py \
     --freeze_encoder="${FREEZE_ENCODER}" \
     --label_smoothing="${LABEL_SMOOTHING}" \
     --flip_augment="${FLIP_AUGMENT}" \
+    --seed="${SEED}" \
     --augment="${AUGMENT}" \
     --val_freq_epochs=1 \
     --save_freq_epochs=10 \
-    --log_dir=runs/robot_bev/logs \
-    --ckpt_dir=runs/robot_bev/ckpt
+    --log_dir="${LOG_DIR}" \
+    --ckpt_dir="${CKPT_DIR}"

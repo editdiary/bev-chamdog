@@ -20,6 +20,7 @@ SynWoodScape pretrain(`tools/train_synwoodscape.py`)과 지표·로깅을 공유
         --train_sequences=raws2,raws3,rawos1,rawos2,rawos4 --val_sequences=raws1,rawos3 \\
         --init_checkpoint=<pretrain best>.pth
 """
+import json
 import sys
 import time
 import warnings
@@ -225,9 +226,30 @@ def main(
     # 늘리는** 유일한 수단이다 -- 리그 ROI가 좌우 대칭(±3 m)이라 성립한다.
     # 기하 정합성은 `tests/models/test_double_sphere_vox.py`가 실측으로 고정한다.
     flip_augment=False,
+    # 난수 시드. **반복 실험의 전제다.** 2026-08-21까지 이 값이 0으로 하드코딩돼 있어
+    # 같은 config를 두 번 돌리면 같은 결과가 나왔고, 그래서 **시드 분산을 한 번도 재지
+    # 못했다.** 그 상태로 §16–§23의 판정 대부분이 "노이즈 대역(0.02) 안"이었는데 그 0.02는
+    # 측정값이 아니라 프로젝트 규약이었다. `--seed`를 바꿔 같은 config를 여러 번 돌린 뒤
+    # `tools/summarize_repeats.py`로 σ를 실측한다.
+    #
+    # 시드는 세 곳에 들어간다: (1) decoder 랜덤 초기화, (2) DataLoader 셔플 순서,
+    # (3) 광도 증강 파라미터(worker 시드가 base 시드에서 파생된다). cuDNN 비결정성이
+    # 남으므로 같은 시드라도 비트 단위로 같지는 않다 -- σ는 그 몫까지 포함한 값이다.
+    seed=0,
 ):
-    torch.manual_seed(0)
-    np.random.seed(0)
+    # **첫 문장이어야 한다** -- 이 지점의 `locals()`는 정확히 인자 목록이다. 해석된 config를
+    # 로그 폴더에 남기면 반복 실험을 집계할 때 런 이름을 파싱하지 않아도 되고, 논문 실행의
+    # 재현 정보가 tfevents와 같은 자리에 남는다.
+    # 튜플/리스트를 콤마 문자열로 되돌린다. Fire가 `--val_sequences=raws1,rawos3`을 **tuple**로
+    # 파싱하므로 스칼라만 통과시키면 시퀀스 목록이 통째로 빠지고, LOSO 집계의
+    # `--group_by=val_sequences`가 조용히 전부 한 그룹으로 묶인다.
+    resolved_config = {
+        key: (",".join(map(str, value)) if isinstance(value, (tuple, list)) else value)
+        for key, value in locals().items()
+        if isinstance(value, (int, float, str, bool, tuple, list, type(None)))
+    }
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
     if formulation not in _FORMULATIONS:
         raise ValueError(f"formulation은 {tuple(_FORMULATIONS)} 중 하나여야 한다: {formulation}")
@@ -377,12 +399,17 @@ def main(
             model, batch, vox, class_weights, device, rays, label_smoothing))
     )
 
-    run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}"
+    # 시드를 이름에 넣는다 -- 반복 실험은 config가 같고 시드만 다르므로, 이름에 없으면
+    # 타임스탬프만으로 구별해야 하고 표를 만들 때 사람이 대조해야 한다.
+    run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}_s{seed}"
                 f"_{datetime.now().strftime('%y%m%d_%H%M%S')}")
     log_path = Path(log_dir) / run_name
     writer = SummaryWriter(str(log_path))
     ckpt_path = Path(ckpt_dir) / run_name
     log_path.mkdir(parents=True, exist_ok=True)
+    (log_path / "config.json").write_text(
+        json.dumps(resolved_config, indent=2, ensure_ascii=False, sort_keys=True)
+    )
     for tag, samples in (("train", train_samples), ("val", val_samples)):
         (log_path / f"split_{tag}_samples.txt").write_text(
             "".join(f"{root.name}/{sample_id}\n" for root, sample_id in samples)
