@@ -9,7 +9,7 @@ fine-tuning이 공유한다.
 여기 있는 것은 전부 텐서나 지표 dict만 받는다 -- 데이터셋 경로나 라벨 파일 규약에 의존하는
 것은 각 스크립트에 남는다. loss와 batch step 자체는 `three_class_metrics.py`에 있다.
 
-**2-head 정식화는 제거됐다.** Phase 3 A/B(`docs/free_space_metric_migration.md` §8)에서
+**2-head 정식화는 제거됐다.** Phase 3 A/B(`docs/archive/free_space_metric_migration.md` §8)에서
 3-class로 확정한 뒤, 두 정식화를 병행 유지하는 비용이 사라졌기 때문이다. 그래서 이 모듈에
 남은 것은 두 학습 경로가 **공유**하는 것뿐이다: 터미널 출력 헬퍼, epoch 로그 포매터,
 체크포인트 선택 기준, free-space 지표의 epoch 집계.
@@ -323,7 +323,7 @@ def select_checkpoint_score(free_metrics):
     한 줄짜리 함수를 남겨 두는 이유: 두 학습 스크립트가 각자 `val_free_metrics["iou_free"]`를
     직접 읽으면 한쪽만 조용히 다른 기준으로 바뀔 수 있다. 이름 붙은 이음매가 있으면 테스트가
     그 지점을 고정할 수 있다. 옛 `0.5 * (d_iou + o_iou)` 평균으로 되돌아가는 것을 막는 것이
-    애초의 목적이었다(`docs/free_space_metric_migration.md` §2.2).
+    애초의 목적이었다(`docs/archive/free_space_metric_migration.md` §2.2).
     """
     return free_metrics["iou_free"]
 

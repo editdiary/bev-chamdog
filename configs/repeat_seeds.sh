@@ -14,6 +14,13 @@
 # 실행:
 #     bash configs/repeat_seeds.sh              # SEEDS 기본값 "0 1 2"
 #     SEEDS="0 1 2 3 4" bash configs/repeat_seeds.sh
+#     SEEDS="1 2" bash configs/repeat_seeds.sh  # 이미 끝난 시드는 빼고 이어서
+#
+# **주의: 이 루프가 도는 동안 이 스크립트나 `train_robot_bev_finetune.sh`를 편집하지 말 것.**
+# bash는 스크립트를 파일에서 게으르게 읽으므로, 실행 중에 파일이 바뀌면 저장해 둔 바이트
+# 오프셋이 어긋나 토큰 중간에서 재개하고 `unexpected EOF while looking for matching '"'`로
+# 죽는다. 2026-08-21에 실제로 겪었다 -- seed 0이 정상 완료된 직후 문서 정리 작업이
+# config 스크립트의 문서 경로를 고쳐서 seed 1·2가 시작되지 못했다.
 set -euo pipefail
 
 SEEDS="${SEEDS:-0 1 2}"

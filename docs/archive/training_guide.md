@@ -5,13 +5,13 @@
 > **여기 적힌 플래그(`--lambda_vis`, `--vis_neg_weight`, `--head`)와 경로
 > (`runs/synwoodscape_twohead/...`), 지표(`iou_drivable`/`iou_obstacle`)는 전부 존재하지 않는다.**
 > 2026-08-17에 3-class 단일 head로 확정하며 2-head 코드를 제거했다
-> (`docs/free_space_metric_migration.md` §9).
+> (`docs/archive/free_space_metric_migration.md` §9).
 >
 > 지금 유효한 문서:
 > - 실행 방법과 현재 상태: [`next_session_threeclass_training.md`](next_session_threeclass_training.md)
-> - 코드 정독 가이드(데이터 → 텐서 → 모델 → loss → 지표): [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md)
-> - 지표 정의 정본: [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §2.8
-> - loss 설계 현황과 다음 단계: [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §13
+> - 코드 정독 가이드(데이터 → 텐서 → 모델 → loss → 지표): [`../training_pipeline_walkthrough.md`](../training_pipeline_walkthrough.md)
+> - 지표 정의 정본: [`../BEV_loss_and_metrics_design.md`](../BEV_loss_and_metrics_design.md) §2.8
+> - loss 설계 현황과 다음 단계: [`../finetune_overfitting_diagnosis.md`](../finetune_overfitting_diagnosis.md) §13
 >
 > 아래 내용은 당시의 튜닝 판단 근거로서만 남겨 둔다.
 
@@ -19,7 +19,7 @@
 이 문서는 현재 구현된 SynWoodScape 2-head pretraining을 실행하고 해석하는 기준을 정리한다. fine-tuning 환경을 기준으로 작성된 별도 설계 참고 문서는 `docs/BEV_loss_and_metrics_design.md`이고, 현재 pretrain 구현에서 실제로 쓰는 설정과 지표는 이 문서를 우선한다.
 
 > **이 문서는 pretraining(SynWoodScape) 전용이다.** 자체 데이터셋 fine-tuning은
-> [`docs/finetuning_guide.md`](finetuning_guide.md)를 본다 — 데이터셋·렌즈 모델·마스킹 규약이
+> [`docs/finetuning_guide.md`](../finetuning_guide.md)를 본다 — 데이터셋·렌즈 모델·마스킹 규약이
 > 달라서 실행 방법과 지표 해석 기준이 따로 있다. 다만 **지표 구현 자체는 두 경로가 공유하므로**
 > (`projects/common/two_head_metrics.py`), 아래 "Occupancy Metrics" 이후의 해석은 양쪽에 그대로
 > 적용된다.
@@ -360,7 +360,7 @@ moved to Phase 4 — see `docs/finetuning_guide.md`.
 Of the original list: the diagnostic-metric baseline and photometric augmentation are **done**,
 weight decay was swept and had **no effect**, and BCE+Dice is **ruled out** (the training objective
 is already saturated at `missed_obstacle` 0.0008, so there is no training error left for Dice to
-redistribute). Full results and reasoning: `docs/synwoodscape_pretrain_experiment_log.md`.
+redistribute). Full results and reasoning: `docs/archive/synwoodscape_pretrain_experiment_log.md`.
 
-If pretraining is revisited, `docs/training_improvement_plan.md` keeps the remaining candidates —
+If pretraining is revisited, `docs/archive/training_improvement_plan.md` keeps the remaining candidates —
 worst-case visualization, `Segnet(rand_flip=True)` mirroring, and the 0.3/0.7 best-score reweighting.

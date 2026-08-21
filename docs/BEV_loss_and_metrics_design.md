@@ -1,6 +1,11 @@
-# BEV Occupancy + Visibility 모델: Loss 및 평가 지표 설계
+# BEV free-space 모델: Loss 및 평가 지표 설계
 
-> 대상: 단일/다중 카메라 입력 → BEV 2채널 출력 (occupancy, visibility) 모델
+> **지표 정의의 정본이다.** 지표를 하나 추가·삭제·변경할 때 먼저 읽고 여기에 기록한다.
+> 실제로 로깅되는 집합(2026-08-21 기준 28개)은 [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md)
+> §23.4가, 그 결정의 서사는 [`experiment_history.md`](experiment_history.md)가 갖는다.
+>
+> 제목의 "Occupancy + Visibility"는 2-head 시절 이름이었다(2026-08-21 개칭). 출력은
+> **단일 head**이고 현행 정식화는 binary(`free` / `not-free`)다.
 > 환경: 수직 재배 온실, 좁은 작물 행 통로, map-free local perception
 
 > **[2026-08-14 갱신] §0의 라벨 전제 세 가지가 실물과 다르다.**
@@ -129,7 +134,7 @@ w_occ = torch.clamp(vis_gt, min=0.05) * valid
 ### 1.7 현재 구현된 loss (2026-08-18 기록. 미해결이던 부분은 §1.7 끝에서 해결됨)
 
 > **§1.1–1.6은 2-head(occupancy + visibility) 시절의 설계다.** 그 정식화는 Phase 3 A/B 이후
-> 코드에서 제거됐다([`free_space_metric_migration.md`](free_space_metric_migration.md) §8–9).
+> 코드에서 제거됐다([`archive/free_space_metric_migration.md`](archive/free_space_metric_migration.md) §8–9).
 > 아래가 **실제로 돌아가는 loss**이고, 구현은 `projects/common/three_class_metrics.py`다.
 
 **지금의 loss: valid 셀에 한정한 가중 3-class cross-entropy**
@@ -316,7 +321,7 @@ traj_recall = (occ_p[t][future_traj_cells] > 0.5).mean()
 ### 2.8 현재 구현된 지표 집합 (2026-08-18 확장) — 이 절이 코드의 정본이다
 
 위 §2.1–2.7은 2-head 시절의 **설계** 문서다. 실제로 코드가 계산하는 것은 아래다.
-`docs/free_space_metric_migration.md`가 M1–M4가 왜 이 형태인지의 근거 정본이고, 여기서는
+`docs/archive/free_space_metric_migration.md`가 M1–M4가 왜 이 형태인지의 근거 정본이고, 여기서는
 2026-08-18에 추가된 것과 그 이유를 적는다.
 
 | 지표 | 코드 | 역할 |

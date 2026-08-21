@@ -4,7 +4,7 @@
 > 대상 서버: ubuntu (GPU: NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition)
 > 목적: 현재 사용 중인 환경의 정본 세팅 문서. 실제 설치·검증을 마친 결과만 기록.
 
-> 📌 이전 서버(RTX 3080) 기준 문서는 [`setup_guide.md`](setup_guide.md)에 이력으로 남겨두었다.
+> 📌 이전 서버(RTX 3080) 기준 문서는 [`archive/setup_guide.md`](archive/setup_guide.md)에 이력으로 남겨두었다.
 > 두 문서의 가장 큰 차이는 **PyTorch CUDA 빌드(cu118 → cu128)** 와 **mmcv 계열 미설치**다.
 
 ---

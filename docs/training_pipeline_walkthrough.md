@@ -279,13 +279,13 @@ epoch은 자동으로 제외**된다.
 ### 5.4 베이스라인 (배너와 매 epoch에 병기)
 
 이 프로젝트의 출발점이 "모델이 이미지를 안 보는 예측기에 지고 있었는데 아무도 몰랐다"이므로
-(`free_space_metric_migration.md` §1) 항상 둘을 같이 찍는다:
+(`archive/free_space_metric_migration.md` §1) 항상 둘을 같이 찍는다:
 
 - **trivial**: "전부 drivable" IoU
 - **constant-map**: train split의 셀별 다수결 free map을 val에 채점(`projects/common/baselines.py`)
 
 실측: 로봇 0.398, SynWoodScape **0.866**. SynWoodScape 쪽 여유폭이 좁다는 것이
-[`next_session_threeclass_training.md`](next_session_threeclass_training.md) §2.1(b)의 미해결 항목이다.
+[`archive/next_session_threeclass_training.md`](archive/next_session_threeclass_training.md) §2.1(b)의 미해결 항목이다.
 
 ---
 
@@ -400,6 +400,6 @@ batch size에 따라 다른 conv 알고리즘을 고르면서 생기는 부동�
 ## 8. 관련 문서
 
 - loss 미해결 항목: [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §1.7
-- 지표 근거 정본: [`free_space_metric_migration.md`](free_space_metric_migration.md)
+- 지표 근거 정본: [`archive/free_space_metric_migration.md`](archive/free_space_metric_migration.md)
 - 라벨 계약 정본: [`finetuning_guide.md`](finetuning_guide.md) §1.3
-- 현재 작업 인수인계: [`next_session_threeclass_training.md`](next_session_threeclass_training.md)
+- 현재 작업 인수인계: [`archive/next_session_threeclass_training.md`](archive/next_session_threeclass_training.md)

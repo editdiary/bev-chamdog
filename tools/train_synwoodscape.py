@@ -6,14 +6,14 @@ CLI에서 받는다 — config 파일 체계 대신 실행 스크립트(`configs
 
 값을 보고 어떻게 튜닝할지는 `docs/training_pipeline_walkthrough.md`(코드 정독)와
 `docs/BEV_loss_and_metrics_design.md` §2.8(지표 정의)을 본다.
-`docs/training_guide.md`는 2-head 시절 문서이므로 플래그·경로를 그대로 쓰면 안 된다.
+`docs/archive/training_guide.md`는 2-head 시절 문서이므로 플래그·경로를 그대로 쓰면 안 된다.
 
 `tools/train_robot_bev.py`(fine-tuning)와 지표·로깅·체크포인트 선택 기준을 공유한다
 (`projects/common/bev_occupancy_metrics.py`). 그래야 pretrain과 fine-tune 숫자를 나란히
 읽을 수 있다. 다른 것은 데이터셋과 lifting(어안 투영), 그리고 그리드 크기뿐이다.
 
 2-head 정식화는 제거됐다 -- Phase 3 A/B에서 3-class로 확정했다
-(`docs/free_space_metric_migration.md` §8, §9). 이 스크립트가 만드는 체크포인트는 출력
+(`docs/archive/free_space_metric_migration.md` §8, §9). 이 스크립트가 만드는 체크포인트는 출력
 head까지 3-class이므로, fine-tuning이 `load_trunk_weights`로 받을 때 head가 함께 전이된다
 (`skipped`가 0으로 찍히는 것이 그 확인이다).
 
@@ -114,7 +114,7 @@ def baseline_iou_free(val_ids, occupancy_gt_root: Path, constant_map, device) ->
 
     이미지를 한 픽셀도 보지 않는 예측기다. 이 값을 배너와 매 epoch 로그에 병기하는 이유는
     이 프로젝트의 출발점이 바로 "모델이 트리비얼 예측기에 지고 있었는데 아무도 몰랐다"였기
-    때문이다(`docs/free_space_metric_migration.md` §1). fine-tuning 쪽과 같은 장치다.
+    때문이다(`docs/archive/free_space_metric_migration.md` §1). fine-tuning 쪽과 같은 장치다.
     """
     if constant_map is None or not val_ids:
         return float("nan")

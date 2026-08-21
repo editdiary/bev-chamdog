@@ -7,14 +7,14 @@
 > 이 문서는 데이터 실물을 받기 **전에** 쓴 계획서다. 여기서 "만들어야 한다"고 적은 것은
 > 같은 날 전부 구현·검증됐고, §6의 미결 질문도 모두 답이 나왔다(§8 참고).
 >
-> **실제로 fine-tuning을 돌릴 때는 [`docs/finetuning_guide.md`](finetuning_guide.md)를 본다.**
+> **실제로 fine-tuning을 돌릴 때는 [`docs/finetuning_guide.md`](../finetuning_guide.md)를 본다.**
 > 이 문서는 "왜 그렇게 만들었는지"의 근거로만 남긴다.
 
 SynWoodScape pretraining(Phase 3)에서 자체 온실 데이터셋 fine-tuning(Phase 4)으로 넘어가기 위해
 **무엇이 준비돼 있고, 무엇을 만들어야 하며, 무엇을 결정해야 하는지**를 정리한다.
 
 관련 문서: `ROADMAP.md` Phase 4, `docs/BEV_loss_and_metrics_design.md`(fine-tuning 기준 loss/지표
-설계), `docs/synwoodscape_pretrain_experiment_log.md`(pretrain 실험 기록).
+설계), `docs/archive/synwoodscape_pretrain_experiment_log.md`(pretrain 실험 기록).
 
 ---
 

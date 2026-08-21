@@ -6,10 +6,10 @@
 
 | 근거 정본 | 다루는 범위 |
 |---|---|
-| [`free_space_metric_migration.md`](free_space_metric_migration.md) | 지표 교체, 2-head → 3-class A/B, 2-head 제거 |
+| [`archive/free_space_metric_migration.md`](archive/free_space_metric_migration.md) | 지표 교체, 2-head → 3-class A/B, 2-head 제거 |
 | [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) | 과적합 진단 §1–§14, binary 전환 §15–§19, 분할·test §20–§21, 오차 구조 §22–§23 |
 | [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) | 지표 하나하나의 정의와 채택/기각 사유 |
-| [`synwoodscape_pretrain_experiment_log.md`](synwoodscape_pretrain_experiment_log.md) | pretrain 단계 |
+| [`archive/synwoodscape_pretrain_experiment_log.md`](archive/synwoodscape_pretrain_experiment_log.md) | pretrain 단계 |
 
 과제: 4-cam 어안 영상 → 온실 통로의 BEV free-space(주행 가능 영역). 격자 120×120 @ 5 cm
 = 6 m × 6 m. 라벨 7 시퀀스 267프레임(train 192 / val 75).

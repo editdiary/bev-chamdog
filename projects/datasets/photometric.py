@@ -3,7 +3,7 @@
 기하는 전혀 건드리지 않는다. 밝기/대비/채도/감마/노이즈만 바꾸므로 `pix_T_cams`나 fisheye
 `radial_poly` 캘리브레이션과 무관하고, BEV GT도 그대로 유효하다. 이미지 공간의 기하 변환
 (flip/crop/rotation)은 calibration을 같이 고치지 않으면 projection이 어긋나므로 여기서 다루지
-않는다 -- `docs/training_improvement_plan.md` Step 4 참고.
+않는다 -- `docs/archive/training_improvement_plan.md` Step 4 참고.
 
 한 샘플 안의 4개 카메라에는 **같은 파라미터**를 적용한다. 카메라마다 다른 색보정을 걸면 실제
 리그에는 없는 카메라 간 색차를 학습하게 된다. 카메라별 노출 차이를 모사하고 싶다면 그건 별도

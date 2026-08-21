@@ -41,7 +41,7 @@ train `fatal` 0.0045). val 성능은 epoch 10 근처에서 이미 끝났다.
 | `augment` | **False** | pretrain은 `True`인데 fine-tuning은 껐다 |
 | `num_epochs` | 60 | 유효 학습은 1~10 epoch에서 끝난다 |
 
-`weight_decay` 스윕은 `synwoodscape_pretrain_experiment_log.md` §3에서 한 번 **기각**됐는데,
+`weight_decay` 스윕은 `archive/synwoodscape_pretrain_experiment_log.md` §3에서 한 번 **기각**됐는데,
 그건 **pretrain(400장, SynWoodScape)** 기준이다. 192장 로봇 데이터는 다른 영역이므로 그 기각을
 여기 그대로 적용하면 안 된다.
 
@@ -236,7 +236,7 @@ lr=1e-4, wd=1e-4  ->  step당 1 − 1e-8
 
 **lr=1e-4에서 `wd=1e-4`는 정규화가 아니다.** 의미 있는 값은 0.1(1.4 % 감소) 이상이다.
 
-> **`synwoodscape_pretrain_experiment_log.md` §3의 "weight decay 조정 기각"도 같은 함정일
+> **`archive/synwoodscape_pretrain_experiment_log.md` §3의 "weight decay 조정 기각"도 같은 함정일
 > 가능성이 있다.** pretrain은 lr=3e-4라 조금 낫지만 자릿수 문제는 같다. 그 결론을 인용하기
 > 전에 어떤 값을 썼는지 확인해야 한다.
 
@@ -314,7 +314,7 @@ ImageNet trunk만으로 더 잘된다는 것은 SynWoodScape pretrain이 **추�
 
 ### 11.5 앞선 판정에 미치는 영향
 
-- **`iou_free` 0.774 대 2-head 0.765의 A/B 판정**(`free_space_metric_migration.md` §8)은 양쪽
+- **`iou_free` 0.774 대 2-head 0.765의 A/B 판정**(`archive/free_space_metric_migration.md` §8)은 양쪽
   모두 pretrain 초기화였으므로 상대 비교로서는 유효하다. 다만 두 수치 모두 지금은 낡았다.
 - **핸드오프의 "pretrain -> fine-tuning" 학습 순서 자체가 재검토 대상이 됐다.** pretrain 진단
   (§7)에서 얻은 결론(체크포인트 선택 기준 등)은 pretrain을 계속 쓴다는 전제에 있다.
@@ -463,7 +463,7 @@ python tools/prune_runs.py --pattern='ft_cw*' --apply --keep_best=False   # 런�
 **2026-08-18 정리 결과: 50 GB -> 3.7 GB.** ablation 런들의 주기 체크포인트를 지우고(TB 로그와
 `model_best`는 남김), 사용자 결정으로 `runs/_archive_2-head/`(25 GB)를 삭제했다 -- 2-head 코드가
 제거되어 **재채점이 불가능한** 산출물이었고, 그 런들의 숫자는
-`free_space_metric_migration.md` §6·§8에 이미 기록돼 있다.
+`archive/free_space_metric_migration.md` §6·§8에 이미 기록돼 있다.
 
 남은 3.7 GB의 구성:
 

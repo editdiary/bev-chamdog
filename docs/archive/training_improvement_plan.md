@@ -3,7 +3,7 @@
 > ## ⚠ [상태: 낡음 — 2-head 시절 계획서다]
 >
 > `TwoHeadSegnet`과 `iou_drivable`/`iou_obstacle`을 전제로 쓴 문서다. 둘 다 제거됐다.
-> 현재 개선 안건은 [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §13.
+> 현재 개선 안건은 [`../finetune_overfitting_diagnosis.md`](../finetune_overfitting_diagnosis.md) §13.
 
 
 ## Current Baseline
@@ -20,7 +20,7 @@
   is a 0.10 train/val gap with no augmentation in the pipeline.
 
 Metric conventions changed on 2026-08-14 (commits 45bec64, d0e089a). Numbers from runs before
-that are not comparable — see `docs/next_session_synwoodscape_twohead.md`.
+that are not comparable — see `docs/archive/next_session_synwoodscape_twohead.md`.
 
 ## Improvement Principles
 
@@ -36,7 +36,7 @@ that are not comparable — see `docs/next_session_synwoodscape_twohead.md`.
 Status: **done.** Implemented, run on a full baseline, and interpreted. The diagnostics did their
 job immediately: the `empty` bin exposed that obstacle-free samples were being scored 0, and the
 flat-zero visibility errors exposed the `valid`/`vis` conflation. Both were fixed; see
-`docs/next_session_synwoodscape_twohead.md`.
+`docs/archive/next_session_synwoodscape_twohead.md`.
 
 Note that `occupancy_obstacle_iou_empty_epoch` no longer exists — that bin reports
 `occupancy_empty_false_alarm_epoch` instead, because IoU on an obstacle-free sample is

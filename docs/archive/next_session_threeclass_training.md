@@ -2,16 +2,23 @@
 
 Last updated: 2026-08-18
 
-> ## ▶ 새 세션은 여기서 시작한다
+> ## 🗄 [아카이브 -- 진입점이 아니다]
+>
+> **이 문서는 2026-08-18 시점의 인수인계이고 수명이 끝났다.** 아래에 적힌 "막힌 곳"은
+> 그 뒤 해결됐다: loss를 표면에 맞게 바꾸는 대신 **정식화를 binary로 바꿨고**(진단 §15–§16),
+> 최종 결론은 병목이 loss가 아니라 **라벨이 정의한 task 자체**라는 것이었다(진단 §22–§23).
+> 현재 진입점은 [`../experiment_history.md`](../experiment_history.md)다.
+>
+> 아래는 그 시점의 기록으로 남긴다.
 >
 > **지금 막힌 곳: fine-tuning이 제대로 학습되지 않는다. 원인은 loss가 면적 기반(CE)인데
 > `occupied`가 두께 1셀 표면이라는 것이고, 다음 할 일은 loss를 표면에 맞게 바꾸는 것이다.**
 >
 > 진단·실험 기록과 다음 단계 설계가 전부 여기 있다:
-> **[`docs/finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md)**
+> **[`docs/finetune_overfitting_diagnosis.md`](../finetune_overfitting_diagnosis.md)**
 > — §13이 "다음 세션에서 할 일"((C) 복합 loss → (D) 이진 정식화), §14가 산출물 정리 규약이다.
 >
-> 지표 정의의 정본은 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §2.8.
+> 지표 정의의 정본은 [`../BEV_loss_and_metrics_design.md`](../BEV_loss_and_metrics_design.md) §2.8.
 > pretrain 쪽 분석은 [`synwoodscape_pretrain_experiment_log.md`](synwoodscape_pretrain_experiment_log.md) §7.
 >
 > ```
@@ -27,11 +34,11 @@ Last updated: 2026-08-18
 
 | 문서 | 역할 | 상태 |
 |---|---|---|
-| **[`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md)** | **지금 막힌 곳·실험 기록·다음 단계(§13)·산출물 정리 규약(§14)** | **활성** |
-| [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) | 지표 정의 정본(**§2.8**), loss 배경(§1.7) | 활성 (§1–2.7은 2-head 설계) |
-| [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드 (파일 → 텐서 → 모델 → loss → 지표) | 활성 |
+| **[`../finetune_overfitting_diagnosis.md`](../finetune_overfitting_diagnosis.md)** | **지금 막힌 곳·실험 기록·다음 단계(§13)·산출물 정리 규약(§14)** | **활성** |
+| [`../BEV_loss_and_metrics_design.md`](../BEV_loss_and_metrics_design.md) | 지표 정의 정본(**§2.8**), loss 배경(§1.7) | 활성 (§1–2.7은 2-head 설계) |
+| [`../training_pipeline_walkthrough.md`](../training_pipeline_walkthrough.md) | 코드 정독 가이드 (파일 → 텐서 → 모델 → loss → 지표) | 활성 |
 | [`synwoodscape_pretrain_experiment_log.md`](synwoodscape_pretrain_experiment_log.md) | pretrain 실험 기록. **§7**이 3-class 진단 런 | 활성 |
-| [`finetuning_guide.md`](finetuning_guide.md) | fine-tuning 실행 절차 | 활성 |
+| [`../finetuning_guide.md`](../finetuning_guide.md) | fine-tuning 실행 절차 | 활성 |
 | 이 문서 | 진입점, git/실행 명령, 결정 이력 | 활성 |
 | [`free_space_metric_migration.md`](free_space_metric_migration.md) | 지표 이관의 근거 기록 | 기록용 — **숫자가 옛 split 기준** |
 | `training_guide.md`, `training_improvement_plan.md` | 2-head 시절 문서 | **낡음** — 플래그·경로가 존재하지 않는다 |
@@ -207,7 +214,7 @@ runs/robot_bev/ckpt/ft_aug_*, ft_wd*_*                                          
   nuScenes instance segmentation용이라 이 태스크에는 라벨도 loss도 없다. 파라미터 459,267개
   (decoder의 12.0%)와 decoder forward 시간 44%가 사라진다 -- 임베디드 배포가 주 동기다.
   weight transfer가 `loaded 677` -> `loaded 668`로 줄어든 것이 확인이고, 초기화 RNG 소비량은
-  원본과 같아 초기 가중치는 바뀌지 않는다. 상세: `training_pipeline_walkthrough.md` §6.1.
+  원본과 같아 초기 가중치는 바뀌지 않는다. 상세: `../training_pipeline_walkthrough.md` §6.1.
 - **`occ & vis & valid` 중복 제거.** 두 trainer, `class_weights_from_labels`,
   `rescore_checkpoints`, `measure_label_geometry`가 각자 조합하던 것을 전부
   `free_space.decompose()`로 모았다. **`occ=1`이 free라는 규약을 해석하는 지점이 이제 한 곳이다.**
@@ -272,7 +279,7 @@ run-to-run 잡음과 같은 자릿수일 가능성이 크다.**
 원인이 "free가 셀의 82%라 레이아웃 prior만으로 맞는다"는 것이므로, **occupied를 재는 지표는
 그 포화가 없다.** 그래서 커밋 `4f71565`에서 occupied `f1@τ`, range `mae`/`bias`,
 `missed_obstacle_rate`, 거리별 층화를 넣었다(정의와 실측은
-[`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §2.8).
+[`../BEV_loss_and_metrics_design.md`](../BEV_loss_and_metrics_design.md) §2.8).
 
 **전부 보고 전용으로 넣었고 선택 기준은 아직 `iou_free`다.** 근거 없이 기준을 바꾸는 대신
 **진단용 pretrain 1회(약 33분)로 60 epoch 전부의 곡선을 보고** 결정한다 -- `val_freq_epochs=1`
@@ -306,7 +313,7 @@ run-to-run 잡음과 같은 자릿수일 가능성이 크다.**
 
 ### 2.2 [완료 2026-08-18] pretrain / fine-tuning 코드 파악
 
-**결과물: [`docs/training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md).**
+**결과물: [`docs/training_pipeline_walkthrough.md`](../training_pipeline_walkthrough.md).**
 데이터 파일 -> 텐서 -> 모델 -> loss -> 지표 -> 체크포인트 선택을 코드 위치와 함께 따라간다.
 §6에 읽다가 걸리는 것들(안 쓰는 decoder head의 실측 비용, `pix_T_cams`가 왜 무시되는지,
 range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있다.
@@ -341,7 +348,7 @@ range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있�
 `occupied`를 67.93 -> 20으로 자른다. loss 균형을 실질적으로 결정하는 하이퍼파라미터인데
 검증된 적이 없고, 하필 `fatal_rate`(§8 A/B에서 유일하게 후퇴한 지표)와 직결된다.
 
-**정본: [`docs/BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §1.7**
+**정본: [`docs/BEV_loss_and_metrics_design.md`](../BEV_loss_and_metrics_design.md) §1.7**
 (실측 분포표, Simple-BEV 원본과의 차이, 대안 목록, 스윕 계획). 코드 쪽 포인터는
 `projects/common/three_class_metrics.py`의 `MAX_CLASS_WEIGHT` 주석.
 
@@ -349,13 +356,13 @@ range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있�
 > 1.1 %인데 val loss의 67 %를 만들고, 20은 과신(정답 확률 0.07 %)을, 1은 (일시적) 붕괴를
 > 만든다. 근본 원인은 CE가 **면적** loss인데 `occupied`는 두께 1셀 **표면**이라는 것이다.
 > 다음 단계는 loss 교체다:
-> **[`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §12–§13.**
+> **[`../finetune_overfitting_diagnosis.md`](../finetune_overfitting_diagnosis.md) §12–§13.**
 
 ### 2.4 [완료] 본학습
 
 pretrain 60 epoch과 fine-tuning ablation 8개를 돌렸다. 결과는 각각
 [`synwoodscape_pretrain_experiment_log.md`](synwoodscape_pretrain_experiment_log.md) §7,
-[`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §8–§12.
+[`../finetune_overfitting_diagnosis.md`](../finetune_overfitting_diagnosis.md) §8–§12.
 
 **지금 막힌 곳은 fine-tuning 품질이고, 다음 할 일은 진단 문서 §13이다.**
 
@@ -403,16 +410,16 @@ pretrain 60 epoch과 fine-tuning ablation 8개를 돌렸다. 결과는 각각
 
 ## 6. 관련 문서
 
-- **코드 정독 가이드**: [`docs/training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md)
+- **코드 정독 가이드**: [`docs/training_pipeline_walkthrough.md`](../training_pipeline_walkthrough.md)
   -- 데이터 파일 -> 텐서 -> 모델 -> loss -> 지표 -> 체크포인트 선택. §6에 함정, §7에 읽는 순서.
-- **loss 설계 현황과 다음 단계**: [`docs/finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §13
-  (loss 구현의 배경·실측 분포는 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §1.7)
+- **loss 설계 현황과 다음 단계**: [`docs/finetune_overfitting_diagnosis.md`](../finetune_overfitting_diagnosis.md) §13
+  (loss 구현의 배경·실측 분포는 [`../BEV_loss_and_metrics_design.md`](../BEV_loss_and_metrics_design.md) §1.7)
   -- `MAX_CLASS_WEIGHT=20`의 근거 없음, 실측 분포, 대안 목록. §1.1–1.6은 옛 2-head 설계다.
-- **근거 정본**: [`docs/free_space_metric_migration.md`](free_space_metric_migration.md)
+- **근거 정본**: [`docs/archive/free_space_metric_migration.md`](free_space_metric_migration.md)
   -- §1 진단, §6 2-head 기준선, §7 Task 17, §8 A/B, §9 2-head 제거
-- 계획 실행 기록: [`docs/superpowers/plans/2026-08-17-bev-free-space-task-progress.md`](superpowers/plans/2026-08-17-bev-free-space-task-progress.md)
+- 계획 실행 기록: [`docs/superpowers/plans/2026-08-17-bev-free-space-task-progress.md`](../superpowers/plans/2026-08-17-bev-free-space-task-progress.md)
   -- §3에 실행 중 정해진 결정들, §4에 이월 발견사항
-- 설계 정본: [`docs/superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md`](superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md)
-- 라벨 계약 정본: [`docs/finetuning_guide.md`](finetuning_guide.md) §1.3
+- 설계 정본: [`docs/superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md`](../superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md)
+- 라벨 계약 정본: [`docs/finetuning_guide.md`](../finetuning_guide.md) §1.3
   -- `occupancy_3class_npy`는 **검수 전용**이고 학습 입력이 아니다. 라벨 정본은 `occupancy_npy` 하나다.
-- 공통 작업 지침: [`AGENTS.md`](../AGENTS.md)
+- 공통 작업 지침: [`AGENTS.md`](../../AGENTS.md)

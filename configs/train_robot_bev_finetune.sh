@@ -75,7 +75,7 @@ VAL_TAIL_FRACTION="${VAL_TAIL_FRACTION:-0.2}"
 #
 # 3-class pretrain 체크포인트를 넘기면 출력 head까지 전이돼 배너에 `skipped 0`이 찍힌다
 # (실측 `loaded 668 tensors, skipped 0`). Phase 3 A/B의 가장 큰 교란이었던 head 전이
-# 비대칭(`docs/free_space_metric_migration.md` §8.4)이 그래서 사라진다.
+# 비대칭(`docs/archive/free_space_metric_migration.md` §8.4)이 그래서 사라진다.
 # `INIT_CHECKPOINT=none`은 "pretrain 없이"를 뜻한다 (trainer의 `from_scratch`가 해석한다).
 if [ -z "${INIT_CHECKPOINT:-}" ]; then
     echo "ERROR: INIT_CHECKPOINT를 지정해야 한다. 예:" >&2

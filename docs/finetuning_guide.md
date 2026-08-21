@@ -1,8 +1,8 @@
 # 자체 데이터셋 Fine-Tuning 실행 가이드
 
 어노테이션이 끝난 뒤 실제로 fine-tuning을 돌릴 때 순서대로 따라가는 문서다.
-설계 근거와 검증 과정은 `docs/finetuning_preparation.md`(준비 단계 기록)와
-`docs/synwoodscape_pretrain_experiment_log.md`(pretrain 실험 기록)에 있다.
+설계 근거와 검증 과정은 `docs/archive/finetuning_preparation.md`(준비 단계 기록)와
+`docs/archive/synwoodscape_pretrain_experiment_log.md`(pretrain 실험 기록)에 있다.
 
 파이프라인은 2026-08-14에 raws1(38장)로 끝까지 검증했다 — 학습·평가·시각화가 모두 돌고,
 캘리브레이션 체인은 어노테이션 프로젝트의 IPM 출력을 재현하는 것으로 확인했다. **남은 것은
@@ -446,7 +446,7 @@ val이 나빠진다. 하이퍼파라미터 문제가 아니라 데이터 문제�
   바꾸면 전이가 깨진다** — 물량이 충분해진 뒤에 시도할 것.
 - **`rand_flip=False`로 고정.** ROI가 전후 비대칭(전방 4 m / 후방 2 m)이라 Simple-BEV의
   Z축 flip 증강이 물리적으로 성립하지 않는다. X축만 뒤집도록 오버라이드하면 쓸 수 있다
-  (`docs/training_improvement_plan.md` Step 4 참고).
+  (`docs/archive/training_improvement_plan.md` Step 4 참고).
 - **후방은 화각 최외곽으로만 덮인다.** front/left/right 각 175°라 방위각 360°가 기하학적으로
   채워지긴 하지만, 후방은 렌즈 주변부라 해상도가 매우 낮다. 후방 성능 기대치는 낮게 잡는다.
 - **`common/`이 전역 공유다.** 리그를 바꾼 시퀀스가 생기면 시퀀스별 `common/`으로
@@ -456,7 +456,7 @@ val이 나빠진다. 하이퍼파라미터 문제가 아니라 데이터 문제�
 
 ## 관련 문서
 
-- `docs/finetuning_preparation.md` — 준비 단계 기록(무엇을 만들어야 했는지, 검증 근거)
-- `docs/synwoodscape_pretrain_experiment_log.md` — pretrain 실험과 방법론 교훈
-- `docs/training_improvement_plan.md` — 개선안 목록과 기각된 것들
+- `docs/archive/finetuning_preparation.md` — 준비 단계 기록(무엇을 만들어야 했는지, 검증 근거)
+- `docs/archive/synwoodscape_pretrain_experiment_log.md` — pretrain 실험과 방법론 교훈
+- `docs/archive/training_improvement_plan.md` — 개선안 목록과 기각된 것들
 - `docs/BEV_loss_and_metrics_design.md` — loss/지표 설계 원안

@@ -10,7 +10,7 @@
 
 - conda 환경 및 버전 고정 (→ `docs/setup_guide_pro6000.md`)
 - GPU 인식, sm_120 커널 실행, 사전학습 encoder, 로깅 스택, simple_bev import 정상 동작 확인
-- 최초 구축(RTX 3080) 당시에는 mmdet3d 스택까지 함께 깔았으나, 현재 학습 경로(Simple-BEV)에는 PyTorch·numpy만 필요하다. **RTX PRO 6000 서버로 이전하면서 mmcv 계열은 설치하지 않는다** (prebuilt wheel이 torch 2.1까지만 존재). 3080 시절 이력은 `docs/setup_guide.md`에 보존
+- 최초 구축(RTX 3080) 당시에는 mmdet3d 스택까지 함께 깔았으나, 현재 학습 경로(Simple-BEV)에는 PyTorch·numpy만 필요하다. **RTX PRO 6000 서버로 이전하면서 mmcv 계열은 설치하지 않는다** (prebuilt wheel이 torch 2.1까지만 존재). 3080 시절 이력은 `docs/archive/setup_guide.md`에 보존
 
 ## Phase 1 — 벤치마크 데이터셋 분석 ✅ 완료
 
@@ -80,14 +80,14 @@
   전체 기준 drivable 비율이 93%대라 "항상 drivable로 예측"만 해도 drivable IoU가 0.93을
   넘는다(trivial baseline) — obstacle IoU를 함께 보지 않으면 trivial 해와 실제 학습을
   구분할 수 없다. 체크포인트 선정도 `(drivable_iou+obstacle_iou)/2` 최고 시점 기준으로 변경.
-  상세 근거·튜닝 가이드는 **`docs/training_guide.md`**.
+  상세 근거·튜닝 가이드는 **`docs/archive/training_guide.md`**.
 - 학습 루프(옵티마이저 스텝·스케줄러·val 루프·체크포인트 저장·tensorboard 기록)를
   8-sample/2-epoch smoke run으로 GPU에서 실제 검증 완료. **500 samples 전체로 실제 학습을
   돌리고 결과(수렴 여부, 최종 IoU, 예측 BEV 육안 확인)를 보는 것은 아직 안 함 — 다음 단계.**
 - `rand_flip`은 껐다(고정) — `SYNWOODSCAPE_PRETRAIN_GRID_SPEC`이 전후 비대칭이라 Simple-BEV의
-  Z축 flip 증강이 물리적으로 안 맞음(`docs/training_guide.md` §6).
+  Z축 flip 증강이 물리적으로 안 맞음(`docs/archive/training_guide.md` §6).
 - 하드웨어: RTX PRO 6000 96GB, 단 현재 다른 연구실 job과 공유 중(여유 ~25GB) — 배치
-  크기·encoder 선택 시 이 여유를 고려(`docs/training_guide.md` §5). VRAM이 완전히 여유로워지면
+  크기·encoder 선택 시 이 여유를 고려(`docs/archive/training_guide.md` §5). VRAM이 완전히 여유로워지면
   batch size 확대·gradient accumulation 불필요 원칙(CLAUDE.md)으로 돌아간다.
 - 성공 기준: 학습이 수렴하고(특히 obstacle IoU가 trivial baseline인 0을 유의미하게 넘김),
   예측 BEV가 GT와 육안으로도 정합한다
@@ -96,7 +96,7 @@
 
 **파이프라인 ✅ 완료 (2026-08-14).** 실행 방법·지표 해석·문제 대응은
 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)를 정본으로 본다.
-설계 근거는 [`docs/finetuning_preparation.md`](docs/finetuning_preparation.md).
+설계 근거는 [`docs/archive/finetuning_preparation.md`](docs/archive/finetuning_preparation.md).
 
 - Phase 3의 체크포인트를 **pre-trained weight**로 사용 ✅ — 240×240 4-cam → 120×120 3-cam으로
   0 missing / 0 unexpected 로드 확인

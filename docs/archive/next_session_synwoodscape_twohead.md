@@ -6,7 +6,7 @@ Last updated: 2026-08-14
 >
 > 이 문서는 **pretraining(Phase 3) 시점의 핸드오프**다. 그 뒤 자체 데이터셋 fine-tuning
 > 파이프라인이 완성됐으므로, 지금 무엇을 하면 되는지는
-> [`docs/finetuning_guide.md`](finetuning_guide.md)를 본다.
+> [`docs/finetuning_guide.md`](../finetuning_guide.md)를 본다.
 >
 > 여기 적힌 "Not tried yet" 항목들은 **pretraining을 다시 손댈 때만** 유효하다. 현재
 > 병목은 pretrain 성능이 아니라 자체 데이터셋의 어노테이션 물량이다.
@@ -370,8 +370,8 @@ GPU policy: use GPU 1. GPU 0 is often occupied by other work.
 - `projects/models/simplebev_two_head.py`: `TwoHeadSegnet`, two-head loss, visibility metrics.
 - `projects/datasets/synwoodscape_simplebev.py`: mask contract for `seg`/`vis`/`valid`.
 - `projects/bev_gt/grid.py`: ROI/grid spec.
-- `docs/training_guide.md`: metric definitions and how to read them.
-- `docs/training_improvement_plan.md`: ordered improvement plan.
+- `docs/archive/training_guide.md`: metric definitions and how to read them.
+- `docs/archive/training_improvement_plan.md`: ordered improvement plan.
 
 Tests: `tests/tools/test_train_synwoodscape_logging.py`,
 `tests/tools/test_visualize_predictions.py`, `tests/models/test_simplebev_two_head.py`,

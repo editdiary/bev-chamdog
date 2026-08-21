@@ -5,7 +5,7 @@
 # 셸 스크립트 관례), 여기서도 같은 방식을 따른다. 값을 바꿔가며 튜닝할 때는 이 파일을
 # 복사해서(`configs/train_synwoodscape_<실험명>.sh`) 실험별로 남기는 걸 권장한다.
 # 각 값의 의미는 `docs/training_pipeline_walkthrough.md` 참고
-# (`docs/training_guide.md`는 2-head 시절 문서다).
+# (`docs/archive/training_guide.md`는 2-head 시절 문서다).
 #
 # 실행: bash configs/train_synwoodscape_baseline.sh
 set -e

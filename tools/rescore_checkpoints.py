@@ -5,7 +5,7 @@
 `iou_free`의 정의를 바꾸면 어느 epoch이 best로 뽑히는지가 달라지므로 그때는 재학습이 필요하다.
 
 **2-head 체크포인트는 더 이상 채점할 수 없다.** Phase 3에서 3-class로 확정하며 2-head 코드를
-제거했기 때문이다(`docs/free_space_metric_migration.md` §9). 문서 §6·§8에 기록된 2-head
+제거했기 때문이다(`docs/archive/free_space_metric_migration.md` §9). 문서 §6·§8에 기록된 2-head
 기준선 숫자는 그 시점의 역사적 값으로 고정되며, 지표를 바꿔도 다시 채점되지 않는다.
 
 실행:

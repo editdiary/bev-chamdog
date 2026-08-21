@@ -106,7 +106,7 @@ def test_three_class_checkpoint_transfers_its_head_too(tmp_path):
     """3-class -> 3-class 전이에서는 출력 head까지 와야 하고 skipped가 비어야 한다.
 
     Phase 4의 요점이 바로 이것이다 -- 2-head pretrain에서는 head가 랜덤 초기화로 남았고
-    (`docs/free_space_metric_migration.md` §8.3), 3-class pretrain은 그 교란을 없앤다.
+    (`docs/archive/free_space_metric_migration.md` §8.3), 3-class pretrain은 그 교란을 없앤다.
     `skipped == 0`이 "head가 전이됐다"의 유일한 기계적 확인이라 테스트로 고정한다.
     """
     source = ThreeClassDecoder(in_channels=8)

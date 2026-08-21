@@ -6,8 +6,8 @@
 얻은 판단 근거**를 남긴다. 목적은 "어떤 수치가 나왔다"가 아니라 **왜 그 결론에 도달했고, 무엇을
 하지 않기로 했는지**를 재현 가능하게 기록하는 것이다. 같은 실험을 다시 돌리지 않기 위한 문서다.
 
-실행 방법과 지표 정의는 `docs/training_guide.md`, 다음 세션 인수인계는
-`docs/next_session_synwoodscape_twohead.md`를 본다.
+실행 방법과 지표 정의는 `docs/archive/training_guide.md`, 다음 세션 인수인계는
+`docs/archive/next_session_synwoodscape_twohead.md`를 본다.
 
 ---
 

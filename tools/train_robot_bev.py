@@ -13,7 +13,7 @@ SynWoodScape pretrain(`tools/train_synwoodscape.py`)과 지표·로깅을 공유
 3. 초기화: pretrain 체크포인트에서 시작한다 (`--init_checkpoint`)
 
 2-head 정식화는 제거됐다 -- Phase 3 A/B에서 3-class로 확정했다
-(`docs/free_space_metric_migration.md` §8, §9).
+(`docs/archive/free_space_metric_migration.md` §8, §9).
 
 실행 예:
     CUDA_VISIBLE_DEVICES=0 python tools/train_robot_bev.py \\

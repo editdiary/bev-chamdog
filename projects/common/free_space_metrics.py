@@ -217,7 +217,7 @@ def summarize_range_error(dicts) -> dict:
 
     실제로 같은 체크포인트를 bs4/bs8로 재채점했을 때 `abs_p50`이 0.177 vs 0.172,
     `abs_p90`이 0.701 vs 0.718로 갈렸고, 스위트에서 이 두 지표만 batch-size 불변이 아니었다
-    (`docs/free_space_metric_migration.md` §9.4). 표본을 모아 한 번에 계산하면 그 의존이
+    (`docs/archive/free_space_metric_migration.md` §9.4). 표본을 모아 한 번에 계산하면 그 의존이
     정의상 사라진다.
 
     `over_mean`/`under_mean`도 같은 표본에서 직접 낸다. 예전에는 부분집합 평균이라

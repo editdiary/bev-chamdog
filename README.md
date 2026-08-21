@@ -51,7 +51,7 @@ bev-chamdog/
 - [x] **자체 데이터셋 구축** — 별도 프로젝트에서 수집·캘리브레이션·라벨링 마무리
 - [x] **SynWoodScape + Simple-BEV 학습** — two-head(occupancy + visibility) pretraining 완료.
       val obstacle IoU 0.861 / drivable 0.989
-      (→ [`docs/synwoodscape_pretrain_experiment_log.md`](docs/synwoodscape_pretrain_experiment_log.md))
+      (→ [`docs/archive/synwoodscape_pretrain_experiment_log.md`](docs/archive/synwoodscape_pretrain_experiment_log.md))
 - [ ] **자체 데이터셋 fine-tuning** ← *현재 단계* — 파이프라인은 완성·검증됐고
       (Double Sphere 3-cam, 마스킹, 학습·시각화 도구) **어노테이션 물량을 기다리는 중**.
       실행 방법은 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)
@@ -79,7 +79,7 @@ pip check
 
 > ⚠️ **PyTorch는 반드시 `cu128` 빌드**여야 합니다. GPU가 sm_120(Blackwell)이라 `cu118` 빌드로는 커널이 실행되지 않으며, `torch.cuda.is_available()`이 True로 나와도 실제 연산에서 죽습니다.
 
-전체 절차·검증 스크립트·트러블슈팅은 [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md)에 정리되어 있습니다. mmcv·mmdet·mmdet3d는 현재 학습 경로에서 사용하지 않으므로 설치하지 않습니다. (이전 RTX 3080 환경의 세팅 이력은 [`docs/setup_guide.md`](docs/setup_guide.md)에 남겨두었습니다.)
+전체 절차·검증 스크립트·트러블슈팅은 [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md)에 정리되어 있습니다. mmcv·mmdet·mmdet3d는 현재 학습 경로에서 사용하지 않으므로 설치하지 않습니다. (이전 RTX 3080 환경의 세팅 이력은 [`docs/archive/setup_guide.md`](docs/archive/setup_guide.md)에 남겨두었습니다.)
 
 학습 하드웨어는 **RTX PRO 6000 Blackwell / VRAM 96GB 단일 GPU**입니다. VRAM이 넉넉해 batch size 축소나 gradient accumulation 회피는 불필요하고, 오히려 데이터 로딩이 병목이 되기 쉽습니다.
 

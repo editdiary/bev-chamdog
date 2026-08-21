@@ -2,6 +2,10 @@
 
 이 문서는 AI agent와 협업할 때 항상 참고할 **핵심 지침**입니다. 특정 플랫폼에 종속되지 않는 공통 규칙만 둡니다. 상세 내용은 `docs/`의 개별 문서를 필요할 때만 찾아봅니다.
 
+> **어떤 문서를 믿어야 하는지는 [`docs/README.md`](docs/README.md)가 정합니다.** 각 문서의
+> 역할과 상태(🟢 정본 / 🔵 운영 메모 / 📚 참고 / 🗄 아카이브)가 거기 있습니다.
+> **`docs/archive/`의 문서는 인용용이고, 거기 적힌 플래그·경로·숫자를 그대로 쓰면 안 됩니다.**
+
 > **여기까지의 서사: [`docs/experiment_history.md`](docs/experiment_history.md)** (2026-08-21)
 >
 > 2-head → 3-class → binary로 정식화를 두 번 바꾼 이유, 각 단계에서 기각된 가설, 그리고
@@ -14,7 +18,7 @@
 > binary 정식화 전환·과적합 손잡이 실측·파이프라인 검증까지의 상태와 다음 결정 사항.
 > 근거 정본은 [`docs/finetune_overfitting_diagnosis.md`](docs/finetune_overfitting_diagnosis.md)
 > **§15–§23** (§20–§21 분할·test, §22 오차 구조, §23 `unknown`의 정체와 지표 축소).
-> 그 이전 단계(3-class 본학습) 인수인계는 [`docs/next_session_threeclass_training.md`](docs/next_session_threeclass_training.md).
+> 그 이전 단계(3-class 본학습) 인수인계는 [`docs/archive/next_session_threeclass_training.md`](docs/archive/next_session_threeclass_training.md).
 > 학습 산출물 정리 규약은 같은 문서 §14 (`tools/prune_runs.py`).
 
 ## [중요] 소통 규칙
@@ -29,7 +33,7 @@
 ## Task & 모델
 
 - Task: 어안 이미지 → **BEV 3-class free-space map** (`free` / `occupied` / `unknown`). 3D bbox 검출과 세밀 semantic 구분은 **이후 확장 과제**로 분리.
-- **정식화는 3-class 단일 head 하나다.** 옛 2-head(occupancy + visibility) 정식화는 Phase 3 A/B 이후 코드에서 제거됐다 — `visibility = raycast(occupancy)`라 두 head가 같은 라벨의 두 인코딩이었기 때문이다. 근거와 A/B 결과는 [`docs/free_space_metric_migration.md`](docs/free_space_metric_migration.md) §8–9.
+- **정식화는 3-class 단일 head 하나다.** 옛 2-head(occupancy + visibility) 정식화는 Phase 3 A/B 이후 코드에서 제거됐다 — `visibility = raycast(occupancy)`라 두 head가 같은 라벨의 두 인코딩이었기 때문이다. 근거와 A/B 결과는 [`docs/archive/free_space_metric_migration.md`](docs/archive/free_space_metric_migration.md) §8–9.
 - **주 지표는 `iou_free`이고 `fatal_rate`를 항상 같이 읽는다.** 옛 `iou_drivable`/`iou_obstacle`은 이미지를 안 보는 트리비얼 예측기에 지는 지표였다(같은 문서 §1). 새 학습·평가는 반드시 constant-map baseline과 병기해 판단한다.
 - baseline: **Simple-BEV** (`third_party/models/simple_bev`) — mmdet3d에 의존하지 않는 standalone PyTorch 구현.
 - 학습 순서: **SynWoodScape로 먼저 학습·검증 → pre-training → 자체 데이터셋 fine-tuning.**
@@ -50,7 +54,7 @@
 - 의존성은 `constraints.txt`(numpy<2·opencv<5) + `requirements.txt` 조합으로 설치하고, 이후 항상 `pip check`.
 - **`third_party/models/simple_bev/requirements.txt`를 그대로 쓰면 안 된다** (Python 3.7~3.8 시절 핀 → 3.11에서 설치 실패). 루트의 `requirements.txt`를 쓴다.
 - **mmcv / mmdet / mmdet3d는 설치하지 않는다.** prebuilt wheel이 torch 2.1까지만 존재한다. 이후 3D 검출로 확장할 때는 별도 conda 환경으로 분리한다.
-- 상세: [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md) (이전 RTX 3080 환경 이력은 [`docs/setup_guide.md`](docs/setup_guide.md))
+- 상세: [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md) (이전 RTX 3080 환경 이력은 [`docs/archive/setup_guide.md`](docs/archive/setup_guide.md))
 
 ## 하드웨어
 

@@ -2,7 +2,7 @@
 
 **왜 면적 IoU가 아닌가.** `occupied`는 광선이 멈춘 두께 1셀 표면이라 예측이 한 칸 옆으로
 밀리기만 해도 교집합이 0이 되어 IoU가 무너진다. 실측으로 `iou_obstacle` 0.312가 이미지를
-보지 않는 frontier 규칙 0.473에 졌고(`docs/free_space_metric_migration.md` §1) 그래서 이
+보지 않는 frontier 규칙 0.473에 졌고(`docs/archive/free_space_metric_migration.md` §1) 그래서 이
 프로젝트는 occupied 면적 IoU를 주 지표에서 내렸다. 그런데 그 자리를 비워 두면 **"장애물을
 얼마나 잘 찾나"를 직접 재는 지표가 하나도 없다** -- M1/M2/M2b는 전부 free 기준이고, M3는
 방위각마다 첫 경계 하나만 본다.
