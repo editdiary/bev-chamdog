@@ -47,7 +47,6 @@ from projects.common.free_space_metrics import (  # noqa: E402
     fatal_rate,
     free_miss_rate,
     iou_free,
-    iou_masked,
     range_error,
 )
 from projects.common.occupied_metrics import (  # noqa: E402
@@ -118,7 +117,6 @@ def sample_scores(pred_parts, gt_parts, valid, rays, cell_m) -> dict:
     iou, _ = iou_free(pred_free, gt_free, valid)
     fatal, _ = fatal_rate(pred_free, gt_free, valid)
     miss, _ = free_miss_rate(pred_free, gt_free, valid)
-    iou_occ, _ = iou_masked(pred_parts["occupied"], gt_parts["occupied"], valid)
     tolerance = summarize_tolerance_f1([tolerance_counts(
         pred_parts["occupied"], gt_parts["occupied"], valid, cell_m,
         tolerances=(TOLERANCE_M,),
@@ -127,7 +125,7 @@ def sample_scores(pred_parts, gt_parts, valid, rays, cell_m) -> dict:
     f1 = next(iter(tolerance.values()))["f1"] if tolerance else float("nan")
     return {
         "iou_free": iou, "fatal_rate": fatal, "free_miss_rate": miss,
-        "iou_occupied": iou_occ, "f1_occupied": f1,
+        "f1_occupied": f1,
         "range_mae": ranges["mae"],
         "missed_obstacle_rate": ranges["missed_obstacle_rate"],
         "n_paired_rays": ranges["n_paired_rays"],
@@ -142,8 +140,8 @@ def _metric_lines(scores) -> list:
     return [
         f"iou_free {fmt(scores['iou_free'])}   fatal {fmt(scores['fatal_rate'])}"
         f"   free_miss {fmt(scores['free_miss_rate'])}",
-        f"{tolerance_label} {fmt(scores['f1_occupied'])}   iou_occupied {fmt(scores['iou_occupied'])}"
-        f"   (면적 IoU는 두께 1셀 표면에서 무의미하다 -- f1@tau와 함께 읽는다)",
+        f"{tolerance_label} {fmt(scores['f1_occupied'])}   (경계 정밀도 -- 면적 IoU는"
+        f" 두께 1셀 표면에서 무의미해 2026-08-21에 뺐다)",
         f"range_mae {fmt(scores['range_mae'])} m   missed_obstacle {fmt(scores['missed_obstacle_rate'])}"
         f"   paired rays {scores['n_paired_rays']}",
     ]

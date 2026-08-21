@@ -330,7 +330,7 @@ traj_recall = (occ_p[t][future_traj_cells] > 0.5).mean()
 | **`range_mae` / `bias`** (신규) | `_delta_stats` | 평균 절대오차와 순수 편향 |
 | **`missed_obstacle_rate`** (신규) | `_delta_rates` | M3 표본에서 빠진 광선의 비율 |
 | **거리별 `range_mae`** (신규) | `summarize_range_error_by_gt_range` | 광선을 `r_gt`로 층화 |
-| **`iou_occupied` / `iou_unknown` / `iou_free_known`** (신규) | `free_metrics_from_masks` | 보고 전용 비교값 |
+| ~~`iou_occupied` / `iou_unknown` / `iou_free_known`~~ | ~~`free_metrics_from_masks`~~ | **2026-08-21 제거.** 아래 (d) 참조 |
 
 #### (a) 왜 `f1@τ`를 추가했는가 — 가장 큰 구멍이었다
 
@@ -378,19 +378,30 @@ prior를 재고 있었다)과 같은 부류다 — 분모/표본 선택이 지�
 방향을 한 숫자로 보여준다: SynWoodScape pretrain은 −0.794(보수적), 로봇 fine-tune은
 +0.047(약간 낙관적)로 **두 데이터셋에서 부호가 반대**다.
 
-#### (d) `iou_free_known` — 두 데이터셋에서 다르게 움직인다
+#### (d) `iou_free_known` / `iou_occupied` / `iou_unknown` — 2026-08-21에 제거
 
-`valid`를 GT가 관측한 셀(free ∪ occupied)로 더 좁힌 `iou_free`다. `iou_free`는 unknown
-셀까지 분모에 넣으므로 "가려진 곳을 unknown이라 맞히는 능력"이 섞인다.
+**세 항목 모두 계산과 로깅에서 빠졌다.** 아래는 왜 추가했고 왜 뺐는지의 기록이다.
+근거 실측은 `docs/finetune_overfitting_diagnosis.md` §23이다.
 
-- SynWoodScape pretrain: `iou_free` 0.855 = `iou_free_known` 0.855 (**완전 일치**).
+`iou_free_known`은 `valid`를 GT가 관측한 셀(free ∪ occupied)로 좁힌 `iou_free`였다.
+추가한 당시의 관찰은 이랬다.
+
+- SynWoodScape pretrain: `iou_free` 0.855 = `iou_free_known` 0.855 (완전 일치).
   `fatal_rate`가 0.000이면 `pred_free ⊆ gt_free`이므로 unknown 영역에 free 예측이 없어
-  정의상 같아진다. 즉 일치는 버그가 아니라 보수적 예측의 결과다.
-- 로봇 fine-tune: `iou_free` 0.751 대 `iou_free_known` 0.882 (**+0.131**). 여기서는
-  unknown 영역에서의 free 오예측이 `iou_free`를 실제로 끌어내리고 있다.
+  정의상 같아진다.
+- 로봇 fine-tune: `iou_free` 0.751 대 `iou_free_known` 0.882 (+0.131).
 
-어느 쪽을 주 지표로 둘지는 **본학습 곡선을 보고** 결정한다. 정의를 바꾸는 것은 재채점으로
-복구되지 않는 부류다.
+**뺀 이유는 task 정의와 충돌하기 때문이다.** (D) binary 정식화에서 drivable은 "보이면서
+빈 곳"뿐이고 **보이지 않는 곳은 전부 non-drivable**이다(`binary_metrics.py`). 그런데 로봇
+데이터에서 `unknown`은 valid 셀의 **78.5 %**다(§23.1). `unknown`을 채점에서 빼면 라벨이
+non-drivable이라고 선언한 셀의 대부분을 무료로 넘기는 것이므로, 정의된 task가 아닌 다른
+task를 재게 된다. 실제로 로봇 fine-tune에서 모델이 `unknown` 안에 칠한 free 셀의 **57.3 %는
+amodal 주석 기준으로도 obstacle**이었다(§23.2) -- 즉 그 벌점은 절반 이상 정당했다.
+
+`iou_occupied`/`iou_unknown`은 binary에서 둘 다 `free`의 결정론적 함수다(`occupied`는 예측
+free의 경계에서 유도되고 `unknown`은 그 나머지다). 게다가 두께 1셀 표면의 면적 IoU는 한 칸
+밀리면 반토막 나서 val 0.071까지 떨어졌다 -- 품질 신호로 읽을 수 없는 숫자다. 경계 정밀도는
+위 (a)의 `f1@τ`가 재고, 그쪽이 이 역할을 완전히 대체한다.
 
 #### (e) 채택하지 않은 후보
 

@@ -157,20 +157,14 @@ def test_mean_loss_parts_of_an_empty_epoch_is_empty():
 
 
 def test_summarize_free_metrics_weights_iou_by_sample_count():
-    # IoU마다 count가 **다르다** -- 클래스가 없는 샘플이 지표별로 다르게 빠지므로, 하나의
-    # count로 전부 가중하면(또는 batch 수로 나누면) 값이 틀린다. 그걸 잡으려고 일부러
-    # `iou_occupied`의 count를 다르게 둔다.
+    # `iou_free`는 union이 0인 샘플이 빠지므로 batch마다 count가 다르다. batch 수로
+    # 평균하면 (0.8 + 0.4)/2 = 0.60이 나오고 count 가중은 0.70이라 둘이 구별된다.
+    # `fatal`/`free_miss`는 분모가 서로 다르므로(100 대 10/90) 분모를 섞으면 깨진다.
     dicts = [
         {"iou_free": 0.8, "iou_free_count": 3,
-         "iou_free_known": 0.9, "iou_free_known_count": 3,
-         "iou_occupied": 0.2, "iou_occupied_count": 1,
-         "iou_unknown": 0.7, "iou_unknown_count": 3,
          "fatal_rate": 0.1, "fatal_denom": 100,
          "free_miss_rate": 0.2, "free_miss_denom": 10, "partition_defects": 0},
         {"iou_free": 0.4, "iou_free_count": 1,
-         "iou_free_known": 0.5, "iou_free_known_count": 1,
-         "iou_occupied": 0.6, "iou_occupied_count": 3,
-         "iou_unknown": 0.3, "iou_unknown_count": 1,
          "fatal_rate": 0.5, "fatal_denom": 100,
          "free_miss_rate": 0.6, "free_miss_denom": 90, "partition_defects": 0},
     ]
@@ -178,10 +172,6 @@ def test_summarize_free_metrics_weights_iou_by_sample_count():
     merged = summarize_free_metrics(dicts)
 
     assert merged["iou_free"] == pytest.approx((0.8 * 3 + 0.4 * 1) / 4)
-    assert merged["iou_free_known"] == pytest.approx((0.9 * 3 + 0.5 * 1) / 4)
-    # count가 뒤바뀌면 (0.2*3 + 0.6*1)/4 = 0.30이 되므로 0.50과 구별된다.
-    assert merged["iou_occupied"] == pytest.approx((0.2 * 1 + 0.6 * 3) / 4)
-    assert merged["iou_unknown"] == pytest.approx((0.7 * 3 + 0.3 * 1) / 4)
     assert merged["fatal_rate"] == pytest.approx(0.3)
     assert merged["free_miss_rate"] == pytest.approx((0.2 * 10 + 0.6 * 90) / 100)
 
@@ -199,9 +189,6 @@ def test_append_free_metrics_drops_batch_masks_before_epoch_accumulation():
 
     scalars = {
         "iou_free": 0.5, "iou_free_count": 1,
-        "iou_free_known": 0.6, "iou_free_known_count": 1,
-        "iou_occupied": 0.1, "iou_occupied_count": 1,
-        "iou_unknown": 0.4, "iou_unknown_count": 1,
         "fatal_rate": 0.25, "fatal_denom": 4,
         "free_miss_rate": 0.75, "free_miss_denom": 2,
         "partition_defects": 0,
@@ -324,8 +311,7 @@ def test_epoch_scalars_write_every_metric_family_for_a_validation_epoch():
     write_epoch_scalars(writer, "val", {
         "loss": 1.0,
         "loss_parts": {},
-        "free": {"iou_free": 0.8, "iou_free_known": 0.9, "iou_occupied": 0.3,
-                 "iou_unknown": 0.7, "fatal_rate": 0.1, "free_miss_rate": 0.2},
+        "free": {"iou_free": 0.8, "fatal_rate": 0.1, "free_miss_rate": 0.2},
         "range": {"mae": 0.25, "abs_p50": 0.3, "abs_p90": 0.6, "bias": -0.05,
                   "over_mean": 0.2, "under_mean": 0.1, "missed_obstacle_rate": 0.04},
         "range_bins": {"0.0-1.5m": {"mae": 0.1}},
@@ -333,19 +319,16 @@ def test_epoch_scalars_write_every_metric_family_for_a_validation_epoch():
         "tolerance": {"20cm": {"f1": 0.5, "precision": 0.6, "recall": 0.4}},
     }, epoch=4)
 
+    # 2026-08-21에 줄인 지표 집합(§23)을 **정확히** 고정한다. dict에는 `abs_p50`,
+    # `over_mean`, `under_mean`, `range_bins`, `precision`, `recall`이 전부 들어 있는데도
+    # tag가 나오지 않아야 한다 -- 계산은 남기고 로깅만 뺐다는 결정이 여기서 지켜진다.
     assert _tags(writer) == [
         "val/loss_epoch",
-        "val/iou_free_epoch", "val/iou_free_known_epoch",
-        "val/iou_occupied_epoch", "val/iou_unknown_epoch",
-        "val/fatal_rate_epoch", "val/free_miss_rate_epoch",
-        "val/range_mae_epoch", "val/range_abs_p50_epoch", "val/range_abs_p90_epoch",
-        "val/range_bias_epoch", "val/range_over_epoch", "val/range_under_epoch",
+        "val/iou_free_epoch", "val/fatal_rate_epoch", "val/free_miss_rate_epoch",
+        "val/range_mae_epoch", "val/range_abs_p90_epoch", "val/range_bias_epoch",
         "val/range_missed_obstacle_rate_epoch",
-        "val/range_mae_0.0-1.5m_epoch",
         "val/ring_0.0-1.5m_iou_free_epoch",
         "val/occupied_f1_20cm_epoch",
-        "val/occupied_precision_20cm_epoch",
-        "val/occupied_recall_20cm_epoch",
     ]
 
 
@@ -356,13 +339,10 @@ def test_epoch_scalars_of_a_train_epoch_skip_the_val_only_families():
 
     write_epoch_scalars(writer, "train", {
         "loss": 1.0, "loss_parts": {},
-        "free": {"iou_free": 0.8, "iou_free_known": 0.9, "iou_occupied": 0.3,
-                 "iou_unknown": 0.7, "fatal_rate": 0.1, "free_miss_rate": 0.2},
+        "free": {"iou_free": 0.8, "fatal_rate": 0.1, "free_miss_rate": 0.2},
     }, epoch=4)
 
     assert _tags(writer) == [
         "train/loss_epoch",
-        "train/iou_free_epoch", "train/iou_free_known_epoch",
-        "train/iou_occupied_epoch", "train/iou_unknown_epoch",
-        "train/fatal_rate_epoch", "train/free_miss_rate_epoch",
+        "train/iou_free_epoch", "train/fatal_rate_epoch", "train/free_miss_rate_epoch",
     ]

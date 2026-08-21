@@ -178,24 +178,20 @@ def _format_range_line(metrics):
     return [_format_row("range", _Ansi.BLUE, fields)]
 
 
-def _format_occupied_line(tolerance_metrics, free_metrics):
-    """occupied 전용 줄. 면적 IoU와 tolerance F1을 **나란히** 둔다.
+def _format_occupied_line(tolerance_metrics):
+    """경계 정밀도 줄 -- tolerance F1만 둔다.
 
-    두 숫자를 같은 줄에 두는 것이 요점이다: `iou_occ`가 낮은데 `f1@20cm`이 높으면 "예측이
-    몇 셀 밀렸을 뿐"이고, 둘이 같이 낮으면 실제로 장애물을 못 찾은 것이다. 떨어뜨려 놓으면
-    이 구별을 매번 손으로 해야 한다.
+    면적 `iou_occupied`를 이 줄에서 뺐다(2026-08-21): 두께 1셀 표면에 면적 IoU를 씌운 값은
+    한 칸 밀리면 반토막 나서 binary에서 val 0.071까지 떨어졌고, "몇 셀 밀렸나"는 τ가 다른
+    F1 셋이 훨씬 직접적으로 답한다. `f1@10cm`(2셀)이 낮고 `f1@40cm`(8셀)이 높으면 밀린
+    것이고, 셋이 같이 낮으면 장애물을 못 찾은 것이다.
     """
-    if not tolerance_metrics and not free_metrics:
+    if not tolerance_metrics:
         return []
     fields = [
         _field(f"f1@{tolerance_key(t)}↑", (tolerance_metrics or {}).get(tolerance_key(t), {}).get("f1"),
                emphasis=_Ansi.BOLD if t == 0.20 else "")
         for t in DEFAULT_TOLERANCES_M
-    ]
-    fields += [
-        _field("iou_occ↑", (free_metrics or {}).get("iou_occupied")),
-        _field("iou_unk↑", (free_metrics or {}).get("iou_unknown")),
-        _field("iou_free_known↑", (free_metrics or {}).get("iou_free_known")),
     ]
     return [_format_row("occ", _Ansi.MAGENTA, fields)]
 
@@ -259,7 +255,7 @@ def format_epoch_log(
         _format_metric_row("val", _Ansi.CYAN, val_loss, val_loss_parts,
                            val_free_metrics, loss_part_names),
         *_format_range_line(val_range_metrics),
-        *_format_occupied_line(val_tolerance_metrics, val_free_metrics),
+        *_format_occupied_line(val_tolerance_metrics),
     ])
 
 
@@ -272,19 +268,17 @@ def _add_scalar_if_finite(writer, tag, value, step) -> None:
 # tag를 여기 한 곳에 나란히 적어 둔다.
 _FREE_SCALAR_TAGS = (
     ("iou_free", "iou_free_epoch"),
-    ("iou_free_known", "iou_free_known_epoch"),
-    ("iou_occupied", "iou_occupied_epoch"),
-    ("iou_unknown", "iou_unknown_epoch"),
     ("fatal_rate", "fatal_rate_epoch"),
     ("free_miss_rate", "free_miss_rate_epoch"),
 )
+# `abs_p50`은 표본 반지름 격자(0.5셀 = 2.5 cm)에 양자화돼 epoch이 바뀌어도 값이 거의
+# 안 움직였다(60 epoch 동안 0.1500에 고정). `over_mean`/`under_mean`은 `bias`를 두 방향으로
+# 쪼갠 것이라 셋 중 둘만 있으면 나머지가 정해진다. 계산은 `_delta_stats`에 그대로 남아
+# 있으므로 필요해지면 재채점으로 되살릴 수 있다.
 _RANGE_SCALAR_TAGS = (
     ("mae", "range_mae_epoch"),
-    ("abs_p50", "range_abs_p50_epoch"),
     ("abs_p90", "range_abs_p90_epoch"),
     ("bias", "range_bias_epoch"),
-    ("over_mean", "range_over_epoch"),
-    ("under_mean", "range_under_epoch"),
     ("missed_obstacle_rate", "range_missed_obstacle_rate_epoch"),
 )
 
@@ -311,15 +305,16 @@ def write_epoch_scalars(writer, split, metrics, epoch) -> None:
     for key, tag in _RANGE_SCALAR_TAGS:
         _add_scalar_if_finite(writer, f"{split}/{tag}", range_metrics.get(key), epoch)
 
-    for name, values in (metrics.get("range_bins") or {}).items():
-        _add_scalar_if_finite(writer, f"{split}/range_mae_{name}_epoch", values["mae"], epoch)
+    # `range_bins`(GT 거리별 `range_mae`)는 링별 `iou_free`와 같은 질문("원거리에서 무너지나")에
+    # 답하므로 **선택 기준인 `iou_free`를 층화하는 쪽만** 남긴다. 계산은 그대로 있고
+    # `rescore_checkpoints.py`가 여전히 출력한다.
     for name, values in (metrics.get("rings") or {}).items():
         _add_scalar_if_finite(writer, f"{split}/ring_{name}_iou_free_epoch",
                               values["iou_free"], epoch)
+    # `precision`/`recall`은 `f1`과 같은 이야기를 τ마다 세 줄로 반복한다. 비대칭 비용은
+    # `fatal_rate`/`free_miss_rate`와 `range_bias`가 이미 방향까지 갖고 보여준다.
     for name, values in (metrics.get("tolerance") or {}).items():
-        for stat in ("f1", "precision", "recall"):
-            _add_scalar_if_finite(writer, f"{split}/occupied_{stat}_{name}_epoch",
-                                  values[stat], epoch)
+        _add_scalar_if_finite(writer, f"{split}/occupied_f1_{name}_epoch", values["f1"], epoch)
 
 
 def select_checkpoint_score(free_metrics):
@@ -346,21 +341,15 @@ def compute_iou(pred, target, valid_g):
 
 _FREE_METRIC_SCALAR_KEYS = (
     "iou_free", "iou_free_count",
-    "iou_free_known", "iou_free_known_count",
-    "iou_occupied", "iou_occupied_count",
-    "iou_unknown", "iou_unknown_count",
     "fatal_rate", "fatal_denom",
     "free_miss_rate", "free_miss_denom",
     "partition_defects",
 )
 
-# `(집계 키, count 키)`. IoU는 전부 "평균에 들어간 샘플 수"로 가중해야 한다 -- 클래스가
-# 없는 샘플이 빠지므로 분모가 지표마다 다르고, batch 수로 평균하면 그 차이가 무시된다.
+# `(집계 키, count 키)`. IoU는 "평균에 들어간 샘플 수"로 가중해야 한다 -- union이 0인 샘플이
+# 빠지므로, batch 수로 평균하면 그 차이가 무시된다.
 _IOU_KEYS = (
     ("iou_free", "iou_free_count"),
-    ("iou_free_known", "iou_free_known_count"),
-    ("iou_occupied", "iou_occupied_count"),
-    ("iou_unknown", "iou_unknown_count"),
 )
 
 

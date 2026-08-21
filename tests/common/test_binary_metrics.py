@@ -2,7 +2,7 @@
 
 3-class와 **같은 지표 dict**를 돌려주는 것이 이 정식화의 계약이다(`occupied`는 예측하지 않고
 예측 free의 경계에서 유도한다). 그래서 마지막 두 테스트가 그 유도가 실제로 일어나는지를
-고정한다 -- 유도가 빠지면 `iou_occupied`/`f1@τ`가 조용히 0이 되어 3-class 런과 비교할 수 없다.
+고정한다 -- 유도가 빠지면 `f1@τ`가 조용히 0이 되어 3-class 런과 비교할 수 없다.
 """
 import pytest
 import torch
@@ -133,8 +133,6 @@ def test_metrics_derive_occupied_from_the_predicted_free_boundary():
 
     assert metrics["iou_free"] == pytest.approx(1.0)
     assert metrics["fatal_rate"] == pytest.approx(0.0)
-    # GT occupied(테두리)를 유도로 되돌린다. 두께 1셀이라 면적 IoU도 여기서는 높아야 한다.
-    assert metrics["iou_occupied"] > 0.9
     assert metrics["partition_defects"] == 0
     # 유도 결과가 지표 dict에 실려 나가야 val 루프의 `f1@τ`가 계산된다.
     assert metrics["pred_occupied"].any()

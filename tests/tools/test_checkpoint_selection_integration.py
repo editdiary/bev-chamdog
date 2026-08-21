@@ -14,9 +14,6 @@ import tools.train_synwoodscape as synwoodscape_trainer
 
 _FREE_METRICS = {
     "iou_free": 0.20, "iou_free_count": 1,
-    "iou_free_known": 0.30, "iou_free_known_count": 1,
-    "iou_occupied": 0.10, "iou_occupied_count": 1,
-    "iou_unknown": 0.40, "iou_unknown_count": 1,
     "fatal_rate": 0.0, "fatal_denom": 1,
     "free_miss_rate": 0.0, "free_miss_denom": 1,
     "partition_defects": 0,

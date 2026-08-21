@@ -132,8 +132,6 @@ def test_free_metrics_from_masks_wires_every_key_correctly():
     )
     # 나머지 칸은 occupied/unknown으로 채워 예측도 완전한 분할이 되게 한다.
     #     pred_occupied = {5, 6, 7},  pred_unknown = {2, 3}
-    # `iou_occupied`는 inter {5,6,7}=3 / union {4,5,6,7}=4 = 0.75로 `iou_free`(0.4)와 값이
-    # 달라, free와 occupied 배선이 뒤바뀌면 이 테스트가 깨진다.
     pred_occupied = torch.tensor(
         [[[[False, False, False, False], [False, True, True, True]]]]
     )
@@ -146,8 +144,6 @@ def test_free_metrics_from_masks_wires_every_key_correctly():
 
     assert result["iou_free"] == pytest.approx(0.4)
     assert result["iou_free_count"] == 1
-    assert result["iou_occupied"] == pytest.approx(0.75)
-    assert result["iou_occupied_count"] == 1
     assert result["fatal_rate"] == pytest.approx(1 / 3)
     assert result["fatal_denom"] == 3
     assert result["free_miss_rate"] == pytest.approx(0.5)
@@ -159,25 +155,22 @@ def test_free_metrics_from_masks_wires_every_key_correctly():
     assert torch.equal(result["gt_occupied"], gt_parts["occupied"])
 
 
-def test_iou_free_known_excludes_the_cells_the_gt_never_observed():
-    """`iou_free_known`은 `valid`를 GT가 관측한 셀(free ∪ occupied)로 더 좁힌 `iou_free`다.
+def test_iou_free_counts_free_predicted_inside_gt_unknown_as_an_error():
+    """**task 정의를 못박는 테스트다.** (D) 정식화는 "보이면서 빈 곳"만 drivable이고
+    보이지 않는 곳은 전부 non-drivable이다. 따라서 GT가 `unknown`인 셀을 free라고 예측하면
+    그건 오차이고 `iou_free`의 분모에 들어가야 한다.
 
-    두 지표가 같은 값이면 아무것도 분리하지 못하므로, GT에 unknown이 있고 예측이 그 안에서
-    free를 틀리는 배치를 만든다.
+    이 계약을 잃으면 `iou_free_known`(2026-08-21 제거)처럼 `unknown`을 채점에서 빼는 변형이
+    다시 들어오고, 그 순간 라벨이 non-drivable이라고 선언한 셀의 78.5 %가 무료가 된다.
 
     격자 4칸, valid=1:
         vis      = [T, T, F, F]        -> gt_unknown = {2, 3}
         occ      = [T, F, T, T]        -> gt_free = {0}, gt_occupied = {1}
-        pred_free = [T, F, T, F]
+        pred_free = [T, F, T, F]       -> 2번은 unknown 안의 오예측
 
-    `iou_free` (valid 전체 4칸):
         inter = {0}                 -> 1
         union = {0, 2}              -> 2        -> 0.5
-    `iou_free_known` (known = {0, 1}만):
-        inter = {0}                 -> 1
-        union = {0}                 -> 1        -> 1.0
-    즉 unknown 영역에서 free를 잘못 예측한 셀(2번)이 known 지표에서는 빠진다. 0.5 != 1.0이라
-    `known` 마스크를 빼먹으면 반드시 깨진다.
+    2번을 분모에서 빼면 1.0이 나오므로, 값이 0.5여야 계약이 지켜진 것이다.
     """
     from projects.common.free_space import decompose
     from projects.common.free_space_metrics import free_metrics_from_masks
@@ -197,9 +190,10 @@ def test_iou_free_known_excludes_the_cells_the_gt_never_observed():
     result = free_metrics_from_masks(pred_parts, gt_parts, valid)
 
     assert result["iou_free"] == pytest.approx(0.5)
-    assert result["iou_free_known"] == pytest.approx(1.0)
-    # gt_unknown = {2, 3}, pred_unknown = {3} -> inter 1 / union 2
-    assert result["iou_unknown"] == pytest.approx(0.5)
+    # unknown을 채점에서 빼는 변형이 dict에 다시 생기면 여기서 걸린다.
+    assert "iou_free_known" not in result
+    # 두께 1셀 표면의 면적 IoU도 함께 뺐다 -- 경계 정밀도는 `occupied_metrics`의 f1@τ가 잰다.
+    assert "iou_occupied" not in result and "iou_unknown" not in result
 
 
 import numpy as np

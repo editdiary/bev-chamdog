@@ -83,17 +83,19 @@ def free_metrics_from_masks(pred_parts, gt_parts, valid) -> dict:
     집계를 호출부마다 복사해 두면 한쪽만 고쳐지는 순간 두 학습 스크립트의 숫자를 나란히
     읽을 수 없으므로 여기 한 벌만 둔다.
 
-    `iou_occupied`/`iou_unknown`은 **보고용이고 체크포인트 선택에 쓰지 않는다.** occupied는
-    두께 1셀 표면이라 한 칸 정렬 오차가 IoU를 반토막 내고(실측: `iou_obstacle` 0.312가
-    frontier 규칙 0.473에 졌다) 그래서 주 지표에서 내렸다. 그래도 계산해 두는 이유는
-    (a) 기존 BEV segmentation 문헌과 비교할 때 필요하고 (b) 같은 체크포인트에서
-    `occupied_metrics`의 tolerance F1과 나란히 놓으면 "면적 IoU가 왜 부족한가"를 숫자로
-    보여줄 수 있기 때문이다.
+    **여기서 재는 것은 셋뿐이다: `iou_free`(M1), `fatal_rate`(M2), `free_miss_rate`(M2b).**
+    2026-08-21에 세 항목을 지웠고, 되살리려는 유혹을 막기 위해 이유를 남긴다.
 
-    `iou_free_known`은 `valid`를 **GT가 관측한 셀**(free ∪ occupied)로 더 좁힌 `iou_free`다.
-    `iou_free`는 unknown 셀까지 분모에 넣으므로 "가려진 곳을 unknown이라 맞히는 능력"이
-    섞여 들어간다. 둘을 나란히 보면 그 기여를 분리할 수 있다. 어느 쪽을 주 지표로 둘지는
-    실측 뒤에 결정한다 -- 정의를 바꾸면 재채점으로 복구되지 않는 부류이기 때문이다.
+    - `iou_occupied`/`iou_unknown`: binary 정식화에서 `occupied`는 head가 없고 예측 free의
+      경계에서 **유도**되며 `unknown`은 그 나머지다. 즉 둘 다 `free`의 결정론적 함수라 독립
+      정보가 없다. 게다가 두께 1셀 표면에 면적 IoU를 씌운 값은 한 칸 밀리면 반토막 나서
+      val 0.071까지 떨어졌다 -- 품질 신호로 읽을 수 없는 숫자다. 경계 정밀도는
+      `occupied_metrics`의 tolerance F1이 재고, 그쪽이 이 역할을 완전히 대체한다.
+    - `iou_free_known`: `valid`를 GT가 관측한 셀(free ∪ occupied)로 좁힌 `iou_free`였다.
+      **task 정의와 충돌한다.** 이 프로젝트의 (D) 정식화는 "보이면서 빈 곳"만 drivable이고
+      **보이지 않는 곳은 전부 non-drivable**이다. `unknown`을 채점에서 빼면 라벨이
+      non-drivable이라고 선언한 셀의 78.5 %를 빼는 것이므로 다른 task를 재게 된다.
+      실측 근거는 `docs/finetune_overfitting_diagnosis.md` §22.4/§23에 남아 있다.
 
     마스크를 함께 실어 보내는 이유: M3(range)·F1@τ는 광선 루프와 거리변환이 CPU numpy라
     학습 step마다 돌리면 병목이 된다. val 경로가 forward를 다시 하지 않고 이 마스크를
@@ -101,19 +103,12 @@ def free_metrics_from_masks(pred_parts, gt_parts, valid) -> dict:
     """
     pred_free, gt_free = pred_parts["free"], gt_parts["free"]
     pred_occupied, gt_occupied = pred_parts["occupied"], gt_parts["occupied"]
-    known = gt_free | gt_occupied  # GT가 실제로 관측한 영역 (unknown 제외)
 
     iou, iou_count = iou_free(pred_free, gt_free, valid)
-    iou_known, iou_known_count = iou_free(pred_free, gt_free, valid.bool() & known)
-    iou_occ, iou_occ_count = iou_masked(pred_occupied, gt_occupied, valid)
-    iou_unk, iou_unk_count = iou_masked(pred_parts["unknown"], gt_parts["unknown"], valid)
     fatal, fatal_denom = fatal_rate(pred_free, gt_free, valid)
     miss, miss_denom = free_miss_rate(pred_free, gt_free, valid)
     return {
         "iou_free": iou, "iou_free_count": iou_count,
-        "iou_free_known": iou_known, "iou_free_known_count": iou_known_count,
-        "iou_occupied": iou_occ, "iou_occupied_count": iou_occ_count,
-        "iou_unknown": iou_unk, "iou_unknown_count": iou_unk_count,
         "fatal_rate": fatal, "fatal_denom": fatal_denom,
         "free_miss_rate": miss, "free_miss_denom": miss_denom,
         # 배선이 틀리면 조용히 이상한 숫자가 나오는 대신 여기서 0이 아니게 된다.

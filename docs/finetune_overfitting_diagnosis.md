@@ -1077,3 +1077,129 @@ raycast가 결정한 것이고 이미지에서 유도할 수 있는 양이 아�
 
 **세 전체 시퀀스 영상(`rawos1`/`raws1`/`rawos3`)이 이제 모두 `noos1` best@35 한 모델이다.**
 `*_bin19_30fps.mp4`는 다른 모델(base ep19)이므로 나란히 비교하지 않는다.
+
+---
+
+## 23. `unknown`의 정체와 지표 집합 축소 (2026-08-21)
+
+§22.4에서 나는 "`unknown` 셀의 벌점은 라벨이 의견 없는 곳이라 부당하다"고 썼다. **그 프레이밍은
+틀렸다.** 이 절이 정정과 그에 따른 정리 작업을 기록한다.
+
+### 23.1 학습은 의도대로 되어 있다 -- 그리고 `unknown`은 78.5 %다
+
+먼저 확인: **(D) binary 정식화의 학습에 결함은 없다.** 의도한 task는 "보이면서 빈 곳만
+drivable, 보이지 않는 곳은 전부 non-drivable"이고 코드가 정확히 그것이다.
+
+- `binary_metrics.to_class_index(parts)` = `parts["free"].long()` -- free만 1, 나머지 전부 0
+- `class_weights_from_labels`가 세는 `not_free` = `occupied ∪ unknown`
+- `masked_weighted_ce(logits, class_index, valid, ...)`는 `valid` 말고 아무것도 빼지 않는다
+- 실측 정합: train free 비율 21.7 %에서 역빈도 가중치 free 3.604 = (1−p)/p ✔
+
+`unknown`은 **라벨 쪽 개념이고 예측 쪽 개념이 아니다.** binary 전환은 loss가 묻는 질문만
+바꿨고 라벨은 그대로다 -- `visibility_npy`가 여전히 있고 `decompose`가 여전히 세 조각을
+만든다. binary는 그중 둘을 `not_free`로 접는다.
+
+**그런데 `unknown`의 크기가 예상과 다르다.** val 75프레임 실측 (격자 120×120 @ 5 cm = 6 m×6 m):
+
+| 조각 | 프레임당 셀 | valid 대비 |
+|---|---|---|
+| `invalid` (valid=0, loss 제외) | 384 (정적) | 2.7 % |
+| `free` | 2864 | 20.4 % |
+| `occupied` | 151 | 1.1 % |
+| **`unknown`** | **11001** | **78.5 %** |
+| ├ 정적 사각 (`permanent_blind`) | 687 | 4.9 %p |
+| └ **per-frame raycast 그림자** | 10314 | **73.6 %p** |
+
+ego 아래 검은 원반(`permanent_blind` = 카메라 광선이 닿지 않는 셀 ∪ `self_mask.png`)은
+**전체 `unknown`의 6 %뿐**이다. 나머지 94 %는 `occupancy_npy`가 **amodal 주석**이고
+`visibility_npy`가 거기서 ego 원점 2D raycast로 파생된 결과다 -- **첫 식물 줄 뒤 온실 전체가
+`unknown`이다.** 프레임별로 44 %~90 %(중앙값 80 %)다.
+
+**이것은 결함이 아니다.** 그림자가 free 경계에서 얼마나 떨어져 있나 재 보면:
+
+| free 경계까지 거리 | 그림자 비율 | 그중 amodal drivable |
+|---|---|---|
+| 2셀 (10 cm) | 1.5 % | 60.8 % |
+| 3셀 (15 cm) | 2.8 % | 27.7 % |
+| 4–5셀 (25 cm) | 4.5 % | 20.5 % |
+| 6–10셀 (50 cm) | 11.9 % | 19.7 % |
+| 11–20셀 (1 m) | 23.9 % | 61.0 % |
+| **> 1 m** | **55.3 %** | **98.3 %** |
+
+**55.3 %가 1 m 이상 떨어져 있고 그중 98.3 %가 amodal drivable이다** -- 식물 줄 뒤 *다른 통로의
+바닥*이고, 진짜로 보이지 않는다. 15 cm 이내는 4.3 %뿐이다. 즉 라벨은 정의대로 동작한다.
+
+### 23.2 정정 -- `unknown`의 벌점은 절반 이상 정당하다
+
+`occupancy_npy`가 amodal이므로 **`unknown` 셀에도 "실제로 갈 수 있나"에 대한 annotator의
+의견이 남아 있다.** 꺼내서 `ft_bin_noos1` best@35의 예측과 맞췄다 (val 75프레임 누적).
+
+| | 값 |
+|---|---|
+| `unknown` 셀 중 amodal drivable | 74.3 % |
+| 모델이 free라고 한 `unknown` 셀 | `unknown`의 **3.0 %**, 프레임당 327셀 |
+| └ amodal **drivable** (모델이 맞음) | 42.7 % |
+| └ amodal **obstacle** (진짜 틀림) | **57.3 %** |
+| 출처: raycast 그림자 / 정적 사각 | 99.5 % / 0.5 % |
+
+두 가지가 읽힌다.
+
+1. **모델은 넘치게 칠하지 않는다** -- `unknown`의 3 %만 건드린다. 홍수가 아니라 테두리다.
+2. **그런데 무작위보다 나쁘다.** 무작위로 칠했다면 74.3 %가 drivable에 맞았을 텐데 42.7 %다.
+   즉 이 예측들은 **통로 벽(식물 줄 = amodal obstacle) 자리에 몰려 있다.** "틈으로 봐서
+   맞힌 것"이 아니라 §22.5 (2)번과 같은 **경계 1~3셀 과잉**이다.
+
+**따라서 §22.4의 "라벨이 의견 없는 곳"이라는 표현을 철회한다.** `iou_free`의 벌점은 절반
+이상 정당하고, `iou_free_known` 0.885는 "공정한 숫자"가 아니라 실제 오류의 절반을 덮는
+숫자다. 논문 헤드라인 승격은 취소한다.
+
+### 23.3 부수 관찰 -- loss가 무엇을 가르치고 있나 (task 설계, 지금 건드리지 않음)
+
+현재 loss는 `unknown` 78.5 %를 `not_free`로 가르치고 그중 74.3 %는 실제로 다닐 수 있는
+바닥이다. 즉 모델에게 **"내가 못 보는 곳의 모양"을 예측하라**고 요구하고 있고, §22.4가 그건
+외워지지만(train 격차 0.007) 일반화되지 않음(val 0.088)을 보였다. 이것이 의도된 task이므로
+결함은 아니다 -- 다만 **val 천장의 큰 몫이 "가시성 경계 예측"이라는 본질적으로 어려운 부분에
+있다**는 뜻이고, 이 프로젝트의 한계 절에 들어갈 사실이다. 라벨과 task는 현 상태로 고정한다
+(사용자 결정, 2026-08-21).
+
+### 23.4 지표 집합 축소 46 → 28
+
+**계산은 남기고 로깅만 줄인 것이 기본**이다 -- 지운 대부분은 이미 계산된 dict에서 한 줄
+꺼내는 것이라 val 시간이 줄지 않고, 계산을 지우면 재채점으로 되살릴 수 없다. 예외는 아래
+"계산까지" 항목이다.
+
+| 항목 | 처분 | 이유 |
+|---|---|---|
+| `iou_free_known` (train·val) | **계산까지 제거** | §23.2 -- task 정의와 충돌 |
+| `iou_occupied`, `iou_unknown` (train·val) | **계산까지 제거** | binary에서 `free`의 결정론적 함수. 두께 1셀 면적 IoU는 val 0.071로 품질 신호가 아니다. `f1@τ`가 대체 |
+| `occupied_precision/recall_{10,20,40}cm` | 로깅만 | `f1`과 같은 이야기를 τ마다 세 줄로 반복. 비대칭 비용은 `fatal_rate`/`free_miss_rate`/`range_bias`가 방향까지 보여준다 |
+| `range_abs_p50` | 로깅만 | 표본 반지름 격자(0.5셀 = 2.5 cm)에 양자화돼 60 epoch 동안 0.1500 고정 |
+| `range_over`, `range_under` | 로깅만 | `bias`의 두 방향 분해 -- 셋 중 둘이면 나머지가 정해진다 |
+| `range_mae_{0-1.5,1.5-3,3-4}m` | 로깅만 | ring별 `iou_free`와 같은 질문. **선택 기준을 층화하는 쪽**만 남긴다. `rescore_checkpoints.py`는 여전히 출력한다 |
+
+**남긴 28개** (train 10 + val 18):
+
+| 그룹 | train | val |
+|---|---|---|
+| loss | `loss_step`, `loss_epoch`, `loss_free`, `loss_not_free`, `share_free`, `share_not_free`, `lr` | `loss_epoch`, `loss_free`, `loss_not_free`, `share_free`, `share_not_free` |
+| free 핵심 | `iou_free`, `fatal_rate`, `free_miss_rate` | 같음 |
+| 경계 | — | `occupied_f1_{10,20,40}cm` |
+| range | — | `range_mae`, `range_abs_p90`, `range_bias`, `range_missed_obstacle_rate` |
+| 층화 | — | `ring_{0.0-1.5,1.5-3.0,3.0-4.0}m_iou_free` |
+
+`share_*`는 남겼다 -- 3-class를 폐기시킨 진단(occupied가 셀의 1.1 %인데 val loss의 67 %)이
+바로 이것이고, 한 클래스로 붕괴하는 것을 감시하는 유일한 항이다. binary에서는 0.58/0.42로
+균형이 잡혀 있다.
+
+**`iou_free`는 체크포인트 선택 기준으로 그대로 유지한다.** 정의를 바꾸면 어느 epoch이 best로
+뽑히는지가 달라져 §16–§22의 모든 비교가 깨진다.
+
+### 23.5 검증
+
+축소 뒤 `ft_bin_noos1` best@35를 재채점해 살아남은 숫자가 하나도 변하지 않았음을 확인했다:
+`iou_free` 0.797 / `fatal` 0.134 / `free_miss` 0.088 / `f1@20cm` 0.791 /
+ring 0.830·0.790·0.772 / `range_mae` 0.237. 테스트 314개 통과.
+
+부수 수정: `rescore_checkpoints.py`가 `--val_sequences=raws1,rawos3`처럼 시퀀스를 둘 이상
+받으면 Fire가 tuple로 파싱해 표 출력에서 `TypeError`로 죽었다. 시퀀스를 하나만 주던
+§21에서는 드러나지 않은 잠재 결함이다.

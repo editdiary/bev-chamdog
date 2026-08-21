@@ -37,7 +37,6 @@ from projects.common.free_space_metrics import (  # noqa: E402
     fatal_rate,
     free_miss_rate,
     iou_free,
-    iou_masked,
     metrics_per_ring,
     range_error,
     summarize_range_error,
@@ -45,7 +44,6 @@ from projects.common.free_space_metrics import (  # noqa: E402
     weighted_mean,
 )
 from projects.common.occupied_metrics import (  # noqa: E402
-    derive_occupied,
     summarize_tolerance_f1,
     tolerance_counts,
 )
@@ -126,8 +124,6 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
     ious, iou_counts, fatals, fatal_denoms, misses, miss_denoms = [], [], [], [], [], []
     base_ious, base_counts, base_fatals, base_denoms = [], [], [], []
     allfree_ious, allfree_counts = [], []
-    occ_ious, occ_counts = [], []
-    derived_ious, derived_counts, derived_tolerance_dicts = [], [], []
     range_dicts, ring_dicts, tolerance_dicts = [], [], []
 
     with torch.no_grad():
@@ -167,21 +163,6 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
                 values.append(value)
                 denoms.append(denom)
 
-            value, count = iou_masked(pred_parts["occupied"], gt_parts["occupied"], valid)
-            occ_ious.append(value)
-            occ_counts.append(count)
-
-            # (D) 정식화의 검증: occupied head를 쓰지 않고 **예측 free의 경계**에서 유도한
-            # occupied를 같은 지표로 채점한다. 같은 체크포인트의 두 값을 나란히 놓아야
-            # "occupied 채널이 free 경계보다 나은가"에 답할 수 있다.
-            derived = derive_occupied(pred, valid, rays)
-            value, count = iou_masked(derived, gt_parts["occupied"], valid)
-            derived_ious.append(value)
-            derived_counts.append(count)
-            derived_tolerance_dicts.append(tolerance_counts(
-                derived, gt_parts["occupied"], valid, cell_m
-            ))
-
             range_dicts.append(range_error(pred, gt, valid, rays))
             ring_dicts.append(metrics_per_ring(pred, gt, valid, ring_masks))
             tolerance_dicts.append(tolerance_counts(
@@ -203,9 +184,6 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
         "fatal_rate": weighted_mean(fatals, fatal_denoms),
         "baseline_fatal_rate": weighted_mean(base_fatals, base_denoms),
         "free_miss_rate": weighted_mean(misses, miss_denoms),
-        "iou_occupied": weighted_mean(occ_ious, occ_counts),
-        "iou_occupied_derived": weighted_mean(derived_ious, derived_counts),
-        "tolerance_derived": summarize_tolerance_f1(derived_tolerance_dicts),
         "range": summarize_range_error(range_dicts),
         "range_bins": summarize_range_error_by_gt_range(range_dicts, DEFAULT_RING_EDGES_M),
         "rings": rings,
@@ -271,7 +249,10 @@ def main(
         build_ring_masks(GRID_SPEC), device, constant_map, GRID_SPEC.cell_m,
         decompose_pred=decompose_pred,
     )
-    row = {"name": Path(checkpoint).parent.name, "split": val_sequences, **scores}
+    # `--val_sequences=raws1,rawos3`을 Fire가 **tuple**로 파싱하므로 표에 넣기 전에 문자열로
+    # 되돌린다. 시퀀스를 하나만 줄 때는 str이라 이 결함이 드러나지 않았다.
+    row = {"name": Path(checkpoint).parent.name,
+           "split": ",".join(parse_sequence_names(val_sequences)), **scores}
     print(format_markdown_table([row]))
     print()
     r = scores["range"]
@@ -283,19 +264,14 @@ def main(
     print(f"       missed_obstacle_rate {r['missed_obstacle_rate']:.3f}"
           f" ({r['missed_obstacle']}/{r['ok_gt']} rays)"
           f" | paired rays {r['n_paired_rays']}")
-    # occupied head의 출력과, 같은 체크포인트의 **예측 free 경계에서 유도한** occupied를
-    # 나란히 찍는다 -- (D) 정식화가 무엇을 잃는지(또는 얻는지)의 직접 증거다.
-    for tag, iou_key, tolerance_key_name in (
-        ("head   ", "iou_occupied", "tolerance"),
-        ("derived", "iou_occupied_derived", "tolerance_derived"),
-    ):
-        print(f"occupied[{tag}]: iou {scores[iou_key]:.3f}  <- 면적 IoU (참고용)")
-        for name, values in scores[tolerance_key_name].items():
-            print(f"  f1@{name:5s} {values['f1']:.3f}"
-                  f"  precision {values['precision']:.3f}  recall {values['recall']:.3f}"
-                  # 예측 셀 수를 함께 찍는다 -- occupied는 두께 1셀 표면이라 "몇 셀을
-                  # 칠했나"가 precision의 해석을 바꾼다(§9의 17배 과잉 예측).
-                  f"  | pred {values['n_pred']} gt {values['n_gt']}")
+    # 경계 정밀도. 면적 `iou_occupied`는 2026-08-21에 뺐다(§23) -- 두께 1셀 표면의 면적 IoU는
+    # 한 칸 밀리면 반토막 나서 품질 신호로 읽을 수 없다. binary에서는 head가 없어 "head 대
+    # derived" 대조 자체가 같은 숫자를 두 번 찍는 것이기도 했다.
+    # 예측 셀 수는 남긴다 -- "몇 셀을 칠했나"가 precision의 해석을 바꾼다(§9의 17배 과잉 예측).
+    for name, values in scores["tolerance"].items():
+        print(f"  f1@{name:5s} {values['f1']:.3f}"
+              f"  precision {values['precision']:.3f}  recall {values['recall']:.3f}"
+              f"  | pred {values['n_pred']} gt {values['n_gt']}")
     for name, values in scores["rings"].items():
         print(f"  ring {name:10s} iou_free {values['iou_free']:.3f}"
               f"  fatal {values['fatal_rate']:.3f}"
