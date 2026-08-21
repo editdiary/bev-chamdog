@@ -296,3 +296,70 @@ def test_main_calls_load_checkpoint_state_dict_and_propagates_its_error(tmp_path
         )
 
     assert len(calls) == 1  # main()이 정확히 이 이름으로, 한 번 호출했는지 확인
+
+
+# --------------------------------------------------------------------------------
+# 정식화 배선 -- binary 체크포인트를 3-class 규칙으로 채점하면 숫자가 조용히 틀린다.
+# --------------------------------------------------------------------------------
+
+def test_score_split_routes_predictions_through_the_supplied_decomposer():
+    """`decompose_pred`를 주면 `score_split`이 argmax 대신 그것을 써야 한다.
+
+    binary 정식화가 이 훅으로 붙는다(예측 free의 경계에서 occupied를 유도). 훅이
+    무시되면 3-class argmax가 그대로 돌아 채널 2를 `occupied`로 읽는데, binary
+    logits에는 채널 2가 없으므로 값이 조용히 틀린다.
+    """
+    calls = []
+
+    def decomposer(logits, valid):
+        calls.append(logits.shape[1])
+        # 전부 free -- 손으로 정한 답이므로 logits와 무관하게 iou_free가 1.0이어야 한다.
+        ones = torch.ones_like(valid).bool()
+        return {"free": ones, "occupied": ~ones, "unknown": ~ones}
+
+    model = _StubThreeClassModel([_class_logits([[UNKNOWN] * 4] * 4)])
+    result = score_split(
+        model, [_batch(_ALL_ONES, _ALL_ONES, _ALL_ONES)], vox_util=None,
+        rays=_dummy_rays(), ring_masks=[], device="cpu",
+        constant_map=np.zeros((4, 4), dtype=bool), cell_m=0.05,
+        decompose_pred=decomposer,
+    )
+
+    assert calls == [3]  # 정확히 한 번, logits를 그대로 받았다
+    # argmax가 그대로 돌았다면 예측이 전부 UNKNOWN이므로 0.0이 나온다.
+    assert result["iou_free"] == pytest.approx(1.0, abs=1e-9)
+
+
+def test_main_builds_a_two_channel_head_for_the_binary_formulation(tmp_path, monkeypatch):
+    """`--formulation=binary`가 head 채널 수까지 바꿔야 한다.
+
+    3으로 남으면 `load_checkpoint_state_dict`가 형상 불일치로 죽거나(다행) 다른 곳에서
+    조용히 틀린다. 여기서는 `num_classes`가 실제로 전달되는지만 고정한다.
+    """
+    import tools.rescore_checkpoints as tool
+
+    seen = {}
+
+    def _record_segnet(*args, **kwargs):
+        seen.update(kwargs)
+        return _TinyModel()
+
+    monkeypatch.setattr(tool, "list_sequence_samples", lambda root: [])
+    monkeypatch.setattr(tool, "build_bev_masks", lambda *a, **kw: (None, None))
+    monkeypatch.setattr(tool, "constant_free_map", lambda masks: np.zeros((1, 1), dtype=bool))
+    monkeypatch.setattr(tool, "RobotBEVDataset", _EmptyDataset)
+    monkeypatch.setattr(tool, "build_double_sphere_vox_util", lambda *a, **kw: None)
+    monkeypatch.setattr(tool, "ThreeClassSegnet", _record_segnet)
+    monkeypatch.setattr(tool, "load_checkpoint_state_dict", lambda *a: None)
+
+    tool.main(checkpoint=str(tmp_path / "unused.pth"), train_sequences="fake",
+              val_sequences="fake", formulation="binary", batch_size=1, num_workers=0,
+              device="cpu")
+
+    assert seen["num_classes"] == 2
+
+
+def test_main_rejects_an_unknown_formulation(tmp_path):
+    """오타를 조용히 three_class로 처리하면 잘못된 표가 나온다."""
+    with pytest.raises(ValueError, match="formulation"):
+        main(checkpoint=str(tmp_path / "unused.pth"), formulation="binaryy")

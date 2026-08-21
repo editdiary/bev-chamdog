@@ -199,6 +199,7 @@ CUDA_VISIBLE_DEVICES=0 python tools/render_prediction_video.py \
 | `tools/measure_derived_occupied.py` | GT 상한 실측 + 광선 수 스윕 + 형태학적 대안 기각 |
 | `tools/render_prediction_video.py` | 라벨 없는 시퀀스 → mp4. `cam0..3` / `cam_<name>` 자동 판별 |
 | `tools/rescore_checkpoints.py` | head 대 derived occupied를 나란히 출력 |
+| `tools/analyze_error_structure.py` | 프레임별 분포 + 방위각 프로파일 + 품질별 대조 (§22) |
 | `tools/visualize_robot_predictions.py` | `--formulation=binary`, **`- 0.5` 버그 수정** |
 | `configs/train_robot_bev_finetune.sh` | `FORMULATION`, `ENCODER_TYPE`, `FREEZE_ENCODER`, `LABEL_SMOOTHING`, `FLIP_AUGMENT`, `NUM_EPOCHS` 기본 30 |
 
@@ -211,6 +212,7 @@ CUDA_VISIBLE_DEVICES=0 python tools/render_prediction_video.py \
 | `ft_bin_frozen_...` | `FREEZE_ENCODER=True` | 0.7120 |
 | `ft_bin_ls05_...` | `LABEL_SMOOTHING=0.05` | 0.7968 |
 | `ft_bin_flip_...` | `FLIP_AUGMENT=True` | 0.7725 |
+| `ft_bin_noos1_..._171526` | train에서 `rawos1` 제거 (153장), 60 ep | 0.7969 @ep35 (동률, §20) |
 | `ft_scratch_..._191705` | **3-class** 비교군(§11의 승자) | 0.7979 |
 
 체크포인트는 `model_best`만 남기고 주기 저장분은 `tools/prune_runs.py`로 정리했다(§14).

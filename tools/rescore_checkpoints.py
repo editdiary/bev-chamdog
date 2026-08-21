@@ -12,6 +12,10 @@
     CUDA_VISIBLE_DEVICES=0 python tools/rescore_checkpoints.py \\
         --checkpoint=runs/robot_bev/ckpt/<run>/model_best-000000030.pth \\
         --train_sequences=raws2,raws3,rawos1,rawos2,rawos4 --val_sequences=raws1,rawos3
+
+`--formulation=binary`로 (D) 정식화 체크포인트도 같은 지표로 채점한다. **정식화를 틀리면
+head 채널 수가 안 맞아 `load_checkpoint_state_dict`가 즉시 실패한다** -- 조용히 다른 숫자가
+나오는 일은 없다. `--val_sequences`에 시퀀스를 하나만 주면 시퀀스별 분해가 된다.
 """
 import sys
 from pathlib import Path
@@ -25,6 +29,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 from projects.common.baselines import all_free_map, as_batch, constant_free_map  # noqa: E402
+from projects.common.binary_metrics import predicted_parts as binary_predicted_parts  # noqa: E402
 from projects.common.free_space import decompose, decompose_from_class_index  # noqa: E402
 from projects.common.free_space_metrics import (  # noqa: E402
     DEFAULT_RING_EDGES_M,
@@ -108,7 +113,16 @@ def _collect_free_masks(samples, permanent_blind, invalid):
 
 
 def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
-                cell_m) -> dict:
+                cell_m, decompose_pred=None) -> dict:
+    """`decompose_pred(logits, valid)`가 예측 logits를 free/occupied/unknown으로 나눈다.
+
+    정식화마다 이 규칙만 다르고 나머지 채점은 완전히 같다 -- 그래서 3-class와 binary의
+    숫자를 한 표에 놓을 수 있다. 기본값은 3-class의 argmax 분해다.
+    """
+    if decompose_pred is None:
+        def decompose_pred(logits, valid):
+            return decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid)
+
     ious, iou_counts, fatals, fatal_denoms, misses, miss_denoms = [], [], [], [], [], []
     base_ious, base_counts, base_fatals, base_denoms = [], [], [], []
     allfree_ious, allfree_counts = [], []
@@ -130,7 +144,7 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
             # 학습 루프(`three_class_metrics.compute_free_metrics`)와 같은 방식으로 예측을
             # 분해한다 -- 여기가 argmax가 아닌 다른 규칙을 쓰면 재채점 값이 학습 로그의
             # 값과 달라져 두 숫자를 나란히 읽을 수 없다.
-            pred_parts = decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid)
+            pred_parts = decompose_pred(logits, valid)
             gt, pred = gt_parts["free"], pred_parts["free"]
             batch_size = gt.shape[0]
             base = as_batch(constant_map, batch_size, device)
@@ -206,11 +220,15 @@ def main(
     dataset_root=DEFAULT_DATASET_ROOT,
     common_root=DEFAULT_COMMON_ROOT,
     encoder_type="res101",
+    # 정식화. `three_class`(기본) 또는 `binary`. 학습 때와 같은 값을 줘야 한다.
+    formulation="three_class",
     batch_size=4,
     num_workers=4,
     n_theta=None,
     device="cuda",
 ):
+    if formulation not in ("three_class", "binary"):
+        raise ValueError(f"formulation은 three_class 또는 binary여야 한다: {formulation}")
     dataset_root = Path(dataset_root)
     train_samples = [
         s for name in parse_sequence_names(train_sequences)
@@ -232,6 +250,7 @@ def main(
     model = ThreeClassSegnet(
         Z, Y, X, vox_util, use_radar=False, use_lidar=False,
         do_rgbcompress=True, encoder_type=encoder_type, rand_flip=False,
+        num_classes=2 if formulation == "binary" else 3,
     ).to(device)
     load_checkpoint_state_dict(model, checkpoint, device)
     model.eval()
@@ -239,10 +258,18 @@ def main(
     # n_theta는 명시적으로 지정하지 않는 한 `build_ray_index`의 기본값(720, Task 6)을
     # 그대로 따른다 -- 여기서 옛 기본값(360)을 하드코딩해 조용히 되돌리면 안 된다.
     rays = build_ray_index(GRID_SPEC) if n_theta is None else build_ray_index(GRID_SPEC, n_theta=n_theta)
+    # binary는 occupied head가 없으므로 예측 free의 경계에서 유도한다 -- 학습 루프와
+    # 시각화가 쓰는 것과 **같은 함수**여야 세 곳의 숫자가 갈리지 않는다.
+    decompose_pred = None
+    if formulation == "binary":
+        def decompose_pred(logits, valid, _rays=rays):
+            return binary_predicted_parts(logits, valid, _rays)
+
     scores = score_split(
         model, loader, vox_util,
         rays,
         build_ring_masks(GRID_SPEC), device, constant_map, GRID_SPEC.cell_m,
+        decompose_pred=decompose_pred,
     )
     row = {"name": Path(checkpoint).parent.name, "split": val_sequences, **scores}
     print(format_markdown_table([row]))
