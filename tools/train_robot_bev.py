@@ -278,6 +278,12 @@ def main(
     # gradient가 정확히 0이 되고, 그래서 라벨의 반경 방향 오차를 외울 동기가 사라진다.
     # `0.0`으로 두면 "dead zone이 실제로 필요한가"의 ablation이 된다.
     delta_r_m=0.20,
+    # `delta_r_over_m` -- **과대예측 쪽 관용만 따로 좁힌다** [m]. `None`이면 `delta_r_m`과
+    # 같아 대칭이다. `arc_hat > arc_gt`는 없는 자유공간을 있다고 예측한 것이고 로봇에게
+    # 그쪽이 치명 방향이다(`fatal_rate`·`missed_obstacle`). 실측 `arc_bias`가 전 런에서
+    # +0.063~+0.086 m로 일관되게 그쪽이었다(§13.7) -- 즉 대칭 dead zone은 **판정 축을
+    # 무료로 허용하고 있었다.** 보수 방향(`delta_r_m`)은 넓게 둔다(§4.5).
+    delta_r_over_m=None,
     # `huber_beta_m` -- Huber 전환점 [m]. **미터로 둔다** -- 정규화된 스케일에서 주면 실효
     # 오차가 항상 β보다 작아져 순수 L2로 퇴화하고 outlier 강건성이 사라진다.
     huber_beta_m=0.10,
@@ -378,8 +384,13 @@ def main(
         # `L_range` 보조항. 별도 줄로 두는 이유: `λ_R`은 gradient 비로 캘리브레이션한 값이라
         # (§13.3) 다른 손잡이와 성격이 다르고, 꺼져 있을 때는 줄 자체가 없어야 한다.
         *([f" loss += λ_R={float(lambda_r):.4f} · L_range"
-           f" | δ_R={float(delta_r_m):.3f} m | β={float(huber_beta_m):.3f} m"
-           + ("  <- δ_R=0: dead zone ablation" if float(delta_r_m) == 0.0 else "")]
+           f" | δ_R⁻={float(delta_r_m):.3f} m"
+           f" | δ_R⁺={float(delta_r_m if delta_r_over_m is None else delta_r_over_m):.3f} m"
+           f" | β={float(huber_beta_m):.3f} m"
+           + ("  <- δ_R=0: dead zone ablation" if float(delta_r_m) == 0.0 else "")
+           + ("  <- 비대칭: 과대예측(fatal 방향)만 좁혔다"
+              if delta_r_over_m is not None
+              and float(delta_r_over_m) != float(delta_r_m) else "")]
           if float(lambda_r) > 0.0 else []),
         f" class weights ({spec['weight_label']}) = {class_weights.tolist()}"
         + ("  <- soft_boundary에서는 쓰이지 않는다 (per-set 평균이 대체)"
@@ -476,6 +487,7 @@ def main(
                 sigma=sigma_m, alpha=sigma_alpha,
                 gather=gather, lambda_r=float(lambda_r),
                 delta_r=float(delta_r_m), huber_beta=float(huber_beta_m),
+                delta_r_over=None if delta_r_over_m is None else float(delta_r_over_m),
             )
         loss_part_names = (binary_metrics.SOFT_BOUNDARY_RANGE_LOSS_PART_NAMES
                            if float(lambda_r) > 0.0

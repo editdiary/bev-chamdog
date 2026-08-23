@@ -66,9 +66,12 @@ SIGMA_M="${SIGMA_M:-None}"
 #                 `python tools/measure_range_gradient.py --lambda_r=1.0`로 캘리브레이션한다
 #                 (목표: gradient 비 G_R/G_B ~ 0.1)
 #   DELTA_R_M     허용 반폭 [m]. 이 안에서 gradient가 0이 된다. 0이면 dead zone ablation
+#   DELTA_R_OVER_M  **과대예측(fatal 방향) 쪽 관용만** [m]. None이면 DELTA_R_M과 같아 대칭.
+#                 대칭이면 "벽 안쪽 δ_R까지 free 예측"이 무벌점이 되는데 그게 주 판정 축이다
 #   HUBER_BETA_M  Huber 전환점 [m]. 미터로 둔다 (정규화하면 L2로 퇴화한다)
 LAMBDA_R="${LAMBDA_R:-0.0}"
 DELTA_R_M="${DELTA_R_M:-0.20}"
+DELTA_R_OVER_M="${DELTA_R_OVER_M:-None}"
 HUBER_BETA_M="${HUBER_BETA_M:-0.10}"
 
 # 산출물 위치. 반복 실험은 본 실험 폴더를 어지럽히지 않도록 별도 트리에 쌓는다:
@@ -134,6 +137,7 @@ python tools/train_robot_bev.py \
     --sigma_m="${SIGMA_M}" \
     --lambda_r="${LAMBDA_R}" \
     --delta_r_m="${DELTA_R_M}" \
+    --delta_r_over_m="${DELTA_R_OVER_M}" \
     --huber_beta_m="${HUBER_BETA_M}" \
     --augment="${AUGMENT}" \
     --val_freq_epochs=1 \

@@ -29,6 +29,11 @@
 > **옛 스윕의 `f1` 기반 결론 일부는 기각됐다**(§10.3, §11의 재판정 주석).
 > `--loss=weighted_ce`는 대조군이므로 지우지 않는다.
 >
+> **미결(사용자 결정 대기): 비대칭 dead zone `δ_R⁺`** (§13.8). `δ_R⁺=0`이 `fatal_rate`를
+> −3.9σ 개선하고 되올림·KL 배율에서 스윕 최고인데 `free_miss_rate`가 +6.7σ 나빠진다
+> (`fatal` 1셀당 `miss` 1.6셀). 로봇 운용 판단이라 확정하지 않았다. 현재 확정 config는
+> 여전히 대칭 `δ_R=0.20`(= `sb_r30`)이다.
+>
 > **직전 작업 인수인계: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)** (2026-08-19)
 >
 > binary 정식화 전환·과적합 손잡이 실측·파이프라인 검증까지의 상태와 다음 결정 사항.

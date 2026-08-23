@@ -141,7 +141,7 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
                             delta=DEFAULT_DELTA_M, lambda_b=DEFAULT_LAMBDA_B,
                             target=TARGET_LINEAR, sigma=None, alpha=None,
                             gather=None, lambda_r=0.0, delta_r=DEFAULT_DELTA_R_M,
-                            huber_beta=DEFAULT_HUBER_BETA_M):
+                            delta_r_over=None, huber_beta=DEFAULT_HUBER_BETA_M):
     """soft-boundary loss로 한 배치. 설계는 `docs/soft_boundary_loss_design.md`.
 
     `run_batch`와 **지표 계산은 완전히 같다** -- 다른 것은 loss 하나뿐이다. 그래야 두 loss의
@@ -174,7 +174,8 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
         prob_free = torch.softmax(logits, dim=1)[:, 1:2]
         free_gt = decompose(seg_bev_g, vis_bev_g, valid_bev_g)["free"]
         range_term = compute_range_loss(prob_free, free_gt, valid_bev_g, gather,
-                                        delta_r=delta_r, beta=huber_beta)
+                                        delta_r=delta_r, delta_r_over=delta_r_over,
+                                        beta=huber_beta)
 
     loss, loss_parts = compute_soft_boundary_loss(
         logits, d_bev_g, valid_bev_g, permanent_blind.to(device),

@@ -100,6 +100,40 @@ def test_gradient_is_exactly_zero_inside_dead_zone(gather):
             assert grad_norm > 0.0
 
 
+def test_asymmetric_dead_zone_only_forgives_the_conservative_side(gather):
+    """`δ_R⁺ < δ_R⁻`이면 과대예측만 벌하고 과소예측은 계속 용서한다.
+
+    과대예측(`arc_hat > arc_gt`)이 `fatal` 방향이다. 실측 `arc_bias`가 전 런에서 양수였으므로
+    (§13.7) 그쪽만 좁히는 것이 이 손잡이의 목적이다.
+    """
+    free = _disc(0.6)
+    valid = _as_batch(np.ones_like(free))
+    # 같은 크기(약 0.05 m)의 변위를 양쪽으로 준다.
+    grown, shrunk = _disc(0.65), _disc(0.55)
+
+    def run(pred):
+        prob = _as_batch(pred).float().requires_grad_(True)
+        loss, parts = compute_range_loss(prob, _as_batch(free), valid, gather,
+                                         delta_r=0.20, delta_r_over=0.0)
+        loss.backward()
+        return loss.item(), prob.grad.abs().sum().item(), parts["range_arc_bias"].item()
+
+    over_loss, over_grad, over_bias = run(grown)
+    under_loss, under_grad, under_bias = run(shrunk)
+
+    assert over_bias > 0 and under_bias < 0, "부호 규약이 뒤집히면 안 된다"
+    # 과대예측: δ_R⁺=0이므로 벌한다.
+    assert over_loss > 0.0 and over_grad > 0.0
+    # 과소예측: δ_R⁻=0.20 안이므로 여전히 완전히 평평하다.
+    assert under_loss == 0.0 and under_grad == 0.0
+
+    # 대칭(기본)에서는 양쪽 다 용서된다 -- 이것이 고치려는 상태다.
+    for pred in (grown, shrunk):
+        loss, _ = compute_range_loss(_as_batch(pred).float(), _as_batch(free), valid,
+                                     gather, delta_r=0.20)
+        assert loss.item() == 0.0
+
+
 def test_free_island_behind_the_wall_is_penalized(gather):
     """per-cell BCE가 거의 안 보는 오차 모드를 이 항이 잡는다.
 

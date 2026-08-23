@@ -115,8 +115,18 @@ def ray_is_ok(sampled_free, inside):
 
 
 def compute_range_loss(prob_free, free_gt, valid, gather, delta_r=DEFAULT_DELTA_R_M,
-                       beta=DEFAULT_HUBER_BETA_M):
+                       delta_r_over=None, beta=DEFAULT_HUBER_BETA_M):
     """`(loss, 항별 dict)`. `prob_free`는 `(B, 1, H, W)`의 `p(free)`다.
+
+    **`delta_r_over`는 과대예측 쪽 관용을 따로 좁힌다.** `None`이면 `delta_r`과 같아 대칭이다.
+    비대칭이 필요한 이유: `arc_hat > arc_gt`는 **없는 자유공간을 있다고 예측한 것**이고
+    로봇에게 그쪽이 치명 방향이다(`fatal_rate`·`missed_obstacle`). 대칭 dead zone은 그 방향
+    변위를 δ_R까지 **무벌점으로 허용**하는데, 실측에서 `arc_bias`가 전 런에서 +0.063~+0.086 m로
+    일관되게 그쪽으로 기울어 있었고 `λ_R=0.1` 런은 `f1` +2.2σ를 사려고 `fatal`을 +7.8σ
+    팔았다(설계 문서 §13.7). 즉 **판정하기로 한 축을 loss가 무료로 허용하고 있었다.**
+
+    `δ_R⁻`(보수 방향)은 넓게 두는 것이 맞다 -- 그쪽 오차는 라벨 불확실성과 구별되지 않고
+    비용도 낮다(§4.5: "안전한 방향의 드리프트를 멈추는 것 자체는 목표가 아니다").
 
     **목표는 `polar.first_free_range`의 `R_gt`가 아니라 `arc = Δr·Σ(free)`다.** 둘은 같은
     양이 아니다 -- `R_gt`는 ego 원점부터의 반지름이고 `first_free_range`의 계약은 ego 아래
@@ -152,8 +162,9 @@ def compute_range_loss(prob_free, free_gt, valid, gather, delta_r=DEFAULT_DELTA_
     signed = arc_hat - arc_gt
     error = signed.abs()
     # **dead zone.** 여기서 loss가 평평해지고 gradient가 정확히 0이 된다 -- 그것이 이 항의
-    # 요점이다(모듈 docstring).
-    effective = (error - delta_r).clamp_min(0.0)
+    # 요점이다(모듈 docstring). 두 항 중 하나만 0이 아니다(`signed`의 부호가 하나뿐이므로).
+    over_tol = delta_r if delta_r_over is None else delta_r_over
+    effective = (signed - over_tol).clamp_min(0.0) + (-signed - delta_r).clamp_min(0.0)
     # `F.smooth_l1_loss(e, 0, beta=β)`가 정확히 `ρ_β(e) = e²/(2β) | e−β/2`다.
     per_ray = F.smooth_l1_loss(effective, torch.zeros_like(effective),
                               reduction="none", beta=beta)
