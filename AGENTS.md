@@ -21,13 +21,26 @@
 > **loss가 수식으로 정확히 무엇인지는 [`docs/loss_function_spec.md`](docs/loss_function_spec.md)가
 > 정본이다** -- 근거·결과 없이 형태만 있어 대조 없이 읽힌다.
 >
-> **[정본] CE 대비 성과는 §15의 n=3 ablation이다** (`runs/ablation/`,
-> `configs/ablation_loss.sh` → `tools/report_ablation.py`). 사다리 4칸
-> `A_ce → B_perset → C_soft → D_range` × 시드 3개. 확정 세 가지:
-> ① **재현성 4~9배** (시드 간 σ: `fatal` 0.0063 → 0.0007, `range_bias` 0.0190 → 0.0023).
-> ② **되올림 2.4배 감소** (61.8 → 19.3 %, 엔트로피 하한 제거 후).
-> ③ **안전 개선** (`missed_obstacle` −16.1 %, `fatal` −9.2 %) / 대가 `free_miss` +16.4 %.
-> **정확도는 CE와 동일**(`iou_free`·`f1@τ`·`range_mae` 전부 노이즈). **암기는 안 줄었다.**
+> **[정본] loss 연구는 §16으로 종결됐다.** 근거는 §15의 n=3 ablation(`runs/ablation/`,
+> `configs/ablation_loss.sh` → `tools/report_ablation.py`, 사다리 4칸
+> `A_ce → B_perset → C_soft → D_range` × 시드 3개)과 그것을 threshold sweep으로 재판독한 §16이다.
+> **살아남은 주장은 하나다.**
+>
+> ① ✅ **재학습 재현성 5~22배** (시드 간 σ: `fatal` 0.0063 → 0.0007, `range_bias`
+> 0.0190 → 0.0023). **τ ∈ [0.2, 0.8] 전 구간에서 성립**하고, 유효 threshold jitter로는 17배다.
+> ② ✅ **되올림 2.4배 감소** (61.8 → 19.3 %, 엔트로피 하한 제거 후). val loss 발산이
+> **±15 cm 경계 대역으로 국소화되고 크기가 절반 이하**가 된다(CE +0.2003 대 `D_range` +0.0839).
+> ③ ❌ **[철회] "안전 개선"은 동작점 이동이었다**(§16.2). 같은 `free_miss`에서 `fatal`·
+> `missed_obstacle` 곡선이 **CE와 시드 σ 안에서 겹친다.** **CE도 τ를 0.5 → 0.7로 올리면
+> 같은 자리에 온다.**
+>
+> **정확도는 CE와 동일**하고 **τ를 최적화해도 그렇다**(최대 `iou_free` A 0.7992 / D 0.7979).
+> **암기는 안 줄었다.** → **한 문장: 더 좋은 모델을 주지 않고, 같은 모델을 더 일관되게 준다.**
+>
+> **표기 규약: 절대값(pp) 먼저, 상대값은 괄호**(§16.5). `fatal −1.25 pp (−9.2 % relative)`.
+> **"남은 오차의 98.9 %가 편향"은 과했다**(§16.6) -- "현재 pipeline이 공유하는 오차"가 맞고
+> `task ceiling`이라고 부르지 않는다. **`σ_target = √(σ_label²+σ_model²)`는 유도가 아니라
+> 진단이다**(§16.7).
 >
 > **[철회 두 개 -- 옛 절의 σ를 인용하지 말 것]**
 > (a) **σ_run은 하한이다**(§15.4). 같은 config·같은 시드의 재현 노이즈이므로 **서로 다른
@@ -43,10 +56,15 @@
 > `f1@10cm`은 주 판정에서 강등돼 있다(§14, [`docs/BEV_loss_and_metrics_design.md`](docs/BEV_loss_and_metrics_design.md) §2.9).
 > `--loss=weighted_ce`는 대조군이므로 지우지 않는다.
 >
-> **미결(사용자 결정 대기): 비대칭 dead zone `δ_R⁺`** (§13.8). `δ_R⁺=0`이 `fatal_rate`를
-> 개선하는 대신 `free_miss_rate`를 악화시키는 교환인데, **그 판정의 σ가 위 (a)로 무효가
-> 됐고 n=3 ablation에 이 칸이 없어 미확인 상태다.** 현재 확정 config는 여전히 대칭
-> `δ_R=0.20`이다.
+> **[종결] 비대칭 dead zone `δ_R⁺`는 채택하지 않는다**(§16.8). 판정의 σ가 위 (a)로 무효가
+> 됐고, n=3에 그 칸이 없고, 무엇보다 **"range 보조항이 좋아진 건지 safety bias를 넣어
+> 좋아진 건지 원인 분리가 안 된다."** 확정 config는 대칭 `δ_R=0.20`이다.
+>
+> **[다음 세션은 여기부터] 순서는 [`docs/experiment_history.md`](docs/experiment_history.md)
+> §5의 "다음 세션이 할 일" 표다.** ① `grid_sample` 좌표 규약 결함(진단 문서 §18.3) 확정·수정
+> ② seed boundary jitter [cm] -- 무료, 체크포인트 9개 ③ temporal jitter(full-seq 30 fps,
+> pose 없이 가능, **품질 게이트 필수**) ④ loss family 교차 앙상블 -- 무료 ⑤ LOSO 7-fold.
+> **`δ` 스윕·`λ_R` warm-up·`λ_B` 조정은 전부 하지 않는다**(§16.8).
 >
 > **과적합은 파라미터로 못 고친다**(§15.8, 진단 문서 §10.2·§17.1·§19·§20.2). `weight_decay`
 > ·`res50`·`freeze_encoder`·`flip_augment`·`label_smoothing` 전부 기각. train을 20 % 버려
