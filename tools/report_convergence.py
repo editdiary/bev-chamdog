@@ -93,6 +93,12 @@ def read_run(run_dir) -> dict:
         "kl_last": _series(acc, "val/kl_boundary_epoch").get(last, float("nan")),
         "kl_slope": _tail_slope(_series(acc, "val/kl_boundary_epoch")),
         "kl_train_last": _series(acc, "train/kl_boundary_epoch").get(last, float("nan")),
+        # `L_range` 전용(§13). `arc_mae`는 dead zone 전의 순수 거리 오차 [m]이고,
+        # `arc_bias`는 그 부호다 -- 양수면 자유공간 과대예측(= `fatal` 방향)이다.
+        "arc_mae_last": _series(acc, "val/range_arc_mae_epoch").get(last, float("nan")),
+        "arc_mae_train_last": _series(acc, "train/range_arc_mae_epoch").get(last, float("nan")),
+        "arc_bias_last": _series(acc, "val/range_arc_bias_epoch").get(last, float("nan")),
+        "share_range_last": _series(acc, "train/share_range_epoch").get(last, float("nan")),
     }
 
 
@@ -144,11 +150,36 @@ def format_report(runs) -> str:
 
     soft = [r for r in done if r["config"].get("loss") == "soft_boundary"]
     if soft:
+        # **배율(train/val KL 격차)이 §12.2가 정한 판정 숫자다.** 현재 28~42배이고, 보조항이
+        # 프론티어를 옮겼다면 이것이 줄어야 한다. 스칼라 하나가 좋아지는 것보다 강한 근거다.
         lines += ["", "=== 경계 항 (kl_boundary가 진짜 진행도. loss_boundary는 하한이 있어 0으로 안 간다) ===",
-                  f"{'런':>26s} {'val kl':>9s} {'train kl':>10s} {'val kl 기울기':>13s}"]
+                  f"{'런':>26s} {'val kl':>9s} {'train kl':>10s} {'배율':>7s} {'val kl 기울기':>13s}"]
         for r in soft:
+            train_kl = r["kl_train_last"]
+            ratio = (r["kl_last"] / train_kl) if train_kl and train_kl == train_kl and train_kl > 0 else float("nan")
             lines.append(f"{label(r):>26s} {_f(r['kl_last'], '.4f', 9)} "
-                         f"{_f(r['kl_train_last'], '.4f', 10)} {_f(r['kl_slope'], '+.5f', 13)}")
+                         f"{_f(r['kl_train_last'], '.4f', 10)} {_f(ratio, '.1f', 6)}x "
+                         f"{_f(r['kl_slope'], '+.5f', 13)}")
+
+    ranged = [r for r in soft if float(r["config"].get("lambda_r") or 0.0) > 0.0]
+    if ranged:
+        # `arc_mae`도 train/val 격차를 갖는다(구현 시점 실측 0.043 대 0.257, 6배). 그 격차가
+        # 줄어드는지가 이 항이 암기를 실제로 억제했는지의 두 번째 독립 판독값이다.
+        # `share_r`는 gradient 몫이 아니라 loss 기여 몫이지만, `λ_R`이 캘리브레이션 값에서
+        # 벗어나 주 loss가 되어 버렸는지를 값싸게 확인해 준다(§13.3).
+        lines += ["", "=== 보조항 L_range (arc_mae는 dead zone 전의 거리 오차 [m]) ===",
+                  f"{'런':>26s} {'λ_R':>5s} {'δ_R':>5s} {'val arc_mae':>12s} "
+                  f"{'train arc_mae':>14s} {'배율':>7s} {'arc_bias':>9s} {'share_r':>8s}"]
+        for r in ranged:
+            train_arc = r["arc_mae_train_last"]
+            ratio = (r["arc_mae_last"] / train_arc) if train_arc and train_arc == train_arc and train_arc > 0 else float("nan")
+            lines.append(
+                f"{label(r):>26s} {float(r['config']['lambda_r']):5.2f} "
+                f"{float(r['config'].get('delta_r_m', 0)):5.2f} "
+                f"{_f(r['arc_mae_last'], '.4f', 12)} {_f(r['arc_mae_train_last'], '.4f', 14)} "
+                f"{_f(ratio, '.1f', 6)}x {_f(r['arc_bias_last'], '+.4f', 9)} "
+                f"{_f(r['share_range_last'], '.3f', 8)}"
+            )
     return "\n".join(lines)
 
 
@@ -156,7 +187,8 @@ def knobs(run) -> dict:
     """손잡이만 뽑는다. `α`는 `σ/δ`이고 선형 target은 `α → ∞` 극한이다(설계 문서 §10)."""
     config = run["config"]
     if config.get("loss") != "soft_boundary":
-        return {"shape": "-", "delta": None, "lambda_b": None}
+        return {"shape": "-", "delta": None, "lambda_b": None,
+                "lambda_r": 0.0, "delta_r": 0.0}
     alpha = config.get("sigma_alpha")
     sigma = config.get("sigma_m")
     if config.get("soft_target") == "linear":
@@ -168,7 +200,11 @@ def knobs(run) -> dict:
     else:
         shape = "?"
     return {"shape": shape, "delta": config.get("delta_m"),
-            "lambda_b": config.get("lambda_b")}
+            "lambda_b": config.get("lambda_b"),
+            # `λ_R`과 `δ_R`이 없으면 §13 스윕의 런들이 표에서 구별되지 않는다 -- 이름만
+            # 다르고 손잡이 칸이 전부 같게 찍힌다. 옛 런에는 config 키가 없으므로 0으로 읽는다.
+            "lambda_r": float(config.get("lambda_r") or 0.0),
+            "delta_r": float(config.get("delta_r_m") or 0.0)}
 
 
 def format_frontier(runs) -> str:
@@ -184,8 +220,8 @@ def format_frontier(runs) -> str:
         return ""
     rows = sorted(done, key=lambda r: -r["f1_10cm_last"])
     lines = ["", "=== 교환 곡선: 성능(f1@10cm) 대 수렴(되올림) ===",
-             f"{'런':>16s} {'α':>9s} {'δ':>5s} {'λ_B':>5s} | {'되올림':>8s} "
-             f"{'f1@10':>7s} {'최고(ep)':>12s} {'fatal':>7s} | {'판정':>8s}"]
+             f"{'런':>16s} {'α':>9s} {'δ':>5s} {'λ_B':>5s} {'λ_R':>5s} {'δ_R':>5s} | "
+             f"{'되올림':>8s} {'f1@10':>7s} {'최고(ep)':>12s} {'fatal':>7s} | {'판정':>8s}"]
     for run in rows:
         k = knobs(run)
         # 되올림이 더 작으면서 f1이 더 높은 다른 런이 있으면 이 점은 지배된다.
@@ -195,7 +231,9 @@ def format_frontier(runs) -> str:
         lines.append(
             f"{name:>16s} {k['shape']:>9s} "
             f"{('%.2f' % k['delta']) if k['delta'] is not None else '-':>5s} "
-            f"{('%.2f' % k['lambda_b']) if k['lambda_b'] is not None else '-':>5s} | "
+            f"{('%.2f' % k['lambda_b']) if k['lambda_b'] is not None else '-':>5s} "
+            f"{('%.2f' % k['lambda_r']) if k['lambda_r'] else '-':>5s} "
+            f"{('%.2f' % k['delta_r']) if k['lambda_r'] else '-':>5s} | "
             f"{run['rebound_pct']:+7.1f}% {run['f1_10cm_last']:7.4f} "
             f"{run['f1_best']:.4f}({run['f1_best_epoch']:2d}) {run['fatal_last']:7.4f} | "
             f"{'지배됨' if dominated else '프론티어':>8s}"

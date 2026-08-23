@@ -36,8 +36,15 @@ NUM_EPOCHS="${NUM_EPOCHS:-40}"
 OUT_ROOT="${OUT_ROOT:-runs/robot_bev_cv/loss_sweep}"
 CUDA_DEVICE="${CUDA_VISIBLE_DEVICES:-0}"
 
+# **`sb_a050_re`는 §10.3의 베이스라인(α=0.5, λ_B=0.5, λ_R=0)을 다시 돌리는 것이다.**
+# 반드시 같은 스윕 안에 넣는다 -- §9/§10의 숫자는 다른 시점의 환경에서 나왔고, ±0.004를
+# 판정하는 비교에 torch/cuDNN 버전이 교란으로 들어갈 수 있다. 같은 환경에서 다시 재면 그
+# 질문 자체가 사라지고, 부수적으로 cuDNN 비결정성의 크기(§24의 σ와 비교)도 읽힌다.
+# 이 런은 새 코드 경로를 타지 않는다(`LAMBDA_R=0`이면 항이 계산되지 않는다).
+#
 # name|LAMBDA_B|LAMBDA_R|DELTA_R_M
 CONFIGS=(
+    "sb_a050_re|0.5|0.0|0.20"
     "sb_r30|0.5|0.3|0.20"
     "sb_r10|0.5|0.1|0.20"
     "sb_r30_dr00|0.5|0.3|0.0"

@@ -15,11 +15,19 @@
 >
 > **현재 작업: soft-boundary loss -- [`docs/soft_boundary_loss_design.md`](docs/soft_boundary_loss_design.md)** (2026-08-21)
 >
-> 라벨의 불완전성을 **loss에 명시적으로 모델링**한다(경계 대역에 soft target). **역빈도 가중
-> CE보다 낫다는 것은 실측됐다**(`f1@10cm` 0.5458 → 0.5561, val loss 발산 66.7 % → 13.9 %).
-> **손잡이(δ·α·λ_B)는 소진됐다** -- 전부 같은 교환 곡선 위를 움직인다(§11.2). 다음은 보조 항
-> 두 개(거리 회귀, 허용오차 F1)이고 계획은 **§12**다. `--loss=weighted_ce`는 대조군이므로
-> 지우지 않는다.
+> 라벨의 불완전성을 **loss에 명시적으로 모델링**한다(경계 대역에 soft target). 여기에
+> 방위각 자유거리 보조항 `L_range`를 더한 것이 **현재 확정 config**다(§13:
+> gaussian δ=0.15 α=0.5 λ_B=0.5, λ_R=0.3 δ_R=0.20 β=0.10).
+>
+> **CE 대비 성과는 `f1`이 아니라 안전 지표와 수렴이다**(§13.7): `fatal_rate` −5.2 %(14σ),
+> `missed_obstacle` −11.5 %(8.4σ), 되올림 −74 %(94σ). `iou_free`·`f1@τ`는 전부 노이즈 안이다.
+>
+> **[중요] σ_run을 실측했고 주 판정 지표가 바뀌었다.** 같은 config·같은 시드에서도
+> `f1@10cm`이 σ 0.0037로 흔들린다(§13.6.1). 그래서 **`f1@10cm`은 주 판정에서 강등**되고
+> 안전 지표(`fatal_rate`·`missed_obstacle`)와 안정성(되올림·KL 배율)이 주 판정이다 --
+> 규칙은 **§14**, 지표 역할 기록은 [`docs/BEV_loss_and_metrics_design.md`](docs/BEV_loss_and_metrics_design.md) §2.9.
+> **옛 스윕의 `f1` 기반 결론 일부는 기각됐다**(§10.3, §11의 재판정 주석).
+> `--loss=weighted_ce`는 대조군이므로 지우지 않는다.
 >
 > **직전 작업 인수인계: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)** (2026-08-19)
 >
