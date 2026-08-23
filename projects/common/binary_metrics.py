@@ -23,6 +23,11 @@ from projects.common.segmentation_loss import (
     inverse_frequency_weights,
     masked_weighted_ce,
 )
+from projects.common.range_loss import (
+    DEFAULT_DELTA_R_M,
+    DEFAULT_HUBER_BETA_M,
+    compute_range_loss,
+)
 from projects.common.soft_boundary import (
     DEFAULT_DELTA_M,
     DEFAULT_LAMBDA_B,
@@ -38,6 +43,8 @@ _PART_BY_CLASS = {NOT_FREE: "not_free", FREE: "free"}
 LOSS_PART_NAMES = ("not_free", "free")
 # soft-boundary loss의 항. 경계가 셋째 항으로 붙는다 -- 이름 순서가 콘솔 표의 칸 순서다.
 SOFT_BOUNDARY_LOSS_PART_NAMES = ("not_free", "free", "boundary")
+# 방위각 자유거리 보조항까지 켠 경우(`--lambda_r > 0`).
+SOFT_BOUNDARY_RANGE_LOSS_PART_NAMES = SOFT_BOUNDARY_LOSS_PART_NAMES + ("range",)
 
 # 3-class와 같은 기본 상한을 쓰지만 **실제로는 걸리지 않는다** -- 로봇 train split에서
 # 순수 역빈도가 free 3.94 / not_free 1.00이다. 상한이 loss 균형을 결정하던 3-class의
@@ -132,7 +139,9 @@ def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothi
 
 def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blind,
                             delta=DEFAULT_DELTA_M, lambda_b=DEFAULT_LAMBDA_B,
-                            target=TARGET_LINEAR, sigma=None, alpha=None):
+                            target=TARGET_LINEAR, sigma=None, alpha=None,
+                            gather=None, lambda_r=0.0, delta_r=DEFAULT_DELTA_R_M,
+                            huber_beta=DEFAULT_HUBER_BETA_M):
     """soft-boundary loss로 한 배치. 설계는 `docs/soft_boundary_loss_design.md`.
 
     `run_batch`와 **지표 계산은 완전히 같다** -- 다른 것은 loss 하나뿐이다. 그래야 두 loss의
@@ -143,6 +152,10 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
 
     `permanent_blind`는 배치가 아니라 정적 마스크로 받는다. 프레임마다 같은 값이므로 배치에
     실어 보내면 데이터 전송만 늘어난다. `(1, 1, H, W)`로 broadcast된다.
+
+    `gather`(`range_loss.RayGather`)가 있고 `lambda_r > 0`이면 방위각 자유거리 보조항이
+    붙는다(설계 문서 §13). **둘 중 하나라도 없으면 항이 계산조차 되지 않는다** -- 대조군과
+    기존 스윕 런이 새 코드 경로를 타지 않아야 한다.
     """
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5
     pix_T_cams = batch["pix_T_cams"].to(device)
@@ -153,9 +166,20 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
     d_bev_g = batch["d_bev_g"].to(device)
 
     _, _, logits, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
+
+    range_term = None
+    if gather is not None and lambda_r > 0.0:
+        # `p(free)`는 loss가 쓰는 것과 같은 softmax에서 나와야 한다 -- 여기서 따로 sigmoid를
+        # 쓰면 두 항이 다른 확률을 보게 된다.
+        prob_free = torch.softmax(logits, dim=1)[:, 1:2]
+        free_gt = decompose(seg_bev_g, vis_bev_g, valid_bev_g)["free"]
+        range_term = compute_range_loss(prob_free, free_gt, valid_bev_g, gather,
+                                        delta_r=delta_r, beta=huber_beta)
+
     loss, loss_parts = compute_soft_boundary_loss(
         logits, d_bev_g, valid_bev_g, permanent_blind.to(device),
         delta=delta, lambda_b=lambda_b, kind=target, sigma=sigma, alpha=alpha,
+        range_term=range_term, lambda_r=lambda_r,
     )
     return loss, loss_parts, compute_free_metrics(
         logits, seg_bev_g, vis_bev_g, valid_bev_g, rays

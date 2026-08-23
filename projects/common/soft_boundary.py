@@ -170,7 +170,7 @@ def target_entropy(y):
 
 def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_DELTA_M,
                                lambda_b=DEFAULT_LAMBDA_B, kind=TARGET_LINEAR, sigma=None,
-                               alpha=None):
+                               alpha=None, range_term=None, lambda_r=0.0):
     """`(총 loss, 항별 dict)`. `logits`는 `(B, 2, H, W)`이고 채널 1이 `free`다.
 
     `masked_weighted_ce`와 같은 계약을 지킨다 -- 학습 루프·로깅이 두 loss를 바꿔 끼울 수
@@ -179,6 +179,11 @@ def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_
     `share_*`는 각 항이 총 loss에 기여하는 몫이고 정의상 합이 1이다. `frac_*`는 셀 비율이다.
     **둘을 같이 내놓는 이유:** `λ_B = 0.5`는 작아 보이지만 `Ω_B`가 셀의 10 % 남짓이라
     셀당 가중치는 `Ω_N`의 7배쯤 된다. 두 숫자를 나란히 두지 않으면 그 사실이 안 보인다.
+
+    `range_term`은 `range_loss.compute_range_loss`가 돌려준 `(loss, parts)`이고 `None`이면
+    항이 아예 없다(대조군 런이 새 경로를 타지 않아야 한다). **총 loss와 `share_*`를 한
+    자리에서만 계산하기 위해** 밖에서 더하지 않고 여기로 받는다 -- 두 곳에서 더하면 몫의
+    합이 1이 아니게 되고, 그 표가 이 프로젝트에서 항의 영향력을 읽는 주된 도구다.
     """
     log_probs = F.log_softmax(logits, dim=1)
     log_free = log_probs[:, 1:2]
@@ -198,8 +203,8 @@ def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_
     loss_boundary = _masked_mean(per_cell_b, omega_b)
     entropy = _masked_mean(target_entropy(y), omega_b)
 
-    contributions = (0.5 * loss_free, 0.5 * loss_not_free, lambda_b * loss_boundary)
-    total = sum(contributions)
+    contributions = [0.5 * loss_free, 0.5 * loss_not_free, lambda_b * loss_boundary]
+    names = ["free", "not_free", "boundary"]
     n_valid = valid.float().sum() + 1e-6
     parts = {
         "loss_free": loss_free,
@@ -209,14 +214,22 @@ def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_
         "kl_boundary": loss_boundary - entropy,
         "entropy_boundary": entropy,
     }
-    for name, value in zip(("free", "not_free", "boundary"), contributions):
+    range_contribution = 0.0
+    if range_term is not None:
+        range_loss, range_parts = range_term
+        range_contribution = lambda_r * range_loss
+        contributions.append(range_contribution)
+        names.append("range")
+        parts.update(range_parts)
+    total = sum(contributions)
+    for name, value in zip(names, contributions):
         parts[f"share_{name}"] = value / (total + 1e-6)
     # **`share_boundary`만 보면 경계 항의 영향력을 과대평가한다.** 그 항에는 target 엔트로피가
     # 상수로 들어 있고 상수는 gradient가 0이다. 실측 스모크에서 `share_boundary`가 0.74였는데
     # 그중 절반 이상이 그 하한이었다. 그래서 **축소 가능한 부분만으로 다시 센 몫**을 같이
     # 낸다 -- 이쪽이 학습을 실제로 지배하는 비율이다.
     reducible = (contributions[0] + contributions[1]
-                 + lambda_b * parts["kl_boundary"])
+                 + lambda_b * parts["kl_boundary"] + range_contribution)
     parts["share_boundary_kl"] = lambda_b * parts["kl_boundary"] / (reducible + 1e-6)
     for name, mask in (("free", omega_f), ("not_free", omega_n), ("boundary", omega_b)):
         parts[f"frac_{name}"] = mask.sum() / n_valid

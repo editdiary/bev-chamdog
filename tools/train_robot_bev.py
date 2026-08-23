@@ -49,6 +49,7 @@ from projects.common.free_space_metrics import (  # noqa: E402
     iou_free,
 )
 from projects.common.polar import build_ray_index  # noqa: E402
+from projects.common.range_loss import RayGather  # noqa: E402
 from projects.common.bev_occupancy_metrics import (  # noqa: E402
     _Ansi,
     _c,
@@ -266,6 +267,20 @@ def main(
     sigma_alpha=None,
     # `sigma_m` -- `α` 대신 σ를 미터로 직접 줄 때. 대역 안에서 정규화한다(§5.3).
     sigma_m=None,
+    # 이하 셋은 **방위각 자유거리 보조항** `L_range`다 (`docs/soft_boundary_loss_design.md` §13).
+    #
+    # `lambda_r` -- 보조항 가중치. **0.0이면 항이 계산조차 되지 않는다**(대조군 보호).
+    # **이 값은 추측하지 말고 `tools/measure_range_gradient.py`로 캘리브레이션한다** --
+    # `L_range`는 미터, BCE는 nats라 공통 스케일이 없어서 숫자만 보고는 뜻이 정해지지 않는다.
+    # gradient 비 `G_R/G_B ≈ 0.1`에 맞추면 "gradient의 10 %"라는 뜻 있는 값이 된다.
+    lambda_r=0.0,
+    # `delta_r_m` -- 허용 반폭 [m]. **이 항의 요점이다** -- 이 안에서 loss가 평평해져
+    # gradient가 정확히 0이 되고, 그래서 라벨의 반경 방향 오차를 외울 동기가 사라진다.
+    # `0.0`으로 두면 "dead zone이 실제로 필요한가"의 ablation이 된다.
+    delta_r_m=0.20,
+    # `huber_beta_m` -- Huber 전환점 [m]. **미터로 둔다** -- 정규화된 스케일에서 주면 실효
+    # 오차가 항상 β보다 작아져 순수 L2로 퇴화하고 outlier 강건성이 사라진다.
+    huber_beta_m=0.10,
 ):
     # **첫 문장이어야 한다** -- 이 지점의 `locals()`는 정확히 인자 목록이다. 해석된 config를
     # 로그 폴더에 남기면 반복 실험을 집계할 때 런 이름을 파싱하지 않아도 되고, 논문 실행의
@@ -287,6 +302,8 @@ def main(
     # 영역을 나눈다). 3-class에 붙이려면 정식화 자체를 다시 유도해야 하므로 여기서 막는다.
     if loss == "soft_boundary" and formulation != "binary":
         raise ValueError("soft_boundary loss는 --formulation=binary에서만 쓴다")
+    if float(lambda_r) > 0.0 and loss != "soft_boundary":
+        raise ValueError("lambda_r은 --loss=soft_boundary에서만 쓴다")
     if formulation not in _FORMULATIONS:
         raise ValueError(f"formulation은 {tuple(_FORMULATIONS)} 중 하나여야 한다: {formulation}")
     spec = _FORMULATIONS[formulation]
@@ -358,6 +375,12 @@ def main(
            + (f" | σ={float(sigma_m):.4f} m" if sigma_m is not None else "")
            + ("  <- λ_B=0: soft 항 ablation" if float(lambda_b) == 0.0 else "")
            if loss == "soft_boundary" else "  (역빈도 가중 CE -- 대조군)"),
+        # `L_range` 보조항. 별도 줄로 두는 이유: `λ_R`은 gradient 비로 캘리브레이션한 값이라
+        # (§13.3) 다른 손잡이와 성격이 다르고, 꺼져 있을 때는 줄 자체가 없어야 한다.
+        *([f" loss += λ_R={float(lambda_r):.4f} · L_range"
+           f" | δ_R={float(delta_r_m):.3f} m | β={float(huber_beta_m):.3f} m"
+           + ("  <- δ_R=0: dead zone ablation" if float(delta_r_m) == 0.0 else "")]
+          if float(lambda_r) > 0.0 else []),
         f" class weights ({spec['weight_label']}) = {class_weights.tolist()}"
         + ("  <- soft_boundary에서는 쓰이지 않는다 (per-set 평균이 대체)"
            if loss == "soft_boundary" else
@@ -441,13 +464,22 @@ def main(
     # **대체**하므로 둘을 같이 걸면 클래스 보정이 두 번 들어간다(설계 문서 §3.1).
     blind_mask = torch.from_numpy(permanent_blind).view(1, 1, *permanent_blind.shape)
     if loss == "soft_boundary":
+        # `L_range`의 광선 인덱스. **`rays`와 같은 객체에서 만든다** -- `n_theta`가 갈리면
+        # loss와 M3 지표가 다른 광선 집합을 보게 된다. `λ_R = 0`이면 만들지 않는다.
+        gather = (RayGather(rays, (GRID_SPEC.n_rows, GRID_SPEC.n_cols), device)
+                  if float(lambda_r) > 0.0 else None)
+
         def step(batch, vox=vox_util):
             return binary_metrics.run_batch_soft_boundary(
                 model, batch, vox, device, rays, blind_mask,
                 delta=delta_m, lambda_b=lambda_b, target=soft_target,
                 sigma=sigma_m, alpha=sigma_alpha,
+                gather=gather, lambda_r=float(lambda_r),
+                delta_r=float(delta_r_m), huber_beta=float(huber_beta_m),
             )
-        loss_part_names = binary_metrics.SOFT_BOUNDARY_LOSS_PART_NAMES
+        loss_part_names = (binary_metrics.SOFT_BOUNDARY_RANGE_LOSS_PART_NAMES
+                           if float(lambda_r) > 0.0
+                           else binary_metrics.SOFT_BOUNDARY_LOSS_PART_NAMES)
     else:
         step = (
             (lambda batch, vox=vox_util: three_class_metrics.run_batch(  # noqa: E731

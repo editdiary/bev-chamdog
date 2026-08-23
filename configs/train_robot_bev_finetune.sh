@@ -61,6 +61,16 @@ SOFT_TARGET="${SOFT_TARGET:-linear}"
 SIGMA_ALPHA="${SIGMA_ALPHA:-None}"
 SIGMA_M="${SIGMA_M:-None}"
 
+# 방위각 자유거리 보조항 `L_range` (docs/soft_boundary_loss_design.md §13).
+#   LAMBDA_R      보조항 가중치. **0이면 항이 계산되지 않는다.** 추측하지 말고
+#                 `python tools/measure_range_gradient.py --lambda_r=1.0`로 캘리브레이션한다
+#                 (목표: gradient 비 G_R/G_B ~ 0.1)
+#   DELTA_R_M     허용 반폭 [m]. 이 안에서 gradient가 0이 된다. 0이면 dead zone ablation
+#   HUBER_BETA_M  Huber 전환점 [m]. 미터로 둔다 (정규화하면 L2로 퇴화한다)
+LAMBDA_R="${LAMBDA_R:-0.0}"
+DELTA_R_M="${DELTA_R_M:-0.20}"
+HUBER_BETA_M="${HUBER_BETA_M:-0.10}"
+
 # 산출물 위치. 반복 실험은 본 실험 폴더를 어지럽히지 않도록 별도 트리에 쌓는다:
 #   LOG_DIR=runs/robot_bev_cv/seeds/logs CKPT_DIR=runs/robot_bev_cv/seeds/ckpt
 LOG_DIR="${LOG_DIR:-runs/robot_bev/logs}"
@@ -122,6 +132,9 @@ python tools/train_robot_bev.py \
     --soft_target="${SOFT_TARGET}" \
     --sigma_alpha="${SIGMA_ALPHA}" \
     --sigma_m="${SIGMA_M}" \
+    --lambda_r="${LAMBDA_R}" \
+    --delta_r_m="${DELTA_R_M}" \
+    --huber_beta_m="${HUBER_BETA_M}" \
     --augment="${AUGMENT}" \
     --val_freq_epochs=1 \
     --save_freq_epochs=10 \

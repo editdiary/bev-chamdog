@@ -120,7 +120,7 @@ DEFAULT_LOSS_PART_NAMES = ("unknown", "free", "occupied")
 
 # 몫 칸의 헤더에 쓰는 약자. 이름이 길어 `share not_free/free`로 쓰면 줄이 넘친다.
 _PART_INITIALS = {"unknown": "u", "free": "f", "occupied": "o", "not_free": "nf",
-                  "boundary": "b"}
+                  "boundary": "b", "range": "r"}
 
 
 def _format_share_field(loss_parts, part_names):
@@ -159,6 +159,13 @@ def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None,
         # 엔트로피 하한을 뺀 **축소 가능한** loss 중 경계 항의 몫. `share b`는 상수인 하한을
         # 포함하므로 경계 항의 영향력을 과대평가한다(같은 문서 §5.6).
         fields.append(_field("bnd_kl몫", parts.get("share_boundary_kl"), ".2f"))
+    # 방위각 자유거리 보조항(§13). `loss_range`는 dead zone과 Huber를 거친 값이라 미터로
+    # 읽히지 않으므로, **dead zone 전의 순수 오차와 그 부호**를 같이 낸다. 부호가 필요한
+    # 이유: dead zone이 `|e|`에 대칭이라 과대예측(= `fatal` 방향)이 무벌점으로 늘어날 수
+    # 있고, 그것을 막는 것이 §4.5의 제약이다.
+    if "range_arc_mae" in parts:
+        fields.append(_field("arc_mae↓", parts["range_arc_mae"], ".4f"))
+        fields.append(_field("arc_bias", parts.get("range_arc_bias"), "+.4f"))
     share_field = _format_share_field(parts, part_names)
     if share_field is not None:
         fields.append(share_field)
