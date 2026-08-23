@@ -18,21 +18,40 @@
 > 라벨의 불완전성을 **loss에 명시적으로 모델링**한다(경계 대역에 soft target). 여기에
 > 방위각 자유거리 보조항 `L_range`를 더한 것이 **현재 확정 config**다(§13:
 > gaussian δ=0.15 α=0.5 λ_B=0.5, λ_R=0.3 δ_R=0.20 β=0.10).
+> **loss가 수식으로 정확히 무엇인지는 [`docs/loss_function_spec.md`](docs/loss_function_spec.md)가
+> 정본이다** -- 근거·결과 없이 형태만 있어 대조 없이 읽힌다.
 >
-> **CE 대비 성과는 `f1`이 아니라 안전 지표와 수렴이다**(§13.7): `fatal_rate` −5.2 %(14σ),
-> `missed_obstacle` −11.5 %(8.4σ), 되올림 −74 %(94σ). `iou_free`·`f1@τ`는 전부 노이즈 안이다.
+> **[정본] CE 대비 성과는 §15의 n=3 ablation이다** (`runs/ablation/`,
+> `configs/ablation_loss.sh` → `tools/report_ablation.py`). 사다리 4칸
+> `A_ce → B_perset → C_soft → D_range` × 시드 3개. 확정 세 가지:
+> ① **재현성 4~9배** (시드 간 σ: `fatal` 0.0063 → 0.0007, `range_bias` 0.0190 → 0.0023).
+> ② **되올림 2.4배 감소** (61.8 → 19.3 %, 엔트로피 하한 제거 후).
+> ③ **안전 개선** (`missed_obstacle` −16.1 %, `fatal` −9.2 %) / 대가 `free_miss` +16.4 %.
+> **정확도는 CE와 동일**(`iou_free`·`f1@τ`·`range_mae` 전부 노이즈). **암기는 안 줄었다.**
 >
-> **[중요] σ_run을 실측했고 주 판정 지표가 바뀌었다.** 같은 config·같은 시드에서도
-> `f1@10cm`이 σ 0.0037로 흔들린다(§13.6.1). 그래서 **`f1@10cm`은 주 판정에서 강등**되고
-> 안전 지표(`fatal_rate`·`missed_obstacle`)와 안정성(되올림·KL 배율)이 주 판정이다 --
-> 규칙은 **§14**, 지표 역할 기록은 [`docs/BEV_loss_and_metrics_design.md`](docs/BEV_loss_and_metrics_design.md) §2.9.
-> **옛 스윕의 `f1` 기반 결론 일부는 기각됐다**(§10.3, §11의 재판정 주석).
+> **[철회 두 개 -- 옛 절의 σ를 인용하지 말 것]**
+> (a) **σ_run은 하한이다**(§15.4). 같은 config·같은 시드의 재현 노이즈이므로 **서로 다른
+> config 비교에는 부족하다** -- 시드 분산은 config마다 다르고 `ce`가 soft보다 4~9배 크다.
+> §13.6·§13.7·§13.8의 **순위는 인용 가능, σ 값은 불가.**
+> (b) **되올림은 loss 종류를 넘어 그대로 비교 불가**(§15.3). soft loss의 target 엔트로피
+> 상수(`λ_B·H̄`=0.1496)가 비를 기계적으로 줄여 45 % 부풀려져 있었다. **주 근거는 loss가
+> 등장하지 않는 축**(`iou 최고→끝 하락`·`fatal/iou 흔들림`·`train−val iou 격차`)**으로 옮겼다.**
+>
+> **[교훈] 안정성 지표를 단독으로 읽으면 "아무것도 안 배우는 것"이 1등이다** -- `B_perset`이
+> 안정성 3개를 다 이기는데 품질은 전부 최악이다(§15.6). 반드시 품질과 같이 읽는다.
+>
+> `f1@10cm`은 주 판정에서 강등돼 있다(§14, [`docs/BEV_loss_and_metrics_design.md`](docs/BEV_loss_and_metrics_design.md) §2.9).
 > `--loss=weighted_ce`는 대조군이므로 지우지 않는다.
 >
 > **미결(사용자 결정 대기): 비대칭 dead zone `δ_R⁺`** (§13.8). `δ_R⁺=0`이 `fatal_rate`를
-> −3.9σ 개선하고 되올림·KL 배율에서 스윕 최고인데 `free_miss_rate`가 +6.7σ 나빠진다
-> (`fatal` 1셀당 `miss` 1.6셀). 로봇 운용 판단이라 확정하지 않았다. 현재 확정 config는
-> 여전히 대칭 `δ_R=0.20`(= `sb_r30`)이다.
+> 개선하는 대신 `free_miss_rate`를 악화시키는 교환인데, **그 판정의 σ가 위 (a)로 무효가
+> 됐고 n=3 ablation에 이 칸이 없어 미확인 상태다.** 현재 확정 config는 여전히 대칭
+> `δ_R=0.20`이다.
+>
+> **과적합은 파라미터로 못 고친다**(§15.8, 진단 문서 §10.2·§17.1·§19·§20.2). `weight_decay`
+> ·`res50`·`freeze_encoder`·`flip_augment`·`label_smoothing` 전부 기각. train을 20 % 버려
+> 과적합을 2배로 만들어도 `iou_free`는 노이즈 안이었다. 지목된 다음 병목은 진단 문서
+> §18.3(특징맵 표본 좌표, **미해결**)이다.
 >
 > **직전 작업 인수인계: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)** (2026-08-19)
 >

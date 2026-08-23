@@ -79,6 +79,12 @@ HUBER_BETA_M="${HUBER_BETA_M:-0.10}"
 LOG_DIR="${LOG_DIR:-runs/robot_bev/logs}"
 CKPT_DIR="${CKPT_DIR:-runs/robot_bev/ckpt}"
 
+# 산출물 디렉터리 이름을 직접 정한다. 비우면 자동 이름
+# (`{EXP_NAME}_res101_bs8_lr1e-04_s{SEED}_{타임스탬프}`)이 쓰인다. ablation처럼 셀 구성이
+# 미리 정해진 실험에서는 `A_ce_s0`처럼 직접 준다 -- 자동 이름은 폴더에서 읽을 수 없다.
+# **같은 이름이 이미 있으면 trainer가 실패한다**(tfevents가 섞이는 것을 막는다).
+RUN_NAME="${RUN_NAME:-None}"
+
 # 시퀀스가 늘어나면 여기에 콤마로 추가한다. VAL_SEQUENCES는 **train에 없는 시퀀스**여야
 # 한다 -- 한 시퀀스는 연속 주행을 거리 기반으로 샘플링한 것이라 프레임을 섞어 나누면
 # val이 train을 그대로 들여다본다.
@@ -113,6 +119,7 @@ fi
 
 python tools/train_robot_bev.py \
     --exp_name="${EXP_NAME}" \
+    --run_name="${RUN_NAME}" \
     --train_sequences="${TRAIN_SEQUENCES}" \
     --val_sequences="${VAL_SEQUENCES}" \
     --val_tail_fraction="${VAL_TAIL_FRACTION}" \

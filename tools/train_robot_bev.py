@@ -183,6 +183,17 @@ def _maybe_mirror(batch, vox_util, mirror_vox_util, flip_augment):
 
 def main(
     exp_name="robot_finetune",
+    # 산출물 디렉터리 이름을 **그대로** 정한다. `None`이면 기존 규칙
+    # (`{exp_name}_{encoder}_bs{bs}_lr{lr}_s{seed}_{타임스탬프}`)을 쓴다.
+    #
+    # **왜 이 손잡이가 있나.** 자동 이름은 스윕 폴더에서 사람이 읽을 수 없다 --
+    # `sb_a050_re_res101_bs8_lr1e-04_s0_260823_150800`을 보고 무엇을 바꾼 런인지 알 수 없고,
+    # 표를 만들 때마다 `config.json`을 열어 대조해야 했다(2026-08-23 사용자 지적).
+    # ablation처럼 셀 구성이 미리 정해진 실험에서는 `A_ce_s0`처럼 직접 이름을 준다.
+    #
+    # 타임스탬프가 사라지므로 **같은 이름의 디렉터리가 이미 있으면 실패한다** -- 덮어쓰면
+    # 두 런의 tfevents가 한 디렉터리에 섞여 곡선이 조용히 뒤엉킨다.
+    run_name=None,
     train_sequences="raws2,raws3,rawos1,rawos2,rawos4",
     val_sequences="raws1,rawos3",
     val_tail_fraction=0.0,  # val 시퀀스가 없을 때만 쓰는 임시 holdout (시퀀스 뒤쪽 연속 구간)
@@ -504,8 +515,16 @@ def main(
 
     # 시드를 이름에 넣는다 -- 반복 실험은 config가 같고 시드만 다르므로, 이름에 없으면
     # 타임스탬프만으로 구별해야 하고 표를 만들 때 사람이 대조해야 한다.
-    run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}_s{seed}"
-                f"_{datetime.now().strftime('%y%m%d_%H%M%S')}")
+    if run_name is None:
+        run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}_s{seed}"
+                    f"_{datetime.now().strftime('%y%m%d_%H%M%S')}")
+    else:
+        run_name = str(run_name)
+        existing = Path(log_dir) / run_name
+        if existing.exists() and any(existing.iterdir()):
+            raise FileExistsError(
+                f"이미 있는 run_name이다 -- 덮어쓰면 두 런의 tfevents가 섞인다: {existing}"
+            )
     log_path = Path(log_dir) / run_name
     writer = SummaryWriter(str(log_path))
     ckpt_path = Path(ckpt_dir) / run_name
