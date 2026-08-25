@@ -34,6 +34,11 @@ import utils.vox  # noqa: E402
 
 from projects.bev_gt.grid import OccupancyGridSpec  # noqa: E402
 from projects.datasets.simplebev_vox import vox_bounds, vox_dims  # noqa: E402
+from projects.models.pixel_grid import (  # noqa: E402
+    CONVENTIONS,
+    DEFAULT_CONVENTION,
+    normalize_pixel_grid2d,
+)
 
 
 def radial_poly_pixel_coords(x_cam, y_cam, z_cam, k, cx, cy, aspect_ratio):
@@ -59,6 +64,16 @@ def radial_poly_pixel_coords(x_cam, y_cam, z_cam, k, cx, cy, aspect_ratio):
 
 class FisheyeVoxUtil(utils.vox.Vox_util):
     """`unproject_image_to_mem`을 실제 어안(radial_poly) 투영으로 교체한 `Vox_util`."""
+
+    # 특징맵 표본 좌표의 규약과 상수 오프셋. `projects/models/pixel_grid.py`, 진단 §18.3.
+    pixel_convention = DEFAULT_CONVENTION
+    pixel_offset = 0.0
+
+    def set_pixel_grid(self, convention: str, pixel_offset: float = 0.0) -> None:
+        if convention not in CONVENTIONS:
+            raise ValueError(f"convention은 {CONVENTIONS} 중 하나여야 한다: {convention!r}")
+        self.pixel_convention = convention
+        self.pixel_offset = float(pixel_offset)
 
     def set_camera_calibrations(self, cameras) -> None:
         """`cameras`: 배치의 카메라 순서(S)와 같은 순서의 `projects.geometry.fisheye.Camera` 리스트.
@@ -105,13 +120,16 @@ class FisheyeVoxUtil(utils.vox.Vox_util):
         )
         x = u_native * (float(W) / native_w).unsqueeze(1)
         y = v_native * (float(H) / native_h).unsqueeze(1)
+        if self.pixel_offset:
+            x = x + float(self.pixel_offset)
+            y = y + float(self.pixel_offset)
 
         x_valid = (x > -0.5) & (x < float(W - 0.5))
         y_valid = (y > -0.5) & (y < float(H - 0.5))
         z_valid = z_cam > 0.0  # radial_poly가 광축 뒤쪽도 유한 픽셀로 접으므로 반드시 필요
         valid_mem = (x_valid & y_valid & z_valid).reshape(B, 1, Z, Y, X).float()
 
-        y_pixB, x_pixB = utils.basic.normalize_grid2d(y, x, H, W)
+        y_pixB, x_pixB = normalize_pixel_grid2d(y, x, H, W, self.pixel_convention)
         z_pixB = torch.zeros_like(x)
         xyz_pixB = torch.stack([x_pixB, y_pixB, z_pixB], dim=2)
         rgb_camB_5d = rgb_camB.unsqueeze(2)
@@ -123,10 +141,12 @@ class FisheyeVoxUtil(utils.vox.Vox_util):
         return values
 
 
-def build_fisheye_vox_util(grid_spec: OccupancyGridSpec, cameras, height_margin_m: float = 0.25, device="cpu"):
+def build_fisheye_vox_util(grid_spec: OccupancyGridSpec, cameras, height_margin_m: float = 0.25, device="cpu",
+                           pixel_convention: str = DEFAULT_CONVENTION, pixel_offset: float = 0.0):
     Z, Y, X = vox_dims(grid_spec)
     bounds = vox_bounds(grid_spec, height_margin_m)
     scene_centroid = torch.zeros(1, 3, dtype=torch.float32, device=device)
     vox_util = FisheyeVoxUtil(Z, Y, X, scene_centroid=scene_centroid, bounds=bounds, assert_cube=False)
     vox_util.set_camera_calibrations(cameras)
+    vox_util.set_pixel_grid(pixel_convention, pixel_offset)
     return vox_util

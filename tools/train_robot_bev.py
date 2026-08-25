@@ -298,6 +298,22 @@ def main(
     # `huber_beta_m` -- Huber 전환점 [m]. **미터로 둔다** -- 정규화된 스케일에서 주면 실효
     # 오차가 항상 β보다 작아져 순수 L2로 퇴화하고 outlier 강건성이 사라진다.
     huber_beta_m=0.10,
+    # 이하 둘은 **특징맵 표본 좌표의 기하**다 (`docs/finetune_overfitting_diagnosis.md` §18.3,
+    # `projects/models/pixel_grid.py`). loss와 무관하게 lifting 단계에서만 쓰인다.
+    #
+    # `pixel_convention` -- `legacy_index`(현행, 대조군) 또는 `pixel_center`(수정본).
+    # 현행은 `normalize_grid2d`(픽셀 인덱스 규약)와 `grid_sample(align_corners=False)`
+    # (픽셀 가장자리 규약)를 섞어 써서 표본 위치가 `x*W/(W-1) - 0.5`로 어긋난다. 중심에서
+    # 0이고 가장자리로 갈수록 커지는 계통 오차이며 마지막 열은 값이 절반으로 죽는다.
+    # **기본값을 아직 옮기지 않는 이유**: 정규화 단계만 보면 `pixel_center`가 명백히 옳지만
+    # 그것이 val을 올리는지는 측정 전이고, 기본을 바꾸면 기존 런 전부와 비교가 끊긴다.
+    pixel_convention="legacy_index",
+    # `pixel_offset` -- 표본 좌표에 더하는 상수 [특징픽셀]. 규약을 고쳐도 남는 부분
+    # (native -> 입력 리사이즈 규약, stride 8 수용영역 중심, `upsampling_layer` 보간)이고
+    # **유도로 확정되지 않는다** -- 두 극단 계산이 -0.475와 -0.0375로 갈린다.
+    # `configs/sweep_pixel_offset.sh`가 실측한다. 1 특징픽셀 = native 20 px = BEV 기준
+    # `f1@10cm`의 눈금과 맞물리는 크기다.
+    pixel_offset=0.0,
 ):
     # **첫 문장이어야 한다** -- 이 지점의 `locals()`는 정확히 인자 목록이다. 해석된 config를
     # 로그 폴더에 남기면 반복 실험을 집계할 때 런 이름을 파싱하지 않아도 되고, 논문 실행의
@@ -412,6 +428,11 @@ def main(
         f" | flip augment = {bool(flip_augment)}"
         f" | freeze_encoder = {bool(freeze_encoder)}"
         f" | label_smoothing = {float(label_smoothing)}",
+        f" feature sampling: convention = {pixel_convention}"
+        f" | pixel_offset = {float(pixel_offset):+.3f} feat px"
+        f" ({float(pixel_offset) * 20.0:+.1f} native px)"
+        + ("  <- 규약 불일치가 남아 있다 (§18.3, 대조군)"
+           if pixel_convention == "legacy_index" else ""),
         f" trivial 'always drivable' baseline IoU = {stats['trivial_iou']:.3f}  <- compare against this",
         f" constant-map baseline iou_free = {baseline_iou_free:.3f}  <- compare against this",
     ])
@@ -433,11 +454,15 @@ def main(
     )
 
     Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
-    vox_util = build_double_sphere_vox_util(GRID_SPEC, train_ds.cameras, device=device)
+    vox_util = build_double_sphere_vox_util(
+        GRID_SPEC, train_ds.cameras, device=device,
+        pixel_convention=pixel_convention, pixel_offset=float(pixel_offset),
+    )
     # 반전 배치는 lifting 기하가 달라지므로 vox util을 하나 더 둔다. 캘리브레이션은 같고
     # `mirror_x`만 다르다 -- 만드는 비용이 사실상 0이라 플래그와 무관하게 항상 준비해 둔다.
     mirror_vox_util = build_double_sphere_vox_util(
-        GRID_SPEC, train_ds.cameras, device=device, mirror_x=True
+        GRID_SPEC, train_ds.cameras, device=device, mirror_x=True,
+        pixel_convention=pixel_convention, pixel_offset=float(pixel_offset),
     )
     # rand_flip=False: 이 리그의 ROI는 전후 비대칭(전방 4 m / 후방 2 m)이라
     # Simple-BEV의 Z축 flip 증강이 물리적으로 성립하지 않는다.

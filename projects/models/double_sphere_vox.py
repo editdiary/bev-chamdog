@@ -30,6 +30,11 @@ import utils.vox  # noqa: E402
 
 from projects.bev_gt.grid import OccupancyGridSpec  # noqa: E402
 from projects.datasets.simplebev_vox import vox_bounds, vox_dims  # noqa: E402
+from projects.models.pixel_grid import (  # noqa: E402
+    CONVENTIONS,
+    DEFAULT_CONVENTION,
+    normalize_pixel_grid2d,
+)
 
 _EPS = 1e-9
 
@@ -53,6 +58,11 @@ class DoubleSphereVoxUtil(utils.vox.Vox_util):
     # `set_mirror_x`의 docstring에 있다. 기본은 꺼져 있고, 켜도 캘리브레이션은 건드리지 않는다.
     mirror_x = False
 
+    # 특징맵 표본 좌표의 규약과 상수 오프셋. 근거는 `projects/models/pixel_grid.py`와
+    # 진단 문서 §18.3. 기본값은 **기존 동작 보존**이다.
+    pixel_convention = DEFAULT_CONVENTION
+    pixel_offset = 0.0
+
     def set_mirror_x(self, mirror: bool) -> None:
         """좌우 반전된 세계를 lifting하도록 전환한다.
 
@@ -72,6 +82,16 @@ class DoubleSphereVoxUtil(utils.vox.Vox_util):
         조용히 틀리기 쉽다. 여기서는 그 상수가 `W - 1` 하나로 끝난다.
         """
         self.mirror_x = bool(mirror)
+
+    def set_pixel_grid(self, convention: str, pixel_offset: float = 0.0) -> None:
+        """특징맵 표본 좌표의 정규화 규약과 상수 오프셋[특징픽셀]을 정한다.
+
+        근거와 두 규약의 차이는 `projects/models/pixel_grid.py`, 진단 문서 §18.3.
+        """
+        if convention not in CONVENTIONS:
+            raise ValueError(f"convention은 {CONVENTIONS} 중 하나여야 한다: {convention!r}")
+        self.pixel_convention = convention
+        self.pixel_offset = float(pixel_offset)
 
     def set_camera_calibrations(self, cameras) -> None:
         """`cameras`: 배치의 카메라 순서(S)와 같은 순서의 `DoubleSphereCamera` 리스트.
@@ -122,17 +142,22 @@ class DoubleSphereVoxUtil(utils.vox.Vox_util):
         )
         x = u_native * (float(W) / native_w)
         y = v_native * (float(H) / native_h)
+        # 리사이즈 규약과 stride 8 수용영역 중심이 남긴 상수 편이를 여기서 보정한다.
+        # **반전과 유효 영역 판정보다 앞이어야 한다** -- 이유는 `pixel_grid` 모듈 docstring.
+        if self.pixel_offset:
+            x = x + float(self.pixel_offset)
+            y = y + float(self.pixel_offset)
         if self.mirror_x:
-            # (2) 입력이 좌우 반전된 특징맵이므로 표본 좌표도 뒤집는다. `torch.flip`이 인덱스
-            # `j`를 `W-1-j`로 보내고 `normalize_grid2d`가 `x`를 픽셀 **인덱스**로 정규화하므로
-            # 상수는 정확히 `W - 1`이다(해상도·stride와 무관하다).
+            # (2) 입력이 좌우 반전된 특징맵이므로 표본 좌표도 뒤집는다. `torch.flip`이 픽셀
+            # 인덱스 `j`를 `W-1-j`로 보내므로 상수는 정확히 `W - 1`이다 -- 정규화 규약과도,
+            # 해상도·stride와도 무관하다(`x`는 아직 픽셀 인덱스 좌표다).
             x = float(W - 1) - x
 
         x_valid = (x > -0.5) & (x < float(W - 0.5))
         y_valid = (y > -0.5) & (y < float(H - 0.5))
         valid_mem = (x_valid & y_valid & valid).reshape(B, 1, Z, Y, X).float()
 
-        y_pixB, x_pixB = utils.basic.normalize_grid2d(y, x, H, W)
+        y_pixB, x_pixB = normalize_pixel_grid2d(y, x, H, W, self.pixel_convention)
         xyz_pixB = torch.stack([x_pixB, y_pixB, torch.zeros_like(x)], dim=2)
         xyz_pixB = torch.reshape(xyz_pixB, [B, Z, Y, X, 3])
         values = F.grid_sample(rgb_camB.unsqueeze(2), xyz_pixB, align_corners=False)
@@ -143,7 +168,9 @@ class DoubleSphereVoxUtil(utils.vox.Vox_util):
 
 def build_double_sphere_vox_util(grid_spec: OccupancyGridSpec, cameras,
                                  height_margin_m: float = 0.25, device="cpu",
-                                 mirror_x: bool = False):
+                                 mirror_x: bool = False,
+                                 pixel_convention: str = DEFAULT_CONVENTION,
+                                 pixel_offset: float = 0.0):
     Z, Y, X = vox_dims(grid_spec)
     bounds = vox_bounds(grid_spec, height_margin_m)
     scene_centroid = torch.zeros(1, 3, dtype=torch.float32, device=device)
@@ -151,4 +178,5 @@ def build_double_sphere_vox_util(grid_spec: OccupancyGridSpec, cameras,
                                    assert_cube=False)
     vox_util.set_camera_calibrations(cameras)
     vox_util.set_mirror_x(mirror_x)
+    vox_util.set_pixel_grid(pixel_convention, pixel_offset)
     return vox_util

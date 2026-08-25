@@ -74,6 +74,17 @@ DELTA_R_M="${DELTA_R_M:-0.20}"
 DELTA_R_OVER_M="${DELTA_R_OVER_M:-None}"
 HUBER_BETA_M="${HUBER_BETA_M:-0.10}"
 
+# 특징맵 표본 좌표의 기하 (`docs/finetune_overfitting_diagnosis.md` §18.3).
+#   PIXEL_CONVENTION  legacy_index(현행·대조군) 또는 pixel_center(규약 수정본).
+#                     현행은 정규화(픽셀 인덱스)와 grid_sample(픽셀 가장자리) 규약이 섞여
+#                     표본 위치가 `x*W/(W-1) - 0.5`로 어긋난다 -- 배율 오차라 오프셋으로
+#                     못 없앤다. `tests/models/test_pixel_grid.py`가 둘 다 고정한다.
+#   PIXEL_OFFSET      규약을 고친 뒤 남는 상수 편이 [특징픽셀]. 1 = native 20 px.
+#                     **유도로 확정되지 않아** 스윕으로 잰다 (`configs/sweep_pixel_offset.sh`).
+# **기본값은 기존 동작 보존이다** -- 근거가 나오기 전에 옮기면 기존 런과 비교가 끊긴다.
+PIXEL_CONVENTION="${PIXEL_CONVENTION:-legacy_index}"
+PIXEL_OFFSET="${PIXEL_OFFSET:-0.0}"
+
 # 산출물 위치. 반복 실험은 본 실험 폴더를 어지럽히지 않도록 별도 트리에 쌓는다:
 #   LOG_DIR=runs/robot_bev_cv/seeds/logs CKPT_DIR=runs/robot_bev_cv/seeds/ckpt
 LOG_DIR="${LOG_DIR:-runs/robot_bev/logs}"
@@ -146,6 +157,8 @@ python tools/train_robot_bev.py \
     --delta_r_m="${DELTA_R_M}" \
     --delta_r_over_m="${DELTA_R_OVER_M}" \
     --huber_beta_m="${HUBER_BETA_M}" \
+    --pixel_convention="${PIXEL_CONVENTION}" \
+    --pixel_offset="${PIXEL_OFFSET}" \
     --augment="${AUGMENT}" \
     --val_freq_epochs=1 \
     --save_freq_epochs=10 \
