@@ -72,6 +72,8 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     build_bev_masks,
     load_masked_labels,
     parse_sequence_names,
+    split_samples_by_frame_blocks,
+    split_samples_by_random_frames,
     split_samples_by_sequence,
     split_samples_within_sequences,
 )
@@ -197,6 +199,20 @@ def main(
     train_sequences="raws2,raws3,rawos1,rawos2,rawos4",
     val_sequences="raws1,rawos3",
     val_tail_fraction=0.0,  # val 시퀀스가 없을 때만 쓰는 임시 holdout (시퀀스 뒤쪽 연속 구간)
+    # **프로브 전용** 프레임 단위 무작위 split(진단 문서 §28.4). 0이면 끈다.
+    # 0보다 크면 `--val_sequences`를 무시하고 **모든 시퀀스의 프레임을 섞어** 나눈다.
+    # 누출이 설계상 존재하므로 **여기서 나온 숫자는 성능으로 보고하지 않는다** --
+    # 답하려는 것은 "원거리 10 cm 정밀도가 입력에 있나"이고 성능이 아니다.
+    frame_split_fraction=0.0,
+    # **학습 시드와 다른 인자다.** 시드마다 split이 바뀌면 시드 분산에 split 분산이
+    # 섞이므로, 시드 여러 개가 같은 split을 보게 이 값을 고정한다.
+    frame_split_seed=0,
+    # 위 무작위 split의 개선판(외부 검토 제안). >0이면 시퀀스마다 연속 블록 하나를 val로
+    # 떼고 **양쪽 `frame_split_gap`프레임을 버린다** -- 프레임 간격이 0.5~0.8 m이라
+    # 이웃 프레임은 거의 같은 이미지이고, 그것이 train에 있으면 "못 본 시점"을 재는 게
+    # 아니라 "옆 프레임을 봤다"를 재게 된다. `frame_split_fraction`보다 우선한다.
+    frame_block_len=0,
+    frame_split_gap=3,
     # `"none"`/`""`도 from scratch로 받는다 -- config가 이 변수를 필수로 만들었으므로
     # (죽은 기본값을 없애면서) "pretrain 없이"를 셸에서 표현할 방법이 필요하다. 문자열
     # `"none"`을 경로로 취급하면 `load_trunk_weights`가 파일을 못 찾고 죽는다(실제로 겪었다).
@@ -348,12 +364,37 @@ def main(
     dataset_root = Path(dataset_root)
     names = parse_sequence_names(train_sequences)
     val_names = parse_sequence_names(val_sequences)
-    sequence_roots = [dataset_root / name for name in names + val_names]
+    # **중복을 제거한다.** `configs/train_robot_bev_finetune.sh`의 `${VAL_SEQUENCES:-...}`는
+    # 빈 문자열도 기본값으로 바꾸므로, 프레임 split 프로브가 `VAL_SEQUENCES=""`를 넘기면
+    # 기본값 `raws1,rawos3`이 살아나 그 두 시퀀스가 `names`와 `val_names`에 **두 번** 들어간다.
+    # 그러면 프레임 단위 split이 같은 프레임의 두 사본을 각각 train과 val로 보내 **동일
+    # 프레임이 양쪽에 있게 된다**(실제로 38프레임이 그렇게 됐다, 2026-08-25).
+    seen, sequence_roots = set(), []
+    for name in names + val_names:
+        if name in seen:
+            continue
+        seen.add(name)
+        sequence_roots.append(dataset_root / name)
     for root in sequence_roots:
         if not (root / "occupancy_npy").exists():
             raise FileNotFoundError(f"시퀀스를 찾을 수 없다: {root}")
 
-    if val_names:
+    if int(frame_block_len) > 0:
+        train_samples, val_samples = split_samples_by_frame_blocks(
+            sequence_roots, int(frame_block_len), int(frame_split_gap), int(frame_split_seed)
+        )
+        split_note = (f"**프로브** 시퀀스별 연속 블록 {int(frame_block_len)}프레임 val,"
+                      f" 양쪽 {int(frame_split_gap)}프레임 버림"
+                      f" (split_seed={int(frame_split_seed)}) -- 성능 보고 금지")
+    elif float(frame_split_fraction) > 0.0:
+        # 프로브 경로. `--val_sequences`로 받은 시퀀스도 **train 후보에 합쳐진다**(위에서
+        # `sequence_roots`에 이미 들어 있다). 즉 7시퀀스 전체를 프레임 단위로 섞는다.
+        train_samples, val_samples = split_samples_by_random_frames(
+            sequence_roots, float(frame_split_fraction), int(frame_split_seed)
+        )
+        split_note = (f"**프로브** 프레임 단위 무작위 {100 * float(frame_split_fraction):.0f}%"
+                      f" (split_seed={int(frame_split_seed)}) -- 누출 있음, 성능 보고 금지")
+    elif val_names:
         train_samples, val_samples = split_samples_by_sequence(sequence_roots, val_names)
         split_note = f"시퀀스 단위 holdout: {','.join(val_names)}"
     elif val_tail_fraction > 0:
@@ -365,6 +406,14 @@ def main(
     else:
         train_samples, val_samples = split_samples_by_sequence(sequence_roots, [])
         split_note = "없음"
+    # **split이 겹치면 즉시 멈춘다.** 겹쳐도 학습은 그냥 돌고 val 숫자만 조용히 좋아진다 --
+    # 위 중복 사고가 그렇게 지나갔다. 어떤 split 경로를 쓰든 이 불변식은 성립해야 한다.
+    overlap = set(train_samples) & set(val_samples)
+    if overlap:
+        raise RuntimeError(
+            f"train과 val에 같은 프레임이 {len(overlap)}개 있다 -- split이 깨졌다: "
+            f"{sorted(f'{r.name}/{s}' for r, s in overlap)[:5]} ...")
+
     permanent_blind, invalid = build_bev_masks(common_root, GRID_SPEC, FINETUNE_CAMERA_NAMES)
     stats = compute_label_statistics(train_samples, permanent_blind, invalid)
     val_stats = compute_label_statistics(val_samples, permanent_blind, invalid)

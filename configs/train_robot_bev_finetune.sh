@@ -109,6 +109,18 @@ VAL_SEQUENCES="${VAL_SEQUENCES:-raws1,rawos3}"                 # 75 frames
 # 경계 프레임이 인접해 있어 숫자가 낙관적이므로 sanity check 용도로만 본다.
 VAL_TAIL_FRACTION="${VAL_TAIL_FRACTION:-0.2}"
 
+# **프로브 전용** 프레임 단위 무작위 split (진단 문서 §28.4). 0이면 끈다.
+# 0보다 크면 VAL_SEQUENCES를 무시하고 7시퀀스 프레임 전체를 섞어 나눈다. **누출이 설계상
+# 있으므로 여기서 나온 숫자는 성능으로 보고하지 않는다** -- 묻는 것은 "원거리 10 cm 정밀도가
+# 입력에 있나"이고 성능이 아니다. FRAME_SPLIT_SEED는 학습 SEED와 **다른 인자**이고,
+# 시드 여러 개가 같은 split을 보도록 고정한다.
+FRAME_SPLIT_FRACTION="${FRAME_SPLIT_FRACTION:-0.0}"
+FRAME_SPLIT_SEED="${FRAME_SPLIT_SEED:-0}"
+# 무작위 split의 개선판: 시퀀스마다 연속 블록 하나를 val로 떼고 양쪽 GAP프레임을 버린다.
+# 0보다 크면 FRAME_SPLIT_FRACTION보다 우선한다. 이웃 프레임 누출을 줄이는 쪽이다.
+FRAME_BLOCK_LEN="${FRAME_BLOCK_LEN:-0}"
+FRAME_SPLIT_GAP="${FRAME_SPLIT_GAP:-3}"
+
 # pretrain에서 나온 best 체크포인트. 240x240 -> 120x120, 4-cam -> 3-cam 모두 그대로 로드된다
 # (Segnet은 (Z, X)에 대해 완전 합성곱이고 카메라별 전용 파라미터가 없다).
 #
@@ -137,6 +149,10 @@ python tools/train_robot_bev.py \
     --train_sequences="${TRAIN_SEQUENCES}" \
     --val_sequences="${VAL_SEQUENCES}" \
     --val_tail_fraction="${VAL_TAIL_FRACTION}" \
+    --frame_split_fraction="${FRAME_SPLIT_FRACTION}" \
+    --frame_split_seed="${FRAME_SPLIT_SEED}" \
+    --frame_block_len="${FRAME_BLOCK_LEN}" \
+    --frame_split_gap="${FRAME_SPLIT_GAP}" \
     --init_checkpoint="${INIT_CHECKPOINT}" \
     --num_epochs="${NUM_EPOCHS}" \
     --batch_size=8 \

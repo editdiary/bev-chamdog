@@ -90,6 +90,8 @@ def main(
     tau=0.5,
     train_sequences="raws2,raws3,rawos1,rawos2,rawos4",
     val_sequences="raws1,rawos3",
+    # 학습이 남긴 `split_val_samples.txt` 경로. 주면 위 두 인자를 무시하고 그 목록을 채점한다.
+    split_file=None,
     dataset_root=DEFAULT_DATASET_ROOT,
     common_root=DEFAULT_COMMON_ROOT,
     encoder_type="res101",
@@ -100,9 +102,18 @@ def main(
     cells, seeds = _csv(cells), tuple(int(s) for s in _csv(seeds))
 
     root = Path(dataset_root)
-    names = parse_sequence_names(train_sequences)
-    val_names = parse_sequence_names(val_sequences)
-    _, val_samples = split_samples_by_sequence([root / n for n in names + val_names], val_names)
+    if split_file:
+        # 프로브 런(프레임 단위 무작위 split)을 채점할 때 쓴다. 학습이 남긴
+        # `split_val_samples.txt`를 그대로 읽으므로 **split을 다시 유도하지 않는다** --
+        # 재유도하면 split_seed나 프레임 목록이 조금 달라져도 조용히 다른 집합을 채점한다.
+        lines = [ln.strip() for ln in Path(split_file).read_text().splitlines() if ln.strip()]
+        val_samples = [(root / ln.split("/")[0], ln.split("/")[1]) for ln in lines]
+        print(f"[split] {split_file}에서 val {len(val_samples)}프레임을 읽었다")
+    else:
+        names = parse_sequence_names(train_sequences)
+        val_names = parse_sequence_names(val_sequences)
+        _, val_samples = split_samples_by_sequence(
+            [root / n for n in names + val_names], val_names)
     dataset = RobotBEVDataset(val_samples, common_root=common_root, augment=False)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     # 표본 규약은 **런의 config.json에서 되찾는다** -- 기본값을 쓰면 `runs/ablation`(legacy)을
