@@ -11,6 +11,7 @@
 `legacy_index`가 기존 동작을 비트 단위로 보존하는지도 같이 본다 -- 대조군이 대조군이
 아니게 되면 스윕 전체가 무의미해진다.
 """
+import json
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +23,14 @@ from projects.bev_gt.grid import ROBOT_GRID_SPEC
 from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES, load_cameras, load_ego_T_cams
 from projects.models.double_sphere_vox import build_double_sphere_vox_util
-from projects.models.pixel_grid import LEGACY_INDEX, PIXEL_CENTER, normalize_pixel_grid2d
+from projects.models.pixel_grid import (  # noqa: E402
+    DEFAULT_CONVENTION,
+    LEGACY_INDEX,
+    PIXEL_CENTER,
+    convention_for_checkpoints,
+    convention_for_run_dirs,
+    normalize_pixel_grid2d,
+)
 
 CALIB_PATH = Path("dataset/sj_datasets/common/calibration/calib.yaml")
 requires_calib = pytest.mark.skipif(
@@ -191,3 +199,61 @@ def test_convention_change_actually_changes_the_lifted_volume():
         return vox.unproject_image_to_mem(feat, camB_T_camA, camB_T_camA, Z, Y, X)
 
     assert (lift(PIXEL_CENTER) - lift(LEGACY_INDEX)).abs().max() > 0.3
+
+
+# --- 옛 런 재채점: 규약을 config.json에서 되찾는다 (2026-08-25) ------------------------
+
+
+def _write_run(root, name, config):
+    """`tools/train_robot_bev.py`와 같은 배치로 로그/체크포인트를 만든다."""
+    log_dir = root / "logs" / name
+    log_dir.mkdir(parents=True)
+    if config is not None:
+        (log_dir / "config.json").write_text(json.dumps(config))
+    ckpt_dir = root / "ckpt" / name
+    ckpt_dir.mkdir(parents=True)
+    ckpt = ckpt_dir / "model_best-000000030.pth"
+    ckpt.write_bytes(b"")
+    return log_dir, ckpt
+
+
+def test_missing_key_means_legacy_not_the_new_default(tmp_path):
+    """`runs/ablation`의 12런처럼 키가 없는 config는 **legacy로 읽어야 한다.**
+
+    이 규칙이 깨지면 옛 체크포인트가 학습 때와 다른 기하로 재채점된다.
+    """
+    log_dir, _ = _write_run(tmp_path, "A_ce_s0", {"seed": 0, "loss": "weighted_ce"})
+    assert convention_for_run_dirs([log_dir], quiet=True) == (LEGACY_INDEX, 0.0)
+
+
+def test_recorded_convention_and_offset_round_trip(tmp_path):
+    log_dir, _ = _write_run(tmp_path, "off_m0.50_s0",
+                            {"pixel_convention": PIXEL_CENTER, "pixel_offset": -0.5})
+    assert convention_for_run_dirs([log_dir], quiet=True) == (PIXEL_CENTER, -0.5)
+
+
+def test_mixed_conventions_stop_instead_of_warning(tmp_path):
+    """섞인 규약을 한 표에 세우면 서로 다른 기하가 한 열에 들어간다 -- 멈춰야 한다."""
+    old, _ = _write_run(tmp_path, "A_ce_s0", {"seed": 0})
+    new, _ = _write_run(tmp_path, "off_0.00_s0", {"pixel_convention": PIXEL_CENTER,
+                                                  "pixel_offset": 0.0})
+    with pytest.raises(SystemExit):
+        convention_for_run_dirs([old, new], quiet=True)
+
+
+def test_checkpoint_path_finds_the_sibling_log_config(tmp_path):
+    """`<root>/ckpt/<run>/*.pth` -> `<root>/logs/<run>/config.json` 되짚기."""
+    _, ckpt = _write_run(tmp_path, "ft_bin_res101", {"pixel_convention": PIXEL_CENTER,
+                                                     "pixel_offset": 0.0})
+    assert convention_for_checkpoints([ckpt], quiet=True) == (PIXEL_CENTER, 0.0)
+
+
+def test_missing_run_dirs_are_skipped_not_fatal(tmp_path):
+    """체크포인트가 지워진 런이 섞여 있어도 도구가 죽지 않아야 한다."""
+    log_dir, _ = _write_run(tmp_path, "A_ce_s0", {"seed": 0})
+    got = convention_for_run_dirs([log_dir, tmp_path / "logs" / "gone_s9"], quiet=True)
+    assert got == (LEGACY_INDEX, 0.0)
+
+
+def test_no_config_at_all_falls_back_to_the_current_default(tmp_path):
+    assert convention_for_run_dirs([tmp_path / "nope"], quiet=True) == (DEFAULT_CONVENTION, 0.0)

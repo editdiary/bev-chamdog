@@ -75,14 +75,17 @@ DELTA_R_OVER_M="${DELTA_R_OVER_M:-None}"
 HUBER_BETA_M="${HUBER_BETA_M:-0.10}"
 
 # 특징맵 표본 좌표의 기하 (`docs/finetune_overfitting_diagnosis.md` §18.3).
-#   PIXEL_CONVENTION  legacy_index(현행·대조군) 또는 pixel_center(규약 수정본).
-#                     현행은 정규화(픽셀 인덱스)와 grid_sample(픽셀 가장자리) 규약이 섞여
-#                     표본 위치가 `x*W/(W-1) - 0.5`로 어긋난다 -- 배율 오차라 오프셋으로
+#   PIXEL_CONVENTION  pixel_center(기본·옳은 규약) 또는 legacy_index(옛 동작).
+#                     legacy_index는 정규화(픽셀 인덱스)와 grid_sample(픽셀 가장자리) 규약이
+#                     섞여 표본 위치가 `x*W/(W-1) - 0.5`로 어긋난다 -- 배율 오차라 오프셋으로
 #                     못 없앤다. `tests/models/test_pixel_grid.py`가 둘 다 고정한다.
 #   PIXEL_OFFSET      규약을 고친 뒤 남는 상수 편이 [특징픽셀]. 1 = native 20 px.
-#                     **유도로 확정되지 않아** 스윕으로 잰다 (`configs/sweep_pixel_offset.sh`).
-# **기본값은 기존 동작 보존이다** -- 근거가 나오기 전에 옮기면 기존 런과 비교가 끊긴다.
-PIXEL_CONVENTION="${PIXEL_CONVENTION:-legacy_index}"
+#                     **스윕 결과 0으로 확정**(§18.3.5) -- 네 칸 전부 노이즈, 최적점 없음.
+#
+# **2026-08-25에 기본값을 pixel_center로 옮겼다(사용자 승인).** 성능이 근거가 아니라
+# correctness가 근거다 -- 15런 스윕에서 품질·안전 지표는 전부 노이즈였다.
+# **이 시점 이후의 런은 runs/ablation·설계 문서 §15·§16의 숫자와 기하가 다르다.**
+PIXEL_CONVENTION="${PIXEL_CONVENTION:-pixel_center}"
 PIXEL_OFFSET="${PIXEL_OFFSET:-0.0}"
 
 # 산출물 위치. 반복 실험은 본 실험 폴더를 어지럽히지 않도록 별도 트리에 쌓는다:

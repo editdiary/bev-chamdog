@@ -61,6 +61,7 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     split_samples_by_sequence,
 )
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
+from projects.models.pixel_grid import convention_for_run_dirs  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 
 # τ=0.5는 `argmax`와 같으므로 **기존 표의 값이 이 스윕의 한 점으로 재현되어야 한다** --
@@ -120,7 +121,12 @@ def main(
         [root / n for n in names + val_names], val_names)
     dataset = RobotBEVDataset(val_samples, common_root=common_root, augment=False)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    vox_util = build_double_sphere_vox_util(GRID_SPEC, dataset.cameras, device=device)
+    # 표본 규약은 **런의 config.json에서 되찾는다** -- 기본값을 쓰면 `runs/ablation`(legacy)을
+    # 새 기하로 재채점해 조용히 다른 숫자가 나온다.
+    convention, offset = convention_for_run_dirs(
+        [Path(log_root) / "logs" / f"{cell}_s{seed}" for cell in cells for seed in seeds])
+    vox_util = build_double_sphere_vox_util(GRID_SPEC, dataset.cameras, device=device,
+                                           pixel_convention=convention, pixel_offset=offset)
     rays = build_ray_index(GRID_SPEC)
 
     # 라벨 분해는 모델과 무관하므로 한 번만 한다 (모델 x τ 만큼 반복하면 CPU가 병목이 된다).

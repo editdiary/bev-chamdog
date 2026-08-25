@@ -35,7 +35,8 @@
 # 그것이고, 판정은 반드시 실측 노이즈 바닥에 대고 한다. 시드를 **바깥 루프**에 둬서
 # 중간에 멈춰도 네 칸이 같은 n을 갖게 한다.
 #
-# 13런 x 약 10분 = 약 2시간 10분.
+# 15런(오프셋 4칸 x 시드 3 + 대조군 시드 3) x 약 8분 = 약 2시간.
+# **이미 있는 런 폴더는 건너뛴다** -- 중간에 멈췄거나 셀을 추가했을 때 그대로 다시 돌리면 된다.
 #
 # 실행: bash configs/sweep_pixel_offset.sh
 # 집계: python tools/report_pixel_offset.py
@@ -82,7 +83,7 @@ run_one() {
     echo "=== ${run} 완료 ($(date +%H:%M:%S)) ==="
 }
 
-# refactor smoke check를 **먼저** 돌린다 -- 여기서 깨지면 나머지 12런이 통째로 무의미하다.
+# refactor smoke check를 **먼저** 돌린다 -- 여기서 깨지면 나머지가 통째로 무의미하다.
 run_one "legacy_s0" "legacy_index" "0.0" "0"
 
 for seed in ${SEEDS}; do
@@ -90,5 +91,13 @@ for seed in ${SEEDS}; do
         IFS='|' read -r name convention offset <<< "${entry}"
         run_one "${name}_s${seed}" "${convention}" "${offset}" "${seed}"
     done
+done
+
+# **대조군도 n=3이어야 한다.** n=1로 두면 `legacy`의 값이 그 시드의 우연(특히 `선택 ep`,
+# 시드 간 σ가 7~13이다)과 구별되지 않는다 -- 실제로 s0은 ep 9에서 뽑혀 `train−val 격차`가
+# 통째로 다르게 나왔다. 규약 수정의 효과는 이 비교 하나에 걸려 있으므로 여기가 약하면 안 된다.
+# 맨 뒤에 두는 이유: 오프셋 스윕 네 칸이 먼저 같은 n을 갖게 한다.
+for seed in ${SEEDS}; do
+    run_one "legacy_s${seed}" "legacy_index" "0.0" "${seed}"
 done
 echo "PIXEL_OFFSET_SWEEP_DONE"

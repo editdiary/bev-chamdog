@@ -185,6 +185,25 @@ def main(log_root="runs/pixel_offset/logs", pattern="*", sigma_from=DEFAULT_SIGM
                 row += _pad(f"{delta:+.{d}f} {verdict}{zt}", 20, ">")
             lines.append(row)
 
+        # **선택 epoch 혼동을 경고한다.** `train−val iou 격차`·`되올림`은 얼마나 오래
+        # 학습했는지에 직접 붙는 양이고, 체크포인트 선택 epoch은 시드 간 σ가 7~13이라
+        # 그 자체가 노이즈다. 두 셀이 다른 epoch에서 뽑혔으면 이 지표들의 차이는 처치
+        # 때문이 아니라 epoch 때문일 수 있다. (실제로 `legacy_s0`이 ep 9에서 뽑혀
+        # `train−val 격차`가 5σ 차이로 찍혔다.)
+        ep = series("선택 ep")
+        warn = []
+        for a, b in pairs:
+            if ep[a] and ep[b]:
+                gap = sum(ep[b]) / len(ep[b]) - sum(ep[a]) / len(ep[a])
+                if abs(gap) >= 8.0:
+                    warn.append(f"{b} (Δ선택ep {gap:+.0f})")
+        if warn:
+            lines += ["  !! 선택 epoch이 크게 다르다: " + ", ".join(warn),
+                      "     `train−val iou 격차`·`되올림`은 학습을 얼마나 오래 했는지에 붙는"
+                      " 양이므로,",
+                      "     이 차이는 기하 때문이 아니라 **뽑힌 epoch 때문**일 수 있다."
+                      " 다른 지표부터 읽는다."]
+
     lines += ["", "=== 판독 규칙 (§18.3.3) ===",
               "  유도가 예측하는 최적 구간은 [-0.5375, -0.0375] 특징픽셀이고, 그 안에서",
               "  뜻이 있는 대조는 **-0.5 대 0**이다. 최적점이 -1.0이나 +0.5에서 나오면",
