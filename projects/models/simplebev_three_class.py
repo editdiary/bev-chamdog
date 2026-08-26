@@ -21,6 +21,11 @@ if str(_SIMPLE_BEV_DIR) not in sys.path:
 
 from nets.segnet import Decoder, Segnet  # noqa: E402
 
+from projects.models.encoder_stride4 import (  # noqa: E402
+    STRIDE4_ENCODER_TYPE,
+    Encoder_res101_stride4,
+)
+
 NUM_CLASSES = 3
 
 # 원본 `Decoder`가 만들지만 3-class 학습이 쓰지 않는 head들. nuScenes instance segmentation용이라
@@ -89,11 +94,27 @@ class ThreeClassDecoder(Decoder):
 
 
 class ThreeClassSegnet(Segnet):
-    """`Segnet` variant whose segmentation output has free/occupied/unknown logits."""
+    """`Segnet` variant whose segmentation output has free/occupied/unknown logits.
+
+    `encoder_type="res101_s4"`면 lifting이 표본하는 2D 특징맵이 stride 8 -> 4가 된다
+    (진단 문서 §29). upstream `Segnet.__init__`은 `assert encoder_type in [...]`로
+    모르는 문자열에 죽으므로 **super()에는 `"res101"`을 넘겨 통과시키고, 생성된 뒤
+    `self.encoder`만 교체한다** -- 이 문자열은 우리 래퍼가 소비하고 upstream에는 가지 않는다.
+    나머지(격자·lifting·decoder)는 전부 불변이다.
+    """
 
     def __init__(self, *args, num_classes: int = NUM_CLASSES, **kwargs):
         latent_dim = kwargs.get("latent_dim", 128)
+        stride4 = kwargs.get("encoder_type") == STRIDE4_ENCODER_TYPE
+        if stride4:
+            kwargs["encoder_type"] = "res101"
         super().__init__(*args, **kwargs)
+        if stride4:
+            # super()가 만든 stride-8 encoder는 여기서 버려진다. ImageNet 가중치를 두 번
+            # 읽는 낭비지만 생성 1회뿐이고, 이렇게 해야 `third_party/`를 안 건드린다.
+            self.encoder = Encoder_res101_stride4(self.feat2d_dim)
+            # 체크포인트를 다시 얹을 때 이 값으로 encoder를 고르므로 실제 값을 남긴다.
+            self.encoder_type = STRIDE4_ENCODER_TYPE
         self.decoder = ThreeClassDecoder(
             in_channels=latent_dim, predict_future_flow=False, num_classes=num_classes
         )
