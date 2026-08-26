@@ -24,7 +24,7 @@
 # `runs/ablation/D_range_s{0,1,2}`가 그대로 대조군이다(`legacy_index`, offset 0).
 # **같은 코드다** -- 학습 경로(`tools/train_robot_bev.py`, `projects/`,
 # `configs/train_robot_bev_finetune.sh`)의 마지막 변경이 그 ablation을 만든 커밋
-# 23c0660이고, 이번 규약 작업은 기본값을 건드리지 않았다(단위 테스트가 `legacy_index`의
+# 2684f81이고, 이번 규약 작업은 기본값을 건드리지 않았다(단위 테스트가 `legacy_index`의
 # 비트 단위 동일성을 고정한다). 그래도 refactor가 end-to-end로 무해한지 보려고
 # `legacy_s0` 한 런을 smoke check로 같이 돌린다 -- `D_range_s0`과 σ_run 안에서 같아야 한다.
 #

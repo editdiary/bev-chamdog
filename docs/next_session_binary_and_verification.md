@@ -7,7 +7,8 @@
 근거 정본은 [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) **§15–§23**.
 
 브랜치 `feat/bev-surface-aware-loss`, 워킹트리 clean, 테스트 **300 passed**.
-커밋 `fe6899b`(유도) → `9f124e7`(동영상 로더)까지 9개.
+커밋 `d3573e8`(binary 유도) → `23e4af5`(동영상 로더·파이프라인 검증)까지 3개
+(2026-08-26 이력 통합 전에는 `fe6899b` → `9f124e7` 9개였다).
 
 ---
 
