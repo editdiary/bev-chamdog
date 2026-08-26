@@ -14,13 +14,22 @@
 
 ---
 
+> ## ▶ [2026-08-26] 계획된 실험이 전부 끝났다
+>
+> 남은 것은 **논문 집필**과 **Orin 목표 FPS**(사용자 결정)뿐이다.
+> **논문을 쓰거나 전체 상황을 빠르게 파악하려면
+> [`paper_experiment_compendium.md`](paper_experiment_compendium.md) 하나만 읽으면 된다** --
+> 모든 실험이 목적→설계→결과→해석으로 모여 있고 용어 정의도 안에 있다(§0.6).
+> 끝난 것: stride 8→4(**기각**), LOSO 21런, 안정성 축 둘, Orin 실측.
+> 자세한 현재 상태는 [`../AGENTS.md`](../AGENTS.md) 상단 블록이 정본이다.
+
 ## 처음 오는 사람이 읽을 순서
 
 1. [`experiment_history.md`](experiment_history.md) — **여기서 시작한다.** 무엇을 시도했고
    무엇을 배웠고 왜 지금 여기인지가 한 문서에 있다.
 2. [`../AGENTS.md`](../AGENTS.md) — 작업 규칙(소통·git·폴더·환경)
 3. [`loss_function_spec.md`](loss_function_spec.md) — **지금 쓰는 loss가 수식으로 정확히 무엇인가.** 근거·결과는 없고 형태만 있다
-4. [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) — **현재 진행 중인 작업.** §12가 다음 할 일
+4. [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) — loss 설계·결과 정본. **연구는 §16으로 종결됐다** -- 결론만 볼 거면 §16.4 한 표
 4. [`finetuning_guide.md`](finetuning_guide.md) — 실제로 학습을 돌리는 순서
 5. [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) — 코드가 데이터를
    어떻게 읽고 어떤 텐서가 되어 어떤 loss로 학습되는지
@@ -32,15 +41,15 @@
 | 문서 | 역할 | 이것만은 알아야 한다 |
 |---|---|---|
 | [`experiment_history.md`](experiment_history.md) | **서사 정본.** 2-head → 3-class → binary 전환 이유, 기각된 가설, 최종 결론과 근거, 방법론 교훈, 다음 수집 권고 | 개별 숫자의 근거 정본은 아니다 -- 각 절이 원본 문서 절 번호를 가리킨다 |
-| [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) | **근거 정본.** §1–§14 과적합 진단, §15–§19 binary 전환, §20–§21 분할·held-out test, §22 오차 구조, §23 `unknown`의 정체와 지표 축소, §24 시드 분산, §25 요인 구조·CV(**§25.6 LOSO를 읽는 법**), §26 경계 대역 loss 분해, §27 lifting 표본 간격, **§28 프로브 실측·라벨 출처·결론 문장**, **§29 stride 8→4 사전 선언** | 가장 길고(1500줄) 가장 자주 인용된다. 새 실측은 여기 절을 추가한다 |
+| [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) | **근거 정본.** §1–§14 과적합 진단, §15–§19 binary 전환, §20–§21 분할·held-out test, §22 오차 구조, §23 `unknown`의 정체와 지표 축소, §24 시드 분산, §25 요인 구조·CV(**§25.6 LOSO를 읽는 법**, **§25.7 config 동결**, §25.8 사전 예상), §26 경계 대역 loss 분해, §27 lifting 표본 간격, **§28 프로브 실측·라벨 출처·결론 문장**, **§29 stride 8→4(사전 선언 + §29.9 결과=기각)**, **§30 안정성 축 둘**, **§31 LOSO 결과**, **§32 Orin 벤치마크(§32.6 TensorRT future work)** | 가장 길고(약 2900줄) 가장 자주 인용된다. **새 실측은 여기 절을 추가한다** |
 | [`loss_function_spec.md`](loss_function_spec.md) | **loss 형태 정본.** 현재 loss의 수식·기호·확정 하이퍼파라미터·코드 위치. §3 거리장, §4 영역 분할, §5 hard 항, §6 soft target 유도, §7 엔트로피 하한과 KL, §8 `L_range`, §9 λ_R 캘리브레이션 | **설계 근거와 실험 결과는 여기에 쓰지 않는다** -- 그건 아래 설계 문서가 정본이다. 두 문서가 어긋나면 코드가 맞다 |
-| [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) | **loss 설계·결과 정본.** §2–§5 정식화, §6 구현 상태, §7 왜 하이퍼파라미터를 라벨에서 못 얻나, §8 실행법, §9–§10 스윕 10런 실측, §11 확정/기각, §12 보조 loss 계획, §13 `L_range`, §14 판정 프로토콜, §15 n=3 ablation, **§16 threshold sweep -- 최종 결론(정본)** | **loss 연구는 §16으로 종결됐다.** 결론만 볼 거면 **§16.4** 한 표다. **§15.5(3)의 "안전 개선"은 §16.2가 철회했고, §13.6~§13.8의 σ 값은 §15.4가 철회했다 -- 순위만 인용한다.** 다음 할 일은 이 문서가 아니라 `experiment_history.md` §5에 있다 |
+| [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) | **loss 설계·결과 정본.** §2–§5 정식화, §6 구현 상태, §7 왜 하이퍼파라미터를 라벨에서 못 얻나, §8 실행법, §9–§10 스윕 10런 실측, §11 확정/기각, §12 보조 loss 계획, §13 `L_range`, §14 판정 프로토콜, §15 n=3 ablation, **§16 threshold sweep -- 최종 결론(정본)** | **loss 연구는 §16으로 종결됐다.** 결론만 볼 거면 **§16.4** 한 표다. **§15.5(3)의 "안전 개선"은 §16.2가 철회했고, §13.6~§13.8의 σ 값은 §15.4가 철회했다 -- 순위만 인용한다.** **다음 할 일은 이 문서가 아니다** -- 계획된 실험은 전부 끝났고 남은 것은 논문 집필이다(위 2026-08-26 블록) |
 | [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) | **지표 정의 정본.** 지표 하나하나의 정의와 채택/기각 사유 | 지표를 추가·삭제·변경할 때 **먼저 읽고 여기에 기록한다** |
 | [`finetuning_guide.md`](finetuning_guide.md) | fine-tuning 실행 절차 | 실행 전 데이터 점검 체크리스트가 여기 있다 |
 | [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드(데이터 → 텐서 → loss → 지표) | 코드를 처음 만질 때 |
 | [`setup_guide_pro6000.md`](setup_guide_pro6000.md) | 환경 세팅 정본 (RTX PRO 6000 Blackwell) | **PyTorch는 `cu128` 빌드여야 한다** -- sm_120에서 cu118 커널은 실행되지 않는다 |
 | [`git_workflow.md`](git_workflow.md) | 브랜치·커밋 규칙 | `merge`/`push`는 사용자만 수행한다 |
-| [`project_structure.md`](project_structure.md) | 폴더 구조 | `third_party/`·`mmdetection3d/`는 submodule -- 직접 수정 금지 |
+| [`project_structure.md`](project_structure.md) | 폴더 구조 + **`tools/` 색인 38개**(무엇을 재는 도구이고 그 숫자가 어느 절에 실렸나) | `third_party/`·`mmdetection3d/`는 submodule -- 직접 수정 금지. **재채점 시 `--encoder_type`을 맞춰 넘긴다** |
 
 ## 🔵 운영 메모
 

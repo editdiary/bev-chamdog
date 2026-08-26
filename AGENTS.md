@@ -60,24 +60,45 @@
 > 됐고, n=3에 그 칸이 없고, 무엇보다 **"range 보조항이 좋아진 건지 safety bias를 넣어
 > 좋아진 건지 원인 분리가 안 된다."** 확정 config는 대칭 `δ_R=0.20`이다.
 >
-> **[다음 세션은 여기부터] 순서는 [`docs/experiment_history.md`](docs/experiment_history.md)
-> §5의 "다음 세션이 할 일" 표다.** ① `grid_sample` 좌표 규약 결함(진단 문서 §18.3) 확정·수정
-> ② seed boundary jitter [cm] -- 무료, 체크포인트 9개 ③ temporal jitter(full-seq 30 fps,
-> pose 없이 가능, **품질 게이트 필수**) ④ loss family 교차 앙상블 -- 무료 ⑤ LOSO 7-fold.
-> **`δ` 스윕·`λ_R` warm-up·`λ_B` 조정은 전부 하지 않는다**(§16.8).
+> ## ▶▶ [2026-08-26] **계획된 실험이 전부 끝났다. 남은 것은 논문 집필이다.**
 >
-> **과적합은 파라미터로 못 고친다**(§15.8, 진단 문서 §10.2·§17.1·§19·§20.2). `weight_decay`
+> **새 세션은 [`docs/paper_experiment_compendium.md`](docs/paper_experiment_compendium.md)를
+> 읽는다.** 모든 실험을 목적→설계→결과(수치)→해석으로 모은 문서이고, **다른 파일을 열지
+> 않아도 읽히도록 용어 정의까지 안에 들어 있다**(§0.6). 정본은 여전히 진단·설계 문서다.
+>
+> **끝난 것 (계획했던 남은 작업 넷 전부).**
+>
+> | 무엇 | 결과 | 정본 |
+> |---|---|---|
+> | `stride 8→4` 6런 | ❌ **표본 밀도 가설 기각, 미채택.** 사전 선언한 무늬가 안 나왔고 `iou_free`·`fatal_rate`도 노이즈. **기본 encoder는 `res101`(stride 8)** | 진단 **§29.9** |
+> | **LOSO 7-fold × 시드 3 = 21런** | ✅ **7 fold 전부 상수 지도를 +0.158 이상 이긴다.** `σ_fold` = 0.0405(`σ_seed`의 **27배**)이고 **그 분산의 거의 전부가 통로 폭 하나로 설명된다**(계층 안 마진 std 0.012~0.030) | 진단 **§31** |
+> | 안정성 축 둘 (perturbation + frame-gap) | ✅ **흔들림 세 원천이 전부 모델 오차보다 작다.** 지배적 불확실성은 불안정성이 아니라 정확도 | 진단 **§30** |
+> | **Orin 실측** | ✅ **512×288 fp16 = 20.2 FPS**, 32.7 W, 359 MB. 8.2분 지속 부하에서 **throttling 없음** | 진단 **§32** |
+>
+> **남은 것 둘 -- 둘 다 사용자 몫이다.**
+>
+> | # | 무엇 | 상태 |
+> |---|---|---|
+> | 1 | **논문 집필** | compendium §18에 구성 제안과 주 기여 후보 셋이 있다 |
+> | 2 | **Orin 목표 FPS** | 미정. 이 값이 없으면 "배포 가능" 진술만 못 쓴다(진단 §32.7) |
+>
+> **하지 않기로 한 것 (되돌리지 않는다).** TensorRT 변환(진단 §32.6에 정찰 결과와 막힐 지점
+> 셋을 적어 뒀다) · 라벨 재수집·재어노테이션 · `traj_recall`/pose · `δ` 스윕 계열 ·
+> ROI crop · BEV 격자 변경 · stride-4에서 파생되는 작업.
+>
+> > **[규칙] 결과가 예상과 달라도 새 가지를 열지 않는다**(진단 §28.8, 사용자 방침).
+> > 현재 데이터·아키텍처에서 관측된 한계를 그대로 결과로 정리한다.
+>
+> **과적합은 파라미터로 못 고친다**(설계 §15.8, 진단 §10.2·§17.1·§19·§20.2). `weight_decay`
 > ·`res50`·`freeze_encoder`·`flip_augment`·`label_smoothing` 전부 기각. train을 20 % 버려
-> 과적합을 2배로 만들어도 `iou_free`는 노이즈 안이었다. 지목된 다음 병목은 진단 문서
-> §18.3(특징맵 표본 좌표, **미해결**)이다.
+> 과적합을 2배로 만들어도 `iou_free`는 노이즈 안이었다.
+> **한때 "다음 병목"으로 지목된 §18.3(특징맵 표본 좌표)은 종결됐다** -- 고쳤고 성능 영향은
+> 15런 스윕 51칸 전부 노이즈였다(§18.3.5).
 >
-> **직전 작업 인수인계: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)** (2026-08-19)
->
-> binary 정식화 전환·과적합 손잡이 실측·파이프라인 검증까지의 상태와 다음 결정 사항.
-> 근거 정본은 [`docs/finetune_overfitting_diagnosis.md`](docs/finetune_overfitting_diagnosis.md)
-> **§15–§23** (§20–§21 분할·test, §22 오차 구조, §23 `unknown`의 정체와 지표 축소).
-> 그 이전 단계(3-class 본학습) 인수인계는 [`docs/archive/next_session_threeclass_training.md`](docs/archive/next_session_threeclass_training.md).
-> 학습 산출물 정리 규약은 같은 문서 §14 (`tools/prune_runs.py`).
+> **옛 인수인계 문서**: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)(2026-08-19)는
+> **운영 메모**다 -- 도구 목록·`cam0..3` 매핑 함정(**`left=cam3`**) 같은 실무 정보만 본다.
+> 3-class 시대 인수인계는 [`docs/archive/next_session_threeclass_training.md`](docs/archive/next_session_threeclass_training.md).
+> 학습 산출물 정리 규약은 진단 문서 §14 (`tools/prune_runs.py`).
 
 ## [중요] 소통 규칙
 

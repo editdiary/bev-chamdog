@@ -91,3 +91,68 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
    ```bash
    python tools/<my_script>.py
    ```
+
+---
+
+## `tools/` 색인 (2026-08-26, 38개)
+
+**각 도구의 맨 위 docstring이 정본이다** -- 무엇을 왜 재는지, 어떻게 읽는지가 거기 있다.
+아래는 찾아가기용 목차이고, **근거 문서**는 그 도구가 만든 숫자가 실린 절이다.
+
+### 학습·실행
+
+| 도구 | 무엇 |
+|---|---|
+| `train_robot_bev.py` | **현행 학습 진입점.** 자체 데이터셋 fine-tuning. `configs/train_robot_bev_finetune.sh`가 감싼다 |
+| `train_synwoodscape.py` | SynWoodScape pretrain. **현행은 from scratch라 쓰지 않는다**(진단 §11) |
+| `prune_runs.py` | 산출물 정리. **`model_best`는 재학습 말고 복구 수단이 없다**(진단 §14) |
+
+### 재채점·집계 (판정에 쓰는 것)
+
+| 도구 | 무엇 | 근거 문서 |
+|---|---|---|
+| `rescore_checkpoints.py` | 체크포인트를 다시 채점. 시퀀스별 분해도 낸다 | 진단 §20.3 |
+| `summarize_repeats.py` | 반복 실험 mean±sd. **`@fixed`와 `@best`를 나란히** | 진단 §24 |
+| `report_ablation.py` | loss 사다리 4칸 -- 인접 계단 Δ / 대조군 Δ / **재현성** | 설계 §15 |
+| `report_threshold_sweep.py` | **τ 스윕 -- 같은 `free_miss`에서 비교.** "안전 개선"을 철회시킨 도구 | 설계 §16 |
+| `report_seed_jitter.py` | 시드 간 경계 흔들림 [cm]. σ_전역 / σ_ray / **상태 불일치** | 설계 §17 |
+| `report_ensemble.py` | loss 계열 교차 앙상블 | 설계 §18 |
+| `report_f1_by_range.py` | **거리별 `f1@τ`.** 링 무늬 판정의 주 도구 | 진단 §27.4·§28.10·§29.9 |
+| `report_pixel_offset.py` | 표본 좌표 스윕 집계 | 진단 §18.3.5 |
+| **`report_loso.py`** | **LOSO fold별 집계.** 기준선 마진 주 열 + 요인 라벨 + fold SE + `min` 편향 경고 | 진단 §25.6·§31 |
+| `report_convergence.py` | 되올림·수렴 곡선 | 설계 §9.3 |
+
+### 진단 측정 (학습 불필요)
+
+| 도구 | 무엇 | 근거 문서 |
+|---|---|---|
+| `analyze_error_structure.py` | 프레임별 분포 + 방위각 프로파일 + 품질별 대조 | 진단 §22 |
+| `measure_boundary_regions.py` | `Ω_F`/`Ω_N`/`Ω_B` 비율, 수직 대 반경 거리 대조 | 설계 §2.1 |
+| `measure_derived_occupied.py` | `occupied`가 free의 잉여인가 (binary 전환의 전제) | 진단 §15 |
+| `measure_image_dependence.py` | 카메라를 섞으면 성능이 떨어지나 (0.79 → 0.37) | 진단 §18.2 |
+| `measure_label_geometry.py` | IPM 대 GT 라벨 정렬 | 진단 §18 |
+| `measure_lifting_resolution.py` | **표본 간격·왜곡·특징 예산.** 캘리브레이션만 쓴다 | 진단 §27 |
+| `measure_range_gradient.py` | `λ_R` gradient 비 캘리브레이션 | 설계 §13.3 |
+| **`measure_perturbation_stability.py`** | **same-frame perturbation consistency.** 모션 성분 0인 축 | 진단 §30.1 |
+| **`measure_frame_gap_stability.py`** | **frame-gap consistency diagnostic.** pose·라벨 불필요 | 진단 §30.2 |
+| **`benchmark_inference.py`** | **추론 지연·FPS·메모리.** 데이터셋·체크포인트 없이 돈다 -- **Orin에서 돌리는 것이 목적** | 진단 §32 |
+
+### 라벨 생성·검증 (초기 단계, 지금은 거의 안 쓴다)
+
+`build_occupancy_gt` · `build_raycast_occupancy` · `build_hybrid_occupancy` ·
+`build_visibility_mask` · `calibrate_bev_scale` · `verify_fisheye_projection` ·
+`package_synwoodscape_2head_labels` · `smoke_test_*`
+
+### 시각화
+
+| 도구 | 무엇 |
+|---|---|
+| `visualize_robot_predictions.py` | 예측 패널(현행). **`- 0.5` 정규화 누락 사고가 있었던 경로**(진단 §18.1) |
+| `render_prediction_video.py` | 전체 시퀀스 영상. `cam0..3` 매핑은 `orientation.json`이 정한다(**`left=cam3`**) |
+| `visualize_predictions.py` | SynWoodScape 시절 경로 |
+| `visualize_occupancy_gt` · `visualize_camera_visibility` · `visualize_depth_overlay` | 라벨·가시성·깊이 점검 |
+
+> **[함정] 재채점 도구에 `--encoder_type`을 반드시 맞춰 넘긴다.** 기본값이 `res101`이라
+> `res101_s4` 런을 채점하려면 명시해야 하고, 안 넘기면 `load_state_dict(strict=True)`가
+> 즉시 실패한다(진단 §29.3). **표본 규약은 런의 `config.json`에서 자동으로 되찾는다**
+> -- 한 표에 규약이 섞이면 경고가 아니라 `SystemExit`이다(진단 §28.6).
