@@ -10,6 +10,7 @@ segmentation projection with one N-channel softmax-ready head.
 근거는 `docs/finetune_overfitting_diagnosis.md` §15.
 """
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import torch
@@ -19,6 +20,7 @@ _SIMPLE_BEV_DIR = Path(__file__).resolve().parents[2] / "third_party/models/simp
 if str(_SIMPLE_BEV_DIR) not in sys.path:
     sys.path.insert(0, str(_SIMPLE_BEV_DIR))
 
+import utils.basic as utils_basic  # noqa: E402  (`_grid_on_cpu`가 이 모듈의 함수를 감싼다)
 from nets.segnet import Decoder, Segnet  # noqa: E402
 
 from projects.models.encoder_stride4 import (  # noqa: E402
@@ -93,6 +95,44 @@ class ThreeClassDecoder(Decoder):
         }
 
 
+@contextmanager
+def _grid_on_cpu():
+    """`Segnet.__init__`의 4x4 역행렬을 CPU에서 계산하게 한다 -- **Jetson 이식성 문제 하나.**
+
+    `Segnet.__init__`(segnet.py:371)이 `gridcloud3d(...)` -> `vox_util.Mem2Ref(...)`를 부르고,
+    그 안에서 `mem_T_ref.inverse()`(vox.py:108)가 돈다. `gridcloud3d`의 `device` 기본값이
+    **`'cuda'`**라 그 역행렬이 CUDA에서 계산되고, **CUDA 경로는 cuSOLVER를 탄다.**
+
+    Jetson에서 torch wheel과 JetPack의 CUDA 버전이 어긋나면 여기서 죽는다(실측, 2026-08-26):
+
+        RuntimeError: Error in dlopen: .../libtorch_cuda_linalg.so:
+        undefined symbol: cusolverDnXsyevBatched_bufferSize, version libcusolver.so.11
+
+    **CPU에서 계산해도 결과가 같고 부작용이 없다.** 근거 셋:
+
+    1. **생성 시 단 한 번**이다 -- 학습·추론 루프에 없으므로 성능과 무관하다.
+    2. `Segnet.forward`가 `self.xyz_camA.to(feat_camXs_.device)`로 **어차피 다시 옮긴다**
+       (segnet.py:417). 즉 이 텐서가 어느 장치에 있어도 forward는 정상 동작한다.
+    3. forward가 쓰는 다른 역행렬 `utils.geom.safe_inverse`는 **transpose와 matmul뿐**이라
+       cuSOLVER를 타지 않는다. 즉 **막히는 곳은 이 한 지점뿐**이다.
+
+    `third_party/`는 수정하지 않으므로(`AGENTS.md`) 여기서 감싼다. 4x4 역행렬 하나의
+    수치가 CPU와 CUDA에서 갈릴 여지는 float32 반올림 수준이고, 그 뒤 `grid_sample`의
+    표본 좌표로 들어가므로 §18.3이 다룬 규약 오차(1/3 특징픽셀)보다 몇 자릿수 작다.
+    """
+    original = utils_basic.gridcloud3d
+
+    def on_cpu(*args, **kwargs):
+        kwargs["device"] = "cpu"
+        return original(*args, **kwargs)
+
+    utils_basic.gridcloud3d = on_cpu
+    try:
+        yield
+    finally:
+        utils_basic.gridcloud3d = original
+
+
 class ThreeClassSegnet(Segnet):
     """`Segnet` variant whose segmentation output has free/occupied/unknown logits.
 
@@ -108,7 +148,13 @@ class ThreeClassSegnet(Segnet):
         stride4 = kwargs.get("encoder_type") == STRIDE4_ENCODER_TYPE
         if stride4:
             kwargs["encoder_type"] = "res101"
-        super().__init__(*args, **kwargs)
+        with _grid_on_cpu():
+            super().__init__(*args, **kwargs)
+        # `_grid_on_cpu`가 CPU에 만든 `xyz_camA`를 원래 장치로 되돌린다. 안 되돌리면
+        # `Segnet.forward`(segnet.py:417)의 `.to(device)`가 매 forward마다 실제 복사가 되어
+        # **지연 측정에 들어간다** -- 173 KB이지만 벤치마크 숫자를 오염시킬 이유가 없다.
+        if getattr(self, "xyz_camA", None) is not None and torch.cuda.is_available():
+            self.xyz_camA = self.xyz_camA.cuda()
         if stride4:
             # super()가 만든 stride-8 encoder는 여기서 버려진다. ImageNet 가중치를 두 번
             # 읽는 낭비지만 생성 1회뿐이고, 이렇게 해야 `third_party/`를 안 건드린다.

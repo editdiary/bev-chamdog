@@ -121,7 +121,15 @@ def main(
     resolutions="512x288",
     encoder_type="res101",
     batch_size=1,          # 배포는 1장이다 -- 학습 배치로 재면 FPS가 낙관적으로 나온다
-    iters=30,
+    # **30에서 100으로 올렸다**(2026-08-26). 데스크톱에서 30 / 100 / 500을 비교하니
+    # 100과 500은 median이 0.1 ms 안에서 같은데 30만 2.5 ms 벗어났다.
+    #
+    # **100은 "여러 설정을 훑는" 기본값이다. 최종 배포 숫자는 길게 돌린다** --
+    # `--iters=5000 --resolutions=512x288`이면 Orin에서 약 4분이고, 그때
+    # **`드리프트` 열이 thermal throttling까지 같이 답한다.** 길게 돌리는 데 상한은 없고,
+    # 표본이 늘수록 median이 안정된다. 다만 **`드리프트` 없이 길게 돌리면 안 된다**
+    # (위 head 주석 참고 -- median이 throttling 전후를 섞는다).
+    iters=100,
     warmup=10,
     precisions="fp32,fp16",
     device="cuda",
@@ -142,8 +150,17 @@ def main(
           f"| encoder {encoder_type} | batch {batch_size}")
     print("**PyTorch eager 기준이다 -- TensorRT 배포보다 2~4배 느리다. 설정 간 비교용으로만 읽는다.**\n")
 
+    # `지터`는 `(p90 − median)/median`이다. **이 열이 있어야 `iters`가 충분한지 표가
+    # 스스로 말한다** -- median만 찍으면 "30회로 괜찮은가"에 답할 근거가 출력에 없다.
+    # 몇 %면 안정, 10 %를 넘으면 표본이 부족하거나 **다른 작업이 GPU를 쓰고 있다는 신호**다.
+    #
+    # `드리프트`는 `(마지막 1/4 median − 첫 1/4 median) / 첫 1/4 median`이다.
+    # **길게 돌릴 때 이 열이 없으면 median이 오히려 나빠진다** -- 도중에 thermal
+    # throttling이 걸리면 median이 "느려진 뒤"와 "빠를 때"를 섞은 값이 되고, 그러면
+    # 표본을 늘렸는데 무엇을 재는지가 흐려진다. 이 열이 그 섞임을 드러낸다.
     head = [("입력 해상도", 13), ("특징맵", 10), ("정밀도", 8), ("전체 ms", 10),
-            ("FPS", 8), ("encoder ms", 12), ("encoder 몫", 11), ("peak MB", 10)]
+            ("FPS", 8), ("지터", 7), ("드리프트", 9),
+            ("encoder ms", 12), ("encoder 몫", 11), ("peak MB", 10)]
     print("  " + " ".join(f"{h:>{w}}" for h, w in head))
 
     for (w, h) in _parse_resolutions(resolutions):
@@ -197,10 +214,24 @@ def main(
 
             peak = (torch.cuda.max_memory_allocated() / 1024 ** 2
                     if device.startswith("cuda") else float("nan"))
-            feat = f"{w // 8}x{h // 8}"
-            row = [f"{w}x{h}", feat, precision, f"{np.median(total):.1f}",
-                   f"{1000.0 / np.median(total):.1f}", f"{np.median(encoder):.1f}",
-                   f"{np.median(encoder) / np.median(total) * 100:.0f}%", f"{peak:.0f}"]
+            # **stride가 encoder에 걸려 있으므로 8로 고정하면 안 된다** -- `res101_s4`는
+            # stride 4라 특징맵이 두 배다(진단 §29.2). 표시가 틀리면 표를 잘못 읽는다.
+            stride = 4 if str(encoder_type).endswith("_s4") else 8
+            feat = f"{w // stride}x{h // stride}"
+            med = float(np.median(total))
+            jitter = (float(np.percentile(total, 90)) - med) / max(med, 1e-9) * 100.0
+            # 사분위가 각각 최소 5표본은 되어야 의미가 있다. 짧은 런에서는 계산하지 않는다.
+            quarter = len(total) // 4
+            if quarter >= 5:
+                first = float(np.median(total[:quarter]))
+                last = float(np.median(total[-quarter:]))
+                drift = f"{(last - first) / max(first, 1e-9) * 100.0:+.1f}%"
+            else:
+                drift = "-"
+            row = [f"{w}x{h}", feat, precision, f"{med:.1f}",
+                   f"{1000.0 / med:.1f}", f"{jitter:+.1f}%", drift,
+                   f"{np.median(encoder):.1f}",
+                   f"{np.median(encoder) / med * 100:.0f}%", f"{peak:.0f}"]
             print("  " + " ".join(f"{c:>{wd}}" for c, (_, wd) in zip(row, head)))
 
             del model, vox_util, rgb, mats, packed
@@ -208,6 +239,15 @@ def main(
                 torch.cuda.empty_cache()
 
     print("\n  판독:")
+    print("  - **`지터`를 먼저 본다** = (p90 − median)/median. 한 자릿수 %면 표본이 충분하다.")
+    print("    **10 %를 넘으면 iters를 늘리거나, 다른 작업이 GPU를 쓰고 있는지 확인한다** --")
+    print("    실제로 공유 GPU에서 512x288 fp32가 6.9 ms 대신 32 ms로 나온 적이 있다.")
+    print("  - **`드리프트`** = (마지막 1/4 median − 첫 1/4 median)/첫 1/4. 0 근처면 안정이고,")
+    print("    **크게 양수면 실행 중에 느려진 것**(thermal throttling 또는 클럭 하락)이다.")
+    print("    **최종 배포 숫자는 `--iters=5000`처럼 길게 돌려 이 열을 함께 읽는다** --")
+    print("    그러면 median 안정성과 지속 부하 거동을 한 번에 얻는다.")
+    print("  - **배포 해상도는 512x288이다**(`robot_simplebev.py:66`, 학습이 쓴 값).")
+    print("    나머지 해상도 행은 '올리면 얼마인가'라는 가정이고, 올릴 근거는 없다(진단 §29.9).")
     print("  - `encoder 몫`이 크면 **입력 해상도를 올리는 비용이 그만큼 그대로 붙는다.**")
     print("    작으면 해상도를 올릴 여지가 있고, lifting·BEV decoder가 병목이라는 뜻이다.")
     print("  - 해상도를 1.5배로 올리면 encoder 연산은 약 2.25배(면적 비)가 된다.")
