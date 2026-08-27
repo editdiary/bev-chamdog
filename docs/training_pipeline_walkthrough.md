@@ -124,9 +124,10 @@ submodule이라 **수정 금지**)을 상속해 **마지막 head 하나만** 교
 ```
 (B,S,3,H,W) 이미지
   ├─ Encoder_res101                    segnet.py:159   stride 8, 128ch
-  ├─ vox_util.unproject_image_to_mem   fisheye_vox.py:80    ★ 어안 투영은 여기서 일어난다
-  │     3D 복셀 중심 → 카메라 좌표 → 렌즈 모델 → 픽셀 → grid_sample → (B,S,128,Z,1,X)
-  ├─ reduce_masked_mean(dim=1)         segnet.py:427   카메라 축 평균 → (B,128,Z,1,X)
+  ├─ vox_util.unproject_image_to_mem   double_sphere_vox.py:117  ★ 어안 투영은 여기서 일어난다
+  │     (pretrain은 fisheye_vox.py) 3D 복셀 중심 → 카메라 좌표 → 렌즈 모델 → 픽셀
+  │     → grid_sample → (B,S,128,Z,4,X)
+  ├─ reduce_masked_mean(dim=1)         segnet.py:427   카메라 축 평균 → (B,128,Z,4,X)
   ├─ bev_compressor                    segnet.py:346   Conv3×3 + InstanceNorm + GELU
   ├─ Decoder (resnet18 trunk)          segnet.py:58    stride2 conv → layer1~3 → UpsamplingAdd ×3
   └─ segmentation_head                 simplebev_three_class.py:22   ← 교체한 유일한 부분
@@ -155,6 +156,24 @@ submodule이라 **수정 금지**)을 상속해 **마지막 head 하나만** 교
    물리적으로 성립하지 않는다.
 4. **안 쓰는 head가 남아 있다** — `feat_head`, `instance_center_head`, `instance_offset_head`.
    loss에 안 들어가므로 gradient는 0이지만 forward 연산은 계속 된다(§6.1).
+
+5. **어디서 공간이 섞이는가 -- 실측** (2026-08-27, 이 문서 §3.1). 정규화·활성을 선형화한
+   뒤 출력 한 칸의 gradient가 닿는 입력 범위를 측정한 값이다.
+
+   | 모듈 | 최대 도달 | 유효(gradient 질량 90 %) |
+   |---|---|---|
+   | lifting | **1 셀** (셀마다 완전 독립) | 1 셀 |
+   | `bev_compressor` 3×3 | 3 셀 = 15 cm | 3 셀 = 15 cm |
+   | `Decoder` U-Net | 118 셀 = 5.90 m (격자 폭 98 %) | **43 셀 = 2.15 m** |
+
+   **BEV 좌표에서 공간 문맥을 만드는 것은 사실상 디코더뿐이다.** 다만 이것은 BEV 좌표에서만
+   참이고, **이미지에서는 인코더가 이미 크게 섞었다** -- 특징맵 1픽셀의 유효 수용영역이
+   179 px(입력 512 px 폭의 35 %)다. lifting이 못 하는 것은 "ego에서 이 셀까지의 광선" 같은
+   **BEV 격자 구조를 따르는** 관계다.
+
+   FLOPs 배분도 같이 재 두었다(batch 1, 카메라 3대): **인코더 254.62 G (90.3 %)**,
+   `bev_compressor` 16.99 G, 디코더 10.45 G. **`bev_compressor` 하나가 디코더 전체보다
+   비싸다** -- 512→128 3×3을 120×120 전 해상도에서 돌리기 때문이다.
 
 `load_trunk_weights(:53)`는 shape이 맞는 키만 **명시적으로** 복사하고 나머지를 `skipped`로
 리포트한다. `strict=False`로 조용히 넘기지 않으려는 설계이고, `skipped 0`이 곧
@@ -381,6 +400,43 @@ batch size에 따라 다른 conv 알고리즘을 고르면서 생기는 부동�
 개칭한 모듈을 하루 만에 또 바꾸면 git 이력에서 이름이 셋이 되므로 의도적으로 그대로 뒀다.
 
 ---
+
+### 6.5 upstream `Decoder.forward` 주석의 해상도가 2배 틀렸다 (2026-08-27)
+
+`segnet.py`의 주석은 `layer1` 다음을 `(H/4, W/4)`로 적어 두었지만, 이 디코더는
+`first_conv`(stride 2) 뒤에 **`maxpool`을 쓰지 않는다.** 실제로는 `H/2`다.
+skip 연결이 맞물리는 것으로 확인된다 -- 120 → 60 → 30 → 15 → 30 → 60 → 120.
+
+실측 형상(입력 `(1,128,120,120)`):
+
+```
+first_conv (1,64,60,60)   layer1 (1,64,60,60)    layer2 (1,128,30,30)
+layer3     (1,256,15,15)  up3_skip (1,128,30,30) up2_skip (1,64,60,60)
+up1_skip   (1,128,120,120)                       segmentation_head (1,2,120,120)
+```
+
+**주석 대신 이 표를 쓴다.** `third_party/`는 수정 금지이므로 주석은 그대로 남아 있다.
+
+### 6.6 카메라 병합 마스크는 복셀별이 아니라 **채널별**이다 (2026-08-27)
+
+`Segnet.forward`가 `mask_mems = (torch.abs(feat_mems) > 0).float()`로 마스크를 만들고
+`reduce_masked_mean(feat_mems, mask_mems, dim=1)`을 부른다. 마스크가 `feat`과 **같은 shape**
+이므로 평균이 `(채널, 복셀)`마다 따로 계산된다. 실측:
+
+```
+cam0 = [1,2,3,4]   cam1 = [5,6,0,8]   cam2 = 화각 밖(전부 0)
+결과 = [3.0, 4.0, 3.0, 6.0]
+                    ↑ ch2에서만 cam1이 빠졌다 -- 값이 정확히 0이라서
+```
+
+즉 `abs(feat) > 0`은 **"화각 밖"과 "특징값이 우연히 0"을 구분하지 못한다.** 정확한 0은
+드물어 실질적으로는 복셀별 카메라 수처럼 동작하지만, 계약상으로는 새는 구멍이다.
+어느 카메라도 못 본 복셀은 `denom = EPS + 0`으로 나눠 **0이 되고 NaN은 아니다**.
+
+**병합이 예외가 아니라 다수 경로다.** 캘리브레이션 기하로 세면 확정 config에서 그 셀을
+보는 카메라가 2대인 경우가 **62 %**, 3대가 21 %, 1대가 15 %, 0대가 0.2~4.5 %다
+(`tools/measure_height_bin_visibility.py --y_min=-0.25 --y_max=1.75 --n_bins=4`).
+평균에 **가중이 없다** -- 비스듬히 스치는 카메라와 정면으로 보는 카메라가 같은 가중을 받는다.
 
 ## 7. 코드를 직접 따라갈 순서
 

@@ -18,6 +18,7 @@ bev-chamdog/
 │   ├── env/                   # pip freeze 스냅샷
 │   ├── git_workflow.md        # git 브랜치 전략
 │   ├── project_structure.md   # (현재 문서)
+│   ├── figures/               # 논문용 그림 (생성기가 정본, SVG 직접 수정 금지)
 │   ├── dataset_analysis/      # WoodScape/SynWoodScape 등 분석 노트
 │   └── study/                 # 배경 지식 정리 (카메라 모델·캘리브레이션 등)
 ├── dataset/               # 데이터셋 (내용물은 git 미추적, /data 로 symlink)

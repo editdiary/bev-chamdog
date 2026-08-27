@@ -55,10 +55,10 @@
 | [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) | **loss 설계·결과 정본.** §2–§5 정식화, §6 구현 상태, §7 왜 하이퍼파라미터를 라벨에서 못 얻나, §8 실행법, §9–§10 스윕 10런 실측, §11 확정/기각, §12 보조 loss 계획, §13 `L_range`, §14 판정 프로토콜, §15 n=3 ablation, **§16 threshold sweep -- 최종 결론(정본)** | **loss 연구는 §16으로 종결됐다.** 결론만 볼 거면 **§16.4** 한 표다. **§15.5(3)의 "안전 개선"은 §16.2가 철회했고, §13.6~§13.8의 σ 값은 §15.4가 철회했다 -- 순위만 인용한다.** **다음 할 일은 이 문서가 아니다** -- 계획된 실험은 전부 끝났고 남은 것은 논문 집필이다(위 2026-08-26 블록) |
 | [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) | **지표 정의 정본.** 지표 하나하나의 정의와 채택/기각 사유 | 지표를 추가·삭제·변경할 때 **먼저 읽고 여기에 기록한다** |
 | [`finetuning_guide.md`](finetuning_guide.md) | fine-tuning 실행 절차 | 실행 전 데이터 점검 체크리스트가 여기 있다 |
-| [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드(데이터 → 텐서 → loss → 지표) | 코드를 처음 만질 때 |
+| [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드(데이터 → 텐서 → loss → 지표). **§3 항목 5에 수용영역·FLOPs 실측**, §6.5~§6.6에 upstream 함정 둘 | 코드를 처음 만질 때. **아키텍처를 그림으로 보려면 [`figures/bev_pipeline.html`](figures/bev_pipeline.html)** |
 | [`setup_guide_pro6000.md`](setup_guide_pro6000.md) | 환경 세팅 정본 (RTX PRO 6000 Blackwell) | **PyTorch는 `cu128` 빌드여야 한다** -- sm_120에서 cu118 커널은 실행되지 않는다 |
 | [`git_workflow.md`](git_workflow.md) | 브랜치·커밋 규칙 | `merge`/`push`는 사용자만 수행한다 |
-| [`project_structure.md`](project_structure.md) | 폴더 구조 + **`tools/` 색인 38개**(무엇을 재는 도구이고 그 숫자가 어느 절에 실렸나) | `third_party/`·`mmdetection3d/`는 submodule -- 직접 수정 금지. **재채점 시 `--encoder_type`을 맞춰 넘긴다** |
+| [`project_structure.md`](project_structure.md) | 폴더 구조 + **`tools/` 색인 39개**(무엇을 재는 도구이고 그 숫자가 어느 절에 실렸나) | `third_party/`·`mmdetection3d/`는 submodule -- 직접 수정 금지. **재채점 시 `--encoder_type`을 맞춰 넘긴다** |
 
 ## 🔵 운영 메모
 
@@ -72,6 +72,7 @@
 |---|---|
 | [`paper_experiment_compendium.md`](paper_experiment_compendium.md) | **논문 집필용 실험 총정리(2026-08-26).** 모든 실험을 목적→설계→결과(수치)→해석으로 한 곳에 모은 **파생 문서다 -- 정본이 아니다.** 숫자가 정본과 어긋나면 정본이 맞고, **새 실측을 여기에 추가하지 않는다**(정본에 절을 추가한 뒤 옮겨 적는다). 사실과 해석을 표기로 구분하고(§0.3), **철회·정정 16건을 §12에 모아 두었다** |
 | [`dataset_analysis/`](dataset_analysis) | SynWoodScape 기하 조사, 수동 라벨링 ROI 결정, WoodScape 분석 |
+| [`figures/`](figures) | **파이프라인 모식도.** `bev_pipeline.html`(모식도 + 형상표 + 디코더 근거), `bev_pipeline.svg`(논문용 독립 SVG), `make_pipeline_figure.py`(**그림의 정본 -- SVG를 직접 고치지 않는다**) |
 | `env/` | 환경 고정용 `pip freeze` 스냅샷 |
 | `superpowers/` | 스킬 시스템이 생성한 spec·plan (도구가 관리한다 -- 손으로 고치지 않는다) |
 
