@@ -148,6 +148,15 @@ class ThreeClassSegnet(Segnet):
         stride4 = kwargs.get("encoder_type") == STRIDE4_ENCODER_TYPE
         if stride4:
             kwargs["encoder_type"] = "res101"
+        # `Segnet(Z, Y, X, vox_util)`에서 `Y`와 `vox_util.Y`가 어긋나면 lifting이 만든 볼륨과
+        # `bev_compressor`가 기대하는 채널 수가 달라진다. 형상 에러는 나지만 한참 뒤 forward에서
+        # 나므로 원인이 안 보인다. **호출부 20곳이 각자 리터럴 `Y`를 들고 있었으므로** 여기서
+        # 즉시 잡는다. `Y`의 단일 출처는 `projects.datasets.simplebev_vox.vox_dims`다.
+        vox_util_arg = args[3] if len(args) > 3 else kwargs.get("vox_util")
+        if vox_util_arg is not None and len(args) >= 3 and args[1] != vox_util_arg.Y:
+            raise ValueError(
+                f"Segnet의 Y={args[1]}와 vox_util.Y={vox_util_arg.Y}가 다르다 -- "
+                f"둘 다 vox_dims(grid_spec, height_bins)에서 받아야 한다")
         with _grid_on_cpu():
             super().__init__(*args, **kwargs)
         # `_grid_on_cpu`가 CPU에 만든 `xyz_camA`를 원래 장치로 되돌린다. 안 되돌리면
@@ -164,6 +173,29 @@ class ThreeClassSegnet(Segnet):
         self.decoder = ThreeClassDecoder(
             in_channels=latent_dim, predict_future_flow=False, num_classes=num_classes
         )
+
+
+def height_bins_from_state_dict(state_dict) -> int:
+    """체크포인트가 **자기 `Y`를 스스로 말하게 한다.**
+
+    `bev_compressor[0]`이 `Conv2d(latent_dim*Y -> latent_dim, 3x3)`이므로 가중치 형상이
+    `(latent_dim, latent_dim*Y, 3, 3)`이고, 두 값의 비가 곧 `Y`다.
+
+    왜 이렇게 하나: `saverloader.save`(third_party, 수정 금지)가 state_dict만 저장하고
+    config 메타데이터를 남기지 않는다. 평가 도구가 `Y`를 인자로 받게 하면 **사람이 매번
+    맞춰 줘야 하고 틀리면 조용히 다른 아키텍처를 만든다.** 형상에서 되읽으면 학습과 평가가
+    구조적으로 어긋날 수 없다.
+
+    `Y=1`인 옛 체크포인트는 그대로 1을 돌려주므로 하위 호환이 유지된다.
+    """
+    weight = state_dict.get("bev_compressor.0.weight")
+    if weight is None:
+        raise KeyError("bev_compressor.0.weight가 없다 -- Simple-BEV 체크포인트가 맞는가?")
+    out_channels, in_channels = weight.shape[0], weight.shape[1]
+    if in_channels % out_channels:
+        raise ValueError(
+            f"bev_compressor 입력 채널 {in_channels}이 출력 {out_channels}의 배수가 아니다")
+    return in_channels // out_channels
 
 
 def unexpected_skips(skipped) -> list:

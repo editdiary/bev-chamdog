@@ -58,6 +58,10 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     load_masked_labels,
     parse_sequence_names,
 )
+from projects.datasets.simplebev_vox import (  # noqa: E402
+    height_config_for_ckpt_dirs,
+    vox_dims,
+)
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.pixel_grid import convention_for_checkpoints  # noqa: E402
@@ -224,13 +228,18 @@ def main(
 
     val_ds = RobotBEVDataset(val_samples, common_root=common_root)
     loader = DataLoader(val_ds, batch_size=batch_size, num_workers=num_workers)
-    Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
-    # 표본 규약은 **체크포인트 옆 config.json에서 되찾는다** -- 기본값을 쓰면 옛 런(legacy)을
-    # 새 기하로 재채점해 조용히 다른 숫자가 나온다.
+    # 표본 규약과 **표본 높이**를 둘 다 체크포인트 옆에서 되찾는다 -- 기본값을 쓰면 옛
+    # 런(legacy)을 새 기하로 재채점해 조용히 다른 숫자가 나온다. 높이는 `height.json`에서
+    # 오고, 파일이 없으면 옛 기본값(`Y=1`)이라 하위 호환이 유지된다.
     convention, offset = convention_for_checkpoints([checkpoint])
+    height = height_config_for_ckpt_dirs([Path(checkpoint).parent])
+    Z, Y, X = vox_dims(GRID_SPEC, height["height_bins"])
     vox_util = build_double_sphere_vox_util(GRID_SPEC, val_ds.cameras, device=device,
                                            pixel_convention=convention,
-                                           pixel_offset=offset)
+                                           pixel_offset=offset,
+                                           height_bins=height["height_bins"],
+                                           height_min_m=height["height_min_m"],
+                                           height_max_m=height["height_max_m"])
     model = ThreeClassSegnet(
         Z, Y, X, vox_util, use_radar=False, use_lidar=False,
         do_rgbcompress=True, encoder_type=encoder_type, rand_flip=False,

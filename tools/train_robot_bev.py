@@ -78,6 +78,12 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     split_samples_within_sequences,
 )
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
+from projects.datasets.simplebev_vox import (  # noqa: E402
+    height_bin_centers_m,
+    save_height_config,
+    vox_bounds,
+    vox_dims,
+)
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.simplebev_three_class import (  # noqa: E402
     ThreeClassSegnet,
@@ -223,6 +229,13 @@ def main(
     weight_decay=1e-7,
     num_workers=8,
     encoder_type="res101",
+    # lifting의 높이 축. **기본값은 여태까지의 전 실험 설정(`Y=1`, `ego z=0` 평면 하나)이다.**
+    # `height_bins>1`이면 `height_min_m`/`height_max_m`을 함께 줘야 의미가 있다 -- 기본
+    # 대칭 슬래브(±0.25 m)를 쪼개는 것은 지면 바로 위아래를 잘게 보는 것이라 무의미하다.
+    # 설계 근거와 bin 중심 계산은 `projects/datasets/simplebev_vox.vox_bounds` docstring.
+    height_bins=1,
+    height_min_m=None,
+    height_max_m=None,
     augment=False,  # 광도 증강. pretrain에서는 +0.006이었지만 적용 여부는 사용자가 결정한다
     val_freq_epochs=1,
     save_freq_epochs=10,
@@ -437,6 +450,10 @@ def main(
         f" robot dataset -> Simple-BEV {formulation} fine-tuning",
         f" exp_name={exp_name} | encoder={encoder_type} | cameras={','.join(FINETUNE_CAMERA_NAMES)}",
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
+        f" lifting height: Y={height_bins} bins, 표본 높이 [m] = "
+        + ", ".join(f"{z:+.3f}" for z in height_bin_centers_m(
+            vox_bounds(GRID_SPEC, height_min_m=height_min_m, height_max_m=height_max_m),
+            height_bins)),
         f" train sequences={','.join(names) or '-'} ({len(train_samples)} samples)",
         f" val   split={split_note} ({len(val_samples)} samples)",
         f" init_checkpoint="
@@ -506,16 +523,20 @@ def main(
         batch_size=batch_size, shuffle=False, num_workers=num_workers,
     )
 
-    Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
+    Z, Y, X = vox_dims(GRID_SPEC, height_bins)
+    height_kwargs = dict(height_bins=height_bins,
+                         height_min_m=height_min_m, height_max_m=height_max_m)
     vox_util = build_double_sphere_vox_util(
         GRID_SPEC, train_ds.cameras, device=device,
         pixel_convention=pixel_convention, pixel_offset=float(pixel_offset),
+        **height_kwargs,
     )
     # 반전 배치는 lifting 기하가 달라지므로 vox util을 하나 더 둔다. 캘리브레이션은 같고
     # `mirror_x`만 다르다 -- 만드는 비용이 사실상 0이라 플래그와 무관하게 항상 준비해 둔다.
     mirror_vox_util = build_double_sphere_vox_util(
         GRID_SPEC, train_ds.cameras, device=device, mirror_x=True,
         pixel_convention=pixel_convention, pixel_offset=float(pixel_offset),
+        **height_kwargs,
     )
     # rand_flip=False: 이 리그의 ROI는 전후 비대칭(전방 4 m / 후방 2 m)이라
     # Simple-BEV의 Z축 flip 증강이 물리적으로 성립하지 않는다.
@@ -607,6 +628,9 @@ def main(
     writer = SummaryWriter(str(log_path))
     ckpt_path = Path(ckpt_dir) / run_name
     log_path.mkdir(parents=True, exist_ok=True)
+    # 평가 도구가 표본 높이를 되찾을 수 있도록 체크포인트 **옆에** 남긴다.
+    # `Y`는 `bev_compressor` 형상에서도 되읽히지만 높이 **범위**는 형상에 안 남는다.
+    save_height_config(ckpt_path, height_bins, height_min_m, height_max_m)
     (log_path / "config.json").write_text(
         json.dumps(resolved_config, indent=2, ensure_ascii=False, sort_keys=True)
     )

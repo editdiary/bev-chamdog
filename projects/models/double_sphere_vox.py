@@ -170,9 +170,15 @@ def build_double_sphere_vox_util(grid_spec: OccupancyGridSpec, cameras,
                                  height_margin_m: float = 0.25, device="cpu",
                                  mirror_x: bool = False,
                                  pixel_convention: str = DEFAULT_CONVENTION,
-                                 pixel_offset: float = 0.0):
-    Z, Y, X = vox_dims(grid_spec)
-    bounds = vox_bounds(grid_spec, height_margin_m)
+                                 pixel_offset: float = 0.0,
+                                 height_bins: int = 1,
+                                 height_min_m=None, height_max_m=None):
+    """`height_bins`/`height_min_m`/`height_max_m`의 의미는 `simplebev_vox.vox_bounds` 참고.
+
+    기본값은 여태까지의 설정(`Y=1`, `z=0` 평면 하나)과 완전히 같다.
+    """
+    Z, Y, X = vox_dims(grid_spec, height_bins)
+    bounds = vox_bounds(grid_spec, height_margin_m, height_min_m, height_max_m)
     scene_centroid = torch.zeros(1, 3, dtype=torch.float32, device=device)
     vox_util = DoubleSphereVoxUtil(Z, Y, X, scene_centroid=scene_centroid, bounds=bounds,
                                    assert_cube=False)
