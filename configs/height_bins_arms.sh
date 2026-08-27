@@ -99,6 +99,9 @@ CONTROL_CELL="${CONTROL_CELL:-off_0.00}"
 HEIGHT_BINS="${HEIGHT_BINS:-8}"
 HEIGHT_MIN_M="${HEIGHT_MIN_M:--0.125}"
 HEIGHT_MAX_M="${HEIGHT_MAX_M:-1.875}"
+# 런 이름 접두사. **`HEIGHT_BINS`를 바꾸면 이것도 같이 바꾼다** -- 안 바꾸면 폴더 이름이
+# 실제 설정과 어긋나 나중에 오독을 부른다(`runs/height_bins_regress/README.md`가 그 사례).
+ARM="${ARM:-y${HEIGHT_BINS}}"
 
 TRAIN_SEQS="raws2,raws3,rawos1,rawos2,rawos4"
 VAL_SEQS="raws1,rawos3"
@@ -110,8 +113,9 @@ mkdir -p "${OUT_ROOT}/logs" "${OUT_ROOT}/ckpt"
 
 if [ "${1:-}" = "--report" ]; then
     seeds_csv="$(echo ${SEEDS} | tr ' ' ',')"
-    echo "=== [Y=8] runs/height_bins -- 고정 epoch ${NUM_EPOCHS} ==="
-    python tools/summarize_repeats.py --log_root="${OUT_ROOT}/logs" --fixed_epoch="${NUM_EPOCHS}"
+    echo "=== [Y=${HEIGHT_BINS}] ${OUT_ROOT} -- 고정 epoch ${NUM_EPOCHS} ==="
+    python tools/summarize_repeats.py --log_root="${OUT_ROOT}/logs" \
+        --fixed_epoch="${NUM_EPOCHS}" --pattern="${ARM}_s*"
     echo
     echo "=== [Y=1 대조군] ${CONTROL_ROOT}/logs/${CONTROL_CELL}_s* -- 같은 config ==="
     python tools/summarize_repeats.py --log_root="${CONTROL_ROOT}/logs" \
@@ -146,6 +150,6 @@ run_one() {
 }
 
 for SEED in ${SEEDS}; do
-    run_one "y8_s${SEED}"
+    run_one "${ARM}_s${SEED}"
 done
 echo "HEIGHT_BINS_ARMS_DONE"
