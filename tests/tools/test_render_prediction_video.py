@@ -1,7 +1,9 @@
 """동영상 프레임 조립·프레임 탐색 테스트 (모델 없이).
 
-레이아웃 계약을 못박는 이유: 상단 RGB / 하단 좌 IPM / 하단 우 예측이라는 배치가 사용자
+레이아웃 계약을 못박는 이유: 상단 RGB / 하단 좌 IPM / 그 오른쪽 예측이라는 배치가 사용자
 요구사항이고, 좌우가 뒤바뀌면 그림을 잘못 읽게 되는데 눈으로는 알아채기 어렵다.
+
+`--compare_ckpt` 비교 모드에서는 하단이 `IPM | 예측 A | 예측 B | 차이` 넷이 된다.
 """
 import numpy as np
 import pytest
@@ -10,6 +12,7 @@ from PIL import Image
 from tools.render_prediction_video import (
     compose_frame,
     list_frames,
+    render_free_disagreement,
     resolve_camera_files,
 )
 
@@ -25,7 +28,8 @@ def test_compose_frame_puts_ipm_left_and_prediction_right_below_the_cameras():
     ipm = _solid(10, 10, (255, 255, 0))          # 노랑 = IPM
     pred = _solid(10, 10, (0, 255, 255))         # 시안 = 예측
 
-    canvas = compose_frame(cameras, CAMERA_NAMES, ipm, pred, "제목", bev_upscale=4,
+    canvas = compose_frame(cameras, CAMERA_NAMES,
+                           [("IPM", ipm), ("예측", pred)], "제목", bev_upscale=4,
                            camera_width=128)
     pixels = np.asarray(canvas)
 
@@ -65,10 +69,37 @@ def test_list_frames_fails_loudly_when_there_are_no_frame_directories(tmp_path):
 
 def test_compose_frame_returns_a_pil_image_sized_to_fit_both_bev_panels():
     cameras = [_solid(36, 64, (10, 10, 10)) for _ in CAMERA_NAMES]
-    canvas = compose_frame(cameras, CAMERA_NAMES, _solid(120, 120, (1, 2, 3)),
-                           _solid(120, 120, (4, 5, 6)), "t", bev_upscale=2, camera_width=100)
+    canvas = compose_frame(cameras, CAMERA_NAMES,
+                           [("IPM", _solid(120, 120, (1, 2, 3))),
+                            ("예측", _solid(120, 120, (4, 5, 6)))],
+                           "t", bev_upscale=2, camera_width=100)
     assert isinstance(canvas, Image.Image)
     assert canvas.width >= 2 * 120 * 2      # BEV 두 장이 나란히 들어가야 한다
+
+
+def test_compose_frame_widens_for_four_panels_in_compare_mode():
+    """비교 모드는 BEV 패널이 넷이다. 캔버스가 그만큼 넓어져야 잘리지 않는다."""
+    cameras = [_solid(36, 64, (10, 10, 10)) for _ in CAMERA_NAMES]
+    panels = [(f"p{i}", _solid(120, 120, (i, i, i))) for i in range(4)]
+    canvas = compose_frame(cameras, CAMERA_NAMES, panels, "t", bev_upscale=2, camera_width=100)
+    assert canvas.width >= 4 * 120 * 2
+
+
+def test_disagreement_panel_separates_the_two_directions():
+    """두 예측이 갈리는 방향(A만 free / B만 free)이 서로 다른 색이어야 한다.
+
+    같은 색으로 칠하면 "Y=4가 더 멀리 본다"와 "Y=4가 더 보수적이다"가 구별되지 않는데,
+    이 패널을 보는 목적이 바로 그 구별이다.
+    """
+    valid = np.ones((1, 1, 4, 4), bool)
+    free_a = np.zeros((1, 1, 4, 4), bool); free_a[..., 0, :] = True
+    free_b = np.zeros((1, 1, 4, 4), bool); free_b[..., 1, :] = True
+
+    image = render_free_disagreement({"free": free_a}, {"free": free_b}, valid)
+
+    a_only, b_only, agree = image[0, 0], image[1, 0], image[2, 0]
+    assert tuple(a_only) != tuple(b_only), "두 방향이 같은 색이면 구별할 수 없다"
+    assert tuple(agree) not in (tuple(a_only), tuple(b_only))
 
 
 def _orientation(tmp_path):

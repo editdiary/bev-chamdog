@@ -139,12 +139,46 @@ def _model_input(images: dict, camera_names) -> torch.Tensor:
     return torch.from_numpy(stacked.transpose(0, 3, 1, 2))
 
 
-def compose_frame(camera_images, camera_names, ipm_rgb, pred_rgb, title,
+# 두 예측이 갈리는 곳을 칠하는 색. `three_class_panels.CLASS_COLOURS`와 겹치지 않게 골랐다.
+_DIFF_COLOURS = {
+    "a_only": (255, 80, 80),    # A만 free (B는 아니다)
+    "b_only": (80, 160, 255),   # B만 free (A는 아니다)
+    "agree": (48, 48, 52),      # 둘이 같다
+}
+
+
+def render_free_disagreement(parts_a, parts_b, valid) -> np.ndarray:
+    """두 모델의 예측 `free`가 갈리는 곳만 보여 준다.
+
+    **이 패널이 이 도구의 비교 모드에서 실제로 눈에 띄는 유일한 그림이다** -- 예측 두 장을
+    나란히 놓으면 사람 눈으로는 거의 같아 보이는데, 차이는 대개 경계 몇 셀이기 때문이다.
+    """
+    from projects.common.three_class_panels import CLASS_COLOURS, _as_2d
+
+    valid_2d = _as_2d(valid)
+    free_a, free_b = _as_2d(parts_a["free"]), _as_2d(parts_b["free"])
+    image = np.empty((*valid_2d.shape, 3), np.uint8)
+    image[...] = CLASS_COLOURS["invalid"]
+    image[valid_2d] = _DIFF_COLOURS["agree"]
+    image[valid_2d & free_a & ~free_b] = _DIFF_COLOURS["a_only"]
+    image[valid_2d & free_b & ~free_a] = _DIFF_COLOURS["b_only"]
+    return image
+
+
+def compose_frame(camera_images, camera_names, bev_panels, title,
                   bev_upscale=4, camera_width=320) -> Image.Image:
-    """상단 RGB 3장 / 하단 좌 IPM / 하단 우 예측. 순수 이미지 조립이라 모델과 무관하다."""
-    bev_side = ipm_rgb.shape[0] * bev_upscale
-    total_w = max(len(camera_names) * camera_width + (len(camera_names) - 1) * _PAD,
-                  2 * bev_side + _PAD)
+    """상단 RGB 3장 / 하단 BEV 패널들. 순수 이미지 조립이라 모델과 무관하다.
+
+    `bev_panels`는 `[(label, (H, W, 3) uint8), ...]`이다. 기본은 IPM + 예측 둘이지만
+    `--compare_ckpt`를 주면 예측 둘과 차이 지도까지 넷이 된다.
+    """
+    bev_side = bev_panels[0][1].shape[0] * bev_upscale
+    bev_row_w = len(bev_panels) * bev_side + (len(bev_panels) - 1) * _PAD
+    # BEV 행이 더 넓으면 카메라를 늘려 폭을 맞춘다. 비교 모드에서 패널이 넷이 되면
+    # 기본 폭으로는 상단이 절반만 차서 화면의 절반이 빈다.
+    camera_width = max(camera_width,
+                       (bev_row_w - (len(camera_names) - 1) * _PAD) // len(camera_names))
+    total_w = max(len(camera_names) * camera_width + (len(camera_names) - 1) * _PAD, bev_row_w)
     cam_h = round(camera_width * camera_images[0].shape[0] / camera_images[0].shape[1])
     total_h = _LABEL_H + cam_h + _PAD + _LABEL_H + bev_side + _PAD
 
@@ -160,7 +194,7 @@ def compose_frame(camera_images, camera_names, ipm_rgb, pred_rgb, title,
         draw.text((x + 4, y + 2), name, fill=(255, 240, 60), font=label_font)
 
     y += cam_h + _PAD
-    for index, (bev, label) in enumerate(((ipm_rgb, "IPM (실제 장면)"), (pred_rgb, "예측"))):
+    for index, (label, bev) in enumerate(bev_panels):
         x = _PAD + index * (bev_side + _PAD)
         draw.text((x, y), label, fill=_FG, font=label_font)
         canvas.paste(
@@ -170,9 +204,39 @@ def compose_frame(camera_images, camera_names, ipm_rgb, pred_rgb, title,
     return canvas
 
 
+def _build_model(ckpt, grid, cameras, encoder_type, formulation, device):
+    """체크포인트 하나 -> `(model, vox_util)`. 표본 규약과 **표본 높이**를 그 옆에서 되찾는다.
+
+    기본값을 쓰면 옛 런(legacy, `Y=1`)을 새 기하로 추론해 조용히 다른 그림이 나온다.
+    """
+    convention, offset = convention_for_checkpoints([ckpt])
+    height = height_config_for_ckpt_dirs([Path(ckpt).parent])
+    vox_util = build_double_sphere_vox_util(grid, cameras, device=device,
+                                            height_bins=height["height_bins"],
+                                            height_min_m=height["height_min_m"],
+                                            height_max_m=height["height_max_m"],
+                                            pixel_convention=convention,
+                                            pixel_offset=offset)
+    model = ThreeClassSegnet(
+        grid.n_rows, vox_util.Y, grid.n_cols, vox_util, use_radar=False, use_lidar=False,
+        do_rgbcompress=True, encoder_type=encoder_type, rand_flip=False,
+        num_classes=2 if formulation == "binary" else 3,
+    ).to(device)
+    state = torch.load(ckpt, map_location="cpu", weights_only=False)
+    model.load_state_dict(state.get("model_state_dict", state))
+    model.eval()
+    print(f"  {Path(ckpt).parent.name}: Y={vox_util.Y}, 규약 {convention}/{offset}")
+    return model, vox_util
+
+
 def main(
     ckpt,
     sequence_root,
+    # 두 번째 체크포인트. 주면 예측 패널이 둘이 되고 **차이 지도**가 하나 더 붙는다.
+    # 두 모델의 `Y`가 달라도 된다 -- 각자 자기 `height.json`을 따라간다.
+    compare_ckpt=None,
+    label_a="A",
+    label_b="B",
     out="runs/robot_bev/viz/prediction.mp4",
     formulation="binary",
     encoder_type="res101",
@@ -207,24 +271,12 @@ def main(
     # `valid=0`이 아니므로(§3) 여기서 제외하지 않는다 -- 학습과 같은 계약이다.
     valid_np = ~invalid
 
-    # 표본 규약은 **체크포인트 옆 config.json에서 되찾는다** -- 기본값을 쓰면 옛 런(legacy)을
-    # 새 기하로 재채점해 조용히 다른 숫자가 나온다.
-    convention, offset = convention_for_checkpoints([ckpt])
-    _height = height_config_for_ckpt_dirs([Path(ckpt).parent])
-    vox_util = build_double_sphere_vox_util(grid, cameras, device=device,
-                                           height_bins=_height["height_bins"],
-                                           height_min_m=_height["height_min_m"],
-                                           height_max_m=_height["height_max_m"],
-                                           pixel_convention=convention,
-                                           pixel_offset=offset)
-    model = ThreeClassSegnet(
-        grid.n_rows, vox_util.Y, grid.n_cols, vox_util, use_radar=False, use_lidar=False,
-        do_rgbcompress=True, encoder_type=encoder_type, rand_flip=False,
-        num_classes=2 if formulation == "binary" else 3,
-    ).to(device)
-    state = torch.load(ckpt, map_location="cpu", weights_only=False)
-    model.load_state_dict(state.get("model_state_dict", state))
-    model.eval()
+    print("모델:")
+    model, vox_util = _build_model(ckpt, grid, cameras, encoder_type, formulation, device)
+    model_b = vox_b = None
+    if compare_ckpt:
+        model_b, vox_b = _build_model(compare_ckpt, grid, cameras, encoder_type,
+                                      formulation, device)
     rays = build_ray_index(grid)
 
     out_path = Path(out)
@@ -242,20 +294,34 @@ def main(
                       for path in chunk]
             rgb = torch.stack([_model_input(one, FINETUNE_CAMERA_NAMES) for one in loaded])
             logits, _ = _forward(model, rgb, pix_T_cams, cam0_T_camXs, vox_util, device)
+            logits_b = (_forward(model_b, rgb, pix_T_cams, cam0_T_camXs, vox_b, device)[0]
+                        if model_b is not None else None)
+
+            def _parts(one):
+                return (binary_metrics.predicted_parts(one, valid_t, rays)
+                        if formulation == "binary"
+                        else decompose_from_class_index(one.argmax(dim=1, keepdim=True), valid_t))
 
             for index, (path, images) in enumerate(zip(chunk, loaded)):
                 one = logits[index:index + 1]
-                parts = (
-                    binary_metrics.predicted_parts(one, valid_t, rays)
-                    if formulation == "binary"
-                    else decompose_from_class_index(one.argmax(dim=1, keepdim=True), valid_t)
-                )
+                parts = _parts(one)
+                # `render_ipm`은 이름으로 색인하는 dict를 받는다(모델 쪽은 순서 리스트다).
+                panels = [("IPM (실제 장면)",
+                           render_ipm(images, cameras_by_name, ego_T_cams, grid))]
+                if logits_b is None:
+                    panels.append(("예측", render_classes(parts, valid_t)))
+                else:
+                    parts_b = _parts(logits_b[index:index + 1])
+                    panels += [
+                        (f"예측 {label_a}", render_classes(parts, valid_t)),
+                        (f"예측 {label_b}", render_classes(parts_b, valid_t)),
+                        (f"차이 (빨강={label_a}만 free, 파랑={label_b}만 free)",
+                         render_free_disagreement(parts, parts_b, valid_t)),
+                    ]
                 canvas = compose_frame(
                     [images[name] for name in FINETUNE_CAMERA_NAMES],
                     FINETUNE_CAMERA_NAMES,
-                    # `render_ipm`은 이름으로 색인하는 dict를 받는다(모델 쪽은 순서 리스트다).
-                    render_ipm(images, cameras_by_name, ego_T_cams, grid),
-                    render_classes(parts, valid_t),
+                    panels,
                     f"{Path(sequence_root).name}/{path.name}   frame {start + index + 1}"
                     f"/{len(frames)}",
                     bev_upscale=bev_upscale,
