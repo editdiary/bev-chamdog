@@ -75,20 +75,27 @@ DELTA_R_OVER_M="${DELTA_R_OVER_M:-None}"
 HUBER_BETA_M="${HUBER_BETA_M:-0.10}"
 
 # lifting의 **높이 축** (`projects/datasets/simplebev_vox.py`의 `vox_bounds` docstring).
-#   HEIGHT_BINS   `Segnet(Z, Y, X)`의 Y. **1이 여태까지의 전 실험 설정**이고 기본값이다.
-#   HEIGHT_MIN_M / HEIGHT_MAX_M   높이 범위 [m, 지면=0]. None이면 ±0.25 대칭 슬래브.
+#   HEIGHT_BINS   `Segnet(Z, Y, X)`의 Y. **2026-08-27에 기본값을 1 -> 4로 옮겼다.**
+#   HEIGHT_MIN_M / HEIGHT_MAX_M   높이 범위 [m, 지면=0]. 채택값 -0.25 ~ 1.75
+#                 (표본 높이 0, 0.5, 1.0, 1.5 m). None 둘이면 ±0.25 대칭 슬래브 = 옛 설정.
 #
-# **왜 이 손잡이가 생겼나.** 라벨 파이프라인(`dataset/.../slab_label.py`)의 occupancy는
+# **이 시점 이후의 런은 그 이전 런과 lifting 기하가 다르다.** 옛 런과 한 표에 세우려면
+# `HEIGHT_BINS=1 HEIGHT_MIN_M=None HEIGHT_MAX_M=None`을 명시한다.
+#
+# **왜 바꿨나.** 라벨 파이프라인(`dataset/.../slab_label.py`)의 occupancy는
 # *"슬래브 [z_ref, z_ref+0.8]은 로봇이 통과해야 하는 높이 구간"*, 즉 **지상 0.87~1.67 m의
-# 기둥 질의**다. 그런데 `Y=1`은 `ego z=0` 한 평면에서만 이미지 특징을 뽑는다. 그 불일치를
-# 실험으로 확인하는 것이 `configs/height_bins_arms.sh`다.
+# 기둥 질의**다. 그런데 `Y=1`은 `ego z=0` 한 평면에서만 이미지 특징을 뽑았다.
+# n=3 실험(`configs/height_bins_arms.sh`) 결과 `iou_free` 0.7950 -> 0.8104,
+# `f1@10cm` 0.5437 -> 0.6085(중·원거리에 집중), 지연 +3.2 %, 재현성 불변.
+# **다만 예측했던 메커니즘(장애물 검출 개선)은 확인되지 않았다** -- 실제로 좋아진 것은
+# 중·원거리 경계 정밀도다. 자세한 것은 `configs/height_bins_arms.sh` 머리말.
 #
 # **bin 중심을 반드시 확인할 것** -- `Vox_util`은 복셀 중심에서 표본하므로 범위와 Y의 조합에
 # 따라 기존 z=0 평면이 사라질 수 있다. `[-0.125, 1.875]` + Y=8이면 중심이 0, 0.25, ..., 1.75가
 # 되어 bin 0이 기존 평면과 정확히 일치한다. 학습 배너가 실제 표본 높이를 찍는다.
-HEIGHT_BINS="${HEIGHT_BINS:-1}"
-HEIGHT_MIN_M="${HEIGHT_MIN_M:-None}"
-HEIGHT_MAX_M="${HEIGHT_MAX_M:-None}"
+HEIGHT_BINS="${HEIGHT_BINS:-4}"
+HEIGHT_MIN_M="${HEIGHT_MIN_M:--0.25}"
+HEIGHT_MAX_M="${HEIGHT_MAX_M:-1.75}"
 
 # 특징맵 표본 좌표의 기하 (`docs/finetune_overfitting_diagnosis.md` §18.3).
 #   PIXEL_CONVENTION  pixel_center(기본·옳은 규약) 또는 legacy_index(옛 동작).

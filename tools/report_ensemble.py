@@ -67,6 +67,7 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     parse_sequence_names,
     split_samples_by_sequence,
 )
+from projects.datasets.simplebev_vox import height_config_for_ckpt_dirs  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.pixel_grid import convention_for_run_dirs  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
@@ -90,7 +91,7 @@ def _csv(value):
 
 
 def _load(ckpt, vox, encoder_type, device):
-    model = ThreeClassSegnet(GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols, vox, use_radar=False,
+    model = ThreeClassSegnet(GRID_SPEC.n_rows, vox.Y, GRID_SPEC.n_cols, vox, use_radar=False,
                              use_lidar=False, do_rgbcompress=True, encoder_type=encoder_type,
                              rand_flip=False, num_classes=2).to(device)
     state = torch.load(ckpt, map_location=device, weights_only=False)
@@ -126,7 +127,12 @@ def main(
     # 새 기하로 재채점해 조용히 다른 숫자가 나온다.
     convention, offset = convention_for_run_dirs(
         [Path(log_root) / "logs" / f"{cell}_s{seed}" for cell in cells for seed in seeds])
+    _height = height_config_for_ckpt_dirs(
+        [Path(log_root) / "ckpt" / f"{cell}_s{seed}" for cell in cells for seed in seeds])
     vox_util = build_double_sphere_vox_util(GRID_SPEC, dataset.cameras, device=device,
+                                           height_bins=_height["height_bins"],
+                                           height_min_m=_height["height_min_m"],
+                                           height_max_m=_height["height_max_m"],
                                            pixel_convention=convention, pixel_offset=offset)
     rays = build_ray_index(GRID_SPEC)
 

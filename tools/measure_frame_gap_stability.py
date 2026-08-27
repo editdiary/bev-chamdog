@@ -64,6 +64,7 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
 )
 from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam  # noqa: E402
 from projects.geometry.double_sphere import load_cameras, load_ego_T_cams  # noqa: E402
+from projects.datasets.simplebev_vox import height_config_for_ckpt_dirs  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.pixel_grid import convention_for_checkpoints  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
@@ -151,14 +152,18 @@ def main(
     for cell in cells:
         convention, offset = convention_for_checkpoints(
             [_find_checkpoint(log_root, cell, s) for s in seeds])
+        _height = height_config_for_ckpt_dirs(
+            [Path(_find_checkpoint(log_root, cell, s)).parent for s in seeds])
         vox_util = build_double_sphere_vox_util(GRID_SPEC, cameras, device=device,
                                                pixel_convention=convention,
-                                               pixel_offset=offset)
+                                               pixel_offset=offset,                                               height_bins=_height["height_bins"],
+                                               height_min_m=_height["height_min_m"],
+                                               height_max_m=_height["height_max_m"])
         per_gap = {g: {"zero": [], "mean": [], "p90": [], "flip": []} for g in GAPS}
 
         for seed in seeds:
             model = ThreeClassSegnet(
-                GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols, vox_util, use_radar=False,
+                GRID_SPEC.n_rows, vox_util.Y, GRID_SPEC.n_cols, vox_util, use_radar=False,
                 use_lidar=False, do_rgbcompress=True, encoder_type=encoder_type,
                 rand_flip=False, num_classes=2).to(device)
             state = torch.load(_find_checkpoint(log_root, cell, seed),

@@ -39,6 +39,10 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
 )
 from projects.datasets.synwoodscape_split import discover_all_sample_ids, train_val_split  # noqa: E402
 from projects.geometry.fisheye import load_camera  # noqa: E402
+from projects.datasets.simplebev_vox import (  # noqa: E402
+    height_config_for_ckpt_dirs,
+    vox_dims,
+)
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 from projects.common.free_space import decompose_from_class_index  # noqa: E402
@@ -102,15 +106,18 @@ def main(
         sample_ids = list(sample_ids)
     print(f"visualizing {len(sample_ids)} samples: {sample_ids}")
 
-    Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
+    _height = height_config_for_ckpt_dirs([Path(ckpt_dir)])
+    Z, Y, X = vox_dims(GRID_SPEC, _height["height_bins"])
+    _hkw = dict(height_bins=_height["height_bins"],
+                height_min_m=_height["height_min_m"], height_max_m=_height["height_max_m"])
     if use_fisheye:
         cameras = [
             load_camera(DEFAULT_DATASET_ROOT / "calibration_data" / f"{name}.json")
             for name in CAMERA_NAMES
         ]
-        vox_util = build_fisheye_vox_util(GRID_SPEC, cameras, device=device)
+        vox_util = build_fisheye_vox_util(GRID_SPEC, cameras, device=device, **_hkw)
     else:
-        vox_util = build_vox_util(GRID_SPEC, device=device)
+        vox_util = build_vox_util(GRID_SPEC, device=device, **_hkw)
 
     model = ThreeClassSegnet(
         Z, Y, X, vox_util,

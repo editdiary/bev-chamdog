@@ -52,9 +52,13 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     parse_sequence_names,
 )
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
+from projects.datasets.simplebev_vox import height_config_for_ckpt_dirs  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.pixel_grid import convention_for_checkpoints  # noqa: E402
-from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
+from projects.models.simplebev_three_class import (  # noqa: E402
+    ThreeClassSegnet,
+    num_classes_from_state_dict,
+)
 
 
 def shuffled_order(count: int) -> np.ndarray:
@@ -101,15 +105,22 @@ def main(
     # 표본 규약은 **체크포인트 옆 config.json에서 되찾는다** -- 기본값을 쓰면 옛 런(legacy)을
     # 새 기하로 재채점해 조용히 다른 숫자가 나온다.
     convention, offset = convention_for_checkpoints([ckpt])
+    _height = height_config_for_ckpt_dirs([Path(ckpt).parent])
     vox_util = build_double_sphere_vox_util(GRID_SPEC, dataset.cameras, device=device,
+                                           height_bins=_height["height_bins"],
+                                           height_min_m=_height["height_min_m"],
+                                           height_max_m=_height["height_max_m"],
                                            pixel_convention=convention,
                                            pixel_offset=offset)
+    state = torch.load(ckpt, map_location="cpu", weights_only=False)
+    # 출력 채널 수도 체크포인트에서 되읽는다 -- 이 도구는 binary 전환(§15) 이전에 만들어져
+    # `num_classes=3`이 고정이었고, 그래서 확정 config(binary)의 체크포인트를 못 읽었다.
     model = ThreeClassSegnet(
-        GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols, vox_util,
+        GRID_SPEC.n_rows, vox_util.Y, GRID_SPEC.n_cols, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
+        num_classes=num_classes_from_state_dict(state.get("model_state_dict", state)),
     ).to(device)
-    state = torch.load(ckpt, map_location="cpu", weights_only=False)
     model.load_state_dict(state.get("model_state_dict", state))
     model.eval()
 

@@ -58,11 +58,41 @@ def test_ref_T_cam_applies_rotation_and_preserves_translation_norm():
 # 여는 손잡이다. 라벨 파이프라인(`slab_label.py`)의 occupancy는 지상 0.87~1.67 m 슬래브의
 # 기둥 질의이므로 표본 높이와 어긋나 있다.
 
-def test_default_height_config_is_unchanged():
-    """**기본값이 여태까지의 전 실험 설정과 같아야 한다** -- 이게 깨지면 옛 숫자가 전부 무효다."""
-    from projects.datasets.simplebev_vox import vox_bounds, vox_dims
-    assert vox_dims(ROBOT_GRID_SPEC) == (ROBOT_GRID_SPEC.n_rows, 1, ROBOT_GRID_SPEC.n_cols)
+def test_adopted_default_is_y4():
+    """**채택값(2026-08-27)을 고정한다.** 바뀌면 새 런의 기하가 조용히 달라진다."""
+    from projects.datasets.simplebev_vox import (
+        DEFAULT_HEIGHT_MAX_M, DEFAULT_HEIGHT_MIN_M, height_bin_centers_m, vox_bounds, vox_dims,
+    )
+    assert vox_dims(ROBOT_GRID_SPEC) == (ROBOT_GRID_SPEC.n_rows, 4, ROBOT_GRID_SPEC.n_cols)
+    bounds = vox_bounds(ROBOT_GRID_SPEC, height_min_m=DEFAULT_HEIGHT_MIN_M,
+                        height_max_m=DEFAULT_HEIGHT_MAX_M, height_bins=4)
+    np.testing.assert_allclose(height_bin_centers_m(bounds, 4), [0.0, 0.5, 1.0, 1.5], atol=1e-9)
+
+
+def test_legacy_height_config_is_frozen():
+    """`height.json`이 없는 체크포인트를 읽는 규약. **영원히 바뀌면 안 된다.**
+
+    2026-08-27 이전의 모든 런(`runs/ablation`, `runs/pixel_offset`, `runs/stride4`, LOSO,
+    시드 스윕)이 이 설정으로 학습됐고 메타데이터를 남기지 않았다.
+    """
+    from projects.datasets.simplebev_vox import (
+        LEGACY_HEIGHT_BINS, load_height_config, vox_bounds, vox_dims,
+    )
+    assert LEGACY_HEIGHT_BINS == 1
+    assert vox_dims(ROBOT_GRID_SPEC, LEGACY_HEIGHT_BINS) == (
+        ROBOT_GRID_SPEC.n_rows, 1, ROBOT_GRID_SPEC.n_cols)
     assert vox_bounds(ROBOT_GRID_SPEC)[2:4] == (-0.25, 0.25)
+    # height.json이 없는 폴더 -> 옛 설정으로 읽혀야 한다 (채택 기본값이 아니라)
+    legacy = load_height_config("runs/ablation/ckpt/A_ce_s0")
+    assert legacy["height_bins"] == 1 and legacy["height_min_m"] is None
+
+
+def test_height_bins_over_one_needs_an_explicit_range():
+    """`Y>1`인데 범위가 대칭 슬래브면 조용히 지나가면 안 된다."""
+    import pytest as _pytest
+    from projects.datasets.simplebev_vox import vox_bounds
+    with _pytest.raises(ValueError, match="대칭 슬래브"):
+        vox_bounds(ROBOT_GRID_SPEC, height_bins=4)
 
 
 def test_height_bin_centers_match_vox_util():

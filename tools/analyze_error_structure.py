@@ -49,6 +49,10 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     parse_sequence_names,
 )
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
+from projects.datasets.simplebev_vox import (  # noqa: E402
+    height_config_for_ckpt_dirs,
+    vox_dims,
+)
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.pixel_grid import convention_for_checkpoints  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
@@ -340,11 +344,16 @@ def main(
     # 되찾으므로, 섞으면 CSV의 이름과 숫자가 조용히 어긋난다.
     loader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
-    Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
+
     # 표본 규약은 **체크포인트 옆 config.json에서 되찾는다** -- 기본값을 쓰면 옛 런(legacy)을
     # 새 기하로 재채점해 조용히 다른 숫자가 나온다.
     convention, offset = convention_for_checkpoints([checkpoint])
+    _height = height_config_for_ckpt_dirs([Path(checkpoint).parent])
+    Z, Y, X = vox_dims(GRID_SPEC, _height["height_bins"])
     vox_util = build_double_sphere_vox_util(GRID_SPEC, dataset.cameras, device=device,
+                                           height_bins=_height["height_bins"],
+                                           height_min_m=_height["height_min_m"],
+                                           height_max_m=_height["height_max_m"],
                                            pixel_convention=convention,
                                            pixel_offset=offset)
     model = ThreeClassSegnet(

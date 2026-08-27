@@ -5,7 +5,12 @@ import pytest
 import torch
 
 from projects.bev_gt.grid import ROBOT_GRID_SPEC, OccupancyGridSpec, cell_centers_m
-from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
+from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam, LEGACY_HEIGHT_BINS
+
+# 이 파일의 대조는 전부 **옛 `Y=1` 기하**에 대한 것이다 -- numpy 재구현과 값을 맞춰
+# 보는 것이라 높이 축과 무관하고, 채택 기본값이 바뀌어도 그대로여야 한다.
+LEGACY_HEIGHT_KWARGS = dict(height_bins=LEGACY_HEIGHT_BINS,
+                            height_min_m=None, height_max_m=None)
 from projects.geometry.double_sphere import (
     FINETUNE_CAMERA_NAMES,
     load_cameras,
@@ -58,7 +63,7 @@ def test_torch_pixel_coords_match_numpy_camera():
 def test_unproject_runs_end_to_end_without_nan():
     spec = OccupancyGridSpec(front_m=2.0, rear_m=1.0, half_width_m=1.5, cell_m=0.5)
     cameras = [load_cameras(CALIB_PATH)[name] for name in FINETUNE_CAMERA_NAMES]
-    vox_util = build_double_sphere_vox_util(spec, cameras)
+    vox_util = build_double_sphere_vox_util(spec, cameras, **LEGACY_HEIGHT_KWARGS)
 
     B, S, C, H, W = 2, len(cameras), 8, 12, 16
     rgb_packed = torch.rand(B * S, C, H, W)
@@ -66,7 +71,9 @@ def test_unproject_runs_end_to_end_without_nan():
     ref_T_cams = np.stack([ref_T_cam_from_ego_T_cam(ego_T_cams[n]) for n in FINETUNE_CAMERA_NAMES])
     camB_T_camA = torch.from_numpy(np.tile(np.linalg.inv(ref_T_cams), (B, 1, 1))).float()
 
-    Z, Y, X = spec.n_rows, 1, spec.n_cols
+    # 이 테스트는 **옛 Y=1 기하를 고정**한다 -- 채택 기본값이 바뀌어도 이 대조는
+    # 그대로여야 한다(numpy 재구현과의 수치 대조라 높이 축과 무관하다).
+    Z, Y, X = spec.n_rows, LEGACY_HEIGHT_BINS, spec.n_cols
     values = vox_util.unproject_image_to_mem(rgb_packed, camB_T_camA, camB_T_camA, Z, Y, X)
 
     assert values.shape == (B * S, C, Z, Y, X)
@@ -85,7 +92,7 @@ def test_grid_coverage_matches_independent_numpy_projection():
     names = FINETUNE_CAMERA_NAMES
     cameras = [load_cameras(CALIB_PATH)[name] for name in names]
     ego_T_cams = load_ego_T_cams(CALIB_PATH)
-    vox_util = build_double_sphere_vox_util(spec, cameras)
+    vox_util = build_double_sphere_vox_util(spec, cameras, **LEGACY_HEIGHT_KWARGS)
 
     H, W = 720, 1280  # native 해상도 -> 스케일 인자가 1이라 경계 판정이 정확히 대응한다
     Z, Y, X = spec.n_rows, 1, spec.n_cols
@@ -125,7 +132,7 @@ def test_camera_order_is_respected_across_the_packed_batch():
     H, W = 72, 128
     rgb = torch.rand(len(names), 3, H, W)
 
-    multi = build_double_sphere_vox_util(spec, cameras)
+    multi = build_double_sphere_vox_util(spec, cameras, **LEGACY_HEIGHT_KWARGS)
     batched = multi.unproject_image_to_mem(
         torch.cat([rgb, rgb]), torch.cat([cam_T_ref, cam_T_ref]),
         torch.cat([cam_T_ref, cam_T_ref]), Z, Y, X,
@@ -134,7 +141,7 @@ def test_camera_order_is_respected_across_the_packed_batch():
     torch.testing.assert_close(batched[: len(names)], batched[len(names):])
 
     for i, name in enumerate(names):
-        single = build_double_sphere_vox_util(spec, [cameras[i]])
+        single = build_double_sphere_vox_util(spec, [cameras[i]], **LEGACY_HEIGHT_KWARGS)
         expected = single.unproject_image_to_mem(
             rgb[i: i + 1], cam_T_ref[i: i + 1], cam_T_ref[i: i + 1], Z, Y, X
         )
@@ -181,8 +188,8 @@ def test_mirror_x_lifts_a_flipped_feature_map_into_the_mirrored_bev():
     torch.manual_seed(0)
     spec = ROBOT_GRID_SPEC
     cameras = [load_cameras(CALIB_PATH)[name] for name in FINETUNE_CAMERA_NAMES]
-    plain = build_double_sphere_vox_util(spec, cameras)
-    mirror = build_double_sphere_vox_util(spec, cameras, mirror_x=True)
+    plain = build_double_sphere_vox_util(spec, cameras, **LEGACY_HEIGHT_KWARGS)
+    mirror = build_double_sphere_vox_util(spec, cameras, mirror_x=True, **LEGACY_HEIGHT_KWARGS)
 
     ego_T_cams = load_ego_T_cams(CALIB_PATH)
     ref_T_cams = np.stack([ref_T_cam_from_ego_T_cam(ego_T_cams[n]) for n in FINETUNE_CAMERA_NAMES])
@@ -220,7 +227,7 @@ def test_flipping_memory_x_is_exactly_mirroring_ref_x():
 
     spec = ROBOT_GRID_SPEC
     cameras = [load_cameras(CALIB_PATH)[name] for name in FINETUNE_CAMERA_NAMES]
-    vox_util = build_double_sphere_vox_util(spec, cameras)
+    vox_util = build_double_sphere_vox_util(spec, cameras, **LEGACY_HEIGHT_KWARGS)
     Z, Y, X = spec.n_rows, 1, spec.n_cols
 
     xyz_ref = vox_util.Mem2Ref(

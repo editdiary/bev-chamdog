@@ -33,7 +33,13 @@ import utils.geom  # noqa: E402
 import utils.vox  # noqa: E402
 
 from projects.bev_gt.grid import OccupancyGridSpec  # noqa: E402
-from projects.datasets.simplebev_vox import vox_bounds, vox_dims  # noqa: E402
+from projects.datasets.simplebev_vox import (  # noqa: E402
+    DEFAULT_HEIGHT_BINS,
+    DEFAULT_HEIGHT_MAX_M,
+    DEFAULT_HEIGHT_MIN_M,
+    vox_bounds,
+    vox_dims,
+)
 from projects.models.pixel_grid import (  # noqa: E402
     CONVENTIONS,
     DEFAULT_CONVENTION,
@@ -143,10 +149,12 @@ class FisheyeVoxUtil(utils.vox.Vox_util):
 
 def build_fisheye_vox_util(grid_spec: OccupancyGridSpec, cameras, height_margin_m: float = 0.25, device="cpu",
                            pixel_convention: str = DEFAULT_CONVENTION, pixel_offset: float = 0.0,
-                           height_bins: int = 1, height_min_m=None, height_max_m=None):
+                           height_bins: int = DEFAULT_HEIGHT_BINS,
+                           height_min_m=DEFAULT_HEIGHT_MIN_M,
+                           height_max_m=DEFAULT_HEIGHT_MAX_M):
     """`height_bins` 등의 의미는 `simplebev_vox.vox_bounds` 참고. 기본값은 종래와 같다."""
     Z, Y, X = vox_dims(grid_spec, height_bins)
-    bounds = vox_bounds(grid_spec, height_margin_m, height_min_m, height_max_m)
+    bounds = vox_bounds(grid_spec, height_margin_m, height_min_m, height_max_m, height_bins)
     scene_centroid = torch.zeros(1, 3, dtype=torch.float32, device=device)
     vox_util = FisheyeVoxUtil(Z, Y, X, scene_centroid=scene_centroid, bounds=bounds, assert_cube=False)
     vox_util.set_camera_calibrations(cameras)

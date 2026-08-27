@@ -79,6 +79,9 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
 )
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
 from projects.datasets.simplebev_vox import (  # noqa: E402
+    DEFAULT_HEIGHT_BINS,
+    DEFAULT_HEIGHT_MAX_M,
+    DEFAULT_HEIGHT_MIN_M,
     height_bin_centers_m,
     save_height_config,
     vox_bounds,
@@ -229,13 +232,12 @@ def main(
     weight_decay=1e-7,
     num_workers=8,
     encoder_type="res101",
-    # lifting의 높이 축. **기본값은 여태까지의 전 실험 설정(`Y=1`, `ego z=0` 평면 하나)이다.**
-    # `height_bins>1`이면 `height_min_m`/`height_max_m`을 함께 줘야 의미가 있다 -- 기본
-    # 대칭 슬래브(±0.25 m)를 쪼개는 것은 지면 바로 위아래를 잘게 보는 것이라 무의미하다.
-    # 설계 근거와 bin 중심 계산은 `projects/datasets/simplebev_vox.vox_bounds` docstring.
-    height_bins=1,
-    height_min_m=None,
-    height_max_m=None,
+    # lifting의 높이 축. **2026-08-27에 기본값이 `Y=1` -> `Y=4`로 바뀌었다(사용자 결정).**
+    # 표본 높이 0, 0.5, 1.0, 1.5 m. 옛 런과 한 표에 세우려면 `--height_bins=1
+    # --height_min_m=None --height_max_m=None`을 명시한다. 근거는 `configs/height_bins_arms.sh`.
+    height_bins=DEFAULT_HEIGHT_BINS,
+    height_min_m=DEFAULT_HEIGHT_MIN_M,
+    height_max_m=DEFAULT_HEIGHT_MAX_M,
     augment=False,  # 광도 증강. pretrain에서는 +0.006이었지만 적용 여부는 사용자가 결정한다
     val_freq_epochs=1,
     save_freq_epochs=10,
@@ -452,7 +454,8 @@ def main(
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
         f" lifting height: Y={height_bins} bins, 표본 높이 [m] = "
         + ", ".join(f"{z:+.3f}" for z in height_bin_centers_m(
-            vox_bounds(GRID_SPEC, height_min_m=height_min_m, height_max_m=height_max_m),
+            vox_bounds(GRID_SPEC, height_min_m=height_min_m, height_max_m=height_max_m,
+                       height_bins=height_bins),
             height_bins)),
         f" train sequences={','.join(names) or '-'} ({len(train_samples)} samples)",
         f" val   split={split_note} ({len(val_samples)} samples)",

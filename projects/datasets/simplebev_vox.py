@@ -59,10 +59,35 @@ def ref_T_cam_from_ego_T_cam(ego_T_cam: np.ndarray) -> np.ndarray:
     return ref_T_ego_4x4() @ ego_T_cam
 
 
-# 높이 축의 기본값. **`height_bins=1`이 여태까지의 전 실험 설정이고 기본값으로 남는다** --
-# 이 값을 바꾸면 `bev_compressor`의 입력 채널이 바뀌어 옛 체크포인트와 호환되지 않는다.
-DEFAULT_HEIGHT_BINS = 1
-DEFAULT_HEIGHT_MARGIN_M = 0.25
+# 높이 축의 상수. **둘을 반드시 구분한다.**
+#
+# `LEGACY_*`  -- `height.json`이 **없는** 체크포인트가 학습된 설정이다. 2026-08-27 이전의
+#               모든 런이 여기 해당한다(`runs/ablation`, `runs/pixel_offset`, `runs/stride4`,
+#               `runs/frame_blocks`, LOSO, 시드 스윕 전부). **영원히 바뀌면 안 된다** --
+#               이 값이 곧 "메타데이터 없는 체크포인트를 어떻게 읽을 것인가"의 답이고,
+#               바꾸는 순간 과거 산출물이 전부 잘못 해석된다.
+# `DEFAULT_*` -- **새 학습**이 쓰는 값. 채택 결과에 따라 바뀐다.
+LEGACY_HEIGHT_BINS = 1
+LEGACY_HEIGHT_MARGIN_M = 0.25
+
+# **2026-08-27에 기본값을 Y=1 -> 4로 옮겼다 (사용자 결정).** 근거는 n=3 실험
+# (`configs/height_bins_arms.sh`, `runs/height_bins/`): `iou_free` 0.7950 -> 0.8104,
+# `f1@10cm` 0.5437 -> 0.6085, 지연 +3.2 %, 재현성 불변. Y=8은 정확도가 1~2σ 더 나은
+# 대신 지연 +11.5 %에 재현성이 1.3배 나빠져 채택하지 않았다.
+#
+# **이 시점 이후의 런은 그 이전 런과 lifting 기하가 다르다** -- `pixel_convention`을
+# 옮겼을 때와 같은 성격의 절단선이다. 옛 숫자와 한 표에 세우려면 `HEIGHT_BINS=1`을
+# 명시해야 하고, 도구들은 `height.json`으로 그 구분을 자동으로 한다.
+#
+# 표본 높이는 0, 0.5, 1.0, 1.5 m다. **bin 0이 옛 `Y=1`의 표본 평면과 정확히 일치**하도록
+# 범위를 잡았다(`Vox_util`이 복셀 중심에서 표본하므로 YMIN = -bin/2). 그래서 이 전환은
+# 표본 지점을 옮기는 것이 아니라 **더하는 것**이다.
+DEFAULT_HEIGHT_BINS = 4
+DEFAULT_HEIGHT_MIN_M = -0.25
+DEFAULT_HEIGHT_MAX_M = 1.75
+
+# 옛 이름. `vox_bounds`의 대칭 슬래브 인자 기본값으로만 남는다.
+DEFAULT_HEIGHT_MARGIN_M = LEGACY_HEIGHT_MARGIN_M
 
 
 def vox_dims(grid_spec: OccupancyGridSpec, height_bins: int = DEFAULT_HEIGHT_BINS) -> tuple:
@@ -78,7 +103,7 @@ def vox_dims(grid_spec: OccupancyGridSpec, height_bins: int = DEFAULT_HEIGHT_BIN
 
 def vox_bounds(grid_spec: OccupancyGridSpec,
                height_margin_m: float = DEFAULT_HEIGHT_MARGIN_M,
-               height_min_m=None, height_max_m=None) -> tuple:
+               height_min_m=None, height_max_m=None, height_bins=None) -> tuple:
     """(XMIN, XMAX, YMIN, YMAX, ZMIN, ZMAX) - `Vox_util(bounds=...)`에 그대로 넘긴다.
 
     높이(ref Y = ego Z)를 정하는 방법이 둘이다:
@@ -96,6 +121,13 @@ def vox_bounds(grid_spec: OccupancyGridSpec,
     if (height_min_m is None) != (height_max_m is None):
         raise ValueError("height_min_m과 height_max_m은 함께 주거나 함께 생략해야 한다")
     if height_min_m is None:
+        # 대칭 슬래브 경로. `height_bins > 1`이면 지면 바로 위아래 ±0.25 m를 잘게 쪼개는
+        # 것이 되어 **높이 정보가 사실상 없는데 비용만 든다.** 조용히 지나가면 안 된다.
+        if height_bins is not None and height_bins > 1:
+            raise ValueError(
+                f"height_bins={height_bins}인데 높이 범위가 대칭 슬래브(±{height_margin_m} m)다 -- "
+                f"height_min_m/height_max_m을 명시해야 한다 (채택값: "
+                f"{DEFAULT_HEIGHT_MIN_M}, {DEFAULT_HEIGHT_MAX_M})")
         height_min_m, height_max_m = -height_margin_m, height_margin_m
     if not height_max_m > height_min_m:
         raise ValueError(f"height_max_m > height_min_m 이어야 한다: {height_min_m}, {height_max_m}")
@@ -148,7 +180,9 @@ def load_height_config(ckpt_path) -> dict:
     directory = path if path.is_dir() else path.parent
     config = directory / HEIGHT_CONFIG_NAME
     if not config.exists():
-        return {"height_bins": DEFAULT_HEIGHT_BINS, "height_min_m": None, "height_max_m": None}
+        # **`LEGACY_`다, `DEFAULT_`가 아니다.** 파일이 없다는 것은 "새 기본값을 쓰라"가
+        # 아니라 "이 체크포인트는 메타데이터가 생기기 전에 만들어졌다"는 뜻이다.
+        return {"height_bins": LEGACY_HEIGHT_BINS, "height_min_m": None, "height_max_m": None}
     return json.loads(config.read_text())
 
 
@@ -170,8 +204,8 @@ def height_config_for_ckpt_dirs(ckpt_dirs, *, quiet=False) -> dict:
 
     if not found:
         if not quiet:
-            print(f"[표본 높이] height.json을 못 찾았다 -> 옛 기본값 Y={DEFAULT_HEIGHT_BINS}")
-        return {"height_bins": DEFAULT_HEIGHT_BINS, "height_min_m": None, "height_max_m": None}
+            print(f"[표본 높이] height.json을 못 찾았다 -> 옛 설정 Y={LEGACY_HEIGHT_BINS}")
+        return {"height_bins": LEGACY_HEIGHT_BINS, "height_min_m": None, "height_max_m": None}
 
     if len(found) > 1:
         lines = [f"  Y={k[0]}, 범위 {k[1]}~{k[2]}: {', '.join(sorted(v))}"
@@ -186,8 +220,8 @@ def height_config_for_ckpt_dirs(ckpt_dirs, *, quiet=False) -> dict:
 
 def build_vox_util(grid_spec: OccupancyGridSpec, height_margin_m: float = DEFAULT_HEIGHT_MARGIN_M,
                    device="cpu", height_bins: int = DEFAULT_HEIGHT_BINS,
-                   height_min_m=None, height_max_m=None):
+                   height_min_m=DEFAULT_HEIGHT_MIN_M, height_max_m=DEFAULT_HEIGHT_MAX_M):
     Z, Y, X = vox_dims(grid_spec, height_bins)
-    bounds = vox_bounds(grid_spec, height_margin_m, height_min_m, height_max_m)
+    bounds = vox_bounds(grid_spec, height_margin_m, height_min_m, height_max_m, height_bins)
     scene_centroid = torch.zeros(1, 3, dtype=torch.float32, device=device)
     return utils.vox.Vox_util(Z, Y, X, scene_centroid=scene_centroid, bounds=bounds, assert_cube=False)

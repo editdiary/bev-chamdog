@@ -14,7 +14,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 
-from projects.datasets.simplebev_vox import build_vox_util  # noqa: E402
+from projects.datasets.simplebev_vox import build_vox_util, vox_dims  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 from projects.common.free_space import decompose, to_class_index  # noqa: E402
 from projects.common.three_class_metrics import compute_three_class_loss  # noqa: E402
@@ -31,7 +31,7 @@ def main():
     loader = DataLoader(dataset, batch_size=2, shuffle=False)
 
     vox_util = build_vox_util(GRID_SPEC, device=device)
-    Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
+    Z, Y, X = vox_dims(GRID_SPEC)
 
     model = ThreeClassSegnet(
         Z, Y, X, vox_util,

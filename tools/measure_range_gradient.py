@@ -64,6 +64,13 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     parse_sequence_names,
     split_samples_by_sequence,
 )
+from projects.datasets.simplebev_vox import (  # noqa: E402
+    DEFAULT_HEIGHT_BINS,
+    DEFAULT_HEIGHT_MAX_M,
+    DEFAULT_HEIGHT_MIN_M,
+    height_config_for_ckpt_dirs,
+    vox_dims,
+)
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.simplebev_three_class import (  # noqa: E402
     ThreeClassSegnet,
@@ -118,8 +125,16 @@ def main(
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True,
                         num_workers=num_workers)
 
-    Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
-    vox_util = build_double_sphere_vox_util(GRID_SPEC, dataset.cameras, device=device)
+    # 체크포인트가 주어지면 **그것이 학습된 높이 설정**을 따라야 한다. 없으면(=랜덤 초기화로
+    # gradient 비만 보는 경우) 현재 채택 기본값을 쓴다.
+    _height = ({"height_bins": DEFAULT_HEIGHT_BINS, "height_min_m": DEFAULT_HEIGHT_MIN_M,
+                "height_max_m": DEFAULT_HEIGHT_MAX_M} if _from_scratch(init_checkpoint)
+               else height_config_for_ckpt_dirs([Path(init_checkpoint).parent]))
+    Z, Y, X = vox_dims(GRID_SPEC, _height["height_bins"])
+    vox_util = build_double_sphere_vox_util(
+        GRID_SPEC, dataset.cameras, device=device,
+        height_bins=_height["height_bins"], height_min_m=_height["height_min_m"],
+        height_max_m=_height["height_max_m"])
     model = ThreeClassSegnet(Z, Y, X, vox_util, use_radar=False, use_lidar=False,
                              do_rgbcompress=True, encoder_type=encoder_type,
                              rand_flip=False, num_classes=2).to(device)

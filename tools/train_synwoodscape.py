@@ -52,6 +52,12 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
 )
 from projects.datasets.synwoodscape_split import discover_all_sample_ids, train_val_split  # noqa: E402
 from projects.geometry.fisheye import load_camera  # noqa: E402
+from projects.datasets.simplebev_vox import (  # noqa: E402
+    DEFAULT_HEIGHT_MAX_M,
+    DEFAULT_HEIGHT_MIN_M,
+    save_height_config,
+    vox_dims,
+)
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 from projects.common.bev_occupancy_metrics import (  # noqa: E402
@@ -201,7 +207,9 @@ def main(
     )
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
-    Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
+    # 채택 기본값(`simplebev_vox.DEFAULT_HEIGHT_*`)을 따른다. pretrain은 §4에서 해롭다고
+    # 판정돼 확정 경로가 아니지만, 돌아가는 상태는 유지한다.
+    Z, Y, X = vox_dims(GRID_SPEC)
     if use_fisheye:
         cameras = [
             load_camera(DEFAULT_DATASET_ROOT / "calibration_data" / f"{name}.json")
@@ -315,6 +323,7 @@ def main(
             ))
 
             if epoch % save_freq_epochs == 0 or epoch == num_epochs:
+                save_height_config(ckpt_path, Y, DEFAULT_HEIGHT_MIN_M, DEFAULT_HEIGHT_MAX_M)
                 saverloader.save(str(ckpt_path), optimizer, model, epoch,
                                  keep_latest=keep_checkpoints)
             if is_new_best:

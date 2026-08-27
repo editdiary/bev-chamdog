@@ -29,7 +29,13 @@ import utils.geom  # noqa: E402
 import utils.vox  # noqa: E402
 
 from projects.bev_gt.grid import OccupancyGridSpec  # noqa: E402
-from projects.datasets.simplebev_vox import vox_bounds, vox_dims  # noqa: E402
+from projects.datasets.simplebev_vox import (  # noqa: E402
+    DEFAULT_HEIGHT_BINS,
+    DEFAULT_HEIGHT_MAX_M,
+    DEFAULT_HEIGHT_MIN_M,
+    vox_bounds,
+    vox_dims,
+)
 from projects.models.pixel_grid import (  # noqa: E402
     CONVENTIONS,
     DEFAULT_CONVENTION,
@@ -171,14 +177,15 @@ def build_double_sphere_vox_util(grid_spec: OccupancyGridSpec, cameras,
                                  mirror_x: bool = False,
                                  pixel_convention: str = DEFAULT_CONVENTION,
                                  pixel_offset: float = 0.0,
-                                 height_bins: int = 1,
-                                 height_min_m=None, height_max_m=None):
+                                 height_bins: int = DEFAULT_HEIGHT_BINS,
+                                 height_min_m=DEFAULT_HEIGHT_MIN_M,
+                                 height_max_m=DEFAULT_HEIGHT_MAX_M):
     """`height_bins`/`height_min_m`/`height_max_m`의 의미는 `simplebev_vox.vox_bounds` 참고.
 
     기본값은 여태까지의 설정(`Y=1`, `z=0` 평면 하나)과 완전히 같다.
     """
     Z, Y, X = vox_dims(grid_spec, height_bins)
-    bounds = vox_bounds(grid_spec, height_margin_m, height_min_m, height_max_m)
+    bounds = vox_bounds(grid_spec, height_margin_m, height_min_m, height_max_m, height_bins)
     scene_centroid = torch.zeros(1, 3, dtype=torch.float32, device=device)
     vox_util = DoubleSphereVoxUtil(Z, Y, X, scene_centroid=scene_centroid, bounds=bounds,
                                    assert_cube=False)

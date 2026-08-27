@@ -26,6 +26,7 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
     SynWoodScapeSimpleBEVDataset,
 )
 from projects.geometry.fisheye import load_camera  # noqa: E402
+from projects.datasets.simplebev_vox import vox_dims  # noqa: E402
 from projects.models.fisheye_vox import build_fisheye_vox_util  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 from projects.common.free_space import decompose, to_class_index  # noqa: E402
@@ -45,7 +46,7 @@ def main():
         for name in CAMERA_NAMES
     ]
     vox_util = build_fisheye_vox_util(GRID_SPEC, cameras, device=device)
-    Z, Y, X = GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols
+    Z, Y, X = vox_dims(GRID_SPEC)
 
     model = ThreeClassSegnet(
         Z, Y, X, vox_util,

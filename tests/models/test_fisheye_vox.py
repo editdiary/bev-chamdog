@@ -50,7 +50,10 @@ def test_fisheye_coverage_beats_pinhole_approximation_on_the_bev_grid():
     스케일 버그가 있다는 뜻이다.
     """
     from projects.datasets.simplebev_calib import ego_T_cam_from_camera, pinhole_pix_T_cam_from_camera
-    from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
+    from projects.datasets.simplebev_vox import (
+        LEGACY_HEIGHT_BINS,
+        ref_T_cam_from_ego_T_cam,
+    )
 
     spec = OccupancyGridSpec(front_m=5.0, rear_m=3.0, half_width_m=4.0, cell_m=0.1)  # 가벼운 grid
     camera = load_camera(CALIB_DIR / "FV.json")
@@ -93,11 +96,13 @@ def test_fisheye_coverage_beats_pinhole_approximation_on_the_bev_grid():
 @requires_dataset
 def test_fisheye_vox_util_unproject_runs_end_to_end_without_nan():
     from projects.datasets.simplebev_calib import ego_T_cam_from_camera
-    from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
+    from projects.datasets.simplebev_vox import LEGACY_HEIGHT_BINS, ref_T_cam_from_ego_T_cam
 
     spec = OccupancyGridSpec(front_m=2.0, rear_m=1.0, half_width_m=1.5, cell_m=0.5)
     cameras = [load_camera(CALIB_DIR / f"{name}.json") for name in ("FV", "MVL", "MVR", "RV")]
-    vox_util = build_fisheye_vox_util(spec, cameras)
+    # **vox_util과 `Y`가 같은 설정이어야 한다.** 이 대조는 옛 `Y=1` 기하를 고정한다.
+    vox_util = build_fisheye_vox_util(spec, cameras, height_bins=LEGACY_HEIGHT_BINS,
+                                      height_min_m=None, height_max_m=None)
 
     B, S, C, H, W = 2, len(cameras), 8, 12, 16
     rgb_camXs_packed = torch.rand(B * S, C, H, W)
@@ -105,7 +110,7 @@ def test_fisheye_vox_util_unproject_runs_end_to_end_without_nan():
     camXs_T_cam0 = np.linalg.inv(cam0_T_camXs)
     camB_T_camA = torch.from_numpy(np.tile(camXs_T_cam0, (B, 1, 1))).float()
 
-    Z, Y, X = spec.n_rows, 1, spec.n_cols
+    Z, Y, X = spec.n_rows, LEGACY_HEIGHT_BINS, spec.n_cols
     values = vox_util.unproject_image_to_mem(rgb_camXs_packed, camB_T_camA, camB_T_camA, Z, Y, X)
 
     assert values.shape == (B * S, C, Z, Y, X)

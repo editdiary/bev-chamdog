@@ -198,6 +198,19 @@ def height_bins_from_state_dict(state_dict) -> int:
     return in_channels // out_channels
 
 
+def num_classes_from_state_dict(state_dict) -> int:
+    """체크포인트가 **자기 출력 채널 수를 스스로 말하게 한다.**
+
+    `height_bins_from_state_dict`와 같은 이유다 -- `saverloader.save`가 메타데이터를 남기지
+    않으므로, 도구가 `--formulation`을 사람에게서 받으면 틀렸을 때 `strict=True`가 죽는다.
+    형상에서 되읽으면 그런 실수가 아예 불가능하다. binary=2, three_class=3.
+    """
+    weight = state_dict.get("decoder.segmentation_head.3.weight")
+    if weight is None:
+        raise KeyError("decoder.segmentation_head.3.weight가 없다 -- 이 저장소의 체크포인트가 맞는가?")
+    return int(weight.shape[0])
+
+
 def unexpected_skips(skipped) -> list:
     """전이되지 않은 키 중 **설명되지 않는 것**만 남긴다.
 
