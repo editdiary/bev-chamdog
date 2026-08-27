@@ -49,17 +49,28 @@ SEED="${SEED:-0}"
 
 # loss 종류: `weighted_ce`(현행 역빈도 가중 CE, 대조군) 또는 `soft_boundary`.
 # 설계는 docs/soft_boundary_loss_design.md. 아래 넷은 soft_boundary에서만 쓰인다.
-#   DELTA_M      불확실 대역 반폭 [m]. 0.15 = 3셀
+#   SIGMA_M      **라벨 경계 불확실성 [m]. 여기에 사전 지식이 들어간다.** 확정 0.10
+#   DELTA_M      절대 상한 [m] -- "오차가 이걸 넘는 일은 없다"는 단정. 확정 0.30
 #   LAMBDA_B     경계 항 가중치. 0.0으로 두면 "soft 항이 일을 하는가" ablation
-#   SOFT_TARGET  linear(먼저) 또는 gaussian
-#   SIGMA_ALPHA  gaussian의 모양 alpha=sigma/delta (권장; SIGMA_M과 동시 지정 금지)
-#   SIGMA_M      alpha 대신 sigma를 미터로 직접 줄 때
+#   SOFT_TARGET  linear 또는 gaussian(확정)
+#   SIGMA_ALPHA  옛 손잡이 alpha=sigma/delta. **SIGMA_M과 동시 지정 금지.**
+#
+# **`k = DELTA_M / SIGMA_M >= 3`을 지킨다.** k가 작으면 절단이 sigma를 갉아먹어서 지정한
+# 값이 전달되지 않는다(k=1이면 54 %만 남는다). 옛 확정값 delta=0.15/alpha=1.0이 k=1이라
+# "sigma=15cm"라고 써 놓고 실제로는 8cm를 뜻하고 있었다. 근거: 명세 §6.2, 설계 문서 §21.
 LOSS="${LOSS:-weighted_ce}"
-DELTA_M="${DELTA_M:-0.15}"
+DELTA_M="${DELTA_M:-0.30}"
 LAMBDA_B="${LAMBDA_B:-0.5}"
-SOFT_TARGET="${SOFT_TARGET:-linear}"
+SOFT_TARGET="${SOFT_TARGET:-gaussian}"
 SIGMA_ALPHA="${SIGMA_ALPHA:-None}"
-SIGMA_M="${SIGMA_M:-None}"
+# `SIGMA_M`의 기본값은 확정값 0.10이지만, **`SIGMA_ALPHA`를 명시한 호출은 옛 손잡이를 쓰겠다는
+# 뜻**이므로 그때는 `None`으로 둔다. 둘을 같이 넘기면 `resolve_sigma`가 거부한다 -- 그 거부는
+# 옳지만, 그것 때문에 2026-08-27 이전 스윕 스크립트 19개가 통째로 깨지면 안 된다.
+if [ "${SIGMA_ALPHA}" != "None" ]; then
+    SIGMA_M="${SIGMA_M:-None}"
+else
+    SIGMA_M="${SIGMA_M:-0.10}"
+fi
 
 # 방위각 자유거리 보조항 `L_range` (docs/soft_boundary_loss_design.md §13).
 #   LAMBDA_R      보조항 가중치. **0이면 항이 계산되지 않는다.** 추측하지 말고

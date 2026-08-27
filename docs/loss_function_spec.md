@@ -209,7 +209,7 @@ $$
 구현상 $\Omega_B$ 밖에서도 계산되지만 값에 의미가 없다 — 호출부가 마스크로 걸러낸다. 출력은
 `clamp(0,1)`.
 
-### 6.2 왜 $\sigma$를 미터로 주지 않고 $\alpha = \sigma/\delta$로 주는가
+### 6.2 손잡이는 $(\sigma, \delta)$로 준다 — $\alpha$가 아니다 (2026-08-28 개정)
 
 정규화된 좌표 $u = d/\delta$를 넣으면
 
@@ -217,12 +217,44 @@ $$
 y = \frac{\Phi(u/\alpha) - \Phi(-1/\alpha)}{\Phi(1/\alpha) - \Phi(-1/\alpha)}
 $$
 
-**$\delta$가 식에서 사라진다.** 즉 **모양은 $\alpha$만 정하고 $\delta$는 대역 폭만 정한다 —
-두 손잡이가 직교한다.** $\sigma$를 절대값으로 주면 $\delta$를 바꿀 때 모양이 조용히 같이
-바뀌고, "폭을 넓힌 효과"와 "모양을 둔하게 한 효과"가 섞인다.
+**$\delta$가 식에서 사라진다.** 실측으로도 $\delta$를 0.05에서 2.0까지 40배 바꿔도 $u$에 대한
+$y$가 float32 정밀도(1e-7)까지 같다. 이 절은 오래 "모양은 $\alpha$, 폭은 $\delta$ — 두 손잡이가
+직교한다"고 적고 있었다. **그 결론이 틀렸다.**
 
-`resolve_sigma`는 $\sigma$와 $\alpha$를 **동시에 받으면 실패한다.** 조용히 하나를 이기게 두면
-로그의 config와 실제로 쓰인 모양이 갈리고, 그러면 스윕 표가 통째로 무의미해진다.
+모델은 $u$가 아니라 미터 공간에 산다. 모델이 실제로 받는 것은 둘이다.
+
+- **어느 셀이 대역에 드는가** — $\delta$가 정한다.
+- **target이 미터로 얼마나 퍼져 있는가** — $\sigma = \alpha\delta$가 정한다.
+
+$\alpha$를 고정하고 $\delta$를 훑으면 **둘이 같이 움직인다.** 설계 문서 §20의 $\delta$ 스윕이
+정확히 그것이었고($\alpha = 1.0$ 고정), 그래서 "대역을 넓힌 효과"와 "target을 뭉갠 효과"가
+분리되지 않은 채 섞여 있었다. 직교하는 쪽은 $(\sigma, \delta)$다 — $\sigma$를 고정하고
+$\delta$만 넓히면 대역만 넓어지고 경계 근처 모양은 그대로다. 실측은 설계 문서 §21.2.
+
+**그래서 `SIGMA_M`으로 $\sigma$를 미터로 준다.** 이 경로는 처음부터 있었고(커밋 `1c45879`)
+쓰지 않았을 뿐이다. `resolve_sigma`는 $\sigma$와 $\alpha$를 **동시에 받으면 실패한다** — 조용히
+하나가 이기면 로그의 config와 실제로 쓰인 모양이 갈리고 스윕 표가 통째로 무의미해진다.
+
+#### 절단이 $\sigma$를 갉아먹는다 — $k = \delta/\sigma \ge 3$을 지킨다
+
+$y$는 **$[-\delta, \delta]$로 절단된 정규 사전분포**의 사후확률이다(§6.1). 절단은 부드러운
+조작이 아니라 **"오차가 $\delta$를 넘는 일은 없다"는 단정**이고, $k$가 작으면 꼬리를 너무 많이
+잘라서 남은 분포가 지정한 $\sigma$보다 훨씬 좁아진다. $\mathrm{d}y/\mathrm{d}d$의 표준편차를
+**실효 산포**라 부르면:
+
+| $k = \delta/\sigma$ | 1 | 1.5 | 2 | 2.5 | **3** | 4 |
+|---|---|---|---|---|---|---|
+| 지정한 $\sigma$ 중 남는 비율 | **54 %** | 74 % | 88 % | 96 % | **99 %** | 99.9 % |
+| $\sigma = 0.15$일 때 실효 산포 | 8.09 cm | 11.14 | 13.19 | 14.32 | **14.80 cm** | 14.99 |
+
+**$k < 3$이면 $\sigma$가 자기 이름값을 못 한다.** 2026-08-27까지의 확정값
+($\delta = 0.15$, $\alpha = 1$)은 $k = 1$이어서 "$\sigma = 15$ cm"라고 써 놓고 실제로는
+**8 cm를 뜻하고 있었다.** $k \ge 3$이면 실효 산포 $\simeq \sigma$이므로 문서의 숫자와 모델이
+받는 값이 일치한다.
+
+**모델의 재현성은 실효 산포가 지배한다** — 시드 5개짜리 10개 config에서 광선별 시드 간 산포
+$\sigma_{\text{ray}}$와의 상관이 $r = 0.93$이다(설계 문서 §21.3). $\delta$도 독립적으로
+기여하지만 계수가 훨씬 작다.
 
 ### 6.3 두 극한 — 선형은 별 형태가 아니다
 
@@ -237,11 +269,13 @@ $$
 별도 형태가 아니라 이 계열의 한쪽 끝**이다.
 
 **아래로는 격자 양자화가 한계를 만든다.** 5 cm 격자에서 셀 중심의 최소 $|d|$가 1셀이므로
-$\alpha \lesssim 0.2$면 셀이 실제로 놓이는 자리에서 target이 이미 1.0에 붙어 soft target이
-이름만 남는다($\delta = 0.15$, $\alpha = 0.15$에서 최근접 셀 target이 0.987이다).
+$\sigma$가 3 cm 아래로 내려가면 셀이 실제로 놓이는 자리에서 target이 이미 1.0에 붙어 soft
+target이 이름만 남는다.
 
-확정값 $\alpha = 0.5$ → $\sigma = 0.075$ m. 이 값에서 셀 중심들의 target은 대략
-$d = \pm0.05$에서 0.75/0.25, $d = \pm0.10$에서 0.93/0.07이다.
+확정값 $\sigma = 0.10$ m, $\delta = 0.30$ m($k = 3$)에서 셀 중심들의 target은
+$d = \pm0.05$에서 0.692/0.308, $\pm0.10$에서 0.842, $\pm0.15$에서 0.934, $\pm0.20$에서
+0.979, $\pm0.25$에서 0.995다. **$\delta$가 0.30이어도 15 cm 밖은 사실상 hard**라는 뜻이고,
+이것이 대역을 넓혀도 "진짜 흐릿한 셀"이 늘지 않는 이유다(설계 문서 §21.4).
 
 ---
 
@@ -529,18 +563,27 @@ gradient 비로는 10 % 대**다 — 두 숫자를 혼동하면 이 항이 아�
 |---|---|---|---|
 | loss | `soft_boundary` | `LOSS` | §11 |
 | 정식화 | `binary` | `FORMULATION` | 진단 문서 §15 |
-| $\delta$ | 0.15 m (3셀) | `DELTA_M` | 진단 문서 §26 (val loss 증가분의 90 %가 경계 ±20 cm). **6점 스윕 결과는 설계 문서 §20.3** |
 | target 형태 | `gaussian` | `SOFT_TARGET` | §6 |
-| $\alpha = \sigma/\delta$ | 0.5 → $\sigma = 0.075$ m | `SIGMA_ALPHA` | §6.3. **채택 근거는 철회됐다 — 설계 문서 §20.2, 미결** |
+| $\sigma$ | **0.10 m** | `SIGMA_M` | **라벨 경계 불확실성.** 데이터가 못 정한다 — 사용자 사전 지식이다(설계 문서 §21.6). 실측 상한은 $\sigma \le 0.15$(그 위에서 `f1@10cm`이 무너진다) |
+| $\delta$ | **0.30 m** | `DELTA_M` | **절대 상한.** "경계가 통로 중앙까지 나올 일은 없다"는 **기하에서 온 근거**이고, 스윕으로 고른 값이 아니다 — 설계 문서 §21.6 |
+| $k = \delta/\sigma$ | **3** | (유도값) | 절단이 $\sigma$를 갉지 않는 최솟값 — §6.2 |
+| $\alpha$ | **쓰지 않음** | `SIGMA_ALPHA=None` | $\sigma$와 동시 지정 금지. $\alpha = 1/k$이므로 유도값이다 |
 | $\kappa$ | **1.0 (끔)** | `BAND_KAPPA` | §6.4. 켜면 손해다 — 설계 문서 §20.4 |
 | $\varepsilon$ | **0.0 (끔)** | `LABEL_EPS` | §6.5. 하류가 확률을 쓰면 0.05~0.10 — 설계 문서 §20.5 |
 | $\lambda_B$ | 0.5 | `LAMBDA_B` | §7.2 |
 | $\lambda_R$ | 0.3 | `LAMBDA_R` | §9 |
-| $\delta_R^{-}$ | 0.20 m (4셀) | `DELTA_R_M` | `f1@10cm` 허용오차(2셀)의 2배 |
+| $\delta_R^{-}$ | 0.20 m (4셀) | `DELTA_R_M` | `f1@10cm` 허용오차(2셀)의 2배. **$\delta > \delta_R$이어도 무방하다** — 아래 주석 |
 | $\delta_R^{+}$ | 0.20 m (대칭) | `DELTA_R_OVER_M` | **미결** — §8.6 |
 | $\beta$ | 0.10 m | `HUBER_BETA_M` | §8.5 |
 | $n_\theta$ | 720 | — | `polar` 기본값 |
 | epochs | 40 | `NUM_EPOCHS` | |
+
+> **`\delta \le \delta_R`은 지킬 필요가 없다.** 설계 초기에 "soft 대역 안에서는
+> $L_{\text{range}}$가 침묵해야 두 항이 안 싸운다"는 이유로 지향했던 제약인데, **불필요하다.**
+> soft target이 $y(d) + y(-d) = 1$로 대칭이라 **적분한 `arc`의 기댓값이 GT와 같고**(이 성질은
+> `tests/common/test_soft_boundary_kappa.py`가 고정한다), 따라서 완벽히 보정된 모델은 대역
+> 폭과 무관하게 $e = 0$이다. 실측으로도 $\delta$를 0.15 → 0.30으로 넓혔을 때 val
+> `loss_range`가 0.0867 → 0.0871로 불변이다(설계 문서 §21.5). $\delta_R$은 0.20 그대로 둔다.
 
 실행:
 
@@ -548,12 +591,17 @@ gradient 비로는 10 % 대**다 — 두 숫자를 혼동하면 이 항이 아�
 export PATH=/data/home/dhlee/miniconda3/envs/bev-chamdog/bin:$PATH   # torch 2.7.0+cu128 필수
 EXP_NAME=my_run RUN_NAME=my_run \
 LOSS=soft_boundary SOFT_TARGET=gaussian \
-DELTA_M=0.15 SIGMA_ALPHA=0.5 LAMBDA_B=0.5 \
+DELTA_M=0.30 SIGMA_M=0.10 SIGMA_ALPHA=None LAMBDA_B=0.5 \
 LAMBDA_R=0.3 DELTA_R_M=0.20 DELTA_R_OVER_M=None HUBER_BETA_M=0.10 \
+BAND_KAPPA=1.0 LABEL_EPS=0.0 \
 FORMULATION=binary ENCODER_TYPE=res101 AUGMENT=True INIT_CHECKPOINT=none \
 NUM_EPOCHS=40 \
 bash configs/train_robot_bev_finetune.sh
 ```
+
+**`SIGMA_M`과 `SIGMA_ALPHA`를 동시에 주면 trainer가 거부한다.** 2026-08-27 이전 런은
+`SIGMA_ALPHA`로 지정돼 있고, 그 런들의 $\sigma$는 $\alpha\delta$로 되돌려 읽어야 한다
+(`report_*` 도구들이 그렇게 한다).
 
 `LAMBDA_R=0`이면 **$L_{\text{range}}$가 계산조차 되지 않는다** — 대조군 런이 새 코드 경로를
 타지 않아야 한다. `lambda_r > 0`인데 `loss != soft_boundary`면 trainer가 거부한다.

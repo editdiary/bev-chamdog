@@ -76,11 +76,27 @@ def _shape(values):
     return lo, values[lo], values[-1], values[-1] - values[lo]
 
 
+def _alpha_of(config):
+    """`α = σ/δ`. **`(σ, k)`로 지정한 런은 `sigma_alpha`가 `None`이고 `sigma_m`만 있다**
+    (2026-08-28 재매개변수화). 그때는 `σ/δ`로 되돌려 계산한다. linear는 `inf`(평평함의 극한)."""
+    if config.get("soft_target") == "linear":
+        return float("inf")
+    alpha = config.get("sigma_alpha")
+    if alpha is not None:
+        return float(alpha)
+    return float(config["sigma_m"]) / float(config["delta_m"])
+
+
 def _label(config, varying=()):
     """**변하는 손잡이만 이름에 넣는다.** 한 표에 α 스윕과 κ 스윕이 섞여도 읽히게 하려는 것이고,
     안 변하는 축을 다 찍으면 폭만 먹고 대조가 안 보인다."""
-    shape = ("linear" if config.get("soft_target") == "linear"
-             else f"α{float(config['sigma_alpha']):g}")
+    if config.get("soft_target") == "linear":
+        shape = "linear"
+    elif config.get("sigma_alpha") is None:
+        sigma, delta = float(config["sigma_m"]), float(config["delta_m"])
+        shape = f"σ{sigma:g} k{delta / sigma:g}"      # "몇 σ에서 자르는가"가 바로 읽힌다
+    else:
+        shape = f"α{float(config['sigma_alpha']):g}"
     bits = []
     if "shape" in varying:
         bits.append(shape)
@@ -96,7 +112,7 @@ def _label(config, varying=()):
 def _varying(runs):
     """런들 사이에서 실제로 값이 다른 축의 집합. 하나뿐이면 그것만 이름에 남는다."""
     out = set()
-    shapes = {(r[2].get("soft_target"), r[2].get("sigma_alpha")) for r in runs}
+    shapes = {(r[2].get("soft_target"), _alpha_of(r[2])) for r in runs}
     if len(shapes) > 1:
         out.add("shape")
     for key, default in (("delta_m", None), ("band_kappa", 1.0), ("label_eps", 0.0)):
@@ -107,8 +123,7 @@ def _varying(runs):
 
 def _sort_key(config):
     """평평해지는 순서로 세운다 -- α는 선형이 극한이라 맨 뒤, κ는 낮을수록 평평하다."""
-    a = (float("inf") if config.get("soft_target") == "linear"
-         else float(config["sigma_alpha"]))
+    a = _alpha_of(config)
     return (float(config["delta_m"]), float(config.get("label_eps", 0.0)),
             -float(config.get("band_kappa", 1.0)), a)
 

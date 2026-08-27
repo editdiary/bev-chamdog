@@ -91,10 +91,31 @@ def _row(cells, widths):
     return "  " + " ".join(_pad(c, w) for c, w in zip(cells, widths))
 
 
+def _shape_params(config):
+    """대역 모양을 `(sigma, alpha)`로 돌려준다 -- 쓰지 않는 쪽은 `None`.
+
+    **둘 중 하나만 설정된다.** `(σ, k)` 재매개변수화(2026-08-28) 이후 런은 `sigma_m`만
+    갖고 `sigma_alpha`가 `None`이라, `float(config["sigma_alpha"])`로 읽으면 죽는다.
+    """
+    alpha, sigma = config.get("sigma_alpha"), config.get("sigma_m")
+    if alpha is not None:
+        return None, float(alpha)
+    if sigma is not None:
+        return float(sigma), None
+    raise ValueError(f"sigma_alpha와 sigma_m이 둘 다 없다: {config.get('exp_name')}")
+
+
 def _label(config):
-    shape = ("linear" if config.get("soft_target") == "linear"
-             else f"α{float(config['sigma_alpha']):g}")
-    return (f"δ{float(config['delta_m']):.2f} {shape}"
+    delta = float(config["delta_m"])
+    sigma, alpha = _shape_params(config)
+    if config.get("soft_target") == "linear":
+        shape = "linear"
+    elif sigma is not None:
+        # `σ`로 준 런은 `k = δ/σ`로 적는다 -- "몇 σ에서 자르는가"가 바로 읽힌다.
+        shape = f"σ{sigma:g} k{delta / sigma:g}"
+    else:
+        shape = f"α{alpha:g}"
+    return (f"δ{delta:.2f} {shape}"
             f" κ{float(config.get('band_kappa', 1.0)):.2f}"
             f" ε{float(config.get('label_eps', 0.0)):.2f}")
 
@@ -156,8 +177,9 @@ def main(runs, core_m=0.15, dataset_root=DEFAULT_DATASET_ROOT,
         model.eval()
 
         # 자기 target의 손잡이. `ε`은 대역에서 `κ = 1−2ε`로 작동한다(`soft_boundary` 참조).
+        own_sigma, own_alpha = _shape_params(config)
         own = {"delta": float(config["delta_m"]),
-               "alpha": float(config["sigma_alpha"]),
+               "sigma": own_sigma, "alpha": own_alpha,
                "kappa": float(config.get("band_kappa", 1.0))
                * (1.0 - 2.0 * float(config.get("label_eps", 0.0)))}
         acc = {k: [0.0, 0] for k in ("common", "own", "ent")}
@@ -177,7 +199,8 @@ def main(runs, core_m=0.15, dataset_root=DEFAULT_DATASET_ROOT,
                 y_common = soft_target(d, _COMMON["delta"], TARGET_GAUSSIAN,
                                        alpha=_COMMON["alpha"])
                 y_own = soft_target(d, own["delta"], TARGET_GAUSSIAN,
-                                    alpha=own["alpha"], kappa=own["kappa"])
+                                    sigma=own["sigma"], alpha=own["alpha"],
+                                    kappa=own["kappa"])
                 kl_common = _kl(y_common, log_free, log_not_free)
                 kl_own = _kl(y_own, log_free, log_not_free)
                 p = log_free.exp().clamp(1e-6, 1 - 1e-6)
