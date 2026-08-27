@@ -1,0 +1,1306 @@
+<title>어안 3대에서 BEV 한 장까지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --ground:      #F7F8F6;
+    --surface:     #FFFFFF;
+    --surface-sub: #EDF1EE;
+    --ink:         #16201C;
+    --ink-mid:     #4A574F;
+    --ink-soft:    #78847C;
+    --rule:        #D6DDD8;
+    --rule-soft:   #E5EAE6;
+    --learned:     #1B565D;
+    --learned-bg:  #E6F0F0;
+    --geom:        #9C6119;
+    --geom-bg:     #F6EDDE;
+    --shadow:      0 1px 2px rgba(22,32,28,.05), 0 10px 26px -18px rgba(22,32,28,.22);
+    --sans: "IBM Plex Sans KR", ui-sans-serif, system-ui, -apple-system, "Malgun Gothic", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0F1513;
+      --surface:     #161E1B;
+      --surface-sub: #1D2623;
+      --ink:         #E7ECE8;
+      --ink-mid:     #ADB9B2;
+      --ink-soft:    #85918A;
+      --rule:        #2B3632;
+      --rule-soft:   #222C28;
+      --learned:     #74C6CC;
+      --learned-bg:  #14302F;
+      --geom:        #E0A961;
+      --geom-bg:     #2C2316;
+      --shadow:      0 1px 2px rgba(0,0,0,.35), 0 10px 26px -18px rgba(0,0,0,.8);
+    }
+  }
+
+  [data-theme="dark"] {
+    --ground:      #0F1513;
+    --surface:     #161E1B;
+    --surface-sub: #1D2623;
+    --ink:         #E7ECE8;
+    --ink-mid:     #ADB9B2;
+    --ink-soft:    #85918A;
+    --rule:        #2B3632;
+    --rule-soft:   #222C28;
+    --learned:     #74C6CC;
+    --learned-bg:  #14302F;
+    --geom:        #E0A961;
+    --geom-bg:     #2C2316;
+    --shadow:      0 1px 2px rgba(0,0,0,.35), 0 10px 26px -18px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4.5rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 6vw, 4rem);
+  }
+
+  /* ---------- head ---------- */
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 1rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5.5vw, 3rem);
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 1.1rem;
+  }
+
+  .thesis {
+    font-size: clamp(1.05rem, 2.4vw, 1.2rem);
+    color: var(--ink-mid);
+    max-width: 40rem;
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  .thesis strong { color: var(--ink); font-weight: 600; }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    margin-top: 2.25rem;
+    overflow: hidden;
+  }
+
+  .fact { background: var(--surface); padding: 1rem 1.15rem; }
+
+  .fact dt {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 .35rem;
+  }
+
+  .fact dd {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.01em;
+    line-height: 1.2;
+  }
+
+  .fact dd span {
+    display: block;
+    font-size: .78rem;
+    font-weight: 400;
+    color: var(--ink-soft);
+    letter-spacing: 0;
+  }
+
+  /* ---------- section furniture ---------- */
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0;
+    padding-bottom: .7rem;
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+  }
+
+  h2 .num {
+    font-family: var(--mono);
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+
+  p { margin: 0; max-width: 42rem; text-wrap: pretty; }
+
+  code {
+    font-family: var(--mono);
+    font-size: .86em;
+    background: var(--surface-sub);
+    border-radius: 2px;
+    padding: .1em .34em;
+  }
+
+  /* ---------- figure ---------- */
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 1rem; }
+
+  .plate {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 1.25rem 1.25rem .75rem;
+  }
+
+  .plate svg { display: block; height: auto; max-width: none; }
+
+  .f-sans { font-family: var(--sans); }
+  .f-mono { font-family: var(--mono); }
+
+  figcaption {
+    font-size: .89rem;
+    color: var(--ink-mid);
+    max-width: 46rem;
+    line-height: 1.65;
+    text-wrap: pretty;
+  }
+
+  figcaption b {
+    font-family: var(--mono);
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin-right: .5rem;
+  }
+
+  .hint {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- legend ---------- */
+
+  .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+
+  .key {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: .95rem 1.1rem;
+    display: flex;
+    gap: .85rem;
+    align-items: flex-start;
+  }
+
+  .swatch { width: 4px; border-radius: 2px; align-self: stretch; min-height: 2.6rem; flex: none; }
+  .swatch.l { background: var(--learned); }
+  .swatch.g { background: repeating-linear-gradient(to bottom, var(--geom) 0 5px, transparent 5px 10px); }
+
+  .key b { display: block; font-size: .92rem; font-weight: 600; }
+  .key span { font-size: .84rem; color: var(--ink-mid); line-height: 1.55; }
+
+  /* ---------- flow ---------- */
+
+  .flow { display: flex; flex-direction: column; gap: 0; }
+
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--learned);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    padding: 1.3rem clamp(1rem, 3vw, 1.6rem);
+    display: grid;
+    grid-template-columns: 3.4rem 1fr;
+    gap: 0 1.1rem;
+    align-items: start;
+  }
+
+  .stage.geom {
+    border-left-style: dashed;
+    border-left-color: var(--geom);
+  }
+
+  .stage-no {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--learned);
+    font-variant-numeric: tabular-nums;
+    padding-top: .1rem;
+  }
+
+  .stage.geom .stage-no { color: var(--geom); }
+
+  .stage-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .55rem .8rem; }
+
+  .stage-head h3 { margin: 0; font-size: 1.08rem; font-weight: 600; letter-spacing: -.005em; }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    padding: .18em .5em;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .chip.l { background: var(--learned-bg); color: var(--learned); }
+  .chip.g { background: var(--geom-bg); color: var(--geom); }
+
+  .path {
+    font-family: var(--mono);
+    font-size: .74rem;
+    color: var(--ink-soft);
+    margin: .3rem 0 0;
+    word-break: break-all;
+  }
+
+  .stage-body { grid-column: 2; }
+  .stage-body p { font-size: .93rem; color: var(--ink-mid); margin-top: .8rem; }
+  .stage-body p strong { color: var(--ink); font-weight: 600; }
+
+  .steps {
+    list-style: none;
+    margin: .9rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    font-family: var(--mono);
+    font-size: .78rem;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+
+  .steps li {
+    display: grid;
+    grid-template-columns: minmax(9rem, auto) 1fr;
+    gap: .3rem 1rem;
+    padding: .3rem .55rem;
+    background: var(--surface-sub);
+    border-radius: 2px;
+    align-items: baseline;
+  }
+
+  .steps li b { font-weight: 600; color: var(--ink); }
+  .steps li i { font-style: normal; color: var(--ink-mid); white-space: nowrap; }
+
+  .cams { display: flex; flex-wrap: wrap; gap: .4rem; margin: .9rem 0 0; }
+
+  .cam {
+    font-family: var(--mono);
+    font-size: .72rem;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: .2em .55em;
+    color: var(--ink-mid);
+  }
+
+  /* ---------- wire between stages ---------- */
+
+  .wire {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    padding: .55rem 0 .55rem 1.7rem;
+    min-height: 3rem;
+  }
+
+  .wire::before {
+    content: "";
+    width: 1px;
+    align-self: stretch;
+    background: var(--rule);
+    flex: none;
+  }
+
+  .wire span {
+    font-family: var(--mono);
+    font-size: .76rem;
+    color: var(--ink-mid);
+    background: var(--surface-sub);
+    border: 1px solid var(--rule-soft);
+    border-radius: 2px;
+    padding: .22em .6em;
+    white-space: nowrap;
+  }
+
+  .wire em {
+    font-style: normal;
+    font-size: .76rem;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- budget ---------- */
+
+  .budget {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1.4rem clamp(1rem, 3vw, 1.6rem);
+  }
+
+  .bar {
+    display: flex;
+    height: 2.1rem;
+    border-radius: 2px;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    margin-bottom: 1rem;
+  }
+
+  .bar div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: .7rem;
+    font-weight: 600;
+    color: var(--surface);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .bar .b-enc { flex: 37038272; background: var(--learned); }
+  .bar .b-dec { flex: 3371650; background: var(--learned-bg); color: var(--learned); }
+  .bar .b-bev { flex: 589824; background: var(--geom); }
+
+  .budget dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .budget dt { font-size: .84rem; font-weight: 600; }
+  .budget dd { margin: 0; font-family: var(--mono); font-size: .8rem; color: var(--ink-mid); font-variant-numeric: tabular-nums; }
+
+  /* ---------- table ---------- */
+
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); }
+
+  table { border-collapse: collapse; width: 100%; min-width: 40rem; font-size: .85rem; }
+
+  th, td { text-align: left; padding: .62rem .9rem; border-bottom: 1px solid var(--rule-soft); }
+
+  thead th {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-sub);
+    position: sticky;
+    top: 0;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  td.m { font-family: var(--mono); font-size: .78rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.p { font-family: var(--mono); font-size: .78rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody tr.zero td.p { color: var(--geom); }
+
+  /* ---------- reasons ---------- */
+
+  .reasons { display: flex; flex-direction: column; gap: 1rem; }
+
+  .reason {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1.2rem 1.35rem;
+    display: grid;
+    grid-template-columns: 4.6rem 1fr;
+    gap: .3rem 1.15rem;
+    align-items: start;
+  }
+
+  .reason > div { display: flex; flex-direction: column; gap: .8rem; }
+  .reason b { font-size: 1rem; font-weight: 600; }
+  .reason p { font-size: .92rem; color: var(--ink-mid); }
+  .reason .scroll { margin: 0; }
+  .reason table { min-width: 26rem; }
+
+  .rlabel {
+    font-family: var(--mono);
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--learned);
+    background: var(--learned-bg);
+    border-radius: 2px;
+    padding: .3em .1em;
+    text-align: center;
+    margin-top: .15rem;
+  }
+
+  @media (max-width: 34rem) {
+    .reason { grid-template-columns: 1fr; }
+    .rlabel { justify-self: start; padding: .3em .7em; }
+  }
+
+  /* ---------- notes ---------- */
+
+  .notes { display: flex; flex-direction: column; gap: 1rem; counter-reset: note; }
+
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1.1rem 1.25rem;
+    display: grid;
+    grid-template-columns: 1.7rem 1fr;
+    gap: .2rem 1rem;
+    counter-increment: note;
+  }
+
+  .note::before {
+    content: counter(note);
+    font-family: var(--mono);
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--geom);
+    background: var(--geom-bg);
+    border-radius: 2px;
+    width: 1.7rem;
+    height: 1.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    grid-row: span 2;
+  }
+
+  .note b { font-size: .95rem; font-weight: 600; }
+  .note p { font-size: .89rem; color: var(--ink-mid); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    font-family: var(--mono);
+    font-size: .74rem;
+    color: var(--ink-soft);
+    line-height: 1.8;
+  }
+
+  @media (max-width: 34rem) {
+    .stage { grid-template-columns: 1fr; gap: .5rem; }
+    .stage-body { grid-column: 1; }
+    .steps li { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- 인쇄 / PDF 저장 ---------- */
+
+  @media print {
+    :root {
+      --ground: #FFFFFF;
+      --surface: #FFFFFF;
+      --surface-sub: #F2F4F2;
+      --ink: #101815;
+      --ink-mid: #3A453F;
+      --ink-soft: #6B766F;
+      --rule: #C6CFC9;
+      --rule-soft: #DCE2DE;
+      --learned: #144A50;
+      --learned-bg: #EDF4F4;
+      --geom: #8A5514;
+      --geom-bg: #F8F1E5;
+      --shadow: none;
+    }
+
+    body { font-size: 10.5pt; background: #FFFFFF; }
+    .wrap { max-width: none; padding: 0; gap: 1.6rem; }
+    .plate { overflow: visible; padding: 0; border: none; box-shadow: none; }
+    .plate svg { width: 100%; height: auto; }
+    .stage, .reason, .note, .key, .budget, .scroll, figure { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    .hint { display: none; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">bev-chamdog · 확정 config · 2026-08-27</p>
+    <h1>어안 3대에서 BEV 한 장까지</h1>
+    <p class="thesis">
+      이미지가 모듈을 지나며 어떤 형상으로 바뀌는지를 순서대로 따라간다. 두 가지가 눈에 띈다.
+      <strong>가중치의 90 %가 첫 단계 하나에 몰려 있고, 2D를 3D로 옮기는 단계에는 학습
+      파라미터가 하나도 없다</strong> — 그 대응은 전부 캘리브레이션에서 온다.
+    </p>
+
+    <dl class="facts">
+      <div class="fact">
+        <dt>학습 파라미터</dt>
+        <dd>41.00 M<span>encoder가 37.04 M</span></dd>
+      </div>
+      <div class="fact">
+        <dt>입력</dt>
+        <dd>512 × 288<span>어안 3대, 원본 1280 × 720</span></dd>
+      </div>
+      <div class="fact">
+        <dt>출력 격자</dt>
+        <dd>120 × 120<span>5 cm 셀, 6 m × 6 m</span></dd>
+      </div>
+      <div class="fact">
+        <dt>파라미터 0인 단계</dt>
+        <dd>3 개<span>lifting · 병합 · 후처리</span></dd>
+      </div>
+    </dl>
+  </header>
+
+  <figure>
+    <div class="plate">
+<svg viewBox="0 0 1620 520" width="1620" height="520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="어안 카메라 3대에서 BEV free-space 마스크까지의 파이프라인 모식도">
+<defs>
+<marker id="a-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="var(--ink)"/></marker>
+<marker id="a-geo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="var(--geom)"/></marker>
+<marker id="a-lrn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="var(--learned)"/></marker>
+<marker id="a-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="var(--ink-soft)"/></marker>
+<clipPath id="bevclip"><rect x="0" y="0" width="150" height="150" rx="2"/></clipPath>
+</defs>
+<rect x="75.0" y="35" width="26" height="19" rx="2.5" fill="var(--geom-bg)"/>
+<text x="88.0" y="49.0" class="f-mono " font-size="12" font-weight="700" fill="var(--geom)" text-anchor="middle">0</text>
+<text x="88.0" y="68.0" class="f-sans " font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="middle">어안 입력</text>
+<text x="88.0" y="84.0" class="f-mono " font-size="10" font-weight="400" fill="var(--geom)" text-anchor="middle">학습 없음</text>
+<rect x="42.0" y="132.0" width="92.0" height="46.0" rx="3" fill="var(--surface-sub)" stroke="var(--rule)" stroke-width="1.2"/>
+<circle cx="88" cy="155" r="17" fill="none" stroke="var(--ink-soft)" stroke-width="1.1"/>
+<circle cx="88" cy="155" r="8" fill="none" stroke="var(--ink-soft)" stroke-width=".8" stroke-opacity=".7"/>
+<line x1="105.0" y1="155.0" x2="110.0" y2="155.0" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="100.0" y1="162.5" x2="103.6" y2="164.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="88.0" y1="165.5" x2="88.0" y2="168.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="76.0" y1="162.5" x2="72.4" y2="164.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="71.0" y1="155.0" x2="66.0" y2="155.0" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="76.0" y1="147.5" x2="72.4" y2="145.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="88.0" y1="144.5" x2="88.0" y2="141.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="100.0" y1="147.5" x2="103.6" y2="145.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<text x="88.0" y="172.0" class="f-mono " font-size="9" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">front</text>
+<rect x="42.0" y="188.0" width="92.0" height="46.0" rx="3" fill="var(--surface-sub)" stroke="var(--rule)" stroke-width="1.2"/>
+<circle cx="88" cy="211" r="17" fill="none" stroke="var(--ink-soft)" stroke-width="1.1"/>
+<circle cx="88" cy="211" r="8" fill="none" stroke="var(--ink-soft)" stroke-width=".8" stroke-opacity=".7"/>
+<line x1="105.0" y1="211.0" x2="110.0" y2="211.0" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="100.0" y1="218.5" x2="103.6" y2="220.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="88.0" y1="221.5" x2="88.0" y2="224.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="76.0" y1="218.5" x2="72.4" y2="220.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="71.0" y1="211.0" x2="66.0" y2="211.0" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="76.0" y1="203.5" x2="72.4" y2="201.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="88.0" y1="200.5" x2="88.0" y2="197.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="100.0" y1="203.5" x2="103.6" y2="201.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<text x="88.0" y="228.0" class="f-mono " font-size="9" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">left</text>
+<rect x="42.0" y="244.0" width="92.0" height="46.0" rx="3" fill="var(--surface-sub)" stroke="var(--rule)" stroke-width="1.2"/>
+<circle cx="88" cy="267" r="17" fill="none" stroke="var(--ink-soft)" stroke-width="1.1"/>
+<circle cx="88" cy="267" r="8" fill="none" stroke="var(--ink-soft)" stroke-width=".8" stroke-opacity=".7"/>
+<line x1="105.0" y1="267.0" x2="110.0" y2="267.0" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="100.0" y1="274.5" x2="103.6" y2="276.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="88.0" y1="277.5" x2="88.0" y2="280.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="76.0" y1="274.5" x2="72.4" y2="276.6" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="71.0" y1="267.0" x2="66.0" y2="267.0" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="76.0" y1="259.5" x2="72.4" y2="257.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="88.0" y1="256.5" x2="88.0" y2="253.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<line x1="100.0" y1="259.5" x2="103.6" y2="257.4" stroke="var(--ink-soft)" stroke-width=".7" stroke-opacity=".5"/>
+<text x="88.0" y="284.0" class="f-mono " font-size="9" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">right</text>
+<text x="88.0" y="452.0" class="f-mono " font-size="10.5" font-weight="400" fill="var(--ink-mid)" text-anchor="middle">3 x 288 x 512</text>
+<text x="88.0" y="467.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">1280x720 -&gt; 512x288</text>
+<line x1="142.0" y1="210.0" x2="188.0" y2="210.0" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#a-ink)"/>
+<text x="160.0" y="201.0" class="f-mono " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">x3</text>
+<rect x="230.0" y="35" width="26" height="19" rx="2.5" fill="var(--learned-bg)"/>
+<text x="243.0" y="49.0" class="f-mono " font-size="12" font-weight="700" fill="var(--learned)" text-anchor="middle">1</text>
+<text x="243.0" y="68.0" class="f-sans " font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="middle">2D 인코더</text>
+<text x="243.0" y="84.0" class="f-mono " font-size="10" font-weight="400" fill="var(--learned)" text-anchor="middle">37.04 M</text>
+<rect x="196.0" y="144.0" width="15.0" height="132.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="203.5" y="288.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">c1</text>
+<rect x="216.0" y="144.0" width="15.0" height="132.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="223.5" y="288.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">L1</text>
+<rect x="236.0" y="156.0" width="15.0" height="108.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="243.5" y="276.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">L2</text>
+<rect x="262.0" y="171.0" width="15.0" height="78.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="269.5" y="261.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">L3</text>
+<path d="M 269 164 C 269 134, 244 134, 244 152" fill="none" stroke="var(--learned)" stroke-width="1.3" marker-end="url(#a-lrn)"/>
+<text x="256.0" y="126.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--learned)" text-anchor="middle">x2 up + concat</text>
+<rect x="284.0" y="176.0" width="15.0" height="68.0" rx="2" fill="var(--surface)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="291.5" y="256.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">1x1</text>
+<text x="243.0" y="292.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">ResNet-101, layer4 제거</text>
+<text x="243.0" y="306.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">최종 stride 8</text>
+<text x="248.0" y="452.0" class="f-mono " font-size="10.5" font-weight="400" fill="var(--ink-mid)" text-anchor="middle">128 x 36 x 64</text>
+<text x="248.0" y="467.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">카메라마다 특징맵 한 장</text>
+<line x1="303.0" y1="210.0" x2="330.0" y2="210.0" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#a-ink)"/>
+<polygon points="362.0,204.0 404.1,225.3 362.0,246.6 319.9,225.3" fill="var(--surface)" fill-opacity="0.95" stroke="var(--learned)" stroke-width="1.1"/>
+<polygon points="353.0,213.0 395.1,234.3 353.0,255.6 310.9,234.3" fill="var(--surface)" fill-opacity="0.95" stroke="var(--learned)" stroke-width="1.1"/>
+<polygon points="344.0,222.0 386.1,243.3 344.0,264.6 301.9,243.3" fill="var(--learned-bg)" fill-opacity="0.95" stroke="var(--learned)" stroke-width="1.1"/>
+<text x="362.0" y="284.0" class="f-mono " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">S=3</text>
+<line x1="428.0" y1="210.0" x2="442.0" y2="210.0" stroke="var(--geom)" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#a-geo)"/>
+<rect x="519.0" y="35" width="26" height="19" rx="2.5" fill="var(--geom-bg)"/>
+<text x="532.0" y="49.0" class="f-mono " font-size="12" font-weight="700" fill="var(--geom)" text-anchor="middle">2</text>
+<text x="532.0" y="68.0" class="f-sans " font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="middle">lifting</text>
+<text x="532.0" y="84.0" class="f-mono " font-size="10" font-weight="400" fill="var(--geom)" text-anchor="middle">학습 파라미터 0</text>
+<polygon points="520.0,166.0 607.5,210.3 520.0,254.6 432.5,210.3" fill="var(--geom-bg)" fill-opacity="0.55" stroke="var(--geom)" stroke-width="1.1"/>
+<line x1="534.6" y1="173.4" x2="447.1" y2="217.7" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="505.4" y1="173.4" x2="592.9" y2="217.7" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="549.2" y1="180.8" x2="461.7" y2="225.0" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="490.8" y1="180.8" x2="578.3" y2="225.0" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="563.7" y1="188.1" x2="476.3" y2="232.4" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="476.3" y1="188.1" x2="563.7" y2="232.4" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="578.3" y1="195.5" x2="490.8" y2="239.8" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="461.7" y1="195.5" x2="549.2" y2="239.8" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="592.9" y1="202.9" x2="505.4" y2="247.2" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="447.1" y1="202.9" x2="534.6" y2="247.2" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<text x="420.5" y="214.3" class="f-mono " font-size="9" font-weight="400" fill="var(--geom)" text-anchor="end">1.5 m</text>
+<polygon points="520.0,192.0 607.5,236.3 520.0,280.6 432.5,236.3" fill="var(--geom-bg)" fill-opacity="0.55" stroke="var(--geom)" stroke-width="1.1"/>
+<line x1="534.6" y1="199.4" x2="447.1" y2="243.7" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="505.4" y1="199.4" x2="592.9" y2="243.7" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="549.2" y1="206.8" x2="461.7" y2="251.0" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="490.8" y1="206.8" x2="578.3" y2="251.0" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="563.7" y1="214.1" x2="476.3" y2="258.4" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="476.3" y1="214.1" x2="563.7" y2="258.4" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="578.3" y1="221.5" x2="490.8" y2="265.8" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="461.7" y1="221.5" x2="549.2" y2="265.8" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="592.9" y1="228.9" x2="505.4" y2="273.2" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="447.1" y1="228.9" x2="534.6" y2="273.2" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<text x="420.5" y="240.3" class="f-mono " font-size="9" font-weight="400" fill="var(--geom)" text-anchor="end">1.0 m</text>
+<polygon points="520.0,218.0 607.5,262.3 520.0,306.6 432.5,262.3" fill="var(--geom-bg)" fill-opacity="0.55" stroke="var(--geom)" stroke-width="1.1"/>
+<line x1="534.6" y1="225.4" x2="447.1" y2="269.7" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="505.4" y1="225.4" x2="592.9" y2="269.7" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="549.2" y1="232.8" x2="461.7" y2="277.0" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="490.8" y1="232.8" x2="578.3" y2="277.0" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="563.7" y1="240.1" x2="476.3" y2="284.4" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="476.3" y1="240.1" x2="563.7" y2="284.4" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="578.3" y1="247.5" x2="490.8" y2="291.8" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="461.7" y1="247.5" x2="549.2" y2="291.8" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="592.9" y1="254.9" x2="505.4" y2="299.2" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="447.1" y1="254.9" x2="534.6" y2="299.2" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<text x="420.5" y="266.3" class="f-mono " font-size="9" font-weight="400" fill="var(--geom)" text-anchor="end">0.5 m</text>
+<polygon points="520.0,244.0 607.5,288.3 520.0,332.6 432.5,288.3" fill="var(--geom-bg)" fill-opacity="0.8" stroke="var(--geom)" stroke-width="1.1"/>
+<line x1="534.6" y1="251.4" x2="447.1" y2="295.7" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="505.4" y1="251.4" x2="592.9" y2="295.7" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="549.2" y1="258.8" x2="461.7" y2="303.0" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="490.8" y1="258.8" x2="578.3" y2="303.0" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="563.7" y1="266.1" x2="476.3" y2="310.4" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="476.3" y1="266.1" x2="563.7" y2="310.4" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="578.3" y1="273.5" x2="490.8" y2="317.8" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="461.7" y1="273.5" x2="549.2" y2="317.8" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="592.9" y1="280.9" x2="505.4" y2="325.2" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<line x1="447.1" y1="280.9" x2="534.6" y2="325.2" stroke="var(--geom)" stroke-width=".5" stroke-opacity=".45"/>
+<text x="420.5" y="292.3" class="f-mono " font-size="9" font-weight="400" fill="var(--geom)" text-anchor="end">0 m</text>
+<circle cx="446.0" cy="268.4" r="5" fill="var(--geom)"/>
+<text x="446.0" y="288.4" class="f-mono " font-size="9" font-weight="400" fill="var(--geom)" text-anchor="middle">cam</text>
+<line x1="446.0" y1="268.4" x2="464.9" y2="288.3" stroke="var(--geom)" stroke-width=".9" stroke-opacity=".55" stroke-dasharray="3 2.5"/>
+<circle cx="464.9" cy="288.3" r="2.8" fill="var(--geom)"/>
+<line x1="446.0" y1="268.4" x2="513.5" y2="263.9" stroke="var(--geom)" stroke-width=".9" stroke-opacity=".55" stroke-dasharray="3 2.5"/>
+<circle cx="513.5" cy="263.9" r="2.8" fill="var(--geom)"/>
+<line x1="446.0" y1="268.4" x2="571.8" y2="211.9" stroke="var(--geom)" stroke-width=".9" stroke-opacity=".55" stroke-dasharray="3 2.5"/>
+<circle cx="571.8" cy="211.9" r="2.8" fill="var(--geom)"/>
+<line x1="446.0" y1="268.4" x2="513.5" y2="257.6" stroke="var(--geom)" stroke-width=".9" stroke-opacity=".55" stroke-dasharray="3 2.5"/>
+<circle cx="513.5" cy="257.6" r="2.8" fill="var(--geom)"/>
+<line x1="446.0" y1="268.4" x2="520.0" y2="192.2" stroke="var(--geom)" stroke-width=".9" stroke-opacity=".55" stroke-dasharray="3 2.5"/>
+<circle cx="520.0" cy="192.2" r="2.8" fill="var(--geom)"/>
+<text x="532.0" y="348.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">격자 셀이 자기 좌표의 픽셀을 찾아 읽는다 (pull)</text>
+<text x="532.0" y="362.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">Double Sphere 투영 + grid_sample bilinear</text>
+<text x="532.0" y="452.0" class="f-mono " font-size="10.5" font-weight="400" fill="var(--ink-mid)" text-anchor="middle">128 x 120 x 4 x 120</text>
+<text x="532.0" y="467.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">단계 3: 본 카메라만 평균 (2대가 62 %)</text>
+<line x1="626.0" y1="210.0" x2="782.0" y2="210.0" stroke="var(--geom)" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#a-geo)"/>
+<rect x="823.0" y="35" width="26" height="19" rx="2.5" fill="var(--learned-bg)"/>
+<text x="836.0" y="49.0" class="f-mono " font-size="12" font-weight="700" fill="var(--learned)" text-anchor="middle">4</text>
+<text x="836.0" y="68.0" class="f-sans " font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="middle">높이 접기 + compressor</text>
+<text x="836.0" y="84.0" class="f-mono " font-size="10" font-weight="400" fill="var(--learned)" text-anchor="middle">0.59 M</text>
+<line x1="792" y1="158" x2="822" y2="226" stroke="var(--geom)" stroke-width="1" stroke-opacity=".7"/>
+<rect x="766" y="154" width="26" height="8" rx="1.5" fill="var(--geom-bg)" stroke="var(--geom)" stroke-width=".9"/>
+<line x1="792" y1="173" x2="822" y2="226" stroke="var(--geom)" stroke-width="1" stroke-opacity=".7"/>
+<rect x="766" y="169" width="26" height="8" rx="1.5" fill="var(--geom-bg)" stroke="var(--geom)" stroke-width=".9"/>
+<line x1="792" y1="188" x2="822" y2="226" stroke="var(--geom)" stroke-width="1" stroke-opacity=".7"/>
+<rect x="766" y="184" width="26" height="8" rx="1.5" fill="var(--geom-bg)" stroke="var(--geom)" stroke-width=".9"/>
+<line x1="792" y1="203" x2="822" y2="226" stroke="var(--geom)" stroke-width="1" stroke-opacity=".7"/>
+<rect x="766" y="199" width="26" height="8" rx="1.5" fill="var(--geom-bg)" stroke="var(--geom)" stroke-width=".9"/>
+<text x="779.0" y="144.0" class="f-mono " font-size="9" font-weight="400" fill="var(--geom)" text-anchor="middle">Y=4</text>
+<rect x="822.0" y="214.0" width="62.0" height="24.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.4"/>
+<text x="853.0" y="230.0" class="f-mono " font-size="9.5" font-weight="400" fill="var(--learned)" text-anchor="middle">512 -&gt; 128</text>
+<text x="853.0" y="254.0" class="f-mono " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">3x3 conv</text>
+<text x="836.0" y="288.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">높이를 채널로 접는다.</text>
+<text x="836.0" y="302.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">높이를 섞는 유일한 학습 층.</text>
+<text x="836.0" y="452.0" class="f-mono " font-size="10.5" font-weight="400" fill="var(--ink-mid)" text-anchor="middle">128 x 120 x 120</text>
+<text x="836.0" y="467.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">여기부터 완전히 2D</text>
+<line x1="888.0" y1="210.0" x2="952.0" y2="210.0" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#a-ink)"/>
+<rect x="1063.0" y="35" width="26" height="19" rx="2.5" fill="var(--learned-bg)"/>
+<text x="1076.0" y="49.0" class="f-mono " font-size="12" font-weight="700" fill="var(--learned)" text-anchor="middle">5</text>
+<text x="1076.0" y="68.0" class="f-sans " font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="middle">BEV 디코더 U-Net</text>
+<text x="1076.0" y="84.0" class="f-mono " font-size="10" font-weight="400" fill="var(--learned)" text-anchor="middle">3.37 M</text>
+<rect x="960.0" y="154.0" width="16.0" height="112.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="968.0" y="278.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">120</text>
+<rect x="998.0" y="171.0" width="16.0" height="78.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="1006.0" y="261.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">60</text>
+<rect x="1036.0" y="185.0" width="16.0" height="50.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="1044.0" y="247.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">30</text>
+<rect x="1074.0" y="194.0" width="16.0" height="32.0" rx="2" fill="var(--learned-bg)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="1082.0" y="238.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">15</text>
+<rect x="1112.0" y="185.0" width="16.0" height="50.0" rx="2" fill="var(--surface)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="1120.0" y="247.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">30</text>
+<rect x="1150.0" y="171.0" width="16.0" height="78.0" rx="2" fill="var(--surface)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="1158.0" y="261.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">60</text>
+<rect x="1188.0" y="154.0" width="16.0" height="112.0" rx="2" fill="var(--surface)" stroke="var(--learned)" stroke-width="1.2"/>
+<text x="1196.0" y="278.0" class="f-mono " font-size="8.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">120</text>
+<path d="M 968 144.0 C 968 118.0, 1196 118.0, 1196 144.0" fill="none" stroke="var(--learned)" stroke-width="1.1" stroke-dasharray="4 3" stroke-opacity=".8" marker-end="url(#a-lrn)"/>
+<path d="M 1006 161.0 C 1006 135.0, 1158 135.0, 1158 161.0" fill="none" stroke="var(--learned)" stroke-width="1.1" stroke-dasharray="4 3" stroke-opacity=".8" marker-end="url(#a-lrn)"/>
+<path d="M 1044 175.0 C 1044 149.0, 1120 149.0, 1120 175.0" fill="none" stroke="var(--learned)" stroke-width="1.1" stroke-dasharray="4 3" stroke-opacity=".8" marker-end="url(#a-lrn)"/>
+<text x="1082.0" y="92.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--learned)" text-anchor="middle">skip 연결 (5 cm 경계를 되살린다)</text>
+<text x="1082.0" y="288.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">수용영역 118 셀 = 5.90 m (격자 폭의 98 %)</text>
+<text x="1082.0" y="302.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">유효(질량 90 %) 43 셀 = 2.15 m</text>
+<text x="1082.0" y="452.0" class="f-mono " font-size="10.5" font-weight="400" fill="var(--ink-mid)" text-anchor="middle">2 x 120 x 120</text>
+<text x="1082.0" y="467.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">free / not-free logit</text>
+<line x1="1212.0" y1="210.0" x2="1390.0" y2="210.0" stroke="var(--geom)" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#a-geo)"/>
+<rect x="1462.0" y="35" width="26" height="19" rx="2.5" fill="var(--geom-bg)"/>
+<text x="1475.0" y="49.0" class="f-mono " font-size="12" font-weight="700" fill="var(--geom)" text-anchor="middle">6</text>
+<text x="1475.0" y="68.0" class="f-sans " font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="middle">free-space 마스크</text>
+<text x="1475.0" y="84.0" class="f-mono " font-size="10" font-weight="400" fill="var(--geom)" text-anchor="middle">학습 파라미터 0</text>
+<rect x="1400.0" y="135.0" width="150.0" height="150.0" rx="2" fill="var(--surface-sub)" stroke="var(--rule)" stroke-width="1.4"/>
+<g clip-path="url(#bevclip)" transform="translate(1400 135)">
+<polygon points="75,100 18,74 12,40 40,16 74,8 108,18 132,44 138,72 120,96 96,108" fill="var(--geom)" fill-opacity=".22" stroke="var(--geom)" stroke-width="1.6"/>
+<rect x="6" y="20" width="22" height="10" rx="1.5" fill="var(--ink)" fill-opacity=".38"/>
+<rect x="120" y="26" width="24" height="9" rx="1.5" fill="var(--ink)" fill-opacity=".38"/>
+<rect x="30" y="4" width="40" height="8" rx="1.5" fill="var(--ink)" fill-opacity=".38"/>
+<rect x="128" y="96" width="18" height="22" rx="1.5" fill="var(--ink)" fill-opacity=".38"/>
+<circle cx="75" cy="100" r="4.5" fill="var(--ink)"/>
+<path d="M 75 93 l 0 -11 m -4 4 l 4 -4 l 4 4" fill="none" stroke="var(--ink)" stroke-width="1.4"/>
+<line x1="0" y1="25" x2="150" y2="25" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="25" y1="0" x2="25" y2="150" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="0" y1="50" x2="150" y2="50" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="50" y1="0" x2="50" y2="150" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="0" y1="75" x2="150" y2="75" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="75" y1="0" x2="75" y2="150" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="0" y1="100" x2="150" y2="100" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="100" y1="0" x2="100" y2="150" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="0" y1="125" x2="150" y2="125" stroke="var(--rule)" stroke-width=".5"/>
+<line x1="125" y1="0" x2="125" y2="150" stroke="var(--rule)" stroke-width=".5"/>
+</g>
+<text x="1475.0" y="303.0" class="f-mono " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">120 x 120, 5 cm 셀</text>
+<text x="1475.0" y="317.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">전방 4 m / 후방 2 m / 좌우 ±3 m</text>
+<text x="1475.0" y="452.0" class="f-mono " font-size="10.5" font-weight="400" fill="var(--ink-mid)" text-anchor="middle">free 마스크 120 x 120</text>
+<text x="1475.0" y="467.0" class="f-sans " font-size="9.5" font-weight="400" fill="var(--ink-soft)" text-anchor="middle">occupied는 경계에서 유도</text>
+<line x1="24" y1="428" x2="1596" y2="428" stroke="var(--rule)" stroke-width="1"/>
+<text x="24.0" y="420.0" class="f-mono " font-size="9" font-weight="400" fill="var(--ink-soft)" text-anchor="start">텐서 형상 (batch 축 생략)</text>
+<line x1="1290" y1="22" x2="1320" y2="22" stroke="var(--ink)" stroke-width="1.8"/>
+<text x="1326.0" y="26.0" class="f-sans " font-size="10" font-weight="400" fill="var(--ink-mid)" text-anchor="start">학습하는 단계</text>
+<line x1="1430" y1="22" x2="1460" y2="22" stroke="var(--geom)" stroke-width="1.8" stroke-dasharray="5 3"/>
+<text x="1466.0" y="26.0" class="f-sans " font-size="10" font-weight="400" fill="var(--ink-mid)" text-anchor="start">파라미터 0 (기하만)</text>
+</svg>
+    </div>
+    <figcaption>
+      <b>Figure 1</b>
+      어안 카메라 3대에서 BEV free-space 마스크까지의 전체 경로. 실선 테두리는 학습하는 단계,
+      점선은 학습 파라미터가 0인 단계다. 아래 레일에 각 지점의 텐서 형상을 적었다(batch 축 생략).
+      lifting 단계에서 광선이 향하는 점들은 BEV 격자 셀의 중심이며, 셀이 이미지에서 특징을
+      당겨오는 방향임을 나타낸다.
+    </figcaption>
+    <p class="hint">화면이 좁으면 도식을 좌우로 밀어서 볼 수 있다.</p>
+  </figure>
+
+  <section>
+    <h2><span class="num">읽는 법</span> 두 종류의 단계</h2>
+    <div class="legend">
+      <div class="key">
+        <div class="swatch l" aria-hidden="true"></div>
+        <div>
+          <b>실선 — 학습하는 단계</b>
+          <span>가중치가 있고 gradient를 받는다. 칩에 파라미터 수를 적었다.</span>
+        </div>
+      </div>
+      <div class="key">
+        <div class="swatch g" aria-hidden="true"></div>
+        <div>
+          <b>점선 — 기하만 있는 단계</b>
+          <span>학습 파라미터가 0이다. 캘리브레이션과 텐서 재배열만으로 동작한다.</span>
+        </div>
+      </div>
+    </div>
+    <p>
+      단계 사이의 얇은 선에 <b>그 지점의 텐서 형상</b>을 붙여 뒀다. 도식을 직접 그릴 때는
+      이 값만 옮겨 적으면 된다. 아래 형상은 모두 batch <code>B</code>, 카메라
+      <code>S=3</code> 기준이고 실제 코드에서 확인한 값이다.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">파이프라인</span> 입력에서 출력까지 7 단계</h2>
+
+    <div class="flow">
+
+      <!-- 0 -->
+      <div class="stage geom">
+        <div class="stage-no">0</div>
+        <div class="stage-head">
+          <h3>입력 준비</h3>
+          <span class="chip g">학습 없음</span>
+        </div>
+        <div class="stage-body">
+          <p class="path">projects/datasets/robot_simplebev.py</p>
+          <div class="cams">
+            <span class="cam">front</span>
+            <span class="cam">left</span>
+            <span class="cam">right</span>
+          </div>
+          <p>
+            어안 카메라 3대의 원본 <b>1280 × 720</b>을 <b>512 × 288</b>로 리사이즈한다.
+            16:9를 유지하면서 stride 8로 나눠떨어지는 값이라서 고른 크기다.
+            <strong>캘리브레이션 계수는 원본 해상도 기준이라 그대로 둔다</strong> — 단계 2가
+            투영한 뒤에 배율을 되돌린다.
+          </p>
+        </div>
+      </div>
+
+      <div class="wire"><span>(B, 3, 3, 288, 512)</span><em>B · 카메라 · RGB · H · W</em></div>
+
+      <!-- 1 -->
+      <div class="stage">
+        <div class="stage-no">1</div>
+        <div class="stage-head">
+          <h3>2D 인코더 <code>Encoder_res101</code></h3>
+          <span class="chip l">37,038,272 param</span>
+        </div>
+        <div class="stage-body">
+          <p class="path">third_party/models/simple_bev/nets/segnet.py</p>
+          <ul class="steps">
+            <li><b>conv1 ~ layer2</b><i>(B·3, 512, 36, 64) — stride 8</i></li>
+            <li><b>layer3</b><i>(B·3, 1024, 18, 32) — stride 16</i></li>
+            <li><b>UpsamplingConcat</b><i>(B·3, 512, 36, 64) — 1536 → 512</i></li>
+            <li><b>depth_layer 1×1</b><i>(B·3, 128, 36, 64)</i></li>
+          </ul>
+          <p>
+            카메라 축을 배치 축에 접어서 3장을 한꺼번에 통과시킨다 —
+            <strong>카메라별 전용 파라미터가 없다.</strong> ResNet-101은 원래 stride 32까지
+            내려가지만 여기서는 layer4를 잘라내고, layer3의 stride 16 출력을 ×2 업샘플해
+            layer2의 stride 8 출력과 이어 붙여 되올린다. 그래서 최종 특징맵이
+            <b>64 × 36</b>, 채널 128이다. ImageNet 사전학습 가중치로 시작한다.
+          </p>
+        </div>
+      </div>
+
+      <div class="wire"><span>(B, 3, 128, 36, 64)</span><em>카메라마다 128채널 특징맵 한 장</em></div>
+
+      <!-- 2 -->
+      <div class="stage geom">
+        <div class="stage-no">2</div>
+        <div class="stage-head">
+          <h3>lifting <code>unproject_image_to_mem</code></h3>
+          <span class="chip g">학습 파라미터 0</span>
+        </div>
+        <div class="stage-body">
+          <p class="path">projects/models/double_sphere_vox.py</p>
+          <ul class="steps">
+            <li><b>격자 3D 좌표</b><i>120 × 4 × 120 = 57,600 점</i></li>
+            <li><b>extrinsic 적용</b><i>ego → 카메라 좌표계</i></li>
+            <li><b>Double Sphere 투영</b><i>3D → 원본 픽셀 (u, v)</i></li>
+            <li><b>해상도 스케일</b><i>1280×720 → 64×36</i></li>
+            <li><b>grid_sample bilinear</b><i>(B, 3, 128, 120, 4, 120)</i></li>
+          </ul>
+          <p>
+            BEV 복셀 격자의 <b>중심점 3D 좌표를 먼저 만들고</b>, 각 점이 어느 픽셀에 찍히는지
+            어안 모델로 계산해 그 자리의 특징을 읽어 온다. 픽셀을 3D로 흩뿌리는 게 아니라
+            <strong>격자가 이미지에서 당겨오는 방향</strong>이라 깊이 추정이 필요 없다.
+            화각을 벗어난 점은 <code>valid_mem = 0</code>으로 마스킹돼 그 자리에 0이 들어간다.
+          </p>
+          <p>
+            높이 4칸이 표본하는 지면 기준 높이는 <b>0 / 0.5 / 1.0 / 1.5 m</b>다
+            (범위 −0.25 ~ 1.75 m, 복셀 중심). 라벨이 판정하는 대역이 지상 0.87 ~ 1.67 m라
+            여기에 맞춘 값이다.
+          </p>
+        </div>
+      </div>
+
+      <div class="wire"><span>(B, 3, 128, 120, 4, 120)</span><em>카메라 3장이 아직 따로 있다</em></div>
+
+      <!-- 3 -->
+      <div class="stage geom">
+        <div class="stage-no">3</div>
+        <div class="stage-head">
+          <h3>카메라 병합 <code>reduce_masked_mean</code></h3>
+          <span class="chip g">학습 파라미터 0</span>
+        </div>
+        <div class="stage-body">
+          <p class="path">third_party/models/simple_bev/utils/basic.py</p>
+          <p>
+            한 복셀을 실제로 본 카메라만 골라 <b>가중 없는 단순 평균</b>을 낸다. 마스크는
+            특징값이 0이 아닌지로 잡는다(<code>abs(feat) &gt; 0</code>).
+            <strong>겹침이 예외가 아니라 다수다</strong> — 캘리브레이션 기하로 세어 보면
+            2대가 보는 셀이 62 %, 3대가 21 %, 1대가 15 %, 0대가 0.2~4.5 %다.
+            어느 카메라도 못 본 복셀은 0으로 남는다(<code>EPS</code>로 나눠 NaN이 아니다).
+          </p>
+        </div>
+      </div>
+
+      <div class="wire"><span>(B, 128, 120, 4, 120)</span><em>카메라 축이 사라졌다</em></div>
+
+      <!-- 4 -->
+      <div class="stage">
+        <div class="stage-no">4</div>
+        <div class="stage-head">
+          <h3>높이 접기 + <code>bev_compressor</code></h3>
+          <span class="chip l">589,824 param</span>
+        </div>
+        <div class="stage-body">
+          <p class="path">third_party/models/simple_bev/nets/segnet.py</p>
+          <ul class="steps">
+            <li><b>permute + reshape</b><i>(B, 512, 120, 120) — 128 × 4</i></li>
+            <li><b>Conv2d 3×3</b><i>512 → 128</i></li>
+            <li><b>InstanceNorm2d + GELU</b><i>(B, 128, 120, 120)</i></li>
+          </ul>
+          <p>
+            높이 4칸을 <b>채널로 접어</b> 3D를 2D로 만든다. 즉
+            <strong>높이 정보를 실제로 섞는 학습 모듈은 이 3×3 합성곱 하나뿐이다.</strong>
+            <code>Y</code>를 1에서 4로 늘린 변경이 바로 이 층의 입력 채널을 128 → 512로
+            바꾼 것이고, 전체 파라미터가 40.56 M → 41.00 M이 된 이유도 여기다.
+          </p>
+        </div>
+      </div>
+
+      <div class="wire"><span>(B, 128, 120, 120)</span><em>여기부터 완전히 2D BEV 평면이다</em></div>
+
+      <!-- 5 -->
+      <div class="stage">
+        <div class="stage-no">5</div>
+        <div class="stage-head">
+          <h3>BEV 디코더 <code>ThreeClassDecoder</code></h3>
+          <span class="chip l">3,371,650 param</span>
+        </div>
+        <div class="stage-body">
+          <p class="path">projects/models/simplebev_three_class.py — ResNet-18 기반 U-Net</p>
+          <ul class="steps">
+            <li><b>first_conv 7×7 s2</b><i>(B, 64, 60, 60)</i></li>
+            <li><b>layer1</b><i>(B, 64, 60, 60) → skip</i></li>
+            <li><b>layer2</b><i>(B, 128, 30, 30) → skip</i></li>
+            <li><b>layer3</b><i>(B, 256, 15, 15) — 최저 해상도</i></li>
+            <li><b>up3_skip</b><i>(B, 128, 30, 30)</i></li>
+            <li><b>up2_skip</b><i>(B, 64, 60, 60)</i></li>
+            <li><b>up1_skip</b><i>(B, 128, 120, 120)</i></li>
+            <li><b>segmentation_head</b><i>(B, 2, 120, 120)</i></li>
+          </ul>
+          <p>
+            BEV 평면 위에서만 도는 U-Net이다. 120×120을 15×15까지 줄였다가 skip 연결로
+            원래 해상도까지 되올린다. 원본 Simple-BEV에 있는 instance head 3개는 이 태스크에
+            대응하는 라벨이 없어 <strong>잘라냈다</strong> — 파라미터 459 k, decoder forward
+            시간 33 %를 줄인다.
+          </p>
+        </div>
+      </div>
+
+      <div class="wire"><span>(B, 2, 120, 120)</span><em>free / not-free logit 두 장</em></div>
+
+      <!-- 6 -->
+      <div class="stage geom">
+        <div class="stage-no">6</div>
+        <div class="stage-head">
+          <h3>출력 해석과 후처리</h3>
+          <span class="chip g">학습 파라미터 0</span>
+        </div>
+        <div class="stage-body">
+          <p class="path">projects/common/binary_metrics.py</p>
+          <p>
+            <code>argmax</code>로 <b>free 마스크 120 × 120</b>을 얻는다. 격자는 5 cm 셀,
+            전방 4 m · 후방 2 m · 좌우 ±3 m다. <strong><code>occupied</code>는 예측하지
+            않는다</strong> — 예측한 free 영역의 ego 기준 경계에서 유도하고, 나머지를
+            <code>unknown</code>으로 둔다. 그 덕에 2채널 정식화와 3채널 정식화가 같은 지표
+            표를 쓴다.
+          </p>
+          <p>
+            주 지표는 <code>iou_free</code>(체크포인트 선택 기준)와
+            <code>fatal_rate</code>이고, 경계 정밀도는 <code>f1@10cm</code>,
+            거리 오차는 <code>range_mae</code>로 본다.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">가중치 배분</span> 41.00 M이 어디 있나</h2>
+    <div class="budget">
+      <div class="bar" role="img" aria-label="encoder 90.3 퍼센트, decoder 8.2 퍼센트, bev_compressor 1.4 퍼센트">
+        <div class="b-enc">encoder 90.3 %</div>
+        <div class="b-dec">8.2 %</div>
+        <div class="b-bev">1.4 %</div>
+      </div>
+      <dl>
+        <div>
+          <dt>2D 인코더</dt>
+          <dd>37,038,272</dd>
+        </div>
+        <div>
+          <dt>BEV 디코더</dt>
+          <dd>3,371,650</dd>
+        </div>
+        <div>
+          <dt>bev_compressor</dt>
+          <dd>589,824</dd>
+        </div>
+        <div>
+          <dt>lifting · 병합 · 후처리</dt>
+          <dd>0</dd>
+        </div>
+      </dl>
+    </div>
+    <p>
+      <strong>이 배분이 이 구조의 성격을 말해 준다.</strong> 모델이 학습하는 것은 거의 전부
+      "이미지에서 무엇이 보이는가"이고, "그것이 3D에서 어디인가"는 학습 대상이 아니다.
+      그래서 캘리브레이션 품질이 곧 기하 정확도의 상한이 된다.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">형상 요약</span> 그림에 옮겨 적을 값</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>단계</th>
+            <th>모듈</th>
+            <th>출력 형상</th>
+            <th>파라미터</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="zero">
+            <td>0</td><td>입력 리사이즈</td>
+            <td class="m">(B, 3, 3, 288, 512)</td><td class="p">0</td>
+          </tr>
+          <tr>
+            <td>1</td><td>Encoder_res101</td>
+            <td class="m">(B, 3, 128, 36, 64)</td><td class="p">37,038,272</td>
+          </tr>
+          <tr class="zero">
+            <td>2</td><td>lifting (grid_sample)</td>
+            <td class="m">(B, 3, 128, 120, 4, 120)</td><td class="p">0</td>
+          </tr>
+          <tr class="zero">
+            <td>3</td><td>reduce_masked_mean</td>
+            <td class="m">(B, 128, 120, 4, 120)</td><td class="p">0</td>
+          </tr>
+          <tr class="zero">
+            <td>4a</td><td>permute + reshape</td>
+            <td class="m">(B, 512, 120, 120)</td><td class="p">0</td>
+          </tr>
+          <tr>
+            <td>4b</td><td>bev_compressor</td>
+            <td class="m">(B, 128, 120, 120)</td><td class="p">589,824</td>
+          </tr>
+          <tr>
+            <td>5</td><td>BEV 디코더 U-Net</td>
+            <td class="m">(B, 2, 120, 120)</td><td class="p">3,371,650</td>
+          </tr>
+          <tr class="zero">
+            <td>6</td><td>argmax + 경계 유도</td>
+            <td class="m">free 마스크 120 × 120</td><td class="p">0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">디코더</span> 왜 ResNet-18 U-Net인가</h2>
+
+    <p>
+      답이 두 겹이다. <strong>역사적으로는 우리가 고른 게 아니라 상속받은 것</strong>이고,
+      그런데 <strong>이 태스크에도 실제로 맞는 이유가 따로 있다.</strong>
+    </p>
+
+    <div class="reasons">
+
+      <div class="reason">
+        <span class="rlabel">상속</span>
+        <div>
+          <b>Simple-BEV의 통제변수였다</b>
+          <p>
+            <code>segnet.py</code>의 <code>Decoder</code>는 FIERY(Wayve)의 디코더다. 증거가
+            코드 안에 있다 — <code>instance_center_head</code>,
+            <code>instance_offset_head</code>, <code>instance_future_head</code>는 FIERY의
+            출력 집합(BEV instance 분리 + 미래 flow)이고 Simple-BEV의 semantic segmentation에는
+            쓰이지 않는다. 같은 저장소의 형제 모듈들이 lifting 코드에 대해
+            <code>wayveai/fiery</code>를 직접 인용하고 있기도 하다.
+          </p>
+          <p>
+            더 결정적인 건 이거다: <strong>이 저장소의 lifting 변종 6개가 전부 똑같은
+            <code>Decoder</code>를 쓴다</strong> —
+            <code>segnet</code>(bilinear), <code>liftnet</code>(LSS류),
+            <code>bevformernet</code>(deformable attention), <code>tiimnet</code> 모두.
+            Simple-BEV 논문의 질문이 "어떤 lifting이 중요한가"였으니 디코더는
+            <strong>모든 팔에서 동일해야 하는 통제변수</strong>였던 것이다. 즉 이 형태는
+            "BEV 디코더의 최적 설계"를 탐색한 결과가 아니다.
+          </p>
+        </div>
+      </div>
+
+      <div class="reason">
+        <span class="rlabel">실측</span>
+        <div>
+          <b>그런데 이 태스크에는 이 형태가 필요하다 — 수용영역 때문이다</b>
+          <p>
+            free-space는 국소 판정이 아니다. 벽 뒤가 free가 아닌 이유는 벽에 가려서이고,
+            그 판정은 ego에서 그 셀까지 광선 전체를 봐야 나온다. 그런데 앞 단계들은
+            공간을 거의 섞지 않는다 — <strong>lifting은 셀마다 완전히 독립이고,
+            <code>bev_compressor</code>의 3×3은 ±5 cm만 섞는다.</strong>
+            공간 문맥을 만드는 건 사실상 디코더뿐이다.
+          </p>
+          <p>
+            실제로 재봤다. 정규화·활성을 선형화하고 출력 한 칸의 gradient가 닿는 입력 범위를
+            측정한 값이다.
+          </p>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>구조</th>
+                  <th>최대 도달 (이론)</th>
+                  <th>유효 (질량 90 %)</th>
+                  <th>격자 대비</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>현재 디코더 (120→15→120)</td>
+                  <td class="m">118 셀 = 5.90 m</td>
+                  <td class="m">43 셀 = 2.15 m</td>
+                  <td class="m">98 %</td>
+                </tr>
+                <tr>
+                  <td>같은 conv 개수를 120×120에서 그대로</td>
+                  <td class="m">23 셀 = 1.15 m</td>
+                  <td class="m">15 셀 = 0.75 m</td>
+                  <td class="m">19 %</td>
+                </tr>
+                <tr>
+                  <td><code>bev_compressor</code> 3×3 단독</td>
+                  <td class="m">3 셀 = 0.15 m</td>
+                  <td class="m">3 셀 = 0.15 m</td>
+                  <td class="m">2.5 %</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            두 열을 나란히 둔 이유가 있다. <b>최대 도달</b>은 gradient가 조금이라도 닿는
+            범위이고, <b>유효</b>는 gradient 질량의 90 %가 들어오는 범위다. 논문에 쓸
+            숫자는 후자에 가깝다 — 이론적으로는 격자 전체를 보지만 실제 기여는 중심
+            2 m 안에 몰려 있다.
+          </p>
+          <p>
+            <strong>다운샘플이 같은 깊이·같은 비용으로 도달거리를 5.1배 늘린다.</strong>
+            15×15까지 내려가면 한 칸이 40 cm를 담당하게 되고, 그 지점에서 출력 한 칸이
+            6 m 격자를 사실상 전부 본다.
+          </p>
+          <p>
+            그런데 5 cm 경계 정밀도도 동시에 필요하다 — 주 지표 중 하나가
+            <code>f1@10cm</code>, 즉 <b>두 셀</b> 오차다. 다운샘플만 하면 그게 날아간다.
+            <strong>skip 연결이 그 둘을 동시에 얻는 방법</strong>이고, 그래서 U-Net이다.
+            <code>up1_skip</code>이 원래 120×120 입력을 그대로 더해 주는 게 그 역할이다.
+          </p>
+        </div>
+      </div>
+
+      <div class="reason">
+        <span class="rlabel">용량</span>
+        <div>
+          <b>ResNet-18인 이유는 비율이다</b>
+          <p>
+            학습 데이터가 192장이고 인코더가 이미 37.0 M이다. 디코더를 3.37 M로 두면
+            전체의 8 %이고, 더 키울 이유가 없다 — 이 리그에서 확인된 병목은 용량 부족이
+            아니라 과적합이었다. 오히려 쓰이지 않는 instance head 3개를 잘라내
+            459 k를 줄인 방향이 맞았다.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">주의</span> 그릴 때 틀리기 쉬운 곳</h2>
+    <div class="notes">
+
+      <div class="note">
+        <b>upstream 주석의 해상도가 2배 틀려 있다</b>
+        <p>
+          <code>segnet.py</code>의 <code>Decoder.forward</code> 주석은 layer1 다음을
+          <code>(H/4, W/4)</code>로 적어 뒀지만, 이 디코더는 <code>maxpool</code>을 쓰지 않아
+          실제로는 <code>H/2</code>다. skip 연결이 맞물리는 것으로 확인된다
+          (15 → 30 → 60 → 120). 주석 대신 위 표의 값을 쓰면 된다.
+        </p>
+      </div>
+
+      <div class="note">
+        <b>축 이름이 직관과 반대다</b>
+        <p>
+          <code>Segnet(Z, Y, X)</code>에서 <b>Z가 전후, X가 좌우, Y가 높이</b>다. 도식에
+          축 이름을 적을 때 <code>Y</code>를 세로축으로 쓰면 코드와 반대가 된다. 확정값은
+          <code>Z=120, Y=4, X=120</code>이다.
+        </p>
+      </div>
+
+      <div class="note">
+        <b>"BEV 셀 하나 = 픽셀 하나"가 아니다</b>
+        <p>
+          bilinear 표본이므로 셀 하나가 읽는 위치는 특징맵의 한 지점이지만, 그 특징은 이미
+          여러 층의 합성곱을 지나 <strong>원본 이미지에서 넓은 수용영역</strong>을 담고 있다.
+          도식에 "1 셀 ← 1 픽셀" 화살표를 그리면 오해를 준다.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    형상과 파라미터 수는 모두 저장소 코드에서 직접 실행해 확인한 값이다 (2026-08-27).<br>
+    확정 config: <code>Y=4</code>, 범위 −0.25 ~ 1.75 m, encoder <code>res101</code>,
+    latent_dim 128, binary 정식화.<br>
+    근거 문서: <code>docs/paper_experiment_compendium.md</code> §1.3 · §12,
+    <code>docs/finetune_overfitting_diagnosis.md</code> §33.<br>
+    이 도식의 정본은 <code>docs/figures/make_pipeline_figure.py</code>다 — 좌표를 고쳐 다시 돌리면 된다.
+  </footer>
+
+</div>
