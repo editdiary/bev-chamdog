@@ -47,6 +47,71 @@ TARGET_GAUSSIAN = "gaussian"
 # 이름만 남는다(delta=0.15, alpha=0.15에서 최근접 셀 target이 0.987이다).
 DEFAULT_SIGMA_ALPHA = 0.5
 
+# 대역 target을 0.5 쪽으로 섞는 계수. `y' = kappa*y + (1-kappa)/2`. **1.0이 기본이고 그때
+# 동작은 전과 완전히 같다.**
+#
+# **왜 필요한가 -- `delta`와 `alpha`가 둘 다 막혀 있기 때문이다** (2026-08-27 실측).
+#
+# `L_B`의 val KL은 어떤 `alpha`에서도 수렴하지 않는다. epoch 1~3에 최저를 찍고 끝까지
+# 오르기만 하며, 가장 나은 `alpha=1.0`에서도 +48 %다(`runs/alpha_y4`). 원인은 target이
+# 입력이 담고 있는 것보다 날카롭다는 것이다 -- BCE의 최소화자는 `E[y|image]`인데, 실측
+# 특징맵 해상도가 1~2 m에서 10.5 cm, 3~4 m에서 20~24 cm이므로 Bayes 최적 예측기조차 그만큼
+# 뭉개져 있다. 그런데 target은 그보다 좁은 폭을 요구한다.
+#
+# 그 폭을 넓히는 손잡이가 둘인데 **둘 다 이 데이터에서 막힌다.**
+#
+# - `alpha`는 **포화한다.** 함의하는 경계 오차의 표준편차 상한이 `delta/sqrt(3)` = 8.7 cm
+#   (선형 극한)이고, `alpha=1.0`에서 이미 8.1 cm로 상한의 93 %다. 무한대로 키워도 0.6 cm를
+#   더 못 넓힌다.
+# - `delta`는 **기하를 먹는다.** 이 로봇은 좁은 통로를 다니고 자유 셀의 절반이 벽에서
+#   32 cm 이내다(val 75프레임 실측). `delta=0.45`면 자유공간의 69 %가 hard `Omega_F`
+#   자격을 잃고 `delta=0.60`이면 프레임의 28 %가 hard free 셀을 하나도 못 가진다.
+#
+# **`kappa`는 대역 폭을 안 건드리면서 상한 없이 평평하게 만든다.** `Omega_F`도 통로도
+# 그대로다. 뜻도 다르다 -- `delta`가 "경계 위치가 ±delta 안에 있다"인 반면 `kappa`는
+# "경계 위치와 무관하게 (1-kappa)의 확률로 이 라벨은 정보가 없다"는 **평평한 라벨 잡음**이다.
+# 이 데이터셋 라벨이 LiDAR/SLAM 위에 사람 손 보정이 얹힌 것이므로 그런 성분을 가정하는 것
+# 자체는 자연스럽지만, **보정 절차가 기록돼 있지 않아 `kappa`를 데이터에서 추정할 수 없다.**
+# `delta`와 마찬가지로 사전지식에서 오는 값이고 스윕으로 고른다.
+#
+# 설계 문서가 label smoothing을 "과신을 직접 겨냥한 손잡이"라고 부르면서
+# (`segmentation_loss.py`) CE 경로에만 배선해 둔 것을 soft-boundary 쪽으로 가져온 것이다.
+# 실측 근거: val loss가 오르는 이유가 "더 많이 틀려서"가 아니라 "같은 만큼 틀리되 확신이
+# 커져서"이고 정답 확률의 기하평균이 train 0.995 대 val 0.620이다(설계 문서 §16.2).
+DEFAULT_KAPPA = 1.0
+
+# 세 영역 **전부**의 target을 안쪽으로 당기는 균일 label smoothing. `Omega_F`는 `1-eps`,
+# `Omega_N`은 `eps`, 대역은 `eps + (1-2eps)*y`. **0.0이 기본이고 그때 동작은 전과 같다.**
+#
+# **왜 `kappa`로 부족한가** (2026-08-27 실측). `kappa`는 대역 target을 실제로 평평하게 만들고
+# 모델의 확신도 실제로 줄였다(대역의 확신 예측 50.7 % -> 21 %). 그런데 `L_B`의 val KL 상승은
+# 안 줄었고 `kappa <= 0.4`에서는 **더 나빠졌다**(U자). 이유가 둘이다.
+#
+# 1. target을 0.5로 보내면 **확신 있는 예측에 대한 KL이 오히려 커진다** --
+#    `kappa -> 0` 극한에서 `KL = -log2 - 0.5*log(p(1-p))`이고 `p`가 0/1에 가까울수록 발산한다.
+#    평평한 target은 "너도 반드시 불확실해야 한다"는 요구이기 때문이다.
+# 2. **모델이 target을 따라오지 못한다.** target 평탄도가 사실상 같은 두 config를 비교하면
+#    (`kappa=0.4`의 target 엔트로피 0.652 대 `delta=0.45`의 0.658) 모델과 target의 격차가
+#    `kappa` 쪽은 -0.142인데 `delta` 쪽은 -0.065다. 그리고 `delta` 쪽만 수렴한다.
+#
+# 차이는 **대역 밖**에 있었다. `Omega_F`의 예측 엔트로피가 `kappa`에서는 0.079 -> 0.109로
+# 거의 안 움직이는데 `delta=0.45`에서는 0.260으로 3.3배가 된다. **모델의 확신은 대역 밖
+# 88 %가 정하고, 대역은 셀의 11.6 %인 얇은 띠라 양옆 hard 영역의 확신을 물려받는다.**
+# 즉 `delta=0.45`가 수렴한 것은 target을 평평하게 해서가 아니라 hard 감독의 비중 자체를
+# 바꿔(`Omega_F` 15.3 % -> 6.3 %) 모델을 **전역적으로** 덜 확신하게 만들었기 때문이다.
+#
+# `eps`는 그 전역 효과를 **기하를 안 건드리고** 얻으려는 것이다 -- `delta`는 0.15로 두므로
+# 좁은 통로에서 hard `Omega_F`를 잃지 않는다.
+#
+# **뜻이 양쪽에서 다르다는 유보.** `Omega_F` 16만 셀은 전부 사람이 "보이고 drivable"이라
+# 라벨한 것이라 `eps`가 곧 어노테이션 오류율이다. 그런데 `Omega_N`은 **93.3 %가 vis=0**
+# (벽 뒤, raycast가 정한 것)이고 사람이 라벨한 obstacle은 0.0 %다 -- 거기서 `eps`는
+# "벽 뒤가 eps 확률로 free다"라는 **거짓이고 `fatal` 방향**의 주장이 된다. 그래도 대칭으로
+# 두는 이유는 검증하려는 가설이 "확신은 대역 밖 88 %가 만든다"인데 그중 76.6 %가
+# `Omega_N`이어서, 비대칭으로 가면 가설을 제대로 시험하지 못하기 때문이다. **`fatal_rate`와
+# `missed_obstacle`로 감시하고, 나빠지면 `Omega_N`용 eps를 따로 둔다.**
+DEFAULT_EPS = 0.0
+
 
 def resolve_sigma(delta, sigma=None, alpha=None) -> float:
     """`sigma`[m]와 `alpha`(=sigma/delta) 중 하나를 받아 `sigma`[m]로 돌려준다.
@@ -118,7 +183,7 @@ def region_masks(d, valid, permanent_blind, delta: float = DEFAULT_DELTA_M) -> d
 
 
 def soft_target(d, delta: float = DEFAULT_DELTA_M, kind: str = TARGET_LINEAR,
-                sigma=None, alpha=None):
+                sigma=None, alpha=None, kappa: float = DEFAULT_KAPPA):
     """`Ω_B`의 목표 확률 `y = P(이 셀이 실제로 drivable)`. `[0, 1]`.
 
     두 형태는 **같은 질문에 다른 사전분포로 답한 것**이고 둘 다 정확한 사후확률이다.
@@ -134,16 +199,46 @@ def soft_target(d, delta: float = DEFAULT_DELTA_M, kind: str = TARGET_LINEAR,
     된다. 정규화한 형태는 "오차가 ±δ 안에 있다는 것은 안다"는 **절단 정규 사전분포에서의
     정확한 사후확률**이므로 물리적 해석을 잃지 않는다.
 
+    **`kappa`는 대역 target을 0.5 쪽으로 섞는다** -- `y' = κ·y + (1−κ)/2`. 자세한 근거는
+    `DEFAULT_KAPPA`의 주석에 있다. `κ = 1.0`이면 동작이 전과 완전히 같다.
+
     `Ω_B` 밖의 값도 계산되지만 의미가 없다 -- 호출부가 마스크로 걸러야 한다.
     """
     if kind == TARGET_LINEAR:
-        return (0.5 * (1.0 + d / delta)).clamp(0.0, 1.0)
-    if kind != TARGET_GAUSSIAN:
+        y = (0.5 * (1.0 + d / delta)).clamp(0.0, 1.0)
+    elif kind == TARGET_GAUSSIAN:
+        sigma = resolve_sigma(delta, sigma, alpha)
+        edge = torch.special.ndtr(torch.tensor(delta / sigma, dtype=d.dtype, device=d.device))
+        lo = 1.0 - edge                              # Φ(−δ/σ) = 1 − Φ(δ/σ)
+        y = ((torch.special.ndtr(d / sigma) - lo) / (edge - lo)).clamp(0.0, 1.0)
+    else:
         raise ValueError(f"soft target 종류는 {TARGET_LINEAR} 또는 {TARGET_GAUSSIAN}여야 한다: {kind}")
-    sigma = resolve_sigma(delta, sigma, alpha)
-    edge = torch.special.ndtr(torch.tensor(delta / sigma, dtype=d.dtype, device=d.device))
-    lo = 1.0 - edge                                  # Φ(−δ/σ) = 1 − Φ(δ/σ)
-    return ((torch.special.ndtr(d / sigma) - lo) / (edge - lo)).clamp(0.0, 1.0)
+    return apply_kappa(y, kappa)
+
+
+def _binary_entropy(eps: float) -> float:
+    """`H(ε) = −ε ln ε − (1−ε) ln(1−ε)`. `Ω_F`/`Ω_N`에서 줄일 수 없는 상수다."""
+    import math
+    if eps <= 0.0:
+        return 0.0
+    return -(eps * math.log(eps) + (1.0 - eps) * math.log(1.0 - eps))
+
+
+def apply_kappa(y, kappa: float = DEFAULT_KAPPA):
+    """`y' = κ·y + (1−κ)/2`. **0.5 쪽으로의 수축이고 대역 폭은 건드리지 않는다.**
+
+    `κ = 1`은 항등이므로 기존 런과 bit 단위로 같다.
+
+    **대칭성이 보존된다** -- `y(d) + y(−d) = 1`이면 `y'(d) + y'(−d) = κ·1 + (1−κ) = 1`이다.
+    그래서 `L_range`의 `arc`에 대한 중립성(제자리 대역은 arc에 0을 기여)이 그대로 남는다
+    (`tests/tools/test_diagnose_range_dead_zone.py`가 그 성질을 고정한다).
+    """
+    kappa = float(kappa)
+    if not 0.0 < kappa <= 1.0:
+        raise ValueError(f"kappa는 (0, 1] 범위여야 한다: {kappa}")
+    if kappa == 1.0:
+        return y
+    return kappa * y + (1.0 - kappa) * 0.5
 
 
 def _masked_mean(values, selector):
@@ -170,7 +265,8 @@ def target_entropy(y):
 
 def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_DELTA_M,
                                lambda_b=DEFAULT_LAMBDA_B, kind=TARGET_LINEAR, sigma=None,
-                               alpha=None, range_term=None, lambda_r=0.0):
+                               alpha=None, range_term=None, lambda_r=0.0,
+                               kappa=DEFAULT_KAPPA, eps=DEFAULT_EPS):
     """`(총 loss, 항별 dict)`. `logits`는 `(B, 2, H, W)`이고 채널 1이 `free`다.
 
     `masked_weighted_ce`와 같은 계약을 지킨다 -- 학습 루프·로깅이 두 loss를 바꿔 끼울 수
@@ -194,11 +290,24 @@ def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_
     omega_n = regions["omega_n"].float()
     omega_b = regions["omega_b"].float()
 
-    # `Ω_F`/`Ω_N`의 목표는 상수 1/0이다 -- 라벨과 `d`의 부호가 어긋나는 비율이 0.01 %다.
-    loss_free = _masked_mean(-log_free, omega_f)
-    loss_not_free = _masked_mean(-log_not_free, omega_n)
+    # `Ω_F`/`Ω_N`의 목표는 `1−ε`/`ε`이다. `ε = 0`이면 상수 1/0으로 전과 같다 -- 라벨과 `d`의
+    # 부호가 어긋나는 비율이 0.01 %라 라벨을 다시 읽지 않는다.
+    eps = float(eps)
+    if not 0.0 <= eps < 0.5:
+        raise ValueError(f"eps는 [0, 0.5) 범위여야 한다: {eps}")
+    if eps == 0.0:
+        loss_free = _masked_mean(-log_free, omega_f)
+        loss_not_free = _masked_mean(-log_not_free, omega_n)
+    else:
+        loss_free = _masked_mean(-((1.0 - eps) * log_free + eps * log_not_free), omega_f)
+        loss_not_free = _masked_mean(-(eps * log_free + (1.0 - eps) * log_not_free), omega_n)
 
-    y = soft_target(d, delta, kind, sigma, alpha)
+    # **`ε`은 대역 target도 같은 범위로 당겨야 한다.** 안 그러면 정규화된 target이
+    # `y(±δ) = 1/0`을 정확히 주므로 대역 **끝**이 바로 옆 hard 영역(`1−ε`/`ε`)보다 더
+    # 확신에 찬 거꾸로 된 불연속이 생긴다. 당기면 `y' = ε + (1−2ε)y`인데 이것은
+    # `0.5 + (1−2ε)(y − 0.5)`와 같다 -- 즉 **대역에서 `ε`은 정확히 `κ = 1−2ε`이다.**
+    # 그래서 두 손잡이를 곱해서 함께 적용한다.
+    y = soft_target(d, delta, kind, sigma, alpha, kappa * (1.0 - 2.0 * eps))
     per_cell_b = -(y * log_free + (1.0 - y) * log_not_free)
     loss_boundary = _masked_mean(per_cell_b, omega_b)
     entropy = _masked_mean(target_entropy(y), omega_b)
@@ -213,6 +322,10 @@ def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_
         # 경계 항의 **진짜 진행도**. `loss_boundary`는 `entropy`가 하한이라 0으로 안 간다.
         "kl_boundary": loss_boundary - entropy,
         "entropy_boundary": entropy,
+        # **`ε`이 `Ω_F`/`Ω_N`에도 상수 하한 `H(ε)`을 만든다.** ε=0.10이면 0.325다 --
+        # 빼지 않고 읽으면 `loss_free`가 0.07 -> 0.40으로 뛰는 것이 성능 붕괴처럼 보인다.
+        "kl_free": loss_free - _binary_entropy(eps),
+        "kl_not_free": loss_not_free - _binary_entropy(eps),
     }
     range_contribution = 0.0
     if range_term is not None:

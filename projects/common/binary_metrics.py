@@ -30,6 +30,8 @@ from projects.common.range_loss import (
 )
 from projects.common.soft_boundary import (
     DEFAULT_DELTA_M,
+    DEFAULT_EPS,
+    DEFAULT_KAPPA,
     DEFAULT_LAMBDA_B,
     TARGET_LINEAR,
     compute_soft_boundary_loss,
@@ -141,7 +143,8 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
                             delta=DEFAULT_DELTA_M, lambda_b=DEFAULT_LAMBDA_B,
                             target=TARGET_LINEAR, sigma=None, alpha=None,
                             gather=None, lambda_r=0.0, delta_r=DEFAULT_DELTA_R_M,
-                            delta_r_over=None, huber_beta=DEFAULT_HUBER_BETA_M):
+                            delta_r_over=None, huber_beta=DEFAULT_HUBER_BETA_M,
+                            kappa=DEFAULT_KAPPA, eps=DEFAULT_EPS):
     """soft-boundary loss로 한 배치. 설계는 `docs/soft_boundary_loss_design.md`.
 
     `run_batch`와 **지표 계산은 완전히 같다** -- 다른 것은 loss 하나뿐이다. 그래야 두 loss의
@@ -180,7 +183,7 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
     loss, loss_parts = compute_soft_boundary_loss(
         logits, d_bev_g, valid_bev_g, permanent_blind.to(device),
         delta=delta, lambda_b=lambda_b, kind=target, sigma=sigma, alpha=alpha,
-        range_term=range_term, lambda_r=lambda_r,
+        range_term=range_term, lambda_r=lambda_r, kappa=kappa, eps=eps,
     )
     return loss, loss_parts, compute_free_metrics(
         logits, seg_bev_g, vis_bev_g, valid_bev_g, rays

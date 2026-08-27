@@ -74,6 +74,18 @@ DELTA_R_M="${DELTA_R_M:-0.20}"
 DELTA_R_OVER_M="${DELTA_R_OVER_M:-None}"
 HUBER_BETA_M="${HUBER_BETA_M:-0.10}"
 
+#   BAND_KAPPA  대역 target을 0.5 쪽으로 섞는 계수. `y' = k*y + (1-k)/2`. **1.0이면 전과 같다.**
+#               `delta`(대역 폭)·`alpha`(모양)와 직교하는 셋째 손잡이이고, 대역 폭을 안
+#               건드리므로 좁은 통로에서 hard `Omega_F`를 먹지 않는다. 근거는
+#               `projects/common/soft_boundary.py`의 `DEFAULT_KAPPA` 주석.
+BAND_KAPPA="${BAND_KAPPA:-1.0}"
+
+#   LABEL_EPS   세 영역 **전부**에 걸리는 균일 label smoothing. Omega_F는 `1-eps`,
+#               Omega_N은 `eps`, 대역은 `eps + (1-2eps)*y`. **0.0이면 전과 같다.**
+#               `delta`와 달리 기하를 안 건드리고(Omega_F가 셀을 안 잃는다), `kappa`와 달리
+#               대역 밖까지 간다. 근거는 `soft_boundary.py`의 `DEFAULT_EPS` 주석.
+LABEL_EPS="${LABEL_EPS:-0.0}"
+
 # lifting의 **높이 축** (`projects/datasets/simplebev_vox.py`의 `vox_bounds` docstring).
 #   HEIGHT_BINS   `Segnet(Z, Y, X)`의 Y. **2026-08-27에 기본값을 1 -> 4로 옮겼다.**
 #   HEIGHT_MIN_M / HEIGHT_MAX_M   높이 범위 [m, 지면=0]. 채택값 -0.25 ~ 1.75
@@ -199,6 +211,8 @@ python tools/train_robot_bev.py \
     --delta_r_m="${DELTA_R_M}" \
     --delta_r_over_m="${DELTA_R_OVER_M}" \
     --huber_beta_m="${HUBER_BETA_M}" \
+    --band_kappa="${BAND_KAPPA}" \
+    --label_eps="${LABEL_EPS}" \
     --height_bins="${HEIGHT_BINS}" \
     --height_min_m="${HEIGHT_MIN_M}" \
     --height_max_m="${HEIGHT_MAX_M}" \

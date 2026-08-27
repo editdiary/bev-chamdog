@@ -329,6 +329,23 @@ def main(
     # `huber_beta_m` -- Huber 전환점 [m]. **미터로 둔다** -- 정규화된 스케일에서 주면 실효
     # 오차가 항상 β보다 작아져 순수 L2로 퇴화하고 outlier 강건성이 사라진다.
     huber_beta_m=0.10,
+    # `band_kappa` -- 대역 target을 0.5 쪽으로 섞는 계수. `y' = κ·y + (1−κ)/2`.
+    # **1.0이 기본이고 그때 동작은 전과 완전히 같다**(대조군 런이 새 경로를 타지 않는다).
+    #
+    # `δ`·`α`가 둘 다 막힌 자리를 여는 손잡이다 -- `α`는 함의 폭이 `δ/√3`에 포화하고
+    # (α=1.0에서 이미 상한의 93 %), `δ`는 넓히면 좁은 통로에서 hard `Ω_F`를 먹는다
+    # (δ=0.45면 자유공간의 69 %가 자격을 잃는다). **`κ`는 대역 폭을 안 건드린다.**
+    # 근거 전체는 `projects/common/soft_boundary.py`의 `DEFAULT_KAPPA` 주석에 있다.
+    band_kappa=1.0,
+    # `label_eps` -- 세 영역 **전부**에 걸리는 균일 label smoothing. `Ω_F`는 `1−ε`,
+    # `Ω_N`은 `ε`, 대역은 `ε + (1−2ε)y`. **0.0이 기본이고 그때 동작은 전과 같다.**
+    #
+    # `band_kappa`가 대역만 건드려서 실패한 자리를 여는 손잡이다 -- 실측에서 모델의 확신은
+    # **대역 밖 88 %가 정하고**(`Ω_F` 예측 엔트로피가 κ로는 0.079→0.109인데 δ=0.45에서는
+    # 0.260이다), 대역은 셀의 11.6 %인 얇은 띠라 양옆의 확신을 물려받는다. `δ`와 달리
+    # **기하를 안 건드린다** -- `Ω_F`가 셀을 잃지 않으므로 좁은 통로가 안전하다.
+    # 근거 전체는 `projects/common/soft_boundary.py`의 `DEFAULT_EPS` 주석에 있다.
+    label_eps=0.0,
     # 이하 둘은 **특징맵 표본 좌표의 기하**다 (`docs/finetune_overfitting_diagnosis.md` §18.3,
     # `projects/models/pixel_grid.py`). loss와 무관하게 lifting 단계에서만 쓰인다.
     #
@@ -372,6 +389,15 @@ def main(
         raise ValueError("soft_boundary loss는 --formulation=binary에서만 쓴다")
     if float(lambda_r) > 0.0 and loss != "soft_boundary":
         raise ValueError("lambda_r은 --loss=soft_boundary에서만 쓴다")
+    if not 0.0 < float(band_kappa) <= 1.0:
+        raise ValueError(f"band_kappa는 (0, 1] 범위여야 한다: {band_kappa}")
+    if float(band_kappa) != 1.0 and loss != "soft_boundary":
+        raise ValueError("band_kappa는 --loss=soft_boundary에서만 쓴다")
+    if not 0.0 <= float(label_eps) < 0.5:
+        raise ValueError(f"label_eps는 [0, 0.5) 범위여야 한다: {label_eps}")
+    if float(label_eps) != 0.0 and loss != "soft_boundary":
+        raise ValueError("label_eps는 --loss=soft_boundary에서만 쓴다"
+                         " (CE 경로는 --label_smoothing을 쓴다)")
     if formulation not in _FORMULATIONS:
         raise ValueError(f"formulation은 {tuple(_FORMULATIONS)} 중 하나여야 한다: {formulation}")
     spec = _FORMULATIONS[formulation]
@@ -479,6 +505,13 @@ def main(
            + (f" | α={float(sigma_alpha):.3f} (σ={float(sigma_alpha)*float(delta_m):.4f} m)"
               if sigma_alpha is not None else "")
            + (f" | σ={float(sigma_m):.4f} m" if sigma_m is not None else "")
+           + (f" | ε={float(label_eps):.3f}"
+              f" (Ω_F 목표 {1 - float(label_eps):.3f} / Ω_N {float(label_eps):.3f},"
+              f" 상수 하한 H(ε))"
+              if float(label_eps) != 0.0 else "")
+           + (f" | κ={float(band_kappa):.3f}"
+              f" (대역 target을 0.5로 {(1 - float(band_kappa)) * 100:.0f} % 수축)"
+              if float(band_kappa) != 1.0 else "")
            + ("  <- λ_B=0: soft 항 ablation" if float(lambda_b) == 0.0 else "")
            if loss == "soft_boundary" else "  (역빈도 가중 CE -- 대조군)"),
         # `L_range` 보조항. 별도 줄로 두는 이유: `λ_R`은 gradient 비로 캘리브레이션한 값이라
@@ -601,6 +634,7 @@ def main(
                 gather=gather, lambda_r=float(lambda_r),
                 delta_r=float(delta_r_m), huber_beta=float(huber_beta_m),
                 delta_r_over=None if delta_r_over_m is None else float(delta_r_over_m),
+                kappa=float(band_kappa), eps=float(label_eps),
             )
         loss_part_names = (binary_metrics.SOFT_BOUNDARY_RANGE_LOSS_PART_NAMES
                            if float(lambda_r) > 0.0
