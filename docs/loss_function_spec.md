@@ -50,6 +50,8 @@ $$
 | $\delta$ | 불확실 대역 반폭 | **0.15 m** (3셀) |
 | $\sigma$ | 경계 위치 오차의 표준편차 | $\alpha\delta$ = **0.075 m** |
 | $\alpha$ | 모양 매개변수 $\sigma/\delta$ | **0.5** |
+| $\kappa$ | 대역 target 수축 계수 | **1.0** (= 끔) |
+| $\varepsilon$ | 전역 label smoothing | **0.0** (= 끔) |
 | $\theta_j$ | 방위각 광선, $j = 1..720$ | $\theta = 0$이 전방 |
 | $\Delta r$ | 광선 위 표본 간격 | **0.025 m** (0.5셀), 200 step |
 | $\delta_R^{\pm}$ | 자유거리 허용 반폭 (과대/과소) | **0.20 / 0.20 m** |
@@ -242,6 +244,46 @@ $\alpha \lesssim 0.2$면 셀이 실제로 놓이는 자리에서 target이 이�
 $d = \pm0.05$에서 0.75/0.25, $d = \pm0.10$에서 0.93/0.07이다.
 
 ---
+
+### 6.4 $\kappa$ — 대역 target 수축 (구현됨, 기본 끔)
+
+$$y'_i = \kappa\,y_i + (1-\kappa)\cdot\tfrac12, \qquad \kappa \in (0, 1]$$
+
+**0.5 쪽으로의 수축이고 대역 폭은 안 건드린다** — `region_masks`가 $\kappa$를 인자로 받지도
+않는다. $\delta$와 갈리는 지점이 그것이고, 좁은 통로에서 hard $\Omega_F$를 잃지 않는 이유다.
+
+$y(d) + y(-d) = 1$이 보존되므로($\kappa\cdot1 + (1-\kappa) = 1$) **$L_{\text{range}}$의 arc
+중립성이 그대로 남는다** — 제자리에 있는 대역은 arc에 정확히 0을 기여한다(§8.3의 성질).
+
+도입 동기는 $\alpha$와 $\delta$가 둘 다 막혀 있다는 것이다: $\alpha$는 함의 폭이
+$\delta/\sqrt3$ = 8.7 cm에 포화하고, $\delta$는 넓히면 기하를 먹는다.
+**결과는 실패다 — 설계 문서 §20.4.** 켜면 U자로 되돌아온다.
+
+구현 `soft_boundary.apply_kappa`, 기본 `DEFAULT_KAPPA = 1.0`(bit 단위 항등, 테스트로 고정).
+
+### 6.5 $\varepsilon$ — 전역 label smoothing (구현됨, 기본 끔)
+
+세 영역 **전부**에 걸린다.
+
+$$\Omega_F: 1-\varepsilon \qquad \Omega_N: \varepsilon \qquad
+\Omega_B: \varepsilon + (1-2\varepsilon)\,y_i$$
+
+**대역 항이 정확히 $\kappa = 1-2\varepsilon$인 것이 핵심이다.** 정규화된 target이
+$y(\pm\delta) = 1/0$을 정확히 주므로, $\varepsilon$을 hard 영역에만 걸면 **대역 끝이 바로 옆
+$\Omega_F$($1-\varepsilon$)보다 더 확신에 찬 거꾸로 된 불연속**이 생긴다. 위 형태가 그것을
+없애고 $d = \pm\delta$에서 정확히 $1-\varepsilon$ / $\varepsilon$을 준다(테스트로 고정).
+
+**$\Omega_F$·$\Omega_N$에도 상수 하한 $H(\varepsilon)$이 생긴다** — $\varepsilon = 0.10$이면
+0.325다. 빼지 않고 읽으면 `loss_free`가 0.07 → 0.40으로 뛰는 것이 성능 붕괴로 오독된다.
+`kl_free`·`kl_not_free`가 그것을 뺀 값이다.
+
+뜻이 둘이다. **통계적으로는** "라벨이 뒤집힌 비율", **기계적으로는** 모델 출력이
+$[\varepsilon, 1-\varepsilon]$에 갇히므로 **확신의 천장**이다. $\delta$와 마찬가지로
+라벨에서 추정할 수 없다.
+
+**네 축 중 가장 효율적이지만 기본은 끔이다 — 설계 문서 §20.5·§20.9.**
+
+구현 `compute_soft_boundary_loss(eps=)`, 기본 `DEFAULT_EPS = 0.0`(bit 단위 항등).
 
 ## 7. soft 경계 항 $L_B$와 엔트로피 하한
 
@@ -487,9 +529,11 @@ gradient 비로는 10 % 대**다 — 두 숫자를 혼동하면 이 항이 아�
 |---|---|---|---|
 | loss | `soft_boundary` | `LOSS` | §11 |
 | 정식화 | `binary` | `FORMULATION` | 진단 문서 §15 |
-| $\delta$ | 0.15 m (3셀) | `DELTA_M` | 진단 문서 §26 (val loss 증가분의 90 %가 경계 ±20 cm) |
+| $\delta$ | 0.15 m (3셀) | `DELTA_M` | 진단 문서 §26 (val loss 증가분의 90 %가 경계 ±20 cm). **6점 스윕 결과는 설계 문서 §20.3** |
 | target 형태 | `gaussian` | `SOFT_TARGET` | §6 |
-| $\alpha = \sigma/\delta$ | 0.5 → $\sigma = 0.075$ m | `SIGMA_ALPHA` | §6.3 (아래는 격자 양자화 한계) |
+| $\alpha = \sigma/\delta$ | 0.5 → $\sigma = 0.075$ m | `SIGMA_ALPHA` | §6.3. **채택 근거는 철회됐다 — 설계 문서 §20.2, 미결** |
+| $\kappa$ | **1.0 (끔)** | `BAND_KAPPA` | §6.4. 켜면 손해다 — 설계 문서 §20.4 |
+| $\varepsilon$ | **0.0 (끔)** | `LABEL_EPS` | §6.5. 하류가 확률을 쓰면 0.05~0.10 — 설계 문서 §20.5 |
 | $\lambda_B$ | 0.5 | `LAMBDA_B` | §7.2 |
 | $\lambda_R$ | 0.3 | `LAMBDA_R` | §9 |
 | $\delta_R^{-}$ | 0.20 m (4셀) | `DELTA_R_M` | `f1@10cm` 허용오차(2셀)의 2배 |
