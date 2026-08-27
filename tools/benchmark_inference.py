@@ -56,6 +56,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
+from projects.datasets.simplebev_vox import vox_dims  # noqa: E402
 from projects.bev_gt.grid import ROBOT_GRID_SPEC  # noqa: E402
 from projects.geometry.double_sphere import FINETUNE_CAMERA_NAMES  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
@@ -120,6 +121,9 @@ def _time_module(fn, iters, warmup, device):
 def main(
     resolutions="512x288",
     encoder_type="res101",
+    height_bins=1,
+    height_min_m=None,
+    height_max_m=None,
     batch_size=1,          # 배포는 1장이다 -- 학습 배치로 재면 FPS가 낙관적으로 나온다
     # **30에서 100으로 올렸다**(2026-08-26). 데스크톱에서 30 / 100 / 500을 비교하니
     # 100과 500은 median이 0.1 ms 안에서 같은데 30만 2.5 ms 벗어났다.
@@ -142,12 +146,14 @@ def main(
     cameras, calib_note = _cameras()
     n_cams = len(cameras)
     spec = ROBOT_GRID_SPEC
-    Z, Y, X = spec.n_rows, 1, spec.n_cols
+    # `Y`(높이 bin)는 배포 지연에 직접 영향을 준다 -- lifting의 grid_sample 표본 수가
+    # 비례해 늘어난다. 기본값은 종래(`Y=1`)다.
+    Z, Y, X = vox_dims(spec, height_bins)
 
     print(f"장치: {torch.cuda.get_device_name(0) if device.startswith('cuda') else 'CPU'}")
     print(f"torch {torch.__version__} | 캘리브레이션: {calib_note}")
     print(f"BEV 격자 {Z}x{X} (셀 {spec.cell_m*100:.0f} cm) | 카메라 {n_cams}대 "
-          f"| encoder {encoder_type} | batch {batch_size}")
+          f"| encoder {encoder_type} | batch {batch_size} | Y={Y}")
     print("**PyTorch eager 기준이다 -- TensorRT 배포보다 2~4배 느리다. 설정 간 비교용으로만 읽는다.**\n")
 
     # `지터`는 `(p90 − median)/median`이다. **이 열이 있어야 `iters`가 충분한지 표가
@@ -165,7 +171,9 @@ def main(
 
     for (w, h) in _parse_resolutions(resolutions):
         for precision in [p.strip() for p in str(precisions).split(",") if p.strip()]:
-            vox_util = build_double_sphere_vox_util(spec, cameras, device=device)
+            vox_util = build_double_sphere_vox_util(
+                spec, cameras, device=device, height_bins=height_bins,
+                height_min_m=height_min_m, height_max_m=height_max_m)
             model = ThreeClassSegnet(
                 Z, Y, X, vox_util, use_radar=False, use_lidar=False, do_rgbcompress=True,
                 encoder_type=encoder_type, rand_flip=False, num_classes=2,

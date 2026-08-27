@@ -59,6 +59,7 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     parse_sequence_names,
     split_samples_by_sequence,
 )
+from projects.datasets.simplebev_vox import height_config_for_ckpt_dirs  # noqa: E402
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
 from projects.models.pixel_grid import convention_for_run_dirs  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
@@ -120,8 +121,13 @@ def main(
     # 새 기하로 재채점해 조용히 다른 숫자가 나온다.
     convention, offset = convention_for_run_dirs(
         [Path(log_root) / "logs" / f"{cell}_s{seed}" for cell in cells for seed in seeds])
+    height = height_config_for_ckpt_dirs(
+        [Path(f"{log_root}/ckpt/{cell}_s{seed}") for cell in cells for seed in seeds])
     vox_util = build_double_sphere_vox_util(GRID_SPEC, dataset.cameras, device=device,
-                                           pixel_convention=convention, pixel_offset=offset)
+                                           pixel_convention=convention, pixel_offset=offset,
+                                           height_bins=height["height_bins"],
+                                           height_min_m=height["height_min_m"],
+                                           height_max_m=height["height_max_m"])
     rays = build_ray_index(GRID_SPEC)
     rings = build_ring_masks(GRID_SPEC, DEFAULT_RING_EDGES_M)
     cell_m = GRID_SPEC.cell_m
@@ -173,7 +179,8 @@ def main(
             found = sorted(Path(f"{log_root}/ckpt/{cell}_s{seed}").glob("model_best-*.pth"))
             if not found:
                 continue
-            model = ThreeClassSegnet(GRID_SPEC.n_rows, 1, GRID_SPEC.n_cols, vox_util,
+            # `Y`는 vox_util이 이미 알고 있다 -- 리터럴을 다시 쓰면 둘이 어긋날 수 있다.
+            model = ThreeClassSegnet(GRID_SPEC.n_rows, vox_util.Y, GRID_SPEC.n_cols, vox_util,
                                      use_radar=False, use_lidar=False, do_rgbcompress=True,
                                      encoder_type=encoder_type, rand_flip=False,
                                      num_classes=2).to(device)
