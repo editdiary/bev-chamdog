@@ -136,9 +136,18 @@ submodule이라 **수정 금지**)을 상속해 **마지막 head 하나만** 교
 
 **알아둘 것:**
 
-1. **`Y=1`이다.** `ThreeClassSegnet(Z, Y=1, X, ...)`로 생성된다(`train_synwoodscape.py:215`).
-   높이 축이 한 칸이라 실질적으로 3D 복셀이 아니라 단일 높이 슬라이스이고, 그래서
-   `bev_compressor` 입력이 `feat2d_dim*Y = 128`이다.
+1. **`Y=4`다 (2026-08-27 채택, 그 전에는 `Y=1`이었다).** `Y`의 단일 출처는
+   `projects/datasets/simplebev_vox.vox_dims(grid_spec, height_bins)`이고, 기본값이
+   `DEFAULT_HEIGHT_BINS = 4` / 범위 −0.25~1.75 m다. **표본 높이는 지면 기준
+   0, 0.5, 1.0, 1.5 m**이고 `bev_compressor` 입력이 `feat2d_dim*Y = 512`가 된다.
+
+   `bev_compressor`가 하는 일이 바로 그 **높이 축을 채널로 접어 없애는 것**이다:
+   `feat_mem`(B, C, Z, Y, X)을 permute+reshape으로 (B, C·Y, Z, X)로 만든 뒤
+   `Conv2d(C·Y → C, 3×3)`로 줄인다. `Y=1`이던 때는 접을 것이 없어 사실상 3×3 conv
+   어댑터 하나였다.
+
+   **`height.json`이 없는 옛 체크포인트는 `LEGACY_HEIGHT_BINS = 1`로 읽힌다** --
+   2026-08-27 이전 런이 전부 그렇다. 근거는 compendium §12.
 2. **어안 투영은 모델이 아니라 `vox_util`에 있다.** submodule을 안 건드리려고 `Vox_util`을
    서브클래싱해 `unproject_image_to_mem` 하나만 오버라이드했다. `Segnet.forward`는 한 줄도
    바뀌지 않았고, 핀홀 전용 행렬 `pixB_T_camA`를 그냥 무시한다(§6.2 참고).

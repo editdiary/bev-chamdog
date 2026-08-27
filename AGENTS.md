@@ -6,7 +6,31 @@
 > 역할과 상태(🟢 정본 / 🔵 운영 메모 / 📚 참고 / 🗄 아카이브)가 거기 있습니다.
 > **`docs/archive/`의 문서는 인용용이고, 거기 적힌 플래그·경로·숫자를 그대로 쓰면 안 됩니다.**
 
-> **여기까지의 서사: [`docs/experiment_history.md`](docs/experiment_history.md)** (2026-08-21)
+> ## ▶ [2026-08-27] lifting 높이 축 `Y=1 → 4` **채택** -- 새 세션은 이것부터 안다
+>
+> **확정 config가 바뀌었다.** `Segnet(Z, Y, X)`의 `Y`가 1 → **4**이고 높이 범위는
+> −0.25~1.75 m다(표본 높이 지면 기준 **0, 0.5, 1.0, 1.5 m**). n=3에서
+> `iou_free` 0.7950 → **0.8104**, `f1@10cm` 0.5437 → **0.6085**, 지연 +3.2 %,
+> 재현성 불변. **이 프로젝트에서 단일 변경으로 얻은 가장 큰 개선이다.**
+> 근거 정본은 [`docs/paper_experiment_compendium.md`](docs/paper_experiment_compendium.md) §12.
+>
+> **왜 열렸나**: 라벨 생성 코드(`dataset/sj_datasets/common/temp/slab_label.py`)가
+> occupancy를 **"로봇이 통과해야 하는 높이 구간"의 2D 기둥 누적**(지상 0.87~1.67 m)으로
+> 정의하고 있었다. 라벨은 처음부터 지면 occupancy가 아니었는데 lifting은 `ego z=0` 한
+> 평면만 표본했다. `Y=1`은 실험값이 아니라 로더 커밋의 하드코딩이었다.
+>
+> **⚠ 절단선**: **2026-08-27 이전의 모든 런은 `Y=1`이고 lifting 기하가 다르다.**
+> `runs/ablation`·`runs/pixel_offset`·`runs/stride4`·`runs/frame_blocks`·LOSO·시드 스윕이
+> 전부 그렇다. 옛 숫자와 한 표에 세우려면 `HEIGHT_BINS=1 HEIGHT_MIN_M=None
+> HEIGHT_MAX_M=None`을 명시한다. 도구는 체크포인트 옆 `height.json`으로 자동 구분하고,
+> 파일이 없으면 `LEGACY_HEIGHT_BINS = 1`로 읽는다(**이 상수는 바꾸면 안 된다**).
+>
+> **`Y`의 단일 출처는 `projects/datasets/simplebev_vox.vox_dims(grid_spec, height_bins)`다.**
+> 리터럴 `1`을 다시 쓰지 않는다 -- 예전에 20곳에 퍼져 있었다.
+>
+> **남은 것**: 논문 집필, 그리고 **`Y=4`에서 Orin 재실측**(사용자). 20.2 FPS는 `Y=1` 값이다.
+>
+> **여기까지의 서사: [`docs/experiment_history.md`](docs/experiment_history.md)** (2026-08-27, 단계 J)
 >
 > 2-head → 3-class → binary로 정식화를 두 번 바꾼 이유, 각 단계에서 기각된 가설, 그리고
 > **병목이 모델·loss·지표가 아니라 라벨이 정의한 task 자체라는 결론**과 그 근거가 여기 있다.

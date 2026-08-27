@@ -112,8 +112,9 @@ for seq in sorted(Path('dataset/sj_datasets').glob('raws*')):
 리그를 바꾸지 않는 한 이 절은 읽기만 하면 된다.
 
 **ego 프레임**: X 전방 / Y 좌측 / Z 상방, **원점은 지면**.
-`projects/datasets/simplebev_vox.py`가 원점이 지면이라고 전제하며(`Y=1`이면 정확히
-`ego z=0` 한 평면에서 이미지 특징을 뽑는다), pretrain 체크포인트도 그 규약으로 학습됐다.
+`projects/datasets/simplebev_vox.py`가 원점이 지면이라고 전제한다. **`Y=4`(채택값)의
+표본 높이는 지면 기준 0, 0.5, 1.0, 1.5 m이고 bin 0이 정확히 `ego z=0`이다** -- 옛 `Y=1`의
+표본 평면이 그대로 살아 있다. 자세한 것은 compendium §12.3.
 
 **extrinsic 체인** (`projects/geometry/double_sphere.py`):
 
@@ -439,11 +440,17 @@ val이 나빠진다. 하이퍼파라미터 문제가 아니라 데이터 문제�
 
 - **encoder 동결 옵션이 없다.** 샘플이 적을 때 유용한데 인자가 없다.
   `tools/train_robot_bev.py`의 모델 생성 뒤에 `requires_grad_(False)`를 붙이면 된다.
-- **`Y=1`이라 이미지 특징을 `ego z=0` 한 평면에서만 뽑는다.** 자동 라벨 파이프라인
-  (`slab_label.py`)의 occupancy는 지상 0.87~1.67 m 슬래브 기준인데, raws1은 수동
-  어노테이션이라 실제 기준이 무엇인지 확정하지 못했다. 성능이 정체하면 `vox_bounds`의
-  높이 범위나 `Y`를 늘리는 게 실험 후보다. 다만 **pretrain이 지면 높이에서 학습됐으므로
-  바꾸면 전이가 깨진다** — 물량이 충분해진 뒤에 시도할 것.
+- ✅ **[2026-08-27 해결] ~~`Y=1`이라 이미지 특징을 `ego z=0` 한 평면에서만 뽑는다~~**
+  — **`Y=4`(표본 높이 0, 0.5, 1.0, 1.5 m)를 채택했다.** 실험과 근거는
+  compendium §12, 실행 config는 `configs/height_bins_arms.sh`.
+  `iou_free` 0.7950 → **0.8104**, `f1@10cm` 0.5437 → **0.6085**, 지연 +3.2 %.
+
+  이 항목이 여기 오래 남아 있던 이유를 기록해 둔다: **블로커로 적어 둔 "pretrain이 지면
+  높이에서 학습됐으므로 바꾸면 전이가 깨진다"가 이미 무효였다.** compendium §4가
+  SynWoodScape pretrain을 폐기하면서(확정 설정 = from scratch) 깨질 전이가 없어졌는데,
+  두 문서가 따로 쓰여 그 연결이 맺히지 않았다.
+
+  **남은 것**: `Y=4`에서 Orin을 다시 재지 않았다(20.2 FPS는 `Y=1` 값이다).
 - **`rand_flip=False`로 고정.** ROI가 전후 비대칭(전방 4 m / 후방 2 m)이라 Simple-BEV의
   Z축 flip 증강이 물리적으로 성립하지 않는다. X축만 뒤집도록 오버라이드하면 쓸 수 있다
   (`docs/archive/training_improvement_plan.md` Step 4 참고).
