@@ -94,7 +94,7 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 
 ---
 
-## `tools/` 색인 (2026-08-26, 38개)
+## `tools/` 색인 (2026-08-27, 39개)
 
 **각 도구의 맨 위 docstring이 정본이다** -- 무엇을 왜 재는지, 어떻게 읽는지가 거기 있다.
 아래는 찾아가기용 목차이고, **근거 문서**는 그 도구가 만든 숫자가 실린 절이다.
@@ -132,6 +132,7 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 | `measure_image_dependence.py` | 카메라를 섞으면 성능이 떨어지나 (0.79 → 0.37) | 진단 §18.2 |
 | `measure_label_geometry.py` | IPM 대 GT 라벨 정렬 | 진단 §18 |
 | `measure_lifting_resolution.py` | **표본 간격·왜곡·특징 예산.** 캘리브레이션만 쓴다 | 진단 §27 |
+| **`measure_height_bin_visibility.py`** | **높이 bin이 화각 안에 들어오나.** `Y>1` 실험의 사전 확인 -- 화각 밖이면 그 bin은 항상 0이라 "변화 없음"이 가설 기각이 아니게 된다 | 진단 §33.2, compendium §12.2 |
 | `measure_range_gradient.py` | `λ_R` gradient 비 캘리브레이션 | 설계 §13.3 |
 | **`measure_perturbation_stability.py`** | **same-frame perturbation consistency.** 모션 성분 0인 축 | 진단 §30.1 |
 | **`measure_frame_gap_stability.py`** | **frame-gap consistency diagnostic.** pose·라벨 불필요 | 진단 §30.2 |
@@ -148,7 +149,7 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 | 도구 | 무엇 |
 |---|---|
 | `visualize_robot_predictions.py` | 예측 패널(현행). **`- 0.5` 정규화 누락 사고가 있었던 경로**(진단 §18.1) |
-| `render_prediction_video.py` | 전체 시퀀스 영상. `cam0..3` 매핑은 `orientation.json`이 정한다(**`left=cam3`**) |
+| `render_prediction_video.py` | 전체 시퀀스 영상. `cam0..3` 매핑은 `orientation.json`이 정한다(**`left=cam3`**). **`--compare_ckpt`로 체크포인트 둘을 나란히 + 차이 지도** -- `Y`가 달라도 각자 자기 `height.json`을 따라간다 |
 | `visualize_predictions.py` | SynWoodScape 시절 경로 |
 | `visualize_occupancy_gt` · `visualize_camera_visibility` · `visualize_depth_overlay` | 라벨·가시성·깊이 점검 |
 
@@ -156,3 +157,5 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 > `res101_s4` 런을 채점하려면 명시해야 하고, 안 넘기면 `load_state_dict(strict=True)`가
 > 즉시 실패한다(진단 §29.3). **표본 규약은 런의 `config.json`에서 자동으로 되찾는다**
 > -- 한 표에 규약이 섞이면 경고가 아니라 `SystemExit`이다(진단 §28.6).
+> **표본 높이(`Y`)도 마찬가지다** -- 체크포인트 옆 `height.json`에서 되찾고, 파일이 없으면
+> `LEGACY_HEIGHT_BINS = 1`(2026-08-27 이전 런)로 읽는다. 섞이면 `SystemExit`이다(진단 §33.5).

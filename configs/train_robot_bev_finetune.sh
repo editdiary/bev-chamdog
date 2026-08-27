@@ -35,7 +35,7 @@ MAX_CLASS_WEIGHT="${MAX_CLASS_WEIGHT:-20}"
 FORMULATION="${FORMULATION:-three_class}"
 
 # 과적합 손잡이 세 개 (`docs/finetune_overfitting_diagnosis.md` §16.3(b), §17).
-# train이 192장인데 res101은 40.6 M 파라미터(그중 encoder 37.0 M)다.
+# train이 192장인데 res101은 41.0 M 파라미터(그중 encoder 37.0 M = 90 %)다. Y=4 기준.
 ENCODER_TYPE="${ENCODER_TYPE:-res101}"      # res101 / res50 / res18 -- 용량 자체를 줄인다
 FREEZE_ENCODER="${FREEZE_ENCODER:-False}"   # ImageNet 특징 고정, BEV decoder만 학습(3.5 M)
 LABEL_SMOOTHING="${LABEL_SMOOTHING:-0.0}"   # 과신 억제. 0.05~0.1이 통상값

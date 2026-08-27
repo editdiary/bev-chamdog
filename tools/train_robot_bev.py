@@ -261,7 +261,7 @@ def main(
     # 완전히 같다 -- 두 런을 한 표에 놓고 비교하는 것이 이 플래그의 목적이다.
     formulation="three_class",
     # --- 과적합 손잡이 (§16.3 (b)). 근거는 `docs/finetune_overfitting_diagnosis.md` §17 ---
-    # encoder를 얼린다. 40.6 M 파라미터 중 37.0 M(91 %)이 encoder인데 train은 192장이다.
+    # encoder를 얼린다. 41.0 M 파라미터 중 37.0 M(90 %)이 encoder인데 train은 192장이다.
     # ImageNet 특징을 그대로 쓰고 BEV decoder만 학습하면 학습 가능한 파라미터가 1/12로 준다.
     freeze_encoder=False,
     # CE의 label smoothing. val loss가 오르는 이유가 "더 많이 틀려서"가 아니라 "확신이

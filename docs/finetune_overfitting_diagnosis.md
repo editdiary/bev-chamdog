@@ -3247,3 +3247,92 @@ sudo tegrastats --stop
 
 **단 §29.6의 채택 규칙은 이 값 없이도 닫혔다** -- stride-4가 품질에서 아무것도 얻지 못했으므로
 예산을 따질 필요가 없어졌다(§29.9.2). 즉 이 미결이 막는 것은 **논문의 배포 가능성 진술**뿐이다.
+
+---
+
+## 33. lifting 높이 축 `Y=1 → 4` -- 실측과 채택 (2026-08-27)
+
+**요약과 해석은 `paper_experiment_compendium.md` §12가 정본이다.** 이 절은 **실행 절차와
+원자료**를 남긴다 -- 무엇을 어떤 명령으로 만들었고 숫자가 어느 폴더에서 나왔는지.
+
+### 33.1 사전 선언은 config 파일에 있다
+
+`configs/height_bins_arms.sh`의 머리말이 사전 선언이고 **런보다 먼저 커밋됐다**
+(`fe88c3f`가 `665cc44`보다 앞선다). §29(stride)와 같은 규율이다.
+
+### 33.2 실행
+
+```bash
+# 사전 기하 확인 (학습 불필요, CPU, 5초)
+python tools/measure_height_bin_visibility.py
+
+# Y=8 팔 (3런)
+bash configs/height_bins_arms.sh
+# Y=4 팔 (3런)
+HEIGHT_BINS=4 HEIGHT_MIN_M=-0.25 HEIGHT_MAX_M=1.75 ARM=y4 bash configs/height_bins_arms.sh
+# 회귀 검증 -- 새 코드로 Y=1을 재현한다 (1런)
+OUT_ROOT=runs/height_bins_regress SEEDS=0 HEIGHT_BINS=1 HEIGHT_MIN_M=None HEIGHT_MAX_M=None \
+    bash configs/height_bins_arms.sh
+```
+
+**대조군(`Y=1`)은 재실행하지 않았다** -- `runs/pixel_offset/off_0.00_s{0,1,2}`가 완전히
+같은 config다. §29.4와 같은 판단이다.
+
+### 33.3 산출물
+
+| 무엇 | 어디 |
+|---|---|
+| Y=8 3런 | `runs/height_bins/{logs,ckpt}/y8_s{0,1,2}` |
+| Y=4 3런 (**채택**) | `runs/height_bins/{logs,ckpt}/y4_s{0,1,2}` |
+| 회귀 검증 (Y=1, 새 코드) | `runs/height_bins_regress/` (**폴더 이름이 `y8_s0`이지만 Y=1이다** -- 그 안의 `README.md` 참고) |
+| Y=1 대조군 | `runs/pixel_offset/{logs,ckpt}/off_0.00_s{0,1,2}` |
+| 비교 동영상 | `runs/height_bins/viz/{raws1,rawos3}_Y1_vs_Y4.mp4` |
+
+### 33.4 집계 명령
+
+```bash
+# 지표 표 (고정 40 epoch, n=3)
+python tools/summarize_repeats.py --log_root=runs/height_bins/logs --fixed_epoch=40 --pattern='y4_s*'
+python tools/summarize_repeats.py --log_root=runs/pixel_offset/logs --fixed_epoch=40 --pattern='off_0.00_s*'
+
+# 거리별 f1 분해 -- 판정의 핵심 무늬(§29.5가 사전 선언한 것)
+python tools/report_f1_by_range.py --log_root=runs/height_bins --cells=y4 --seeds="'0,1,2'"
+
+# 동작점 통제 -- τ 한 점이 아니라 곡선으로 읽는다 (§16.2의 교훈)
+python tools/report_threshold_sweep.py --log_root=runs/height_bins --cells=y4 --seeds="'0,1,2'"
+
+# 지연 (GPU 유휴 확인 후)
+python tools/benchmark_inference.py --resolutions=512x288 --precisions=fp16 --iters=500 \
+    --height_bins=4 --height_min_m=-0.25 --height_max_m=1.75
+```
+
+> **함정: `report_threshold_sweep.py`/`report_f1_by_range.py`의 `--seeds`는 따옴표를 두 번
+> 씌워야 한다**(`--seeds="'0,1,2'"`). Fire가 `0,1,2`를 tuple로 파싱해 버려 도구 안의
+> `str(seeds).split(",")`가 `"(0"`에서 죽는다. **이 도구들 이전부터 있던 문제다.**
+
+> **두 팔을 한 번에 비교할 수 없다.** 이 도구들은 `log_root` 하나에 vox_util 하나를
+> 만드는데 `Y`가 다르면 기하가 달라진다. `height_config_for_ckpt_dirs`가 섞인 설정을
+> 감지하면 `SystemExit`으로 막는다(의도된 동작이다). 팔마다 따로 돌려 표를 나란히 놓는다.
+
+### 33.5 코드에 남은 계약 -- 새 세션이 깨기 쉬운 것
+
+| 계약 | 어디 | 깨면 |
+|---|---|---|
+| `LEGACY_HEIGHT_BINS = 1` **영구 고정** | `projects/datasets/simplebev_vox.py` | `height.json` 없는 옛 체크포인트 전부가 잘못 해석된다 |
+| `Y`의 단일 출처는 `vox_dims(grid_spec, height_bins)` | 같은 파일 | 리터럴 `1`이 다시 퍼진다 (예전에 20곳이었다) |
+| 학습이 `height.json`을 ckpt 폴더에 남긴다 | `train_robot_bev.py` | 평가 도구가 표본 높이를 못 찾아 조용히 옛 기하로 읽는다 |
+| `Y > 1`이면 높이 범위를 명시해야 한다 | `vox_bounds`의 가드 | 지면 ±0.25 m를 잘게 쪼개 **비용만 들고 높이 정보가 없다** |
+| `ThreeClassSegnet`이 `Y` vs `vox_util.Y`를 검사한다 | `simplebev_three_class.py` | forward 한참 뒤에 형상 에러가 나 원인이 안 보인다 |
+
+### 33.6 bin 중심을 반드시 확인할 것
+
+`Vox_util`은 복셀 **중심**에서 표본한다(`get_mem_T_ref`의 `-YMIN - vox_size_Y/2`). 그래서
+범위와 `Y`의 조합에 따라 기존 `z=0` 평면이 사라진다:
+
+| 설정 | bin 중심 [m] | |
+|---|---|---|
+| `[-0.25, 1.75]`, Y=4 | **0**, 0.5, 1.0, 1.5 | **채택값.** bin 0 = 옛 표본 평면 |
+| `[-0.125, 1.875]`, Y=8 | **0**, 0.25, ..., 1.75 | 실험은 했으나 미채택 |
+| `[0, 1.7]`, Y=8 | 0.106, 0.319, ... | ❌ 옛 평면이 없다 -- 쓰지 말 것 |
+
+`tests/datasets/test_simplebev_vox.py`가 `Vox_util.Mem2Ref`로 직접 대조한다.
