@@ -10,6 +10,20 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# **conda 환경을 강제한다.** `AGENTS.md`의 "개발 환경"이 `bev-chamdog`(Python 3.11 +
+# torch 2.7.0+cu128)을 정본으로 정하는데, 셸이 `base`에 있어도 스크립트는 그냥 돌아간다 --
+# 2026-09-01에 실제로 20런 전체를 `base`(Python 3.14 + torch 2.13)에서 돌리고 나서야
+# 알아챘다. 다른 torch/numpy로 학습한 런은 다른 환경의 런과 나란히 읽을 수 없고,
+# 그 환경의 numpy는 큰 배열을 조용히 덮어쓰기까지 했다(`projects/common/npsafe.py`).
+# 조용히 틀리는 것보다 멈추는 편이 낫다. 의도적으로 다른 환경을 쓸 때만 `ALLOW_ANY_ENV=1`.
+REQUIRED_CONDA_ENV="${REQUIRED_CONDA_ENV:-bev-chamdog}"
+if [ "${ALLOW_ANY_ENV:-0}" != "1" ] && [ "${CONDA_DEFAULT_ENV:-}" != "${REQUIRED_CONDA_ENV}" ]; then
+    echo "!!! conda 환경이 '${CONDA_DEFAULT_ENV:-없음}'이다 -- '${REQUIRED_CONDA_ENV}'가 필요하다." >&2
+    echo "    conda activate ${REQUIRED_CONDA_ENV}   (또는 의도한 것이면 ALLOW_ANY_ENV=1)" >&2
+    echo "    python: $(command -v python)  $(python -V 2>&1)" >&2
+    exit 1
+fi
+
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 EXP_NAME="${EXP_NAME:-robot_finetune}"
 LR="${LR:-1e-4}"
@@ -131,6 +145,11 @@ HEIGHT_MAX_M="${HEIGHT_MAX_M:-1.75}"
 # **2026-08-25에 기본값을 pixel_center로 옮겼다(사용자 승인).** 성능이 근거가 아니라
 # correctness가 근거다 -- 15런 스윕에서 품질·안전 지표는 전부 노이즈였다.
 # **이 시점 이후의 런은 runs/ablation·설계 문서 §15·§16의 숫자와 기하가 다르다.**
+# 주기 체크포인트를 몇 epoch마다 남기나. **기본 10은 예전과 같다.** 체크포인트 하나가
+# 471 MB이므로 40 epoch 런에서 4개가 쌓인다. 분석에 `model_best`와 마지막 epoch만 쓰는
+# 실험은 `SAVE_FREQ_EPOCHS=${NUM_EPOCHS}`로 두면 마지막 하나만 남는다.
+SAVE_FREQ_EPOCHS="${SAVE_FREQ_EPOCHS:-10}"
+
 PIXEL_CONVENTION="${PIXEL_CONVENTION:-pixel_center}"
 PIXEL_OFFSET="${PIXEL_OFFSET:-0.0}"
 
@@ -231,6 +250,6 @@ python tools/train_robot_bev.py \
     --pixel_offset="${PIXEL_OFFSET}" \
     --augment="${AUGMENT}" \
     --val_freq_epochs=1 \
-    --save_freq_epochs=10 \
+    --save_freq_epochs="${SAVE_FREQ_EPOCHS}" \
     --log_dir="${LOG_DIR}" \
     --ckpt_dir="${CKPT_DIR}"
