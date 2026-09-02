@@ -21,6 +21,9 @@ from projects.common.binary_metrics import (
 from projects.common.free_space import FREE, decompose
 from projects.common.polar import build_ray_index
 
+# `region_ce_diagnostics`가 붙이는 관측값. loss 항이 아니므로 항 집합 검사에서 뺀다.
+_DIAGNOSTIC_KEYS = {"ce_boundary", "ce_confident", "ce_all", "frac_ce_boundary"}
+
 _PART_KEYS = {"loss_free", "loss_not_free", "share_free", "share_not_free"}
 
 SPEC = OccupancyGridSpec(front_m=1.0, rear_m=1.0, half_width_m=1.0, cell_m=0.05)
@@ -56,6 +59,7 @@ def test_loss_is_near_zero_when_the_prediction_is_confidently_right():
     )
 
     assert float(loss) < 0.01
+    # `compute_binary_loss`는 loss 항만 돌려준다 -- 영역별 CE 진단은 `run_batch`가 붙인다.
     assert set(parts) == _PART_KEYS
 
 
@@ -149,6 +153,39 @@ class _BinaryStubModel:
         return None, None, self.logits.expand(batch, -1, -1, -1).contiguous(), None, None
 
 
+def test_run_batch_works_without_a_distance_field():
+    """pretrain 데이터셋(SynWoodScape)은 `d_bev_g`를 만들지 않는다 -- 그래도 돌아야 한다."""
+    occ, vis, valid = _square_scene()
+    logits = torch.zeros((1, 2, SPEC.n_rows, SPEC.n_cols))
+    batch = {
+        "rgb_camXs": torch.ones(1, 1, 3, 2, 2),
+        "pix_T_cams": torch.eye(4).view(1, 1, 4, 4),
+        "cam0_T_camXs": torch.eye(4).view(1, 1, 4, 4),
+        "seg_bev_g": occ.float(), "vis_bev_g": vis.float(), "valid_bev_g": valid,
+    }
+    loss, parts, _ = run_batch(
+        _BinaryStubModel(logits), batch, vox_util=object(),
+        class_weights=torch.ones(2), device="cpu",
+        rays=build_ray_index(SPEC, n_theta=720),
+    )
+    assert torch.isfinite(loss)
+    assert "ce_boundary" not in parts
+
+
+def test_region_ce_diagnostics_splits_by_distance_and_averages_to_the_whole():
+    """세 평균이 서로 맞아야 한다 -- `ce_all`은 두 부분의 셀 수 가중평균이다."""
+    from projects.common.binary_metrics import region_ce_diagnostics
+    occ, vis, valid = _square_scene()
+    torch.manual_seed(0)
+    logits = torch.randn(1, 2, SPEC.n_rows, SPEC.n_cols)
+    d = torch.randn(1, 1, SPEC.n_rows, SPEC.n_cols) * 0.3
+    out = region_ce_diagnostics(logits, occ.float(), vis.float(), valid, d, band_m=0.15)
+    frac = float(out["frac_ce_boundary"])
+    recombined = frac * float(out["ce_boundary"]) + (1 - frac) * float(out["ce_confident"])
+    assert abs(recombined - float(out["ce_all"])) < 1e-4
+    assert 0.0 < frac < 1.0
+
+
 def test_run_batch_returns_loss_parts_and_free_metrics():
     occ, vis, valid = _square_scene()
     gt = decompose(occ, vis, valid)
@@ -164,6 +201,8 @@ def test_run_batch_returns_loss_parts_and_free_metrics():
         "seg_bev_g": occ.float(),
         "vis_bev_g": vis.float(),
         "valid_bev_g": valid,
+        # 거리장이 있으면 영역별 CE 진단이 붙는다. 없으면 건너뛴다(pretrain 경로).
+        "d_bev_g": torch.zeros_like(occ.float()),
     }
 
     loss, parts, free_metrics = run_batch(
@@ -172,7 +211,10 @@ def test_run_batch_returns_loss_parts_and_free_metrics():
     )
 
     assert float(loss) < 0.01
-    assert set(parts) == _PART_KEYS
+    # 영역별 CE 진단은 loss 항이 아니라 관측값이라 따로 센다
+    # (`region_ce_diagnostics`) -- loss 항 집합 자체는 그대로여야 한다.
+    assert set(parts) - _DIAGNOSTIC_KEYS == _PART_KEYS
+    assert _DIAGNOSTIC_KEYS <= set(parts)
     assert free_metrics["iou_free"] == pytest.approx(1.0)
     assert torch.equal(model.seen_rgb, torch.full_like(batch["rgb_camXs"], 0.5))
 

@@ -120,6 +120,50 @@ def compute_free_metrics(logits, seg_g, vis_g, valid_g, rays) -> dict:
     )
 
 
+# 영역별 CE 진단의 대역 반폭 [m]. **loss의 `δ`와 무관한 상수로 고정한다** -- 그래야 어떤
+# loss로 학습한 런이든 **같은 셀 집합**에서 잰 값이 되어 나란히 읽힌다. `δ`를 쓰면 δ가 다른
+# config끼리 다른 집합을 재게 되고, 그건 설계 문서 §20.1이 `kl_boundary`에서 겪은 함정이다.
+# 0.15 m = 3셀이고 주 지표 `f1@10cm`의 허용 오차(2셀)보다 한 셀 넓다.
+DIAGNOSTIC_BAND_M = 0.15
+
+
+def region_ce_diagnostics(logits, seg_g, vis_g, valid_g, d, band_m=DIAGNOSTIC_BAND_M) -> dict:
+    """**loss 종류를 넘어 비교 가능한** hard CE를 경계 대역과 그 밖으로 나눈다.
+
+    ## 무엇을 묻는가
+
+    "CE의 val loss 되올림은 경계에서 오는가?" -- 이 프로젝트의 출발 질문이고
+    (`docs/finetune_overfitting_diagnosis.md` §26), loss를 재설계한 이유 그 자체다.
+    그런데 각 런의 `val/loss_epoch`은 **자기 loss의 값**이라 CE 런과 soft-boundary 런을
+    나란히 놓을 수 없다. 그래서 loss와 무관하게 **hard 0/1 target에 대한 CE**를 따로 재고,
+    그것을 고정 대역으로 둘로 나눈다.
+
+        ce_boundary   |d| <= band 인 valid 셀의 CE 평균
+        ce_confident  그 밖 valid 셀의 CE 평균
+        ce_all        valid 전체 (두 값의 셀 수 가중평균과 같다)
+
+    **학습에 쓰이지 않는다** -- gradient가 흐르지 않는 순수 관측값이고, 어떤 loss로 학습하든
+    같은 식으로 계산된다. train/val 양쪽에 기록되므로 "train에서는 계속 내려가는데 val의
+    경계 성분만 오르는가"를 곡선으로 볼 수 있다.
+
+    `frac_ce_boundary`는 대역이 valid 셀의 몇 %인가다. 라벨만의 함수라 epoch에 따라 안
+    변하지만, 두 평균에서 **기여도**를 복원하려면 필요하다
+    (`기여 = frac * ce_boundary`).
+    """
+    with torch.no_grad():
+        log_probs = torch.log_softmax(logits, dim=1)
+        gt_free = decompose(seg_g, vis_g, valid_g)["free"].to(log_probs.dtype)
+        # hard CE. 목표는 라벨이 정한 0/1이고 어떤 loss도 이 식을 바꾸지 않는다.
+        ce = -(gt_free * log_probs[:, 1:2] + (1.0 - gt_free) * log_probs[:, 0:1])
+        valid_f = valid_g.to(log_probs.dtype)
+        near = (d.abs() <= float(band_m)).to(log_probs.dtype) * valid_f
+        far = valid_f - near
+        mean = lambda mask: (ce * mask).sum() / (mask.sum() + 1e-6)   # noqa: E731
+        return {"ce_boundary": mean(near), "ce_confident": mean(far),
+                "ce_all": mean(valid_f),
+                "frac_ce_boundary": near.sum() / (valid_f.sum() + 1e-6)}
+
+
 def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothing=0.0):
     """Run one binary train/eval batch."""
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5
@@ -134,6 +178,14 @@ def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothi
     loss, loss_parts = compute_binary_loss(
         logits, class_index, valid_bev_g, class_weights, label_smoothing
     )
+    # **loss와 무관한 공통 진단.** CE 런에도 soft-boundary 런에도 같은 식으로 붙어서
+    # "되올림이 경계에서 오는가"를 두 곡선으로 비교할 수 있게 한다.
+    #
+    # **`d_bev_g`가 없으면 건너뛴다** -- pretrain 데이터셋(SynWoodScape)은 거리장을 만들지
+    # 않는다(`projects/datasets/synwoodscape_simplebev.py`). 없다고 학습이 막히면 안 된다.
+    if "d_bev_g" in batch:
+        loss_parts.update(region_ce_diagnostics(
+            logits, seg_bev_g, vis_bev_g, valid_bev_g, batch["d_bev_g"].to(device)))
     return loss, loss_parts, compute_free_metrics(
         logits, seg_bev_g, vis_bev_g, valid_bev_g, rays
     )
@@ -185,6 +237,9 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
         delta=delta, lambda_b=lambda_b, kind=target, sigma=sigma, alpha=alpha,
         range_term=range_term, lambda_r=lambda_r, kappa=kappa, eps=eps,
     )
+    # CE 경로와 **같은 진단**을 붙인다 -- 그래야 두 loss의 곡선을 한 축에서 비교할 수 있다.
+    loss_parts.update(region_ce_diagnostics(
+        logits, seg_bev_g, vis_bev_g, valid_bev_g, d_bev_g))
     return loss, loss_parts, compute_free_metrics(
         logits, seg_bev_g, vis_bev_g, valid_bev_g, rays
     )
