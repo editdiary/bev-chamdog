@@ -10,6 +10,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from projects.common.npsafe import bool_not
+
 from projects.bev_gt.grid import OccupancyGridSpec, cell_centers_m
 
 RAY_OK = 0          # 첫 free 이후 첫 non-free를 격자 안에서 만났다
@@ -88,7 +90,9 @@ def first_free_range(free: np.ndarray, rays: RayIndex):
         if not segment.any():
             continue
         start = int(np.argmax(segment))
-        blocked = np.nonzero(~segment[start:])[0]
+        # **`~`를 직접 쓰지 않는다** -- `segment`는 `sampled`의 view라 numpy 임시 소거가
+        # 오작동하면 원본 표본 배열이 통째로 뒤집힌다(`projects/common/npsafe.py`).
+        blocked = np.nonzero(bool_not(segment[start:]))[0]
         if blocked.size == 0:
             status[i] = RAY_CENSORED     # 격자 끝까지 free -- 회귀 통계에 섞지 않는다
             continue

@@ -49,6 +49,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 from projects.common.free_space import decompose  # noqa: E402
+from projects.common.npsafe import bool_not  # noqa: E402
 from projects.common.free_space_metrics import iou_free as iou_free_fn  # noqa: E402
 from projects.common.polar import RAY_OK, build_ray_index, first_free_range  # noqa: E402
 from projects.datasets.robot_simplebev import (  # noqa: E402
@@ -217,7 +218,10 @@ def main(
         all_ok = ok.all(axis=0)                  # 세 시드 모두 RAY_OK
         any_ok = ok.any(axis=0)
         # 상태 불일치: 한 시드라도 OK인데 전부 OK는 아닌 광선. σ가 볼 수 없는 불안정이다.
-        disagree = float((any_ok & ~all_ok).sum()) / max(int(any_ok.sum()), 1)
+        # **`~all_ok`를 직접 쓰면 안 된다** -- numpy 임시 소거가 `all_ok`를 제자리에서
+        # 뒤집고, 바로 아래 `r[:, all_ok]`가 정반대 광선을 고르게 된다
+        # (`projects/common/npsafe.py`).
+        disagree = float((any_ok & bool_not(all_ok)).sum()) / max(int(any_ok.sum()), 1)
 
         r_ok = r[:, all_ok]                      # (S, N_rays)
         sigma_cm = np.std(r_ok, axis=0, ddof=1) * 100.0

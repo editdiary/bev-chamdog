@@ -29,6 +29,8 @@ import numpy as np
 import torch
 from scipy.ndimage import distance_transform_edt
 
+from projects.common.npsafe import bool_not
+
 from projects.common.polar import first_free_range, frontier_cells
 
 # 격자 셀이 0.05 m이므로 2 / 4 / 8 셀에 해당한다. 셀 하나(0.05 m)는 라벨 자체의 이산화
@@ -51,7 +53,9 @@ def _distance_field_m(mask: np.ndarray, cell_m: float):
     """
     if not mask.any():
         return None
-    return distance_transform_edt(~mask, sampling=cell_m)
+    # **`~mask`를 직접 넘기지 않는다** -- 호출부의 `occ_pred`/`occ_gt`가 제자리에서
+    # 뒤집힐 수 있다(`projects/common/npsafe.py`). 그러면 f1@τ가 조용히 반대가 된다.
+    return distance_transform_edt(bool_not(mask), sampling=cell_m)
 
 
 def derive_occupied(free_pred, valid, rays) -> torch.Tensor:
