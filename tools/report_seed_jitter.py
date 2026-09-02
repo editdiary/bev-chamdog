@@ -116,6 +116,9 @@ def main(
     encoder_type="res101",
     batch_size=8,
     num_workers=8,
+    # 요약 dict를 그대로 떨어뜨릴 JSON 경로. **광선별 원시 배열은 이것과 별개로**
+    # `{log_root}/analysis/seed_jitter/*.npz`에 이미 캐시된다(프레임x광선 R̂와 RAY_OK).
+    json_out=None,
 ):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     cells = _csv(cells)
@@ -256,14 +259,25 @@ def main(
     if not results:
         return
 
+    if json_out:
+        import json as _json
+        Path(json_out).parent.mkdir(parents=True, exist_ok=True)
+        Path(json_out).write_text(_json.dumps(
+            {"tau": float(tau), "step_cells": float(step_cells),
+             "quant_cm": float(quant_cm), "seeds": list(seeds), "cells": results},
+            indent=2, ensure_ascii=False))
+        print(f"  요약 -> {json_out}")
+
     print(f"\n=== seed boundary jitter -- 시드를 바꾸면 예측 경계가 몇 cm 움직이나 (τ={tau:.2f}) ===")
     print("`σ_ray`는 광선별 시드 간 표준편차 [cm]. 세 시드가 모두 RAY_OK인 광선만 들어간다.")
     print("**품질과 같이 읽는다**(§15.6) -- `iou_free`가 나쁜 셀의 안정성은 뜻이 없다.")
     print("`상태 불일치`는 σ가 볼 수 없는 불안정이다(한 시드는 장애물을 보고 다른 시드는 못 봤다).")
     print("`|오차| median`은 같은 광선에서 GT 대비 오차 -- jitter를 이것과 견줘 읽는다.\n")
 
+    n_ref = max((v["n_seeds"] for v in results.values()), default=len(seeds))
     print(f"광선 거리의 **양자화 눈금은 {quant_cm:.2f} cm**(step_cells={step_cells})이고,"
-          f" 시드 3개에서 σ가 가질 수 있는\n최소 비영 값은 {quant_cm / 3 ** 0.5:.2f} cm다."
+          f" 시드 {n_ref}개에서 σ가 가질 수 있는\n최소 비영 값은"
+          f" {quant_cm / n_ref ** 0.5:.2f} cm다."
           " `σ=0 비율`이 크면 σ_ray는 모델이 아니라 눈금을 재고 있다.\n"
           "예측 자체가 5 cm 셀의 이진 맵이므로 눈금을 줄여도 셀 크기가 바닥으로 남는다.\n")
 
@@ -290,8 +304,8 @@ def main(
               " 곧 σ_전역이고,\n  광선별 σ는 거기에 광선마다 독립인 잔차가 더해진 값이다"
               " -- 잔차가 크면 전역 성분이 줄어도\n  광선별 σ는 거의 안 움직인다."
               " **주장 ①은 σ_전역에 대한 것이므로 광선별 σ로 재진술되지 않는다.**")
-        print("  **n=3의 σ이므로 배율의 신뢰구간은 넓다** -- 방향과 크기만 읽고 유의성은"
-              " `report_ablation.py`의 F 검정과 같이 판단한다.")
+        print(f"  **n={a['n_seeds']}의 σ이므로 배율의 신뢰구간은 넓다** -- 방향과 크기만 읽고"
+              " 유의성은\n  `report_ablation.py`의 F 검정과 같이 판단한다.")
 
 
 if __name__ == "__main__":

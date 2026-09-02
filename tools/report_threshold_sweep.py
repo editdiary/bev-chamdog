@@ -73,9 +73,58 @@ from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 # 후보는 아니다.
 DEFAULT_TAUS = (0.20, 0.30, 0.40, 0.45, 0.50, 0.55, 0.60, 0.70, 0.80)
 
-# 같은 `free_miss`에서 비교할 지점. 세 칸의 곡선이 모두 덮는 구간 안이어야 한다 --
+# 같은 `free_miss`에서 비교할 지점. 모든 칸의 곡선이 **동시에 덮는** 구간 안이어야 한다 --
 # 밖이면 `np.interp`가 끝값으로 **고정(clamp)**되어 비교가 조용히 무의미해진다.
-DEFAULT_ANCHORS = (0.085, 0.090, 0.095, 0.099, 0.104)
+#
+# **기본은 `None`(자동 유도)이다.** 예전에는 `(0.085, ..., 0.104)`가 하드코딩돼 있었는데
+# 그 값은 `runs/ablation`(Y=1, 옛 config)의 곡선에서 고른 것이다. 기하나 loss가 바뀌면
+# 곡선이 통째로 옮겨 가므로 그 앵커가 구간 밖으로 나가고, 그러면 판정 표가 **전부 nan**이
+# 되거나(가드가 있는 지금) 조용히 clamp된 값을 비교한다(가드가 없던 옛 코드). 실제로
+# 자동 유도가 필요한 상황이 이번에 생겼다 -- Y=4에서 `free_miss` 대역이 달라졌다.
+DEFAULT_ANCHORS = None
+
+# 자동 유도할 때 몇 점을 찍나. 겹치는 구간을 균등 분할한다.
+N_AUTO_ANCHORS = 5
+
+
+def _auto_anchors(mean, live, n=N_AUTO_ANCHORS):
+    """모든 칸의 `free_miss` 곡선이 동시에 덮는 구간을 균등 분할한다.
+
+    `lo`는 각 칸 최솟값의 **최댓값**, `hi`는 각 칸 최댓값의 **최솟값**이다 -- 그래야 어느
+    칸에서도 외삽이 아니다. 구간이 비면 빈 튜플을 주고 호출부가 그 사실을 찍는다.
+    """
+    curves = [mean["free_miss"][c] for c in live]
+    lo = max(float(np.min(x)) for x in curves)
+    hi = min(float(np.max(x)) for x in curves)
+    if not lo < hi:
+        return ()
+    # 양 끝은 τ 격자의 끝점이라 곡선이 가장 덜 믿음직한 자리다. 1 %씩 안으로 넣는다.
+    pad = 0.01 * (hi - lo)
+    return tuple(np.linspace(lo + pad, hi - pad, n))
+
+
+def _interp_monotone(x, xs, ys):
+    """`np.interp`의 전제(`xs` 증가)를 **검사한 뒤** 보간한다.
+
+    `np.interp`는 `xs`가 증가하지 않으면 경고 없이 틀린 값을 준다. `free_miss`는 τ에 대해
+    단조 증가해야 하지만(문턱을 올리면 free 예측이 줄어든다) 시드 평균 곡선이 잡음으로
+    한 칸 뒤집히는 일이 실제로 가능하므로, 뒤집히면 값을 주지 않고 nan을 준다.
+    """
+    xs, ys = np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)
+    if np.any(np.diff(xs) < 0):
+        return float("nan")
+    if not xs.min() <= x <= xs.max():
+        return float("nan")     # clamp를 값으로 오독하지 않게 한다
+    return float(np.interp(x, xs, ys))
+
+
+def _csv(value):
+    """`--cells=a,b`를 **Fire가 tuple로 파싱한다** -- `str(value).split(",")`로 받으면
+    `"('a', 'b')"`를 쪼개게 되어 조용히 깨진 이름이 나온다(`seeds`에서는 `int('(0')`으로
+    예외가 났다). 다른 도구들은 이미 이 helper를 쓰고 있었는데 여기만 빠져 있었다."""
+    if isinstance(value, (list, tuple)):
+        return [str(v).strip() for v in value]
+    return [v.strip() for v in str(value).split(",") if v.strip()]
 
 
 def _width(text) -> int:
@@ -113,11 +162,14 @@ def main(
     encoder_type="res101",
     batch_size=8,
     num_workers=8,
+    # 셀x시드xτ의 **모든 지표**를 그대로 떨어뜨릴 CSV 경로. 표는 이것의 요약이다.
+    csv_out=None,
 ):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    cells = tuple(c.strip() for c in str(cells).split(","))
-    seeds = tuple(int(s) for s in str(seeds).split(","))
-    taus, anchors = tuple(taus), tuple(anchors)
+    cells = tuple(_csv(cells))
+    seeds = tuple(int(s) for s in _csv(seeds))
+    taus = tuple(taus)
+    anchors = None if anchors is None else tuple(anchors)
 
     root = Path(dataset_root)
     names = parse_sequence_names(train_sequences)
@@ -168,12 +220,16 @@ def main(
                 "range_mae": rng["mae"], "f1@10cm": tol["10cm"]["f1"]}
 
     rows = {}
+    # **어느 시드의 행인지 남긴다.** `rows[(cell, tau)]`의 순서가 곧 이 목록의 순서다 --
+    # 원시 CSV를 쓸 때 그 짝이 없으면 시드를 되찾을 수 없다.
+    seed_order = {cell: [] for cell in cells}
     for cell in cells:
         for seed in seeds:
             found = sorted(Path(f"{log_root}/ckpt/{cell}_s{seed}").glob("model_best-*.pth"))
             if not found:
                 print(f"!! 체크포인트가 없어 건너뛴다: {log_root}/ckpt/{cell}_s{seed}")
                 continue
+            seed_order[cell].append(seed)
             model = _load(found[-1], vox_util, encoder_type, device)
             probs = []
             with torch.no_grad():
@@ -191,6 +247,25 @@ def main(
             print(f"  {cell}_s{seed} ({found[-1].name})", flush=True)
 
     keys = ("free_miss", "fatal", "missed_obs", "iou_free", "f1@10cm")
+
+    # === 원시 행을 CSV로 남긴다 =======================================================
+    #
+    # 아래 표들은 전부 이 행들의 요약(평균·표준편차·보간)이다. **표를 다시 만들 수 있어야
+    # 하고, 표에 안 실린 지표(`range_mae`)도 남아야 한다** -- 그래서 `score()`가 낸 dict를
+    # 통째로 쓴다. 셀·시드·τ가 키다.
+    if csv_out:
+        import csv as _csv_module
+        Path(csv_out).parent.mkdir(parents=True, exist_ok=True)
+        all_keys = sorted({k for v in rows.values() for r in v for k in r})
+        with open(csv_out, "w", newline="") as fh:
+            writer = _csv_module.writer(fh)
+            writer.writerow(("cell", "seed", "tau", *all_keys))
+            for cell in cells:
+                for tau_value in taus:
+                    for seed, row in zip(seed_order[cell], rows.get((cell, tau_value), [])):
+                        writer.writerow((cell, seed, tau_value,
+                                         *(repr(float(row[k])) for k in all_keys)))
+        print(f"  원시 행 -> {csv_out}")
     mean = {k: {c: np.array([np.mean([r[k] for r in rows[(c, t)]]) for t in taus])
                 for c in cells if (c, taus[0]) in rows} for k in keys}
     std = {k: {c: np.array([np.std([r[k] for r in rows[(c, t)]]) for t in taus])
@@ -211,6 +286,15 @@ def main(
                      for k, w in zip(keys, widths[2:])]
             print("  " + " ".join(cols))
 
+    if anchors is None:
+        anchors = _auto_anchors(mean, live)
+        if anchors:
+            print(f"\n  [앵커 자동 유도] 모든 칸이 덮는 free_miss 구간"
+                  f" [{min(anchors):.4f}, {max(anchors):.4f}]에서 {len(anchors)}점.")
+        else:
+            print("\n  !! 칸들의 free_miss 구간이 겹치지 않는다 -- τ 격자를 넓혀야 한다"
+                  " (`--taus=0.1,...,0.9`).")
+
     print(f"\n=== 같은 free_miss에서의 비교 (곡선 선형보간) ===")
     print("**이것이 판정 표다.** 차이가 대조군의 시드 σ 안이면 '겹친다'이고, 그때 τ=0.5의")
     print("차이는 representation 개선이 아니라 동작점 이동이다.")
@@ -220,11 +304,8 @@ def main(
         for anchor in anchors:
             vals = []
             for cell in live:
-                xs, ys = mean["free_miss"][cell], mean[metric][cell]
-                if not xs.min() <= anchor <= xs.max():
-                    vals.append(float("nan"))     # clamp를 값으로 오독하지 않게 한다
-                else:
-                    vals.append(float(np.interp(anchor, xs, ys)))
+                vals.append(_interp_monotone(anchor, mean["free_miss"][cell],
+                                             mean[metric][cell]))
             diff = vals[0] - vals[-1]
             print("  " + _pad("", 11) + _pad(f"{anchor:.4f}", 10, ">") + " "
                   + " ".join(_pad(f"{v:.4f}", 10, ">") for v in vals)
@@ -257,6 +338,48 @@ def main(
               + _pad(f"{slope:.3f}", 17, ">") + _pad(f"{eff:.3f}", 9, ">"))
     print("\n  σ_τ_eff = σ_fatal / |d fatal/dτ| -- '시드를 바꾸는 것이 τ를 얼마나 흔드는 것과")
     print("  같은가'다. 이 값이 작을수록 두 런이 경계 위치에 더 정확히 합의한다.")
+
+    # === 동작점 재현성: 시드마다 목표 free_miss를 맞추려면 τ가 얼마나 달라지나 ==========
+    #
+    # 위의 `σ_τ_eff`는 **평균 곡선의 기울기로 나눈 유도량**이라 "시드를 바꾸는 것이 τ를
+    # 얼마나 흔드는 것과 같은가"의 **환산값**이다. 여기서는 그것을 직접 잰다 -- 시드마다
+    # 자기 곡선에서 목표 `free_miss`를 만족하는 τ를 역보간하고, 그 τ들의 산포를 본다.
+    # 두 숫자는 다른 것이다: 환산값은 곡선이 평평하면 커지고, 직접 잰 값은 곡선이 평평해도
+    # 시드들이 같은 자리에 있으면 작다.
+    #
+    # **같은 자리에서 fatal도 다시 잰다.** 동작점을 맞춘 뒤에도 남는 fatal 차이만이
+    # representation 차이이고, τ=0.5의 차이는 그렇지 않다(§16.2).
+    if anchors:
+        print("\n=== 목표 free_miss를 맞추는 τ의 시드 간 산포 (동작점 재현성) ===")
+        print("  시드마다 자기 곡선에서 τ*(q)를 역보간한다. **σ(τ*)가 작을수록 같은 안전")
+        print("  동작점을 만들기 위해 필요한 문턱이 재학습에 덜 흔들린다.**")
+        print("  " + _pad("q(free_miss)", 14, ">")
+              + " ".join(_pad(f"{c} τ*", 16, ">") for c in live)
+              + " ".join(_pad(f"{c} fatal@τ*", 18, ">") for c in live))
+        for anchor in anchors:
+            tau_cols, fatal_cols = [], []
+            for cell in live:
+                n = len(rows[(cell, taus[0])])
+                tstars, fstars = [], []
+                for j in range(n):
+                    fm = [rows[(cell, t)][j]["free_miss"] for t in taus]
+                    ft = [rows[(cell, t)][j]["fatal"] for t in taus]
+                    tstars.append(_interp_monotone(anchor, fm, taus))
+                    fstars.append(_interp_monotone(anchor, fm, ft))
+                tstars = [v for v in tstars if np.isfinite(v)]
+                fstars = [v for v in fstars if np.isfinite(v)]
+                # **모든 시드가 이 q를 덮어야 비교가 된다.** 일부만 덮으면 표본이 달라지고,
+                # 그러면 σ가 작아진 것이 "안정적"인지 "표본이 줄어든 것"인지 갈리지 않는다.
+                if len(tstars) < n or len(fstars) < n:
+                    tau_cols.append("n/a"); fatal_cols.append("n/a"); continue
+                tau_cols.append(f"{np.mean(tstars):.3f}±{np.std(tstars, ddof=1):.3f}"
+                                if n > 1 else f"{np.mean(tstars):.3f}")
+                fatal_cols.append(f"{np.mean(fstars):.4f}±{np.std(fstars, ddof=1):.4f}"
+                                  if n > 1 else f"{np.mean(fstars):.4f}")
+            print("  " + _pad(f"{anchor:.4f}", 14, ">")
+                  + " ".join(_pad(c, 16, ">") for c in tau_cols)
+                  + " ".join(_pad(c, 18, ">") for c in fatal_cols))
+        print("  (n/a = 시드 중 일부의 곡선이 이 free_miss를 덮지 않는다)")
 
 
 if __name__ == "__main__":

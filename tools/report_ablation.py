@@ -27,14 +27,22 @@ from fire import Fire
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 # 사다리 순서. 여기 순서가 곧 Δ를 매기는 순서다.
-LADDER = ("A_ce", "B_perset", "C_soft", "D_range")
+LADDER = ("A_ce", "B_perset", "C_hard", "C_soft", "D_range")
 
 # 계단마다 무엇이 추가되는지 -- 표에 그대로 찍어서 사람이 대조하지 않게 한다.
 STEP_MEANING = {
-    ("A_ce", "B_perset"): "per-set 평균 (½L_F + ½L_N)",
-    ("B_perset", "C_soft"): "soft 경계 항 λ_B·L_B",
+    # **`A→B`는 손잡이가 둘이다** -- 집계 방식(역빈도 가중 -> per-set 평균)과 경계 대역
+    # 감독 제거가 동시에 일어난다. 그래서 이 계단의 Δ는 어느 쪽에도 귀속시킬 수 없다.
+    # `C_hard`가 그 분해를 위해 있다(아래 `EXTRA_PAIRS`).
+    ("A_ce", "B_perset"): "per-set 평균 + 경계 대역 감독 제거 (손잡이 둘)",
+    ("B_perset", "C_hard"): "경계 대역에 hard 감독 추가 λ_B·L_B^hard",
+    ("C_hard", "C_soft"): "**대역 target만 hard -> soft** (나머지 전부 동일)",
     ("C_soft", "D_range"): "보조항 λ_R·L_range",
 }
+
+# 인접하지 않지만 **한 손잡이만 다른** 쌍. 사다리 순서로는 안 나오는데 원인 귀속에 꼭 필요하다.
+#   A_ce  vs C_hard  -- 둘 다 hard target으로 모든 셀을 감독한다. 다른 것은 집계 방식뿐이다.
+EXTRA_PAIRS = (("A_ce", "C_hard"),)
 
 # (태그, 표시 이름, 방향). 방향 `-1`은 낮을수록 좋다는 뜻이다.
 QUALITY = (
@@ -72,6 +80,14 @@ STABILITY = (
     ("rebound_pct", "되올림(생) [%]", -1),
     ("val_loss_min_epoch", "val최저 ep", +1),
     ("selected_epoch", "선택 ep", 0),
+    # **val loss를 모델 선택 신호로 쓸 수 있나.** 우리의 실제 선택 규칙은 `iou_free`이므로
+    # (`select_checkpoint_score`) 아래 둘은 "만약 val loss로 골랐다면 얼마나 손해였나"다.
+    # `Δep`은 두 최적점의 거리, `regret`은 그때 실제로 잃는 품질이다. **`regret`이 0에
+    # 가까우면 val loss가 쓸 만한 선택 신호**라는 뜻이고, 그건 loss 종류를 넘어 비교된다
+    # (품질 지표 자체는 정의가 같으므로).
+    ("dep_iou", "Δep(loss↔iou)", -1),
+    ("regret_iou", "regret iou_free", -1),
+    ("regret_f1", "regret f1@10cm", -1),
     ("kl_ratio", "train/val KL 배율", -1),
 )
 
@@ -83,8 +99,19 @@ JITTER_EPOCHS = 10
 # 갈리는 원인은 `grid_sample` backward의 `atomicAdd`다. 네 런 모두 `C_soft`와 정확히 같은
 # 설정(`soft_boundary`, δ=0.15, α=0.5, λ_B=0.5, λ_R=0, 40 epoch, seed 0)이므로 이 사다리의
 # 노이즈 바닥으로 그대로 쓸 수 있다. `sigma_run`이 config 일치를 검사한다.
-DEFAULT_SIGMA_RUNS = ("runs/robot_bev_cv/run_noise/logs/noise_r*,"
-                      "runs/robot_bev_cv/loss_sweep/logs/sb_a050_re_*")
+# **[2026-09-01] 경로가 `runs/archive/`로 옮겨졌다**(runs 정리). 이 런들은 `Y=1` 기하이고
+# 옛 loss config(δ=0.15, α=0.5)이므로, **새 실험에서는 쓰지 않는다** -- 다른 기하의 노이즈
+# 바닥을 가져오는 것이 되고 그건 "옛 숫자와 한 표에 세우지 않는다"는 방침에 어긋난다.
+# 셀마다 시드가 여러 개면 그 실험 자신의 pooled 표준편차가 옳은 바닥이다.
+# 새 실험에서는 `--sigma_from=None`으로 끈다(`configs/loss_effect_analysis.sh`가 그렇게 부른다).
+DEFAULT_SIGMA_RUNS = ("runs/archive/robot_bev_cv/run_noise/logs/noise_r*,"
+                      "runs/archive/robot_bev_cv/loss_sweep/logs/sb_a050_re_*")
+
+# `F(df, df)`의 상위 5 % 분위수. scipy를 부르지 않으려고 표로 둔다 -- 이 도구는
+# TensorBoard만 읽는 가벼운 집계이고 무거운 의존을 새로 들이지 않는다.
+# 값은 표준 F 분포표(단측 0.05)에서 왔다.
+_F_CRIT_95 = {1: 161.4, 2: 19.00, 3: 9.28, 4: 6.39, 5: 5.05, 6: 4.28, 7: 3.79,
+              8: 3.44, 9: 3.18, 10: 2.98}
 
 # Δ 판정 문턱. 노이즈 바닥의 몇 배를 넘어야 `유의`로 찍나.
 # 2.0은 n=3 두 셀 비교에서 대략 95 % 수준이고, 이 프로젝트가 σ_run에 대해 써 온 기준과 같다.
@@ -146,6 +173,15 @@ def read_run(run_dir) -> dict:
     values["iou 최고→끝 하락"] = iou[max(iou, key=iou.get)] - iou[last]
     values["val최저 ep"] = float(min_epoch)
     values["선택 ep"] = float(selected)
+    # **`regret`은 "val loss로 골랐을 때 잃는 품질"이다.** `iou_free`의 최적 epoch은
+    # 정의상 `selected`이므로 `Δep`은 그것과 val loss 최저점의 거리다. `f1@10cm`은 최적
+    # epoch이 또 다르므로 자기 최고점을 기준으로 따로 잰다.
+    values["Δep(loss↔iou)"] = float(abs(min_epoch - selected))
+    if min_epoch in iou:
+        values["regret iou_free"] = iou[selected] - iou[min_epoch]
+    f1 = _series(acc, "val/occupied_f1_10cm_epoch")
+    if f1 and min_epoch in f1:
+        values["regret f1@10cm"] = f1[max(f1, key=f1.get)] - f1[min_epoch]
     # **train을 외우고 있나.** `iou_free`는 정의가 loss 종류와 무관하므로 이 격차는 네 셀
     # 전부에서 같은 뜻이다 -- `kl_boundary`가 `λ_B = 0`에서 정의되지 않는 것을 메운다.
     # 선택 epoch에서 읽는다(그 시점의 모델이 저장되는 모델이다).
@@ -327,11 +363,18 @@ def format_report(runs, sigma_ref=None) -> str:
     # 돌리면 `fatal_rate`가 ±0.0063 흔들리는데 `D_range`는 ±0.0007이다. 실무에서 "학습이
     # 안정적이다"의 첫째 뜻이 이것이므로(같은 실험이 같은 답을 낸다) 따로 낸다.
     if max(len(v) for v in cells.values()) >= 2:
+        # **F 임계값은 시드 수에서 나온다** -- 예전에는 n=3 기준(F(2,2)=19.0)이 상수로
+        # 박혀 있어서 n=5로 돌려도 4.36배를 요구했다. 그러면 실재하는 산포 차이를
+        # `노이즈`로 찍는다. `df = n-1`의 양측 5 % 상위 분위수를 쓴다.
+        n_min = min(len(v) for v in cells.values())
+        df = max(n_min - 1, 1)
+        f_crit = _F_CRIT_95.get(df, _F_CRIT_95[max(_F_CRIT_95)])
         lines += ["", "=== 재현성 -- 시드를 바꿨을 때 결과가 얼마나 흔들리나 ===",
                   f"값은 시드 간 표준편차이고 작을수록 좋다. 마지막 열은 {order[0]} 대비 "
-                  f"{order[-1]}의 비이고, F(2,2) 상위 5 % 임계값 19.0(=σ비 4.36배)을 넘으면 "
-                  "`유의`다.",
-                  "**n=3이라 분산비 검정은 약하다** -- 여러 지표가 같은 방향인 것이 근거다.",
+                  f"{order[-1]}의 비이고, F({df},{df}) 상위 5 % 임계값 {f_crit:.2f}"
+                  f"(=σ비 {f_crit ** 0.5:.2f}배)를 넘으면 `유의`다.",
+                  f"**셀당 n={n_min}이라 분산비 검정은 여전히 약하다** -- 여러 지표가 같은"
+                  " 방향인 것이 근거다.",
                   _pad("지표", name_w) + "   " + "".join(_pad(c, cell_w, ">") for c in order)
                   + _pad(f"{order[0][0]}/{order[-1][0]} 배", 12, ">")]
         for _, name, _d in QUALITY + STABILITY:
@@ -347,7 +390,7 @@ def format_report(runs, sigma_ref=None) -> str:
             first, last_ = stds[order[0]], stds[order[-1]]
             if last_ > 0:
                 ratio = first / last_
-                mark = "유의" if ratio ** 2 > 19.0 else ""
+                mark = "유의" if ratio ** 2 > f_crit else ""
                 row += _pad(f"{ratio:.1f}x {mark}", 12, ">")
             lines.append(row)
 
@@ -360,6 +403,11 @@ def format_report(runs, sigma_ref=None) -> str:
                 [(order[i], order[i + 1]) for i in range(len(order) - 1)], True),
                (f"대조군({order[0]}) 대비 -- 그래서 CE 대신 쓰면 무엇이 달라지나",
                 [(order[0], c) for c in order[1:]], False)]
+    # **인접하지 않지만 손잡이 하나만 다른 쌍**을 따로 낸다. 사다리 표에는 안 나오는데
+    # 원인 귀속에는 이쪽이 결정적이다(`EXTRA_PAIRS`의 주석).
+    extra = [(a, b) for a, b in EXTRA_PAIRS if a in cells and b in cells]
+    if extra:
+        ladders.append(("한 손잡이만 다른 쌍 -- 원인을 가르는 비교", extra, True))
     df = sum(max(0, len(v) - 1) for v in cells.values())
     source = []
     if df:
