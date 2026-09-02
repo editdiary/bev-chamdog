@@ -49,7 +49,11 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 
 from projects.common.free_space import decompose  # noqa: E402
 from projects.common.polar import build_ray_index  # noqa: E402
-from projects.common.range_loss import RayGather, ray_is_ok  # noqa: E402
+from projects.common.range_loss import (  # noqa: E402
+    DEFAULT_DELTA_R_M,
+    RayGather,
+    ray_is_ok,
+)
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
     DEFAULT_DATASET_ROOT,
@@ -218,7 +222,7 @@ def main(
     dataset_root=DEFAULT_DATASET_ROOT,
     common_root=DEFAULT_COMMON_ROOT,
     encoder_type="res101",
-    delta_r=0.20,
+    delta_r=DEFAULT_DELTA_R_M,
     batch_size=4,
     num_workers=4,
     # train split은 val보다 크다. 같은 크기로 잘라야 두 숫자를 나란히 읽을 수 있다.

@@ -49,6 +49,7 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 from projects.common.free_space import decompose  # noqa: E402
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.common.range_loss import (  # noqa: E402
+    DEFAULT_DELTA_R_M,
     DEFAULT_HUBER_BETA_M,
     RayGather,
     compute_range_loss,
@@ -105,7 +106,7 @@ def main(
     lambda_b=0.5,
     soft_target="gaussian",
     sigma_alpha=0.5,
-    delta_r_m=0.20,
+    delta_r_m=DEFAULT_DELTA_R_M,
     huber_beta_m=DEFAULT_HUBER_BETA_M,
     target_ratio=0.1,
     seed=0,

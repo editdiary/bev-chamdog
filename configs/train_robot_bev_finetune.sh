@@ -81,9 +81,9 @@ fi
 #                 대칭이면 "벽 안쪽 δ_R까지 free 예측"이 무벌점이 되는데 그게 주 판정 축이다
 #   HUBER_BETA_M  Huber 전환점 [m]. 미터로 둔다 (정규화하면 L2로 퇴화한다)
 LAMBDA_R="${LAMBDA_R:-0.0}"
-DELTA_R_M="${DELTA_R_M:-0.20}"
+DELTA_R_M="${DELTA_R_M:-0.15}"
 DELTA_R_OVER_M="${DELTA_R_OVER_M:-None}"
-HUBER_BETA_M="${HUBER_BETA_M:-0.10}"
+HUBER_BETA_M="${HUBER_BETA_M:-0.15}"
 
 #   BAND_KAPPA  대역 target을 0.5 쪽으로 섞는 계수. `y' = k*y + (1-k)/2`. **1.0이면 전과 같다.**
 #               `delta`(대역 폭)·`alpha`(모양)와 직교하는 셋째 손잡이이고, 대역 폭을 안

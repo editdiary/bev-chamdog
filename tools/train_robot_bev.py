@@ -319,7 +319,8 @@ def main(
     # `delta_r_m` -- 허용 반폭 [m]. **이 항의 요점이다** -- 이 안에서 loss가 평평해져
     # gradient가 정확히 0이 되고, 그래서 라벨의 반경 방향 오차를 외울 동기가 사라진다.
     # `0.0`으로 두면 "dead zone이 실제로 필요한가"의 ablation이 된다.
-    delta_r_m=0.20,
+    # **[2026-09-01] 기본값 0.20 → 0.15**(`projects/common/range_loss.py`의 주석이 근거).
+    delta_r_m=0.15,
     # `delta_r_over_m` -- **과대예측 쪽 관용만 따로 좁힌다** [m]. `None`이면 `delta_r_m`과
     # 같아 대칭이다. `arc_hat > arc_gt`는 없는 자유공간을 있다고 예측한 것이고 로봇에게
     # 그쪽이 치명 방향이다(`fatal_rate`·`missed_obstacle`). 실측 `arc_bias`가 전 런에서
@@ -328,7 +329,8 @@ def main(
     delta_r_over_m=None,
     # `huber_beta_m` -- Huber 전환점 [m]. **미터로 둔다** -- 정규화된 스케일에서 주면 실효
     # 오차가 항상 β보다 작아져 순수 L2로 퇴화하고 outlier 강건성이 사라진다.
-    huber_beta_m=0.10,
+    # **[2026-09-01] 기본값 0.10 → 0.15** -- δ_R을 좁힌 것과 짝이다(같은 주석).
+    huber_beta_m=0.15,
     # `band_kappa` -- 대역 target을 0.5 쪽으로 섞는 계수. `y' = κ·y + (1−κ)/2`.
     # **1.0이 기본이고 그때 동작은 전과 완전히 같다**(대조군 런이 새 경로를 타지 않는다).
     #
