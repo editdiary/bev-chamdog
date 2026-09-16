@@ -74,7 +74,7 @@
 |---|---|
 | [`paper_experiment_compendium.md`](paper_experiment_compendium.md) | **논문 집필용 실험 총정리(2026-08-26).** 모든 실험을 목적→설계→결과(수치)→해석으로 한 곳에 모은 **파생 문서다 -- 정본이 아니다.** 숫자가 정본과 어긋나면 정본이 맞고, **새 실측을 여기에 추가하지 않는다**(정본에 절을 추가한 뒤 옮겨 적는다). 사실과 해석을 표기로 구분하고(§0.3), **철회·정정 16건을 §12에 모아 두었다** |
 | [`dataset_analysis/`](dataset_analysis) | SynWoodScape 기하 조사, 수동 라벨링 ROI 결정, WoodScape 분석 |
-| [`figures/`](figures) | **파이프라인 모식도.** `bev_pipeline.html`(모식도 + 형상표 + 디코더 근거), `bev_pipeline.svg`(논문용 독립 SVG), `make_pipeline_figure.py`(**그림의 정본 -- SVG를 직접 고치지 않는다**) |
+| [`figures/`](figures) | **파이프라인 모식도.** [현행 모델 논문용 그림](figures/model_architecture.html)(영문 SVG/PDF/PNG, 실제 입력·예측, 별도 loss 도식), [캡션·코드 근거](figures/model_architecture_notes.md). 생성기는 `tools/render_model_architecture.py`. 기존 `bev_pipeline.html`과 `make_pipeline_figure.py`는 상세 설명용으로 유지한다. **각 그림의 정본은 생성 스크립트이며 SVG를 직접 고치지 않는다** |
 | `env/` | 환경 고정용 `pip freeze` 스냅샷 |
 | `superpowers/` | 스킬 시스템이 생성한 spec·plan (도구가 관리한다 -- 손으로 고치지 않는다) |
 

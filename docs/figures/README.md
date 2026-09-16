@@ -4,6 +4,12 @@
 
 | 파일 | 무엇 | 어디에 쓰나 |
 |---|---|---|
+| [`model_architecture.html`](model_architecture.html) | **현행 모델 논문용 그림 미리보기**(2026-09-16); 실제 입력·예측, encoder/decoder 상세 | 브라우저 확인 |
+| `model_architecture.{pdf,svg,png}` | 영문 아키텍처; Y=4, Double Sphere, binary | **논문 본문** |
+| `training_objective.{pdf,svg,png}` | soft-boundary + radial free-length 학습 경로 | 방법론 보조 그림 |
+| [`model_architecture_notes.md`](model_architecture_notes.md) | 코드 근거, 예제 출처, 계승/변경 구분, 영문 캡션 | 논문 집필 |
+| [`../../tools/render_model_architecture.py`](../../tools/render_model_architecture.py) | 위 두 그림의 생성기 | 재생성·편집 |
+| `architecture_assets/` | 동일 검증 프레임의 입력·실제 출력과 forward 형상 기록 | 그림 재생성용 고정 자산 |
 | `make_pipeline_figure.py` | 파이프라인 모식도 **생성기 (정본)** | 배치·좌표를 고칠 때 |
 | `bev_pipeline.svg` | 독립 SVG (색 리터럴, 폰트 폴백) | **논문 figure**, Word, Inkscape |
 | `bev_pipeline_themed.svg` | 색이 CSS 변수인 판본 | `bev_pipeline.html`에 인라인됨 |
