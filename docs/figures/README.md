@@ -4,7 +4,7 @@
 
 | 파일 | 무엇 | 어디에 쓰나 |
 |---|---|---|
-| [`model_architecture.html`](model_architecture.html) | **현행 모델 논문용 그림 미리보기**(2026-09-16); 실제 입력·예측, encoder/decoder 상세 | 브라우저 확인 |
+| [`model_architecture.html`](model_architecture.html) | **현행 모델 논문용 그림 미리보기**(2026-09-16); 실제 입력·예측, 사다리꼴과 특징 평면으로 표현한 전체 흐름 | 브라우저 확인 |
 | `model_architecture.{pdf,svg,png}` | 영문 아키텍처; Y=4, Double Sphere, binary | **논문 본문** |
 | `training_objective.{pdf,svg,png}` | soft-boundary + radial free-length 학습 경로 | 방법론 보조 그림 |
 | [`model_architecture_notes.md`](model_architecture_notes.md) | 코드 근거, 예제 출처, 계승/변경 구분, 영문 캡션 | 논문 집필 |

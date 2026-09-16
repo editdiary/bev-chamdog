@@ -1,6 +1,6 @@
 # 현재 모델의 논문용 구조도
 
-2026-09-16 작성. 구조의 근거는 코드 `d43bca3`와 실제 `D_range_s0` 실행 설정이다.
+2026-09-16 작성·모식도 중심 개정. 구조의 근거는 코드 `d43bca3`와 실제 `D_range_s0` 실행 설정이다.
 `dataset/figure/bev_pipeline_reference.html`을 참고하되 현행 코드와 대조했다.
 이 문서는 그림의 설명·출처이며 모델이나 loss의 새 정본은 아니다.
 
@@ -13,19 +13,27 @@
 - **실측 형상·체크포인트 출처:** [architecture_assets/provenance.json](architecture_assets/provenance.json)
 
 PDF는 글꼴이 포함된 벡터 파일이고 SVG는 편집 가능한 텍스트를 유지한다. 사진과 실제 예측 지도만
-내장 래스터다. PNG는 300 dpi이며 본문 그림 4320×2280, 보조 그림 4320×1530이다.
+내장 래스터다. PNG는 300 dpi이며 본문 그림 4320×1470, 보조 그림 4320×1530이다.
 본문 그림은 2단 논문의 두 단 전체 폭에 배치하는 용도다. 한 단에 넣으면 세부 라벨이 작아진다.
 
 ```bash
 conda run -n bev-chamdog python tools/render_model_architecture.py
 ```
 
+기본 명령은 아키텍처 그림만 재생성한다. 목적함수 그림은 `--figure objective`를 명시할 때만
+재생성하며, 모식도 중심 개정에서는 기존 목적함수 파일을 변경하지 않았다.
 그림 재생성은 저장된 예제 이미지만 읽으므로 GPU·데이터셋·체크포인트가 필요 없다.
 레이아웃과 라벨은 생성 스크립트에서 수정한다. SVG만 직접 수정하면 재생성 때 사라진다.
 
 ## 무엇을 표현했나
 
-파란 상자는 학습되는 모듈, 황토색은 고정된 기하와 카메라 병합이다.
+오른쪽으로 좁아지는 사다리꼴은 공유 인코더, 넓어지는 사다리꼴은 BEV 디코더다.
+세워 쌓은 평면은 특징맵, 수평 격자 네 장은 높이별 표본, 한 장의 수평 격자는 압축된 BEV 특징이다.
+사다리꼴은 기능을 나타내는 모식 표현이며, 실제 디코더가 단조롭게 업샘플링만 한다는 뜻은 아니다.
+디코더 내부는 아래 표와 같은 U-Net이다. 내부 텐서 표와 상세 인코더·디코더 패널은 그림에서 빼고
+이 설명 문서에 남겼다. 입력·출력 해상도, 인코더 stride, 표본 높이만 작게 보조 표기한다.
+
+파란 도형은 학습 모듈과 그 특징, 황토색은 고정된 기하와 카메라 병합이다.
 보조 그림의 보라색 점선은 학습에만 필요한 계산을 뜻한다.
 
 | 단계 | 현행 구성과 텐서 크기 — 배치 B 생략 | 근거 |
@@ -106,15 +114,17 @@ L=L_{\rm cell}+0.3L_{\rm range}.
 ## 영문 캡션 초안
 
 **Architecture figure.** Overview of the Simple-BEV-based fisheye free-space prediction network.
-(a) Three camera images are processed by a shared ResNet-101 encoder.
+Three camera images are processed by a shared ResNet-101 encoder.
 Using calibrated Double Sphere projection, image features are bilinearly sampled at four heights
 (0, 0.5, 1.0, and 1.5 m above ground) and fused across cameras by masked averaging.
 The height dimension is folded into the channel dimension and compressed into a 2D BEV feature map.
 A ResNet-18-based U-Net with additive skip connections and a binary segmentation head predicts
 free and not-free logits on a 120 × 120 grid at 5 cm resolution.
-(b) Image-space feature fusion uses concatenation. (c) BEV upsampling uses additive skips.
-Blue denotes learned modules and ochre denotes fixed geometric operations and fusion.
-The camera images and output map show the same validation frame. Batch dimensions are omitted.
+Narrowing and widening trapezoids denote encoding and decoding; stacked sheets depict intermediate
+features, and horizontal grids depict the sampled height planes and the compressed BEV representation.
+Blue denotes learned modules and features, while ochre denotes fixed geometric operations and fusion.
+The camera images and output map show the same validation frame. Internal tensor dimensions are omitted
+for clarity.
 
 **Training figure.** Training objective for the soft-boundary model with radial free-length supervision.
 Hard targets supervise cells outside the boundary band, while a truncated-Gaussian target

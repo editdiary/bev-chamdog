@@ -1,10 +1,12 @@
 """논문용 구조도. 저장된 실측 예제만 읽으며 학습·추론을 다시 실행하지 않는다.
 
 실행: conda run -n bev-chamdog python tools/render_model_architecture.py
-출력: docs/figures/model_architecture.{svg,pdf,png}, training_objective.{svg,pdf,png}
+기본 출력: docs/figures/model_architecture.{svg,pdf,png}
+목적함수 재생성은 --figure objective, 두 그림은 --figure all로 명시한다.
 구조·예제 출처: docs/figures/architecture_assets/provenance.json
 """
 from pathlib import Path
+import argparse
 import json
 
 import matplotlib
@@ -95,136 +97,138 @@ def save(fig, name):
                 raise RuntimeError(f"그림 바깥으로 나온 라벨: {label.get_text()}")
     for suffix in ("svg", "pdf", "png"):
         fig.savefig(OUT / f"{name}.{suffix}", dpi=300)
+        if suffix == "svg":
+            path = OUT / f"{name}.{suffix}"
+            path.write_text("\n".join(line.rstrip() for line in path.read_text().splitlines()) + "\n")
     plt.close(fig)
 
 
+def tapered_module(ax, x0, x1, cy, left_h, right_h, label, size=16):
+    """A shallow 3D trapezoid: narrowing encoder or widening decoder."""
+    front = np.array([[x0,cy-left_h/2], [x1,cy-right_h/2],
+                      [x1,cy+right_h/2], [x0,cy+left_h/2]])
+    shift = np.array([9,-9])
+    ax.add_patch(Polygon([front[0],front[1],front[1]+shift,front[0]+shift],
+                         facecolor="#D9E6F5",edgecolor=BLUE,lw=1.3))
+    ax.add_patch(Polygon([front[1],front[2],front[2]+shift,front[1]+shift],
+                         facecolor="#B9D0ED",edgecolor=BLUE,lw=1.3))
+    ax.add_patch(Polygon(front,facecolor=BLUE_BG,edgecolor=BLUE,lw=1.8))
+    if label:
+        text(ax,(x0+x1)/2,cy,label,size,BLUE,True)
+
+
+def feature_stack(ax, x, cy, count=3, height=83, width=37, colors=None):
+    """Upright sheets represent feature channels, not metric BEV planes."""
+    colors = colors or ["#D9E6F5", "#E7EFF9", "#F5F8FD"]
+    for i in range(count):
+        xx = x+(count-1-i)*7
+        yy = cy-height/2-(count-1-i)*6
+        pts=np.array([[xx,yy],[xx+width,yy+10],
+                      [xx+width,yy+height+10],[xx,yy+height]])
+        ax.add_patch(Polygon(pts,facecolor=colors[i % len(colors)],
+                             edgecolor=BLUE,lw=1.1,zorder=4))
+        for t in (.25,.5,.75):
+            p=pts[0]*(1-t)+pts[3]*t
+            q=pts[1]*(1-t)+pts[2]*t
+            ax.plot([p[0],q[0]],[p[1],q[1]],color=BLUE,alpha=.2,lw=.6,zorder=5)
+
+
+def bev_sheet(ax,cx,cy):
+    pts=np.array([[cx,cy-32],[cx+46,cy],[cx,cy+32],[cx-46,cy]])
+    lower=pts+np.array([0,9])
+    ax.add_patch(Polygon([pts[1],pts[2],pts[3],lower[3],lower[2],lower[1]],
+                         facecolor="#B9D0ED",edgecolor=BLUE,lw=1.1,zorder=3))
+    ax.add_patch(Polygon(pts,facecolor=BLUE_BG,edgecolor=BLUE,lw=1.3,zorder=4))
+    for t in (.2,.4,.6,.8):
+        for p,q in ((pts[0]*(1-t)+pts[3]*t,pts[1]*(1-t)+pts[2]*t),
+                    (pts[0]*(1-t)+pts[1]*t,pts[3]*(1-t)+pts[2]*t)):
+            ax.plot([p[0],q[0]],[p[1],q[1]],color=BLUE,alpha=.35,lw=.6,zorder=5)
+
+
 def architecture():
-    fig, ax = canvas(760)
-    text(ax, 20, 26, "(a)  Image-to-BEV inference", 20, bold=True, ha="left")
-    for x, col, bg, label in ((845, BLUE, BLUE_BG, "Learned module"),
-                              (1130, GOLD, GOLD_BG, "Fixed geometry / fusion")):
-        box(ax, x, 16, 20, 20, col, bg, radius=2)
-        text(ax, x+30, 26, label, 14, ha="left")
+    fig, ax = canvas(490)
+    text(ax,22,30,"Fisheye-to-BEV free-space prediction",21,bold=True,ha="left")
+    for x,col,bg,label in ((895,BLUE,BLUE_BG,"Learned"),
+                           (1110,GOLD,GOLD_BG,"Fixed geometry")):
+        ax.add_patch(Polygon([(x,20),(x+22,25),(x+22,39),(x,44)],
+                             facecolor=bg,edgecolor=col,lw=1.4))
+        text(ax,x+34,32,label,14,ha="left")
 
-    # Calibrations are model inputs; labels never enter this path.
-    box(ax, 431, 57, 282, 40, GOLD, GOLD_BG)
-    text(ax, 572, 77, "DS intrinsics + extrinsics", 13, GOLD)
-    route(ax, [(713,77),(731,77),(731,144),(715,144)], GOLD)
+    # Short stage names sit above silhouettes; details sit below them.
+    for x,title in ((84,"3 cameras"),(256,"Shared encoder"),
+                    (531,"Multi-height lifting"),(795,"BEV fusion"),
+                    (1036,"BEV decoder"),(1330,"Free-space map")):
+        text(ax,x,100,title,14,bold=True)
 
-    for x, title in ((87,"Fisheye images"), (285,"Shared encoder"),
-                     (572,"Geometric lifting"), (833,"BEV compression"),
-                     (1050,"BEV decoder"), (1317,"Free-space map")):
-        text(ax, x, 113, title, 14, bold=True)
+    for i,name in enumerate(("front","left","right")):
+        y=145+i*80
+        photo(ax,name+".png",22,y,125,70.3)
+        ax.add_patch(Rectangle((23,y+48),50,21,facecolor="white",alpha=.92,lw=0,zorder=5))
+        text(ax,27,y+58,name,11.5,ha="left",zorder=6)
+        arrow(ax,(150,y+35),(181,220+40*i),lw=1.4)
 
-    for i, name in enumerate(("front", "left", "right")):
-        y = 139+i*77
-        photo(ax, name+".png", 21, y, 132, 74.25)
-        ax.add_patch(Rectangle((22,y+52),52,21,facecolor="white",alpha=.92,lw=0,zorder=5))
-        text(ax, 26, y+62, name, 12, ha="left", zorder=6)
-    text(ax, 87, 386, "3 cameras · RGB", 14)
-    text(ax, 87, 409, "288 × 512 each", 14, MUTED)
+    # One shared encoder, three camera-specific feature maps.
+    tapered_module(ax,185,324,260,210,86,"ResNet\n101",17)
+    feature_stack(ax,351,260)
+    arrow(ax,(335,260),(347,260),BLUE,lw=1.4)
+    text(ax,265,421,"ResNet-101 · stride 8",12.5,MUTED)
+    text(ax,382,335,"Per-view\nfeatures",11.5,MUTED)
 
-    box(ax, 188, 150, 194, 195)
-    text(ax, 285, 181, "ResNet-101", 18, BLUE, True)
-    text(ax, 285, 245, "Trunk to layer3\n↑2 + concat\n1 × 1 conv", 14)
-    text(ax, 285, 319, "Stride 8 · shared", 13, BLUE)
-    arrow(ax, (154,247), (184,247))
-    text(ax, 285, 386, "3 × 128 × 36 × 64", 14)
-    text(ax, 285, 409, "Camera features", 14, MUTED)
-
-    box(ax, 427, 132, 286, 232, GOLD, "#FFFCF7")
-    text(ax, 570, 155, "Double Sphere projection", 13.5, GOLD, True)
-    # Draw bottom-to-top so the four sampled heights remain distinguishable.
+    # DS calibration supplies fixed sampling coordinates at four physical heights.
+    box(ax,451,138,169,34,GOLD,GOLD_BG,radius=4,lw=1)
+    text(ax,535,155,"DS calibration",12.5,GOLD)
+    arrow(ax,(535,174),(535,195),GOLD,lw=1.3)
     for i in range(4):
-        cy = 278 - 27*i
-        plane(ax, 544, cy)
-        text(ax, 643, cy, f"{i*.5:.1f} m", 13, GOLD)
-    text(ax, 571, 311, "Bilinear feature sampling", 13, GOLD)
-    text(ax, 571, 344, "Camera masked mean", 13.5, GOLD, True)
-    arrow(ax, (384,247), (423,247))
-    text(ax, 572, 386, "128 × 120 × 4 × 120", 14)
-    text(ax, 572, 409, "C × Z × Y × X; after fusion", 13.5, MUTED)
+        cy=315-32*i
+        plane(ax,535,cy,width=148,height=51)
+    arrow(ax,(407,260),(455,260),GOLD)
+    text(ax,535,365,"0 / 0.5 / 1.0 / 1.5 m",11.5,GOLD)
+    text(ax,535,421,"Double Sphere · 4 heights",12.5,MUTED)
 
-    box(ax, 751, 150, 164, 195)
-    text(ax, 833, 180, "Fold height", 16, BLUE, True)
-    text(ax, 833, 207, "4 × 128 → 512", 13)
-    arrow(ax, (833,223), (833,244), BLUE)
-    text(ax, 833, 264, "3 × 3 conv", 16, BLUE, True)
-    text(ax, 833, 289, "512 → 128 ch", 14)
-    text(ax, 833, 320, "IN + GELU", 14)
-    arrow(ax, (715,247), (747,247))
-    text(ax, 833, 386, "128 × 120 × 120", 14)
-    text(ax, 833, 409, "2D BEV features", 14, MUTED)
+    # Fuse cameras first; then concatenate height slices along channels.
+    arrow(ax,(612,260),(657,260),GOLD)
+    circle=plt.Circle((676,260),19,facecolor=GOLD_BG,edgecolor=GOLD,lw=1.5,zorder=5)
+    ax.add_patch(circle)
+    text(ax,676,260,r"$\mu$",21,GOLD,zorder=6)
+    text(ax,676,319,"Masked\ncamera mean",11.5,GOLD)
+    arrow(ax,(697,260),(726,260),GOLD)
+    feature_stack(ax,730,260,count=4,height=103,width=22,
+                  colors=["#B9D0ED","#CDDEF1","#E0EAF7","#F0F5FC"])
+    arrow(ax,(777,260),(787,260),BLUE,lw=1.4)
+    tapered_module(ax,791,839,260,104,52,"",13)
+    text(ax,817,330,"Conv",12,BLUE)
+    arrow(ax,(850,260),(858,260),BLUE,lw=1.3)
+    bev_sheet(ax,906,260)
+    text(ax,906,330,"BEV\nfeatures",11.5,MUTED)
+    text(ax,802,421,"Fold height → conv",12.5,MUTED)
 
-    box(ax, 955, 150, 193, 195)
-    text(ax, 1051, 180, "ResNet-18", 16, BLUE, True)
-    text(ax, 1051, 212, "U-Net + additive skips", 12)
-    text(ax, 1051, 257, "120 → 60 → 30 → 15\n15 → 30 → 60 → 120", 11.8)
-    text(ax, 1051, 307, "Binary head", 14, BLUE, True)
-    text(ax, 1051, 332, "3 × 3 → 1 × 1", 12)
-    arrow(ax, (917,247), (951,247))
-    text(ax, 1051, 386, "2 × 120 × 120", 14)
-    text(ax, 1051, 409, "not-free / free logits", 14, MUTED)
+    # The widening shape is a decoder icon, not a claim of monotonic upsampling.
+    arrow(ax,(953,260),(965,260),BLUE,lw=1.4)
+    tapered_module(ax,969,1107,260,78,210,"BEV\nU-Net",17)
+    feature_stack(ax,1145,260,count=2,height=112,width=17,
+                  colors=["#D6E9E3","#ECF0F4"])
+    arrow(ax,(1119,260),(1140,260),BLUE,lw=1.4)
+    text(ax,1162,354,"Binary\nhead",11.5,BLUE)
+    text(ax,1040,421,"ResNet-18 + binary head",12,MUTED)
 
-    raw_mask = np.asarray(Image.open(ASSETS / "prediction.png")) > 0
-    ax.imshow(raw_mask, cmap=ListedColormap(["#E5E9ED", GREEN]),
-              extent=(1228,1402,311,137), interpolation="nearest", vmin=0, vmax=1)
-    ax.add_patch(Rectangle((1228,137),174,174,fill=False,edgecolor=RULE,lw=1.2))
-    # Ego is at row 80: forward 4 m, rear 2 m. This is a location marker only.
-    arrow(ax,(1315,137+174*80/120+8),(1315,137+174*80/120-8),INK,lw=1.5)
-    text(ax, 1315, 332, "argmax over 2 logits", 13.5)
-    arrow(ax, (1150,247), (1224,247))
-    for x, col, name in ((1231,GREEN,"free"),(1306,"#E5E9ED","not-free")):
-        ax.add_patch(Rectangle((x,350),12,12,facecolor=col,edgecolor=RULE,lw=.5))
-        text(ax,x+18,356,name,12,ha="left")
-    text(ax, 1315, 386, "120 × 120 · 5 cm", 14)
-    text(ax, 1315, 409, "6 m × 6 m coverage", 14, MUTED)
+    # This is the same raw prediction used in the verified first figure.
+    raw_mask=np.asarray(Image.open(ASSETS/"prediction.png"))>0
+    ax.imshow(raw_mask,cmap=ListedColormap(["#E5E9ED",GREEN]),
+              extent=(1245,1415,345,175),interpolation="nearest",vmin=0,vmax=1)
+    ax.add_patch(Rectangle((1245,175),170,170,fill=False,edgecolor=RULE,lw=1.2))
+    arrow(ax,(1181,260),(1239,260))
+    text(ax,1210,232,"argmax",10.5,MUTED)
+    ego_y=175+170*80/120
+    arrow(ax,(1330,ego_y+8),(1330,ego_y-8),INK,lw=1.5)
+    for x,col,name in ((1247,GREEN,"free"),(1324,"#E5E9ED","not-free")):
+        ax.add_patch(Rectangle((x,364),11,11,facecolor=col,edgecolor=RULE,lw=.5))
+        text(ax,x+16,370,name,11.5,ha="left")
+    text(ax,1330,421,"120 × 120 · 5 cm",12,MUTED)
 
-    # Architectural details: concats in image space, adds in BEV space.
-    box(ax, 20, 444, 650, 264, RULE, "white", radius=4, lw=1)
-    box(ax, 690, 444, 730, 264, RULE, "white", radius=4, lw=1)
-    text(ax, 37, 467, "(b)  Image encoder", 17, bold=True, ha="left")
-    text(ax, 647, 467, "per camera", 13, MUTED, ha="right")
-    stages = [(39, 522, 120, "Stem / L1–2", "512 ch"),
-              (196, 522, 104, "Layer3", "1024 ch"),
-              (337, 522, 82, "↑2, cat", "1536 ch"),
-              (455, 522, 91, "Conv ×2", "512 ch"),
-              (578, 522, 73, "1 × 1", "128 ch")]
-    for x,y,w,name,shape in stages:
-        box(ax,x,y,w,61)
-        text(ax,x+w/2,y+19,name,11,BLUE,True)
-        text(ax,x+w/2,y+43,shape,11)
-    for x,s in ((99,"36 × 64"),(248,"18 × 32"),(377,"36 × 64"),(500,"36 × 64"),(614,"36 × 64")):
-        text(ax,x,604,s,11,MUTED)
-    for left,right in zip(stages,stages[1:]):
-        arrow(ax,(left[0]+left[2]+3,553),(right[0]-4,553),BLUE)
-    route(ax,[(99,522),(99,499),(377,499),(377,519)],BLUE)
-    text(ax, 337, 638, "cat: concatenate layer2 and upsampled layer3 features", 12.2)
-    text(ax, 337, 667, "Fusion conv: 3 × 3 + IN + ReLU; ImageNet initialization", 12.2, MUTED)
-    text(ax, 337, 690, "IN: instance normalization", 12, MUTED)
-
-    text(ax, 707, 467, "(c)  BEV decoder", 17, bold=True, ha="left")
-    text(ax, 1397, 467, "C × Z × X", 13, MUTED, ha="right")
-    # Left-to-right down/up path, with explicit '+' on the upsampling blocks.
-    nodes = [(723,530,62,80,"Input","128","120²"),
-             (820,546,62,64,"Stem/L1","64","60²"),
-             (917,561,62,49,"L2","128","30²"),
-             (1014,575,62,35,"L3","256","15²"),
-             (1111,561,62,49,"↑2 +","128","30²"),
-             (1208,546,62,64,"↑2 +","64","60²"),
-             (1305,530,62,80,"↑2 +","128","120²")]
-    for i,(x,y,w,h,name,ch,spatial) in enumerate(nodes):
-        box(ax,x,y,w,h,BLUE,"white" if i >= 4 else BLUE_BG)
-        text(ax,x+w/2,y+h/2,ch,14,BLUE,True)
-        text(ax,x+w/2,632,name,12)
-        text(ax,x+w/2,655,spatial,12,MUTED)
-    for left,right in zip(nodes,nodes[1:]):
-        arrow(ax,(left[0]+left[2]+2,594),(right[0]-3,594),BLUE)
-    for left,right,y in ((0,6,491),(1,5,509),(2,4,529)):
-        a,b = nodes[left],nodes[right]
-        route(ax,[(a[0]+31,a[1]),(a[0]+31,y),(b[0]+31,y),(b[0]+31,b[1]-3)],BLUE)
-    text(ax,1055,684,"↑2: bilinear upsample → 1 × 1 conv + IN;  +: add skip",12.5,MUTED)
-    text(ax,20,735,"Batch dimension omitted. Heights are relative to ground; Z/X are BEV axes, Y is height.",13,MUTED,ha="left")
+    text(ax,84,421,"512 × 288",12,MUTED)
+    ax.plot([22,1415],[454,454],color=RULE,lw=.8)
+    text(ax,22,473,"Images → image features → multi-height features → 2D BEV features → free-space prediction",
+         13,MUTED,ha="left")
     save(fig,"model_architecture")
 
 
@@ -286,12 +290,20 @@ def training_objective():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--figure", choices=("architecture", "objective", "all"), default="architecture")
+    args = parser.parse_args()
     meta = json.loads((ASSETS / "provenance.json").read_text())
     assert meta["height"]["height_bins"] == 4
     assert meta["tensor_shapes"]["decoder.segmentation_head"] == [1,2,120,120]
-    architecture()
-    training_objective()
-    for stem in ("model_architecture", "training_objective"):
+    stems = []
+    if args.figure in ("architecture", "all"):
+        architecture()
+        stems.append("model_architecture")
+    if args.figure in ("objective", "all"):
+        training_objective()
+        stems.append("training_objective")
+    for stem in stems:
         for ext in ("svg", "pdf", "png"):
             p = OUT / f"{stem}.{ext}"
             print(f"{p.relative_to(ROOT)}: {p.stat().st_size:,} bytes")

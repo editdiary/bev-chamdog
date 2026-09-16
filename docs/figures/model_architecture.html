@@ -20,8 +20,9 @@ small{color:#536579}code{background:#e6ecf2;padding:2px 5px}
 <section><h2>1. 모델 아키텍처</h2>
 <nav><a href="model_architecture.pdf">논문용 PDF</a><a href="model_architecture.svg">편집용 SVG</a><a href="model_architecture.png">300 dpi PNG</a></nav>
 <figure><img src="model_architecture.svg" alt="3대 어안 입력, 공유 ResNet-101, Double Sphere 4개 높이 표본과 카메라 평균, BEV 압축, ResNet-18 디코더와 이진 출력"></figure>
-<p>높이별 특징을 채널로 접어 <b>512→128</b> 합성곱으로 압축합니다. 이미지 인코더는 concatenate,
-BEV 디코더는 additive skip을 사용합니다. 출력의 not-free에는 occupied와 unknown이 함께 포함됩니다.</p></section>
+<p>좁아지는 사다리꼴은 공유 인코더, 펼쳐지는 사다리꼴은 BEV 디코더입니다.
+특징맵 묶음 → 높이별 격자 → 하나의 BEV 평면 → 이진 지도로 이어지는 흐름을 중심으로 그렸습니다.
+상세 텐서 크기는 설명 문서에 있으며, 출력의 not-free에는 occupied와 unknown이 함께 포함됩니다.</p></section>
 <section><h2>2. 학습 목적함수</h2>
 <nav><a href="training_objective.pdf">논문용 PDF</a><a href="training_objective.svg">편집용 SVG</a><a href="training_objective.png">300 dpi PNG</a></nav>
 <figure><img src="training_objective.svg" alt="경계 soft target과 hard 영역 감독, 광선별 free 길이 보조 loss를 결합하는 학습 전용 흐름"></figure>
