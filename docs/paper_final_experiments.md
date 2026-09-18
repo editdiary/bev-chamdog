@@ -149,7 +149,7 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 - [x] 정본 conda/Python/torch/CUDA/numpy 확인
 - [x] 데이터셋 로컬 연결 확인
 - [x] baseline test: 409 passed, 7 skipped
-- [ ] 논문용 실행 스크립트와 분석 스크립트 구현
+- [ ] 논문용 실행 스크립트와 분석 스크립트 구현 (실행 orchestrator 완료, 분석 대기)
 - [ ] 1 epoch dry-run: 고정 split seed 0
 - [ ] 1 epoch dry-run: LOSO fold 2개, seed 0
 - [ ] dry-run config·split·`height.json`·확률맵 무결성 확인
@@ -173,8 +173,19 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 
 ### 다음 작업
 
-`01_overall` 전용 실행·분석 스크립트를 구현하고 두 종류의 1-epoch dry-run을 검증한다.
-검증이 끝난 뒤 GPU 0에서 40런을 실행한다.
+`01_overall` 실행 orchestrator는 40개 런을 완전한 명시 설정으로 생성하며, plan-only
+manifest에서 고정 split 5개와 LOSO 35개, 시드 0~4, 7 folds, 고유 런 이름을 확인했다.
+불완전 런은 덮어쓰거나 삭제하지 않고 `blocked_incomplete`로 남긴다. 다음은 분석 스크립트와
+결과 번들을 구현하고 두 종류의 1-epoch dry-run을 검증하는 작업이다.
+
+실행 진입점:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 \
+OUT_ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall \
+PROTOCOL=all SEEDS=0,1,2,3,4 NUM_EPOCHS=40 \
+    bash configs/paper_final_overall.sh
+```
 
 ---
 
@@ -186,4 +197,3 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 - `02` SynWoodScape pretraining의 source 정식화·source seed 처리·전이 범위
 - `02` front-only의 고정 3-camera task 평가와 front 공통 가시영역 보조 평가
 - `04` Orin warm-up, 반복 횟수, latency percentile, 전력 측정 명령
-

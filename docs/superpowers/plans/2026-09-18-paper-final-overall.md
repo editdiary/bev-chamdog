@@ -35,7 +35,7 @@
 - Produces: `training_environment(spec, output_root, num_epochs, gpu) -> dict[str, str]`.
 - Produces: `${OUT_ROOT}/experiment_manifest.json` before GPU execution.
 
-- [ ] **Step 1: Write the failing run-matrix tests**
+- [x] **Step 1: Write the failing run-matrix tests**
 
 ```python
 from tools.run_paper_final_overall import build_run_specs, training_environment
@@ -68,19 +68,19 @@ def test_training_environment_spells_out_the_frozen_configuration(tmp_path):
     assert all(env[k] == v for k, v in expected.items())
 ```
 
-- [ ] **Step 2: Run tests and confirm import failure**
+- [x] **Step 2: Run tests and confirm import failure**
 
 Run: `conda run -n bev-chamdog pytest tests/tools/test_run_paper_final_overall.py -q`
 
 Expected: FAIL because the module does not exist.
 
-- [ ] **Step 3: Implement matrix, manifest, and queue**
+- [x] **Step 3: Implement matrix, manifest, and queue**
 
 CLI arguments are `--protocol=fixed|loso|all`, `--seeds`, `--folds`, `--num_epochs`, `--gpu`, `--output_root`, and `--plan_only`. Fixed names are `final_s{seed}`; LOSO names are `loso_{held}_s{seed}`. Explicitly pass every spec §3 value plus `AUGMENT=True`, `FLIP_AUGMENT=False`, `FREEZE_ENCODER=False`, `LABEL_SMOOTHING=0.0`, `BAND_KAPPA=1.0`, `LABEL_EPS=0.0`, `DELTA_R_OVER_M=None`, `LR=1e-4`, `WEIGHT_DECAY=1e-7`, and `MAX_CLASS_WEIGHT=20`.
 
 The manifest records Git commit, environment versions, all RunSpecs, exact env, and timestamp. Skip only complete runs. Leave incomplete or failed data untouched, record failures in `queue_status.json`, and continue.
 
-- [ ] **Step 4: Add wrapper and verify**
+- [x] **Step 4: Add wrapper and verify**
 
 Run:
 ```bash
@@ -90,7 +90,7 @@ OUT_ROOT=/tmp/paper-final-plan PLAN_ONLY=True bash configs/paper_final_overall.s
 
 Expected: tests PASS; manifest has 40 unique runs and no training directories.
 
-- [ ] **Step 5: Update ledger and commit**
+- [x] **Step 5: Update ledger and commit**
 
 ```bash
 git add tools/run_paper_final_overall.py configs/paper_final_overall.sh tests/tools/test_run_paper_final_overall.py docs/paper_final_experiments.md
@@ -313,4 +313,3 @@ git diff --check
 git add docs/paper_final_experiments.md configs/paper_final_overall*.sh tools/run_paper_final_overall.py tools/report_loso.py tools/verify_val_predictions.py tools/build_overall_results_bundle.py tests/tools/test_run_paper_final_overall.py tests/tools/test_report_loso.py tests/tools/test_verify_val_predictions.py tests/tools/test_build_overall_results_bundle.py
 git commit -m "exp: complete final overall performance evaluation"
 ```
-
