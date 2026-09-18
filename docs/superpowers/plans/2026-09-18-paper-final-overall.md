@@ -276,11 +276,11 @@ git commit -m "docs: record paper overall dry-run validation"
 - Modify: `docs/paper_final_experiments.md`
 - Outputs: `/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/`
 
-- [ ] **Step 1: Generate and audit launch manifest**
+- [x] **Step 1: Generate and audit launch manifest**
 
 Require 40 unique runs, five seeds, seven folds, exact Git commit, and no config differences beyond identity/split.
 
-- [ ] **Step 2: Launch GPU 0 queue**
+- [x] **Step 2: Launch GPU 0 queue**
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 OUT_ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall PROTOCOL=all SEEDS=0,1,2,3,4 NUM_EPOCHS=40 bash configs/paper_final_overall.sh

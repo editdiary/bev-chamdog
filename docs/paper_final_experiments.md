@@ -38,7 +38,7 @@
 
 | ID | 논문 역할 | 평가 프로토콜 | 상태 |
 |---|---|---|---|
-| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **dry-run 통과, 40런 실행 대기** |
+| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **40런 실행 중** |
 | `02_sensor_task_adaptation` | 카메라 모델·source prior·센서 범위 불일치 | 고정 split × 5 seeds | 계획 |
 | `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 기존 5조건 × 5 seeds 재사용 | 원자료 존재, 논문용 재정리 대기 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
@@ -153,7 +153,7 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 - [x] 1 epoch dry-run: 고정 split seed 0
 - [x] 1 epoch dry-run: LOSO fold 2개, seed 0
 - [x] dry-run config·split·`height.json`·확률맵 무결성 확인
-- [ ] 40런 본 실행 시작
+- [x] 40런 본 실행 시작
 
 ---
 
@@ -188,6 +188,17 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
   **1.91e-4**, LOSO raws1 **2.40e-4**, LOSO raws3 **2.78e-4**였고, 허용치 1e-3
   안에서 **실패 0건**이었다. 행 순서·Y=4 기하·체크포인트 선택을 함께 검증했다.
 - dry-run 후 전체 회귀 테스트는 **421 passed, 7 skipped**였다.
+
+### 2026-09-18 — `01_overall` 40런 본 실행 시작
+
+- 시작: 2026-09-18 13:41 KST, GPU 0, 결과 루트 `runs/paper_final/01_overall/`.
+- 실행 Git commit: `9f7ced8945a7cb0e35ad67d4343cb038e84f427a`.
+- 시작 manifest를 감사했다: 고정 split 5런 + LOSO 35런 = **40개 고유 런**, seeds
+  0~4, 7 folds 각각 5런이며 split/런 식별자를 제외한 30개 환경 설정이 모두 같았다.
+- 실행 manifest가 기록한 정본 환경은 Python 3.11.15, torch 2.7.0+cu128, CUDA 12.8,
+  numpy 1.26.4, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition이다.
+- 첫 런 `final_s0`는 epoch 40까지 정상 완료했고 고정 epoch `iou_free=0.811`이었다.
+  이는 진행 상태 확인값이며, 논문 숫자는 5개 시드 완료 후 결과 bundle에서만 확정한다.
 
 ### 다음 작업
 
