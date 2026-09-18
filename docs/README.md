@@ -66,6 +66,7 @@
 
 | 문서 | 역할 |
 |---|---|
+| [`paper_final_experiments.md`](paper_final_experiments.md) | **논문 최종 설정 재실험의 단일 진행 원장.** `runs/paper_final/`의 계획·동결 설정·실행 상태·무결성·논문용 결과를 계속 갱신한다 |
 | [`next_session_binary_and_verification.md`](next_session_binary_and_verification.md) | 2026-08-19 시점 인수인계에서 **운영 메모로 격하**. 도구 목록·실행 명령·시퀀스 이질성 실측·`cam0..3` 매핑 함정(**`left=cam3`이다**)처럼 다른 곳에 중복되지 않은 실무 정보가 남아 있다. §0의 "논의 중"은 종결됐다 |
 
 ## 📚 참고
