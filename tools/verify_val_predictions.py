@@ -96,8 +96,17 @@ def numpy_metrics(pred_free, gt_parts, valid, rays, cell_m) -> dict:
             "f1@10cm": tol_f1["10cm"]["f1"], "f1@20cm": tol_f1["20cm"]["f1"]}
 
 
+def write_verification_report(payload, pred_dir, out_path=None) -> Path:
+    """검증 payload를 기본 위치 또는 호출자가 지정한 fold별 위치에 쓴다."""
+    pred_dir = Path(pred_dir)
+    out = Path(out_path) if out_path else pred_dir.parent / "verify_predictions.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    return out
+
+
 def main(root="runs/loss_effect", tau=0.5, tol=1e-3, numpy_tol=2e-3, pred_dir=None,
-         check_numpy=True):
+         check_numpy=True, out_path=None):
     root = Path(root)
     pred_dir = Path(pred_dir) if pred_dir else root / "analysis" / "predictions"
     labels_path = pred_dir / "labels.npz"
@@ -172,11 +181,13 @@ def main(root="runs/loss_effect", tau=0.5, tol=1e-3, numpy_tol=2e-3, pred_dir=No
         print(f"  {path.name:28s} ep{epoch:3d}  " + "  ".join(line)
               + ("   !! 불일치" if bad else ""))
 
-    out = pred_dir.parent / "verify_predictions.json"
-    out.write_text(json.dumps({"tau": tau, "tol": tol, "numpy_tol": numpy_tol,
-                               "check_numpy": check_numpy, "n_files": len(files),
-                               "failures": failures, "rows": rows},
-                              indent=2, ensure_ascii=False))
+    out = write_verification_report(
+        {"tau": tau, "tol": tol, "numpy_tol": numpy_tol,
+         "check_numpy": check_numpy, "n_files": len(files),
+         "failures": failures, "rows": rows},
+        pred_dir,
+        out_path=out_path,
+    )
     print(f"\n파일 {len(files)}개 검사 -> {out}")
     if failures:
         # **여기서 멈추라는 뜻이다.** 아래 분석 전부가 이 파일들 위에 서 있다.

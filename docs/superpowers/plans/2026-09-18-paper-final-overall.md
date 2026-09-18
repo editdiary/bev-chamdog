@@ -162,15 +162,15 @@ git commit -m "feat: export structured LOSO summaries"
 - Produces: `loso/analysis/predictions/{fold}/labels.npz` and per-run prediction files.
 - Produces: `loso/analysis/verify_predictions_{fold}.json`.
 
-- [ ] **Step 1: Write a failing custom-output test**
+- [x] **Step 1: Write a failing custom-output test**
 
 Use tiny matching NPZ fixtures and monkeypatch the event boundary. Assert `main(..., out_path=tmp_path / "custom.json")` writes only the custom path.
 
-- [ ] **Step 2: Run and confirm argument failure**
+- [x] **Step 2: Run and confirm argument failure**
 
 Run: `conda run -n bev-chamdog pytest tests/tools/test_verify_val_predictions.py -q`
 
-- [ ] **Step 3: Add backward-compatible output parameter**
+- [x] **Step 3: Add backward-compatible output parameter**
 
 ```python
 out = Path(out_path) if out_path else pred_dir.parent / "verify_predictions.json"
@@ -179,11 +179,11 @@ out.parent.mkdir(parents=True, exist_ok=True)
 
 Do not change calculations or tolerances.
 
-- [ ] **Step 4: Implement analysis driver**
+- [x] **Step 4: Implement analysis driver**
 
 Enforce `bev-chamdog`, log commands with `tee`, and run: scalar export for both protocols; fixed prediction export/verification; seven fold-specific LOSO exports/verifications; fixed repeat summary; LOSO grouped summary; JSON LOSO report; Task 4 builder. Fail closed before bundle creation if any verification has failures.
 
-- [ ] **Step 5: Validate and commit**
+- [x] **Step 5: Validate and commit**
 
 ```bash
 conda run -n bev-chamdog pytest tests/tools/test_verify_val_predictions.py -q

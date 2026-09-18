@@ -149,7 +149,7 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 - [x] 정본 conda/Python/torch/CUDA/numpy 확인
 - [x] 데이터셋 로컬 연결 확인
 - [x] baseline test: 409 passed, 7 skipped
-- [ ] 논문용 실행 스크립트와 분석 스크립트 구현 (실행 orchestrator 완료, 분석 대기)
+- [ ] 논문용 실행 스크립트와 분석 스크립트 구현 (실행·분석 driver 완료, 결과 bundle 대기)
 - [ ] 1 epoch dry-run: 고정 split seed 0
 - [ ] 1 epoch dry-run: LOSO fold 2개, seed 0
 - [ ] dry-run config·split·`height.json`·확률맵 무결성 확인
@@ -179,6 +179,8 @@ manifest에서 고정 split 5개와 LOSO 35개, 시드 0~4, 7 folds, 고유 런 
 결과 번들을 구현하고 두 종류의 1-epoch dry-run을 검증하는 작업이다. LOSO 집계기는 fold별
 seed 원자료·mean/SD·constant-map margin을 JSON으로도 보존한다. 과거 `Y=1`에서 얻은 프레임
 표준편차 상수 기반 `fold SE`는 새 구조화 결과에서 제외해 절단선 이전 숫자가 섞이지 않게 했다.
+확률맵은 LOSO fold마다 별도 `labels.npz`와 함께 저장하며, fold별 무결성 JSON이 모두 통과해야
+결과 bundle 생성 단계로 진행한다.
 
 실행 진입점:
 
