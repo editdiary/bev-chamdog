@@ -38,7 +38,7 @@
 
 | ID | 논문 역할 | 평가 프로토콜 | 상태 |
 |---|---|---|---|
-| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **실행·분석 도구 완료, dry-run 대기** |
+| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **dry-run 통과, 40런 실행 대기** |
 | `02_sensor_task_adaptation` | 카메라 모델·source prior·센서 범위 불일치 | 고정 split × 5 seeds | 계획 |
 | `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 기존 5조건 × 5 seeds 재사용 | 원자료 존재, 논문용 재정리 대기 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
@@ -150,9 +150,9 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 - [x] 데이터셋 로컬 연결 확인
 - [x] baseline test: 409 passed, 7 skipped
 - [x] 논문용 실행 스크립트와 분석 스크립트 구현
-- [ ] 1 epoch dry-run: 고정 split seed 0
-- [ ] 1 epoch dry-run: LOSO fold 2개, seed 0
-- [ ] dry-run config·split·`height.json`·확률맵 무결성 확인
+- [x] 1 epoch dry-run: 고정 split seed 0
+- [x] 1 epoch dry-run: LOSO fold 2개, seed 0
+- [x] dry-run config·split·`height.json`·확률맵 무결성 확인
 - [ ] 40런 본 실행 시작
 
 ---
@@ -171,12 +171,31 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
   `simple_bev`와 `WoodScape` gitlink가 비어 있음을 확인하고 고정 커밋을 checkout했다.
   이후 전체 테스트가 **409 passed, 7 skipped**로 통과했다. 코드 결함은 없었다.
 
+### 2026-09-18 — `01_overall` 1-epoch dry-run 통과
+
+- 실행 위치: `runs/paper_final/01_overall_dryrun/`
+- 실행 전 환경: GPU 0 `NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition`,
+  torch `2.7.0+cu128`, CUDA build 12.8, numpy 1.26.4. 실제 CUDA tensor 연산까지 통과했다.
+- 고정 split `final_s0`: train/val **192/75 frames**, epoch 1 체크포인트와 best
+  체크포인트 생성. 해석된 config에서 확정 loss·ResNet-101·증강 설정을 확인했고,
+  `height.json`은 `Y=4`, −0.25~1.75 m였다.
+- LOSO `loso_raws1_s0`: train/val **229/38 frames**. train 6개 시퀀스에 held-out
+  `raws1`이 없고 val에는 `raws1`만 있음을 확인했다.
+- LOSO `loso_raws3_s0`: train/val **231/36 frames**. 같은 방식으로 `raws3`의
+  train/val 분리와 Y=4 메타데이터를 확인했다.
+- 세 런 모두 고정 epoch 예측을 fold별 `labels.npz`와 `prob_free` NPZ로 내보냈다.
+  학습 로그와 독립 재채점한 8개 지표의 최대 절대 차이는 각각 고정 split
+  **1.91e-4**, LOSO raws1 **2.40e-4**, LOSO raws3 **2.78e-4**였고, 허용치 1e-3
+  안에서 **실패 0건**이었다. 행 순서·Y=4 기하·체크포인트 선택을 함께 검증했다.
+- dry-run 후 전체 회귀 테스트는 **421 passed, 7 skipped**였다.
+
 ### 다음 작업
 
 `01_overall` 실행 orchestrator는 40개 런을 완전한 명시 설정으로 생성하며, plan-only
 manifest에서 고정 split 5개와 LOSO 35개, 시드 0~4, 7 folds, 고유 런 이름을 확인했다.
 불완전 런은 덮어쓰거나 삭제하지 않고 `blocked_incomplete`로 남긴다. 분석 driver와 결과
-bundle 구현도 완료했다. 다음은 두 종류의 1-epoch dry-run을 검증하는 작업이다. LOSO 집계기는 fold별
+bundle 구현도 완료했고 두 종류의 1-epoch dry-run도 통과했다. 다음은 40런 본 실행이다.
+LOSO 집계기는 fold별
 seed 원자료·mean/SD·constant-map margin을 JSON으로도 보존한다. 과거 `Y=1`에서 얻은 프레임
 표준편차 상수 기반 `fold SE`는 새 구조화 결과에서 제외해 절단선 이전 숫자가 섞이지 않게 했다.
 확률맵은 LOSO fold마다 별도 `labels.npz`와 함께 저장하며, fold별 무결성 JSON이 모두 통과해야

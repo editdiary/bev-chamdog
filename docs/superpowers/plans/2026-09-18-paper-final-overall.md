@@ -240,27 +240,27 @@ git commit -m "feat: build publication-ready overall result bundles"
 - Modify: `docs/paper_final_experiments.md`
 - Outputs: `/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall_dryrun/`
 
-- [ ] **Step 1: Verify GPU and environment**
+- [x] **Step 1: Verify GPU and environment**
 
 Check GPU 0, torch `2.7.0+cu128`, CUDA 12.8, numpy 1.26.4, and RTX PRO 6000.
 
-- [ ] **Step 2: Run fixed seed 0 for one epoch**
+- [x] **Step 2: Run fixed seed 0 for one epoch**
 
 Use `PROTOCOL=fixed SEEDS=0 NUM_EPOCHS=1` and the absolute dry-run root.
 
-- [ ] **Step 3: Validate fixed artifacts**
+- [x] **Step 3: Validate fixed artifacts**
 
 Require frozen config except epoch 1, split counts 192/75, Y=4 metadata, and epoch-1 checkpoint.
 
-- [ ] **Step 4: Run LOSO raws1/raws3 seed 0 for one epoch**
+- [x] **Step 4: Run LOSO raws1/raws3 seed 0 for one epoch**
 
 Use `PROTOCOL=loso FOLDS=raws1,raws3 SEEDS=0 NUM_EPOCHS=1`.
 
-- [ ] **Step 5: Validate splits and predictions**
+- [x] **Step 5: Validate splits and predictions**
 
 Require six train sequences, one held-out sequence, no overlap, correct frame counts, fold-specific last predictions, and zero verification failures.
 
-- [ ] **Step 6: Run all tests, update ledger, commit**
+- [x] **Step 6: Run all tests, update ledger, commit**
 
 ```bash
 conda run -n bev-chamdog pytest -q
