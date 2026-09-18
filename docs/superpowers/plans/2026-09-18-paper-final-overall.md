@@ -205,7 +205,7 @@ git commit -m "feat: verify paper predictions by LOSO fold"
 - Produces: per-protocol `analysis/RESULTS.json`, CSV, README.
 - Produces: top-level `01_overall/analysis/RESULTS.json`, CSV, README without a joint mean.
 
-- [ ] **Step 1: Write failing fixture-based tests**
+- [x] **Step 1: Write failing fixture-based tests**
 
 ```python
 assert fixed["experiment"]["n_runs"] == 5
@@ -216,15 +216,15 @@ assert combined["integrity"]["passed"] is True
 assert "joint_mean" not in combined
 ```
 
-- [ ] **Step 2: Run and confirm module absence**
+- [x] **Step 2: Run and confirm module absence**
 
 Run: `conda run -n bev-chamdog pytest tests/tools/test_build_overall_results_bundle.py -q`
 
-- [ ] **Step 3: Implement self-describing bundles**
+- [x] **Step 3: Implement self-describing bundles**
 
 Fixed output contains per-run values plus mean/SD/n at epoch 40 and best diagnostics. LOSO contains all seed values per fold, fold mean/SD, baseline, margin, factors, and macro summary. Include environment, Git commit, common/different config, split counts, integrity maximum delta, `_source`, and missing files. CSV scopes are `run`, `fixed_mean`, `fixed_sd`, `fold_seed`, `fold_mean`, `fold_sd`, and `macro`.
 
-- [ ] **Step 4: Test and commit**
+- [x] **Step 4: Test and commit**
 
 ```bash
 conda run -n bev-chamdog pytest tests/tools/test_build_overall_results_bundle.py -q

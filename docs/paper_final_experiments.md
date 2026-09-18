@@ -38,7 +38,7 @@
 
 | ID | 논문 역할 | 평가 프로토콜 | 상태 |
 |---|---|---|---|
-| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **설계 승인, 실행 준비 중** |
+| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **실행·분석 도구 완료, dry-run 대기** |
 | `02_sensor_task_adaptation` | 카메라 모델·source prior·센서 범위 불일치 | 고정 split × 5 seeds | 계획 |
 | `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 기존 5조건 × 5 seeds 재사용 | 원자료 존재, 논문용 재정리 대기 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
@@ -149,7 +149,7 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 - [x] 정본 conda/Python/torch/CUDA/numpy 확인
 - [x] 데이터셋 로컬 연결 확인
 - [x] baseline test: 409 passed, 7 skipped
-- [ ] 논문용 실행 스크립트와 분석 스크립트 구현 (실행·분석 driver 완료, 결과 bundle 대기)
+- [x] 논문용 실행 스크립트와 분석 스크립트 구현
 - [ ] 1 epoch dry-run: 고정 split seed 0
 - [ ] 1 epoch dry-run: LOSO fold 2개, seed 0
 - [ ] dry-run config·split·`height.json`·확률맵 무결성 확인
@@ -175,12 +175,13 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 
 `01_overall` 실행 orchestrator는 40개 런을 완전한 명시 설정으로 생성하며, plan-only
 manifest에서 고정 split 5개와 LOSO 35개, 시드 0~4, 7 folds, 고유 런 이름을 확인했다.
-불완전 런은 덮어쓰거나 삭제하지 않고 `blocked_incomplete`로 남긴다. 다음은 분석 스크립트와
-결과 번들을 구현하고 두 종류의 1-epoch dry-run을 검증하는 작업이다. LOSO 집계기는 fold별
+불완전 런은 덮어쓰거나 삭제하지 않고 `blocked_incomplete`로 남긴다. 분석 driver와 결과
+bundle 구현도 완료했다. 다음은 두 종류의 1-epoch dry-run을 검증하는 작업이다. LOSO 집계기는 fold별
 seed 원자료·mean/SD·constant-map margin을 JSON으로도 보존한다. 과거 `Y=1`에서 얻은 프레임
 표준편차 상수 기반 `fold SE`는 새 구조화 결과에서 제외해 절단선 이전 숫자가 섞이지 않게 했다.
 확률맵은 LOSO fold마다 별도 `labels.npz`와 함께 저장하며, fold별 무결성 JSON이 모두 통과해야
-결과 bundle 생성 단계로 진행한다.
+결과 bundle 생성 단계로 진행한다. Bundle은 프로토콜별 `RESULTS.json`/CSV/README와 상위
+색인을 만들되, 고정 split과 LOSO를 하나의 평균으로 합치지 않는다.
 
 실행 진입점:
 
