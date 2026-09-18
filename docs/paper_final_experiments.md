@@ -38,7 +38,7 @@
 
 | ID | 논문 역할 | 평가 프로토콜 | 상태 |
 |---|---|---|---|
-| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **40런 실행 중** |
+| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **일시 중단: 3/40 완료** |
 | `02_sensor_task_adaptation` | 카메라 모델·source prior·센서 범위 불일치 | 고정 split × 5 seeds | 계획 |
 | `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 기존 5조건 × 5 seeds 재사용 | 원자료 존재, 논문용 재정리 대기 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
@@ -199,6 +199,27 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
   numpy 1.26.4, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition이다.
 - 첫 런 `final_s0`는 epoch 40까지 정상 완료했고 고정 epoch `iou_free=0.811`이었다.
   이는 진행 상태 확인값이며, 논문 숫자는 5개 시드 완료 후 결과 bundle에서만 확정한다.
+
+### 2026-09-18 — 사용자 요청에 따라 3/40에서 일시 중단
+
+- 완료 런: `final_s0`, `final_s1`, `final_s2`. 세 런 모두
+  `model-000000040.pth`와 Y=4 메타데이터가 있다. 다음 런 `final_s3`는 시작하지 않았다.
+- 최초 대화 세션에 연결된 PTY 출력은 읽지 않을 때 버퍼가 차서 큐가 대기하는 문제가 있었다.
+  장시간 실행은 `training_queue.log`로 표준출력을 보내는 방식으로 바꿨다.
+- 출력 방식 변경 중의 `final_s2` 2-epoch 산출물은 삭제하지 않고
+  `archive_interrupted_20260918_1353/`에 보존했다. 이후 `final_s2`를 처음부터 다시 실행해
+  epoch 40까지 정상 완료했다.
+- 중단 시 GPU 0은 사용률 0 %, 메모리 843 MiB로 유휴 상태였다.
+- 재개 시 같은 전체 명령을 사용하되 출력을 파일로 보낸다. orchestrator가 완료된 세 런을
+  자동으로 건너뛰고 `final_s3`부터 시작한다.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 \
+OUT_ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall \
+PROTOCOL=all SEEDS=0,1,2,3,4 NUM_EPOCHS=40 \
+    bash configs/paper_final_overall.sh \
+    > /data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/training_queue.log 2>&1
+```
 
 ### 다음 작업
 
