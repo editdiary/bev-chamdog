@@ -110,7 +110,7 @@ git commit -m "feat: add frozen paper overall run matrix"
 - Extends: `main(..., json_out=None)` without removing text output.
 - JSON keys: `fixed_epoch`, `fold_order`, `folds`, `macro`, `warnings`, `interpretation`.
 
-- [ ] **Step 1: Write failing aggregation test**
+- [x] **Step 1: Write failing aggregation test**
 
 ```python
 from tools.report_loso import summarize_rows
@@ -132,15 +132,15 @@ def test_loso_summary_averages_fold_means_not_seed_rows():
     assert summary["iou_free"]["mean_within_fold_seed_sd"] == 0.015
 ```
 
-- [ ] **Step 2: Run failing test**
+- [x] **Step 2: Run failing test**
 
 Run: `conda run -n bev-chamdog pytest tests/tools/test_report_loso.py -q`
 
-- [ ] **Step 3: Extract aggregation and JSON output**
+- [x] **Step 3: Extract aggregation and JSON output**
 
 Expand every metric tuple to `{mean, sd, n}`. Each fold includes factor labels, `extrapolation`, baseline, margin, frame count, and seed values. Macro statistics use fold means and never flatten 35 runs or report `fold_sd/sqrt(7)` as an independent-sample SE.
 
-- [ ] **Step 4: Run regressions and commit**
+- [x] **Step 4: Run regressions and commit**
 
 ```bash
 conda run -n bev-chamdog pytest tests/tools/test_report_loso.py tests/tools/test_summarize_repeats.py -q

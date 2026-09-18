@@ -176,7 +176,9 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 `01_overall` 실행 orchestrator는 40개 런을 완전한 명시 설정으로 생성하며, plan-only
 manifest에서 고정 split 5개와 LOSO 35개, 시드 0~4, 7 folds, 고유 런 이름을 확인했다.
 불완전 런은 덮어쓰거나 삭제하지 않고 `blocked_incomplete`로 남긴다. 다음은 분석 스크립트와
-결과 번들을 구현하고 두 종류의 1-epoch dry-run을 검증하는 작업이다.
+결과 번들을 구현하고 두 종류의 1-epoch dry-run을 검증하는 작업이다. LOSO 집계기는 fold별
+seed 원자료·mean/SD·constant-map margin을 JSON으로도 보존한다. 과거 `Y=1`에서 얻은 프레임
+표준편차 상수 기반 `fold SE`는 새 구조화 결과에서 제외해 절단선 이전 숫자가 섞이지 않게 했다.
 
 실행 진입점:
 

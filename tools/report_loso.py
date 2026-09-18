@@ -29,6 +29,7 @@
     python tools/report_loso.py --log_root=runs/robot_bev_cv/loso/logs --fixed_epoch=40
 """
 import math
+import json
 import statistics
 import sys
 from pathlib import Path
@@ -87,6 +88,78 @@ def _mean_sd(values) -> tuple:
     return statistics.fmean(clean), statistics.stdev(clean), len(clean)
 
 
+def _finite_or_none(value):
+    return float(value) if value is not None and math.isfinite(value) else None
+
+
+def summarize_rows(rows: list[dict]) -> dict:
+    """fold별 seed 집계를 다시 fold macro 통계로 요약한다."""
+    result = {"n_folds": len(rows)}
+    for metric in ("iou_free", "fatal_rate", "free_miss_rate"):
+        values = [row[metric][0] for row in rows]
+        within = [row[metric][1] for row in rows if math.isfinite(row[metric][1])]
+        mean, sd, n = _mean_sd(values)
+        result[metric] = {
+            "mean": _finite_or_none(mean),
+            "sd_across_folds": _finite_or_none(sd),
+            "n_folds": n,
+            "values": values,
+            "mean_within_fold_seed_sd": _finite_or_none(
+                statistics.fmean(within) if within else None
+            ),
+        }
+    for metric in ("baseline", "margin"):
+        values = [row[metric] for row in rows]
+        mean, sd, n = _mean_sd(values)
+        result[metric] = {"mean": _finite_or_none(mean),
+                          "sd_across_folds": _finite_or_none(sd),
+                          "n_folds": n, "values": values}
+    return result
+
+
+def build_report_payload(rows: list[dict], fixed_epoch: int, missing: list[str]) -> dict:
+    """사람용 표와 같은 내용을 손실 없이 JSON으로 표현한다."""
+    folds = []
+    for row in rows:
+        sun, width = FACTORS[row["fold"]]
+        metrics = {}
+        for metric in ("iou_free", "fatal_rate", "free_miss_rate"):
+            mean, sd, n = row[metric]
+            metrics[metric] = {
+                "mean": _finite_or_none(mean),
+                "sd": _finite_or_none(sd),
+                "n": n,
+                "values": row.get("seed_values", {}).get(metric, []),
+            }
+        folds.append({
+            "fold": row["fold"],
+            "factors": {"lighting": sun, "width": width},
+            "extrapolation": row["fold"] in EXTRAPOLATION_FOLDS,
+            "n_val_frames": row["n_val"],
+            "n_seed": row["n_seed"],
+            "seeds": row.get("seeds", []),
+            "constant_map_baseline": row["baseline"],
+            "margin_over_constant_map": row["margin"],
+            "metrics": metrics,
+        })
+    return {
+        "fixed_epoch": int(fixed_epoch),
+        "fold_order": [row["fold"] for row in rows],
+        "folds": folds,
+        "macro": summarize_rows(rows),
+        "warnings": {
+            "missing_folds": list(missing),
+            "folds_are_correlated": True,
+            "do_not_report_fold_sd_over_sqrt_n_as_se": True,
+        },
+        "interpretation": [
+            "주 비교는 raw iou_free보다 constant-map 대비 margin이다.",
+            "fold 차이는 장면 난이도, 표본 오차, 라벨 품질을 분리하지 못한다.",
+            "LOSO fold는 train 데이터를 공유하므로 독립 표본이 아니다.",
+        ],
+    }
+
+
 def fold_baseline(held, dataset_root, common_root, device) -> tuple:
     """그 fold의 constant-map 기준선과 val 프레임 수.
 
@@ -141,7 +214,8 @@ def collect(log_root, fixed_epoch) -> dict:
 
 
 def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=40,
-         dataset_root=DEFAULT_DATASET_ROOT, common_root=DEFAULT_COMMON_ROOT):
+         dataset_root=DEFAULT_DATASET_ROOT, common_root=DEFAULT_COMMON_ROOT,
+         json_out=None, legacy_sampling_diagnostics=False):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     folds = collect(log_root, fixed_epoch)
     if not folds:
@@ -149,7 +223,7 @@ def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=40,
 
     print(f"\n=== LOSO 7-fold (고정 epoch {fixed_epoch}, fold당 시드 평균) ===")
     print("**고정 epoch이다** -- val이 시퀀스 1개일 때 그 시퀀스로 체크포인트를 고르면")
-    print("그 fold에 과적합한다. 그 위험을 원천 제거한 대신 잃는 것은 0.0006(0.4σ)이다.\n")
+    print("그 fold에 맞춘 선택 편향이 생긴다. 따라서 모든 fold를 같은 epoch에서 읽는다.\n")
 
     rows = []
     for held in ALL_SEQUENCES:
@@ -157,18 +231,22 @@ def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=40,
         if not runs:
             continue
         baseline, n_val = fold_baseline(held, dataset_root, common_root, device)
-        row = {"fold": held, "baseline": baseline, "n_val": n_val, "n_seed": len(runs)}
+        row = {"fold": held, "baseline": baseline, "n_val": n_val, "n_seed": len(runs),
+               "seed_values": {}, "seeds": [r["config"].get("seed") for r in runs]}
         for tag, label, _ in REPORTED:
             values = [r["series"].get(tag, {}).get(r["pick"]["fixed"]) for r in runs]
             row[label] = _mean_sd(values)
+            row["seed_values"][label] = values
         row["margin"] = row["iou_free"][0] - baseline
-        row["se"] = FRAME_STD_IOU / math.sqrt(n_val) if n_val else float("nan")
+        row["se"] = (FRAME_STD_IOU / math.sqrt(n_val)
+                     if legacy_sampling_diagnostics and n_val else float("nan"))
         rows.append(row)
 
     missing = [s for s in ALL_SEQUENCES if s not in folds]
     header = (f"{'fold':9}{'요인':12}{'프레임':>6}{'시드':>4}"
-              f"{'기준선':>9}{'iou_free':>18}{'마진↑':>9}{'fold SE':>9}"
-              f"{'fatal_rate':>17}")
+              f"{'기준선':>9}{'iou_free':>18}{'마진↑':>9}"
+              + (f"{'fold SE':>9}" if legacy_sampling_diagnostics else "")
+              + f"{'fatal_rate':>17}")
     print(header)
     print("-" * len(header))
     for r in rows:
@@ -178,16 +256,14 @@ def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=40,
         fat_m, fat_sd, _ = r["fatal_rate"]
         print(f"{r['fold']:9}{sun + '/' + width:12}{r['n_val']:>6}{r['n_seed']:>4}"
               f"{r['baseline']:>9.3f}{iou_m:>11.4f}±{iou_sd:.4f}{r['margin']:>+9.3f}"
-              f"{r['se']:>9.3f}{fat_m:>10.4f}±{fat_sd:.4f}{mark}")
+              + (f"{r['se']:>9.3f}" if legacy_sampling_diagnostics else "")
+              + f"{fat_m:>10.4f}±{fat_sd:.4f}{mark}")
 
     # --- 요약 통계 -----------------------------------------------------------
     ious = [r["iou_free"][0] for r in rows]
     margins = [r["margin"] for r in rows]
     fatals = [r["fatal_rate"][0] for r in rows]
-    mean_se = statistics.fmean(r["se"] for r in rows)
     obs_sd = statistics.stdev(ious) if len(ious) > 1 else float("nan")
-    true_var = obs_sd ** 2 - mean_se ** 2
-    true_sd = math.sqrt(true_var) if true_var > 0 else float("nan")
     worst = min(rows, key=lambda r: r["iou_free"][0])
     worst_margin = min(rows, key=lambda r: r["margin"])
     worst_fatal = max(rows, key=lambda r: r["fatal_rate"][0])
@@ -198,25 +274,37 @@ def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=40,
           f"{statistics.stdev(margins) if len(margins) > 1 else float('nan'):.4f}")
     print(f"  `fatal_rate` 평균 {statistics.fmean(fatals):.4f} | fold 간 std "
           f"{statistics.stdev(fatals) if len(fatals) > 1 else float('nan'):.4f}")
-    print(f"\n  fold 하나의 표준오차(SE)  평균 {mean_se:.4f}"
-          f"   <- σ_seed({SIGMA_SEED_IOU:.4f})의 {mean_se / SIGMA_SEED_IOU:.0f}배")
-    print(f"  시퀀스 간 **참**분산 추정   σ_참 ≈ √(std² − SE²) = {true_sd:.4f}")
-    print("    (프레임이 서로 강하게 상관돼 있어 **SE는 하한**이므로 σ_참은 상한 추정이다)")
+    if legacy_sampling_diagnostics:
+        mean_se = statistics.fmean(r["se"] for r in rows)
+        true_var = obs_sd ** 2 - mean_se ** 2
+        true_sd = math.sqrt(true_var) if true_var > 0 else float("nan")
+        print(f"\n  fold 하나의 표준오차(SE)  평균 {mean_se:.4f}"
+              f"   <- σ_seed({SIGMA_SEED_IOU:.4f})의 {mean_se / SIGMA_SEED_IOU:.0f}배")
+        print(f"  시퀀스 간 **참**분산 추정   σ_참 ≈ √(std² − SE²) = {true_sd:.4f}")
+        print("    (프레임이 서로 강하게 상관돼 있어 **SE는 하한**이므로 σ_참은 상한 추정이다)")
 
     print(f"\n  worst fold (`iou_free`)  {worst['fold']} {worst['iou_free'][0]:.4f}")
     print(f"  worst fold (마진)         {worst_margin['fold']} {worst_margin['margin']:+.4f}"
           "   <- **이쪽이 주 열이다**")
     print(f"  worst fold (`fatal_rate`) {worst_fatal['fold']} {worst_fatal['fatal_rate'][0]:.4f}")
-    print(f"\n  ⚠ `min`은 아래로 편향된 통계다. 7개 fold가 모두 같은 참값이어도 `min`의")
-    print(f"    기대값이 평균보다 약 {MIN_BIAS_COEF * mean_se:.4f} 낮다"
-          f" ({MIN_BIAS_COEF} x SE). **worst를 그대로 인용하지 않는다.**")
+    if legacy_sampling_diagnostics:
+        print(f"\n  ⚠ `min`은 아래로 편향된 통계다. 7개 fold가 모두 같은 참값이어도 `min`의")
+        print(f"    기대값이 평균보다 약 {MIN_BIAS_COEF * mean_se:.4f} 낮다"
+              f" ({MIN_BIAS_COEF} x SE). **worst를 그대로 인용하지 않는다.**")
 
     if missing:
         print(f"\n  ⚠ **미완료 fold: {', '.join(missing)}** -- 위 요약은 부분 집계다.")
 
+    if json_out:
+        path = Path(json_out)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = build_report_payload(rows, fixed_epoch, missing)
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False))
+        print(f"\n구조화 결과 -> {path}")
+
     print("""
 --- 이 표를 읽는 법 (진단 §25.6, **실행 전에 정해 두었다**) ---
-  1. **fold끼리 비교하지 않는다.** fold SE가 σ_seed의 약 9배다.
+  1. **fold끼리 단순 비교하지 않는다.** 장면과 라벨 분포가 서로 다르다.
   2. **주 열은 `iou_free`가 아니라 기준선 대비 마진이다** -- raw 값은 모델보다
      시퀀스 난이도에 대해 말한다(§21: rawos1 +0.171 대 rawos3 +0.397).
   3. **`*외삽` 표시된 fold는 train에 그 요인 조합이 없다**(§25.1).
