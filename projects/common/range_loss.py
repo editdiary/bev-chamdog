@@ -190,3 +190,40 @@ def compute_range_loss(prob_free, free_gt, valid, gather, delta_r=DEFAULT_DELTA_
         "frac_rays_used": ok_f.mean(),
     }
     return loss, parts
+
+
+def compute_cumulative_range_loss(prob_free, target_free, free_gt, valid, gather):
+    """soft target과 예측의 누적 radial arc profile에 대한 광선별 L1.
+
+    각 step까지의 `Δr·Σ(p-y)`를 모두 벌하므로 광선 끝에서 양·음 오차가 상쇄되더라도 그
+    사이의 잘못된 profile은 남는다. `RAY_OK` 판정은 기존과 동일하게 hard GT에서 구하고,
+    `valid=0` 또는 격자 밖 표본은 누적합과 profile 평균 양쪽에서 제외한다.
+    """
+    inside = gather.inside
+    valid_ray = gather(valid.to(prob_free.dtype)) * inside
+    profile_mask = valid_ray * inside
+    sampled_gt = gather(free_gt.to(torch.bool)) & inside
+
+    sampled_prob = gather(prob_free)
+    sampled_target = gather(target_free.to(prob_free.dtype))
+    residual = (sampled_prob - sampled_target) * profile_mask
+    cumulative_error = residual.cumsum(dim=-1) * gather.step_m
+    per_ray = ((cumulative_error.abs() * profile_mask).sum(dim=-1)
+               / (profile_mask.sum(dim=-1) + 1e-6))
+
+    ok = ray_is_ok(sampled_gt, inside)
+    ok_f = ok.to(prob_free.dtype)
+    n_ok = ok_f.sum() + 1e-6
+    loss = (per_ray * ok_f).sum() / n_ok
+
+    arc_gt = sampled_gt.to(prob_free.dtype).sum(dim=-1) * gather.step_m
+    arc_hat = (sampled_prob * valid_ray).sum(dim=-1) * gather.step_m
+    signed = arc_hat - arc_gt
+    parts = {
+        "loss_range": loss,
+        "range_arc_mae": (signed.abs() * ok_f).sum() / n_ok,
+        "range_arc_bias": (signed * ok_f).sum() / n_ok,
+        "range_cumulative_mae": loss,
+        "frac_rays_used": ok_f.mean(),
+    }
+    return loss, parts

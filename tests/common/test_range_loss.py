@@ -9,6 +9,8 @@
 - 벽 뒤의 free 섬이 벌을 받는다 (per-cell BCE가 거의 안 보는 오차 모드)
 - `valid = 0` 셀이 양쪽에서 빠진다
 """
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import torch
@@ -16,6 +18,7 @@ import torch
 from projects.bev_gt.grid import OccupancyGridSpec
 from projects.common.polar import RAY_OK, build_ray_index, first_free_range
 from projects.common.soft_boundary import compute_soft_boundary_loss, signed_distance_field
+from projects.common import range_loss as range_loss_module
 from projects.common.range_loss import (
     DEFAULT_HUBER_BETA_M,
     RayGather,
@@ -49,6 +52,69 @@ def _disc(radius_m):
 
 def _as_batch(mask):
     return torch.from_numpy(np.asarray(mask)).view(1, 1, *np.shape(mask))
+
+
+def _line_gather():
+    """한 광선의 네 표본을 중복 없이 뽑는 실제 `RayGather` 테스트 격자."""
+    line_rays = SimpleNamespace(
+        radii_m=np.array([0.0, 0.025, 0.05, 0.075], dtype=np.float32),
+        rows=np.array([[0, 0, 0, 0]], dtype=np.int64),
+        cols=np.array([[0, 1, 2, 3]], dtype=np.int64),
+        inside=np.array([[True, True, True, True]]),
+    )
+    return RayGather(line_rays, (1, 4))
+
+
+def test_cumulative_loss_is_zero_at_the_composite_target():
+    """prediction과 soft target이 같을 때 새 보조항이 경계 대역을 다시 못박으면 안 된다."""
+    line = _line_gather()
+    target = torch.tensor([[[[1.0, 0.8, 0.2, 0.0]]]])
+    free_gt = torch.tensor([[[[True, True, False, False]]]])
+    valid = torch.ones_like(free_gt)
+    prob = target.clone().requires_grad_(True)
+
+    loss, parts = range_loss_module.compute_cumulative_range_loss(
+        prob, target, free_gt, valid, line)
+    loss.backward()
+
+    assert loss.item() == pytest.approx(0.0, abs=1e-9)
+    assert parts["range_cumulative_mae"].item() == pytest.approx(0.0, abs=1e-9)
+    assert torch.equal(prob.grad, torch.zeros_like(prob.grad))
+
+
+def test_cumulative_loss_detects_residuals_that_cancel_at_the_endpoint():
+    """endpoint 합이 같아도 중간 누적 profile이 다르면 반드시 loss가 남아야 한다."""
+    line = _line_gather()
+    target = torch.tensor([[[[1.0, 0.8, 0.2, 0.0]]]])
+    free_gt = torch.tensor([[[[True, True, False, False]]]])
+    valid = torch.ones_like(free_gt)
+    prob = torch.tensor([[[[1.0, 0.9, 0.1, 0.0]]]], requires_grad=True)
+
+    loss, parts = range_loss_module.compute_cumulative_range_loss(
+        prob, target, free_gt, valid, line)
+    loss.backward()
+
+    assert parts["range_arc_mae"].item() == pytest.approx(0.0, abs=1e-6)
+    assert parts["range_cumulative_mae"].item() > 0.0
+    assert loss.item() == pytest.approx(parts["range_cumulative_mae"].item())
+    assert torch.isfinite(prob.grad).all()
+    assert prob.grad.abs().sum().item() > 0.0
+
+
+def test_cumulative_loss_excludes_invalid_samples_from_sum_and_average():
+    """무효 셀의 예측만 바뀌어도 cumulative profile과 분모가 달라지면 안 된다."""
+    line = _line_gather()
+    target = torch.tensor([[[[1.0, 0.8, 0.2, 0.0]]]])
+    free_gt = torch.tensor([[[[True, True, False, False]]]])
+    valid = torch.tensor([[[[True, True, True, False]]]])
+    prob = target.clone()
+    prob[..., 3] = 1.0
+
+    loss, parts = range_loss_module.compute_cumulative_range_loss(
+        prob, target, free_gt, valid, line)
+
+    assert loss.item() == pytest.approx(0.0, abs=1e-9)
+    assert parts["range_cumulative_mae"].item() == pytest.approx(0.0, abs=1e-9)
 
 
 def test_ray_is_ok_matches_first_free_range(rays, gather):

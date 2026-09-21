@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import torch
 
+from projects.common import soft_boundary as soft_boundary_module
 from projects.common.soft_boundary import (
     TARGET_GAUSSIAN,
     TARGET_LINEAR,
@@ -19,6 +20,29 @@ from projects.common.soft_boundary import (
 )
 
 CELL_M = 0.05
+
+
+def test_composite_target_matches_all_supervision_regions():
+    """hard/soft/blind target 조립이 갈리면 cumulative ray가 L_cell과 충돌한다."""
+    d = torch.tensor([[[[-0.31, -0.10, 0.0, 0.10, 0.31, 0.50]]]])
+    valid = torch.tensor([[[[True, True, True, True, True, True]]]])
+    blind = torch.tensor([[[[False, False, False, False, False, True]]]])
+
+    target = soft_boundary_module.build_soft_boundary_target(
+        d,
+        valid,
+        blind,
+        delta=0.30,
+        kind=TARGET_GAUSSIAN,
+        sigma=0.10,
+        alpha=None,
+        kappa=0.8,
+        eps=0.1,
+    )
+
+    # Φ(±1)를 Φ(±3)에서 절단·정규화한 뒤 κ=0.8, ε=0.1을 적용한 손계산 값이다.
+    expected = torch.tensor([[[[0.1, 0.280948, 0.5, 0.719052, 0.9, 0.1]]]])
+    assert torch.allclose(target, expected, atol=1e-6)
 
 
 def _free_half(n=12):

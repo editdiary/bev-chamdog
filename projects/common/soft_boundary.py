@@ -263,6 +263,28 @@ def target_entropy(y):
     return -(torch.xlogy(y, y) + torch.xlogy(1.0 - y, 1.0 - y))
 
 
+def build_soft_boundary_target(d, valid, permanent_blind, delta=DEFAULT_DELTA_M,
+                               kind=TARGET_LINEAR, sigma=None, alpha=None,
+                               kappa=DEFAULT_KAPPA, eps=DEFAULT_EPS):
+    """`L_cell`이 감독하는 전체 free 확률 target을 조립한다.
+
+    `Ω_F`/`Ω_N`에는 각각 `1-eps`/`eps`, `Ω_B`에는 같은 `kappa`와 `eps`가 적용된
+    soft target을 넣는다. `valid=0`인 셀은 호출부의 감독 마스크에서 빠지며 여기서는 0이다.
+    광선 보조항도 이 함수를 사용해 셀 loss와 서로 다른 경계 가정을 만들지 않게 한다.
+    """
+    eps = float(eps)
+    if not 0.0 <= eps < 0.5:
+        raise ValueError(f"eps는 [0, 0.5) 범위여야 한다: {eps}")
+
+    regions = region_masks(d, valid, permanent_blind, delta)
+    boundary_target = soft_target(
+        d, delta, kind, sigma, alpha, kappa * (1.0 - 2.0 * eps))
+    target = torch.zeros_like(d)
+    target = torch.where(regions["omega_f"], 1.0 - eps, target)
+    target = torch.where(regions["omega_n"], eps, target)
+    return torch.where(regions["omega_b"], boundary_target, target)
+
+
 def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_DELTA_M,
                                lambda_b=DEFAULT_LAMBDA_B, kind=TARGET_LINEAR, sigma=None,
                                alpha=None, range_term=None, lambda_r=0.0,
@@ -293,8 +315,8 @@ def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_
     # `Ω_F`/`Ω_N`의 목표는 `1−ε`/`ε`이다. `ε = 0`이면 상수 1/0으로 전과 같다 -- 라벨과 `d`의
     # 부호가 어긋나는 비율이 0.01 %라 라벨을 다시 읽지 않는다.
     eps = float(eps)
-    if not 0.0 <= eps < 0.5:
-        raise ValueError(f"eps는 [0, 0.5) 범위여야 한다: {eps}")
+    target_free = build_soft_boundary_target(
+        d, valid, permanent_blind, delta, kind, sigma, alpha, kappa, eps)
     if eps == 0.0:
         loss_free = _masked_mean(-log_free, omega_f)
         loss_not_free = _masked_mean(-log_not_free, omega_n)
@@ -307,7 +329,7 @@ def compute_soft_boundary_loss(logits, d, valid, permanent_blind, delta=DEFAULT_
     # 확신에 찬 거꾸로 된 불연속이 생긴다. 당기면 `y' = ε + (1−2ε)y`인데 이것은
     # `0.5 + (1−2ε)(y − 0.5)`와 같다 -- 즉 **대역에서 `ε`은 정확히 `κ = 1−2ε`이다.**
     # 그래서 두 손잡이를 곱해서 함께 적용한다.
-    y = soft_target(d, delta, kind, sigma, alpha, kappa * (1.0 - 2.0 * eps))
+    y = target_free
     per_cell_b = -(y * log_free + (1.0 - y) * log_not_free)
     loss_boundary = _masked_mean(per_cell_b, omega_b)
     entropy = _masked_mean(target_entropy(y), omega_b)
