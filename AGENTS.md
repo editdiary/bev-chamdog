@@ -28,7 +28,8 @@
 > **`Y`의 단일 출처는 `projects/datasets/simplebev_vox.vox_dims(grid_spec, height_bins)`다.**
 > 리터럴 `1`을 다시 쓰지 않는다 -- 예전에 20곳에 퍼져 있었다.
 >
-> **남은 것**: 논문 집필, 그리고 **`Y=4`에서 Orin 재실측**(사용자). 20.2 FPS는 `Y=1` 값이다.
+> **남은 것**: 논문 집필 -- **지금은 아래 2026-09-21 블록의 최종 실험 캠페인으로 진행 중이다.**
+> 그리고 **`Y=4`에서 Orin 재실측**(사용자, 캠페인 `04`). 20.2 FPS는 `Y=1` 값이다.
 >
 > **여기까지의 서사: [`docs/experiment_history.md`](docs/experiment_history.md)** (2026-08-27, 단계 J)
 >
