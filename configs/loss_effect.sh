@@ -22,7 +22,11 @@
 #                                               경계 대역 ±δ의 셀은 감독에서 빠진다
 #   C_hard    + λ_B = 0.5, σ -> 0               B -> C_hard: 경계 대역에 **hard** 감독
 #   C_soft    같은 것, σ = 0.10                  C_hard -> C_soft: target만 hard -> soft
-#   D_range   + λ_R = 0.3                       C_soft -> D: **보조항** L_range
+#   D_range   + λ_R = 0.3, arc_huber          C_soft -> D: **보조항** L_range (종점 arc)
+#   E_cumulative + λ_R = 0.15, cumulative_l1  C_soft -> E: **같은 계단, 다른 식** (누적 profile)
+#
+# **`D`와 `E`는 이어지는 계단이 아니라 서로 대체 팔이다.** 둘 다 `C_soft`에서 한 칸이고,
+# 논문에 싣는 것은 **`E`다**(`loss_effect_results.md` §16).
 #
 # **주 비교는 `A_ce` 대 `D_range`다**(= 기존 BCE 대 튜닝한 loss). 나머지는 원인을 가르는
 # 용도이고 단독으로 보고하지 않는다.
@@ -59,17 +63,18 @@
 #
 # `batch_size`는 셸이 8로 고정한다 -- 노출된 손잡이가 아니라 여기서 줄 수 없다.
 #
-# ## 25런 x 약 6분 = 약 150분(GPU 1개) / 약 80분(GPU 2개) (RTX PRO 6000, 40 epoch, train 192 / val 75프레임)
+# ## 30런 x 약 6분 = 약 180분(GPU 1개) (RTX PRO 6000, 40 epoch, train 192 / val 75프레임)
+# **이미 있는 런은 건너뛰므로**, `E_cumulative`만 추가하려면 그대로 다시 돌리면 된다(5런).
 #
 # 실행:   CUDA_VISIBLE_DEVICES=0 bash configs/loss_effect.sh
 # 집계:   python tools/report_ablation.py --log_root=runs/loss_effect/logs
 #         python tools/summarize_repeats.py --log_root=runs/loss_effect/logs --fixed_epoch=40
 #         python tools/report_seed_jitter.py --log_root=runs/loss_effect \
-#                 --cells=A_ce,B_perset,C_hard,C_soft,D_range --seeds=0,1,2,3,4
+#                 --cells=A_ce,B_perset,C_hard,C_soft,D_range,E_cumulative --seeds=0,1,2,3,4
 #         python tools/report_threshold_sweep.py --log_root=runs/loss_effect \
-#                 --cells=A_ce,B_perset,C_hard,C_soft,D_range --seeds=0,1,2,3,4
+#                 --cells=A_ce,B_perset,C_hard,C_soft,D_range,E_cumulative --seeds=0,1,2,3,4
 #         python tools/report_decision_disagreement.py --log_root=runs/loss_effect \
-#                 --cells=A_ce,B_perset,C_hard,C_soft,D_range --seeds=0,1,2,3,4
+#                 --cells=A_ce,B_perset,C_hard,C_soft,D_range,E_cumulative --seeds=0,1,2,3,4
 set -uo pipefail          # **`-e`를 뺀다** -- 런 하나가 OOM으로 죽어도 큐 전체가 멈추면 안 된다.
 cd "$(dirname "$0")/.."
 
@@ -78,22 +83,35 @@ NUM_EPOCHS="${NUM_EPOCHS:-40}"
 SEEDS="${SEEDS:-0 1 2 3 4}"
 CUDA_DEVICE="${CUDA_VISIBLE_DEVICES:-0}"
 
-# name|LOSS|LAMBDA_B|LAMBDA_R|SIGMA_M
+# name|LOSS|LAMBDA_B|LAMBDA_R|SIGMA_M|RANGE_LOSS_MODE
 # `SIGMA_M`은 `C_hard`를 위해 칸마다 준다 -- 0.001이 hard target 극한이다.
 # `weighted_ce`와 `λ_B=0`인 칸에서는 쓰이지 않지만 자리를 비우지 않는다(파싱이 단순해진다).
+# `RANGE_LOSS_MODE`는 `λ_R=0`인 칸에서 쓰이지 않지만 같은 이유로 자리를 채운다.
+#
+# **[2026-09-21] `E_cumulative`를 사다리에 붙였다.** `C_soft -> E`는 `C_soft -> D`와 **같은
+# 계단**이다(보조항을 켠다) -- 다른 것은 그 보조항의 식뿐이다. 그래서 `D`와 `E`는 서로
+# **대체 팔**이고, 둘을 이어 붙인 5단 사다리로 읽으면 안 된다.
+#
+#   C_soft --(+arc_huber      λ_R=0.3 )--> D_range
+#          --(+cumulative_l1  λ_R=0.15)--> E_cumulative
+#
+# `λ_R`이 다른 이유는 **두 식의 gradient 기여를 맞췄기** 때문이다 -- 숫자가 작은 것이 약한
+# 것이 아니다(명세 §9.1). 0.15는 거기서 나온 0.1526을 **측정 정밀도에 맞춰 반올림한 값**이다
+# (batch 간 σ가 0.58/0.78이라 유효숫자 4자리는 측정이 뒷받침하지 않는다).
 CELLS=(
-    "A_ce|weighted_ce|0.0|0.0|0.10"
-    "B_perset|soft_boundary|0.0|0.0|0.10"
-    "C_hard|soft_boundary|0.5|0.0|0.001"
-    "C_soft|soft_boundary|0.5|0.0|0.10"
-    "D_range|soft_boundary|0.5|0.3|0.10"
+    "A_ce|weighted_ce|0.0|0.0|0.10|arc_huber"
+    "B_perset|soft_boundary|0.0|0.0|0.10|arc_huber"
+    "C_hard|soft_boundary|0.5|0.0|0.001|arc_huber"
+    "C_soft|soft_boundary|0.5|0.0|0.10|arc_huber"
+    "D_range|soft_boundary|0.5|0.3|0.10|arc_huber"
+    "E_cumulative|soft_boundary|0.5|0.15|0.10|cumulative_l1"
 )
 
 mkdir -p "${OUT_ROOT}/logs" "${OUT_ROOT}/ckpt"
 
 for seed in ${SEEDS}; do
     for entry in "${CELLS[@]}"; do
-        IFS='|' read -r name loss lambda_b lambda_r sigma_m <<< "${entry}"
+        IFS='|' read -r name loss lambda_b lambda_r sigma_m range_mode <<< "${entry}"
         run="${name}_s${seed}"
         if [ -n "$(ls -A "${OUT_ROOT}/logs/${run}" 2>/dev/null)" ]; then
             echo "=== ${run} 이미 있음 -- 건너뛴다 ==="
@@ -108,12 +126,15 @@ for seed in ${SEEDS}; do
         LOSS="${loss}" SOFT_TARGET=gaussian \
         DELTA_M=0.30 SIGMA_M="${sigma_m}" SIGMA_ALPHA=None LAMBDA_B="${lambda_b}" \
         BAND_KAPPA=1.0 LABEL_EPS=0.0 \
+        RANGE_LOSS_MODE="${range_mode}" \
         LAMBDA_R="${lambda_r}" DELTA_R_M=0.15 DELTA_R_OVER_M=None HUBER_BETA_M=0.15 \
         HEIGHT_BINS=4 HEIGHT_MIN_M=-0.25 HEIGHT_MAX_M=1.75 \
         FORMULATION=binary ENCODER_TYPE=res101 AUGMENT=True INIT_CHECKPOINT=none \
         LR=1e-4 WEIGHT_DECAY=1e-7 MAX_CLASS_WEIGHT=20 \
         LABEL_SMOOTHING=0.0 FLIP_AUGMENT=False FREEZE_ENCODER=False \
+        PROJECTION=ds_native PINHOLE_HFOV_DEG=None \
         PIXEL_CONVENTION=pixel_center PIXEL_OFFSET=0.0 \
+        FRAME_SPLIT_FRACTION=0.0 FRAME_BLOCK_LEN=0 \
         SAVE_FREQ_EPOCHS="${NUM_EPOCHS}" \
         TRAIN_SEQUENCES="raws2,raws3,rawos1,rawos2,rawos4" \
         VAL_SEQUENCES="raws1,rawos3" \

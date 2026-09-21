@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `runs/loss_effect`의 20런을 **원시 데이터 보존 -> 집계** 순서로 전부 훑는다.
+# `runs/loss_effect`의 30런을 **원시 데이터 보존 -> 집계** 순서로 전부 훑는다.
 #
 # 계획 정본: `docs/temp/loss_stability_evaluation_plan_for_claude_2026-09-01.md`.
 # 학습 스크립트: `configs/loss_effect.sh`.
@@ -47,7 +47,9 @@ if [ "${ALLOW_ANY_ENV:-0}" != "1" ] && [ "${CONDA_DEFAULT_ENV:-}" != "${REQUIRED
 fi
 
 ROOT="${ROOT:-runs/loss_effect}"
-CELLS="${CELLS:-A_ce,B_perset,C_hard,C_soft,D_range}"
+# **[2026-09-21] `E_cumulative`가 붙었다.** `D_range`와 같은 계단의 **대체 팔**이고,
+# 논문에 싣는 것은 `E`다(`docs/loss_effect_results.md` §16).
+CELLS="${CELLS:-A_ce,B_perset,C_hard,C_soft,D_range,E_cumulative}"
 SEEDS="${SEEDS:-0,1,2,3,4}"
 OUT="${ROOT}/analysis"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
@@ -122,6 +124,28 @@ step report_threshold_sweep_AD \
     python tools/report_threshold_sweep.py --log_root="${ROOT}" \
         --cells=A_ce,D_range --seeds="${SEEDS}" --taus="${WIDE_TAUS}" \
         --csv_out="${OUT}/threshold_sweep_rows_AD.csv"
+
+# **논문에 싣는 주 비교쌍은 `A_ce` 대 `E_cumulative`다**(§16). 위의 `A_ce`-`D_range`는
+# 2026-09-02 실험의 주 질문이었고 역사 기록으로 남긴다.
+step report_threshold_sweep_AE \
+    python tools/report_threshold_sweep.py --log_root="${ROOT}" \
+        --cells=A_ce,E_cumulative --seeds="${SEEDS}" --taus="${WIDE_TAUS}" \
+        --csv_out="${OUT}/threshold_sweep_rows_AE.csv"
+
+# **두 보조항 팔의 정면 대결.** `D`와 `E`는 `C_soft`에서 같은 계단이고 식만 다르므로,
+# 이 표가 "어느 보조항을 쓸 것인가"에 직접 답한다. 같은 `free_miss`에서 겹치면 τ=0.5의
+# `fatal` 차이는 동작점 이동이다.
+step report_threshold_sweep_DE \
+    python tools/report_threshold_sweep.py --log_root="${ROOT}" \
+        --cells=C_soft,D_range,E_cumulative --seeds="${SEEDS}" --taus="${WIDE_TAUS}" \
+        --csv_out="${OUT}/threshold_sweep_rows_DE.csv"
+
+# 같은 계단 두 팔을 **시드끼리 짝지어** 읽는다 -- 평균 차이·SE·부호 일치와
+# 저장된 확률맵의 동작점 정합 비교를 한 표에 낸다.
+step report_cumulative_probe \
+    python tools/report_cumulative_probe.py --probe_root="${ROOT}" \
+        --control_root="${ROOT}" --probe_cell=E_cumulative \
+        --control_cells=C_soft,D_range --seeds="${SEEDS}" --out_dir="${OUT}/cumulative"
 
 # (2-5) 계획 §5: 셀 단위 free<->non-free 뒤집힘. 고정 τ와 동작점 정합 둘 다.
 step report_decision_disagreement \

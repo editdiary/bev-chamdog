@@ -9,9 +9,19 @@
 - 주 지표는 `iou_free`와 constant-map baseline 대비 **margin**이다. 대조군과 팔이 같은
   val split을 보므로 baseline이 같고, margin의 차이는 `iou_free`의 차이와 정확히 같다 --
   그래도 함께 싣는다. 절대값만으로는 통로 폭에 좌우되는 수치라 읽을 수 없기 때문이다.
-- **σ_seed보다 작은 평균 차이는 우열로 쓰지 않는다.**
-- n=5에서 p값을 만들지 않는다. 대신 **평균 차이·차이의 표준편차·부호가 일치한 시드 수**를
-  싣는다. 5개 중 5개가 같은 방향이면 그 자체가 읽을 만한 증거이고, 3/5이면 아니다.
+- n=5에서 p값을 만들지 않는다. 대신 **평균 차이·차이의 표준편차·평균의 표준오차·부호가
+  일치한 시드 수**를 싣는다.
+
+**판정은 문턱 둘을 모두 넘어야 한다.**
+
+1. **실용 문턱** `|평균 차이| > σ_seed`(0.0018). `01_overall`에서 실측한 런 간 산포보다
+   작은 차이는 재현 가능한 크기가 아니다.
+2. **통계 문턱** `|평균 차이| >= 2 x SE`, 여기서 `SE = (차이의 표준편차)/sqrt(n)`.
+
+**둘째가 없으면 안 되는 이유**(2026-09-21에 실제로 겪었다). σ_seed는 *한 런*의 산포이지
+*짝지은 차이*의 산포가 아니다. `source_prior`의 `iou_free`는 평균 차이 −0.0020으로 σ_seed를
+살짝 넘지만, 차이 자체가 시드마다 0.0036씩 흔들려서 `|평균|/SE`가 1.24밖에 안 된다 --
+즉 우열을 말할 수 없는데 첫째 문턱만 보면 "대조군이 낫다"로 찍힌다.
 
 실행:
     python tools/report_paired_arms.py \
@@ -38,6 +48,9 @@ _BASELINE_PATH = ("runs/paper_final/01_overall/fixed_split/analysis/"
                   "constant_map_baseline.json")
 # `01_overall`에서 실측한 시드 간 산포. 이보다 작은 차이는 우열로 쓰지 않는다.
 SIGMA_SEED = 0.0018
+# 짝지은 평균이 그 평균의 표준오차의 몇 배여야 우열로 쓰나. n=5에서 2는 느슨한 편이지만
+# p값을 만들지 않기로 했으므로 보수적인 눈금 하나로 둔다.
+MIN_SE_RATIO = 2.0
 
 
 def _seed_of(name: str):
@@ -91,12 +104,16 @@ def compare(control, arm):
         clean = [d for d in diffs if d is not None and math.isfinite(d)]
         mean, sd, n = _stats(diffs)
         positive = sum(1 for d in clean if d > 0)
+        # 짝지은 **평균**의 불확실성이다. σ_seed(한 런의 산포)와는 다른 양이다.
+        se = sd / math.sqrt(n) if n > 1 and math.isfinite(sd) else float("nan")
         rows[label] = {
             "higher_is_better": higher_is_better,
             "control": _stats([control[s][label] for s in seeds])[:2],
             "arm": _stats([arm[s][label] for s in seeds])[:2],
             "paired_diff_mean": mean,
             "paired_diff_sd": sd,
+            "paired_diff_se": se,
+            "abs_mean_over_se": abs(mean) / se if se and math.isfinite(se) and se > 0 else float("inf"),
             "n": n,
             "per_seed": {s: d for s, d in zip(seeds, diffs)},
             "sign_agreement": f"{max(positive, len(clean)-positive)}/{len(clean)}",
@@ -115,17 +132,20 @@ def _fmt(value, width=8, places=4):
 
 def format_table(name, result, baseline=None):
     lines = [f"\n=== {name}  (시드 {result['seeds']}, 짝지은 차이) ===",
-             f"  {'지표':<16}{'대조군':>10}{'팔':>10}{'차이(팔−대조)':>16}"
-             f"{'차이 sd':>10}{'부호 일치':>10}  판정"]
+             f"  {'지표':<16}{'대조군':>10}{'팔':>10}{'차이(팔−대조)':>15}"
+             f"{'차이 sd':>10}{'|Δ|/SE':>8}{'부호':>7}  판정"]
     for label, row in result["metrics"].items():
         if label.startswith("_"):
             continue
         mean = row["paired_diff_mean"]
         hib = row["higher_is_better"]
+        ratio = row.get("abs_mean_over_se", float("nan"))
         if mean is None or not math.isfinite(mean):
             verdict = "-"
         elif abs(mean) < SIGMA_SEED:
             verdict = f"차이 없음 (|Δ| < σ_seed {SIGMA_SEED})"
+        elif not (math.isfinite(ratio) and ratio >= MIN_SE_RATIO):
+            verdict = f"불확실 (|Δ|/SE {ratio:.1f} < {MIN_SE_RATIO})"
         elif hib is None:
             verdict = "방향 규약 없음"
         else:
@@ -133,8 +153,8 @@ def format_table(name, result, baseline=None):
             verdict = "**팔이 낫다**" if better else "대조군이 낫다"
         lines.append(
             f"  {label:<16}{_fmt(row['control'][0], 10)}{_fmt(row['arm'][0], 10)}"
-            f"{_fmt(mean, 16)}{_fmt(row['paired_diff_sd'], 10)}"
-            f"{row['sign_agreement']:>10}  {verdict}")
+            f"{_fmt(mean, 15)}{_fmt(row['paired_diff_sd'], 10)}"
+            f"{_fmt(ratio, 8, 1)}{row['sign_agreement']:>7}  {verdict}")
     if baseline is not None:
         ctl = result["metrics"]["iou_free"]["control"][0]
         arm = result["metrics"]["iou_free"]["arm"][0]
@@ -157,7 +177,8 @@ def main(control, arms, fixed_epoch: int = 40, json_out=None):
     if isinstance(arms, str):
         arms = [a for a in arms.split(",") if a]
     payload = {"control": str(control), "fixed_epoch": fixed_epoch,
-               "baseline_iou_free": baseline, "sigma_seed": SIGMA_SEED, "arms": {}}
+               "baseline_iou_free": baseline, "sigma_seed": SIGMA_SEED,
+               "min_se_ratio": MIN_SE_RATIO, "arms": {}}
     for entry in arms:
         name, _, log_root = str(entry).partition("=")
         result = compare(control_runs, load_arm(log_root, fixed_epoch))

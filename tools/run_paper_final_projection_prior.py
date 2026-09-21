@@ -150,6 +150,24 @@ def _blockers(spec: RunSpec) -> list:
     return [] if checkpoint.exists() else [f"source 체크포인트가 없다: {checkpoint}"]
 
 
+def _write_status(output_root: Path, status: dict) -> None:
+    """`queue_status.json`을 **병합해서** 쓴다.
+
+    팔을 나눠 여러 번 호출하면(예: 먼저 source 팔, 나중에 핀홀 팔) 통째로 덮어쓸 경우
+    앞 호출의 기록이 사라진다. 그러면 나중에 "어떤 런이 왜 안 돌았나"를 파일에서 읽을 수
+    없다 -- 2026-09-21에 실제로 `source_prior` 5런의 `blocked` 기록이 이렇게 사라졌다.
+    """
+    path = Path(output_root) / "queue_status.json"
+    merged = {}
+    if path.exists():
+        try:
+            merged = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            merged = {}
+    merged.update(status)
+    path.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
+
+
 def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=subprocess.run):
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -189,21 +207,26 @@ def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=su
         print(f"  {spec.run_name:<32} {state:<11} -> {decision}"
               + (f"   ({blockers[0]})" if blockers else ""))
 
-    (output_root / "queue_status.json").write_text(
-        json.dumps(status, indent=2, ensure_ascii=False) + "\n")
+    _write_status(output_root, status)
     if plan_only:
         print(f"\n[plan_only] manifest와 queue_status만 썼다: {output_root}")
         return status
 
     for spec in specs:
-        if status[spec.run_name]["decision"] != "run":
+        decision = status[spec.run_name]["decision"]
+        # **`blocked_missing_input`은 여기서 반드시 다시 판정한다.** 계획 단계의 판정은
+        # 큐를 시작하는 시점의 것이라, 같은 큐 안에서 앞 팔이 만들어 줄 입력은 그때 아직
+        # 없다. 계획 판정을 그대로 믿고 건너뛰면 `source_prior` 5런이 통째로 실행되지
+        # 않는데, 로그에는 `[skip]`조차 남지 않아 몇 시간 뒤에야 알아챈다
+        # (2026-09-21에 실제로 그렇게 됐다).
+        if decision not in ("run", "blocked_missing_input"):
             continue
-        # source_prior는 앞선 사전학습이 방금 끝났을 수 있으므로 직전에 다시 확인한다.
         blockers = _blockers(spec)
         if blockers:
             status[spec.run_name].update(decision="blocked_missing_input", blockers=blockers)
-            print(f"[skip] {spec.run_name}: {blockers[0]}")
+            print(f"[skip] {spec.run_name}: {blockers[0]}", flush=True)
             continue
+        status[spec.run_name].update(decision="run", blockers=[])
         env = dict(os.environ)
         env.update(spec.environment)
         print(f"\n{'='*70}\n[run] {spec.run_name}  ({spec.arm})\n{'='*70}", flush=True)
@@ -211,8 +234,7 @@ def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=su
         code = getattr(result, "returncode", 0)
         status[spec.run_name]["returncode"] = code
         status[spec.run_name]["decision"] = "done" if code == 0 else "failed"
-        (output_root / "queue_status.json").write_text(
-            json.dumps(status, indent=2, ensure_ascii=False) + "\n")
+        _write_status(output_root, status)
         if code != 0:
             print(f"[fail] {spec.run_name} returncode={code} -- 큐를 멈춘다.", flush=True)
             break
