@@ -1,0 +1,99 @@
+{
+  "experiment": "paper_final / 01_overall",
+  "date": "2026-09-18",
+  "git_commit": "78da7364f78221cd07f60c4744bf66de2d1a6379",
+  "environment": {
+    "python": "3.11.15",
+    "executable": "/data/home/dhlee/miniconda3/envs/bev-chamdog/bin/python",
+    "conda_env": "bev-chamdog",
+    "numpy": "1.26.4",
+    "torch": "2.7.0+cu128",
+    "cuda": "12.8",
+    "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition"
+  },
+  "protocols": {
+    "fixed_split": {
+      "train_sequences": [
+        "raws2",
+        "raws3",
+        "rawos1",
+        "rawos2",
+        "rawos4"
+      ],
+      "val_sequences": [
+        "raws1",
+        "rawos3"
+      ],
+      "n_train_frames": 192,
+      "n_val_frames": 75,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_runs": 5,
+      "constant_map_baseline_iou_free": 0.5180230692525705
+    },
+    "loso": {
+      "folds": [
+        "raws1",
+        "raws2",
+        "raws3",
+        "rawos1",
+        "rawos2",
+        "rawos3",
+        "rawos4"
+      ],
+      "seeds_per_fold": 5,
+      "n_runs": 35,
+      "held_out_is_validation": true,
+      "train_sequences_per_fold": 6
+    }
+  },
+  "frozen_configuration": {
+    "augment": true,
+    "band_kappa": 1.0,
+    "batch_size": 8,
+    "delta_m": 0.3,
+    "delta_r_m": 0.15,
+    "delta_r_over_m": null,
+    "device": "cuda",
+    "encoder_type": "res101",
+    "exp_name": "final",
+    "flip_augment": false,
+    "formulation": "binary",
+    "frame_block_len": 0,
+    "frame_split_fraction": 0.0,
+    "frame_split_gap": 3,
+    "frame_split_seed": 0,
+    "freeze_encoder": false,
+    "height_bins": 4,
+    "height_max_m": 1.75,
+    "height_min_m": -0.25,
+    "huber_beta_m": 0.15,
+    "init_checkpoint": "none",
+    "keep_checkpoints": 6,
+    "label_eps": 0.0,
+    "label_smoothing": 0.0,
+    "lambda_b": 0.5,
+    "lambda_r": 0.3,
+    "loss": "soft_boundary",
+    "lr": 0.0001,
+    "max_class_weight": 20,
+    "n_theta": null,
+    "num_epochs": 40,
+    "num_workers": 8,
+    "pixel_convention": "pixel_center",
+    "pixel_offset": 0.0,
+    "save_freq_epochs": 40,
+    "sigma_alpha": null,
+    "sigma_m": 0.1,
+    "soft_target": "gaussian",
+    "val_freq_epochs": 1,
+    "val_tail_fraction": 0.2,
+    "weight_decay": 1e-07
+  },
+  "primary_checkpoint": "fixed epoch 40 (validation-best is diagnostic only)"
+}

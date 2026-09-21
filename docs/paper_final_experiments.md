@@ -38,7 +38,7 @@
 
 | ID | 논문 역할 | 평가 프로토콜 | 상태 |
 |---|---|---|---|
-| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **일시 중단: 3/40 완료** |
+| `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **완료: 40/40, 무결성 통과, bundle 생성** |
 | `02_sensor_task_adaptation` | 카메라 모델·source prior·센서 범위 불일치 | 고정 split × 5 seeds | 계획 |
 | `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 기존 5조건 × 5 seeds 재사용 | 원자료 존재, 논문용 재정리 대기 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
@@ -154,6 +154,10 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 - [x] 1 epoch dry-run: LOSO fold 2개, seed 0
 - [x] dry-run config·split·`height.json`·확률맵 무결성 확인
 - [x] 40런 본 실행 시작
+- [x] 40런 본 실행 완료 (2026-09-18 17:35 KST)
+- [x] 완료 산출물 게이트 (epoch 40, Y=4, 설정 균일성, split 구성)
+- [x] 확률맵 무결성 8건 전부 통과
+- [x] 결과 bundle 생성
 
 ---
 
@@ -221,26 +225,166 @@ PROTOCOL=all SEEDS=0,1,2,3,4 NUM_EPOCHS=40 \
     > /data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/training_queue.log 2>&1
 ```
 
+### 2026-09-18 — `01_overall` 40런 완료·검증·결과 확정
+
+재개 실행 Git commit `78da7364f78221cd07f60c4744bf66de2d1a6379`. 재개 14:06:49 KST,
+학습 종료 17:35:43 KST(37런 3시간 29분), 분석 17:37:22~17:41:16(약 4분).
+출력은 `training_queue.log`(학습)와 `analysis_driver.log`(분석)에 있다.
+
+**실행 결과.** `queue_status.json`은 `completed` 37건 + `skipped_complete` 3건 = 40건이고
+`failed`·`blocked_incomplete`는 0건이다. 고정 split 5개, LOSO 35개 디렉터리 모두
+`model-000000040.pth`를 갖는다.
+
+**산출물 게이트(분석 전).** config 40개 전부 `num_epochs=40`, `height.json` 40개가
+모두 `{Y=4, −0.25~1.75 m}` 단일 기하, 런 이름·seed·split을 제외한 설정 차이 **0건**,
+LOSO 7 fold 각각 5런이며 held-out 시퀀스가 train에 섞이지 않았고 train은 항상 6시퀀스다.
+
+**무결성.** 확률맵 재채점 JSON 8건(고정 split 1 + LOSO fold 7) 모두 `failures=0`.
+최대 절대 차이는 고정 split **3.47e-4**(파일 10개), LOSO **5.16e-4**(파일 70개)로
+허용치 1e-3 안이다. `analysis/RESULTS.json`의 `integrity.passed`는 `true`이고
+`missing_files`는 비어 있다.
+
+**A — 고정 split (epoch 40, n=5).** `raws2,raws3,rawos1,rawos2,rawos4` → `raws1,rawos3`,
+192/75 frames.
+
+| 지표 | 값 |
+|---|---|
+| `iou_free` | **0.8119 ± 0.0018** |
+| constant-map baseline | **0.5180** |
+| margin | **+0.2938** |
+| `fatal_rate` | 0.1204 ± 0.0015 |
+| `free_miss_rate` | 0.0844 ± 0.0010 |
+| `f1@10cm` / `@20cm` / `@40cm` | 0.5981 ± 0.0058 / 0.8313 ± 0.0026 / 0.9290 ± 0.0019 |
+| `range_mae` / `range_bias` | 0.2117 ± 0.0036 m / +0.0518 ± 0.0034 m |
+| `range_missed_obstacle_rate` | 0.0377 ± 0.0019 |
+
+진단용 validation-best는 `iou_free` 0.8126 ± 0.0013(best epoch 27/15/30/40/36)으로
+고정 epoch 40과 0.0007 차이다. 주 결과는 §1-2에 따라 epoch 40이다.
+
+고정 split의 constant-map baseline은 학습 스크립트가 콘솔에만 찍고 TensorBoard에 남기지
+않아 bundle에서 빠져 있었다. `report_loso.fold_baseline`과 같은 계산(train 시퀀스의 셀별
+다수결 free map을 val에 채점)으로 다시 구해
+`fixed_split/analysis/constant_map_baseline.json`에 저장했다. §1-6이 baseline 병기를
+요구하므로 이 값 없이는 `iou_free`를 단독 보고하지 않는다.
+
+**B — LOSO (epoch 40, 7 folds × 5 seeds).**
+
+| fold | 조명 | 통로폭 | 외삽 | n_val | `iou_free` | baseline | margin | `fatal_rate` | `free_miss_rate` |
+|---|---|---|---|---|---|---|---|---|---|
+| `raws1` | 햇빛 | 좁음 | | 38 | 0.8221 ± 0.0014 | 0.6304 | +0.1917 | 0.1012 ± 0.0022 | 0.0877 ± 0.0016 |
+| `raws2` | 햇빛 | 좁음 | | 41 | 0.8723 ± 0.0013 | 0.6705 | +0.2018 | 0.0603 ± 0.0018 | 0.0869 ± 0.0050 |
+| `raws3` | 햇빛 | 넓음 | **O** | 36 | 0.8220 ± 0.0035 | 0.3854 | **+0.4366** | 0.1068 ± 0.0053 | 0.0901 ± 0.0053 |
+| `rawos1` | 가림막 | 좁음 | | 39 | 0.8485 ± 0.0016 | 0.6845 | **+0.1640** | 0.0890 ± 0.0020 | 0.0858 ± 0.0016 |
+| `rawos2` | 가림막 | 좁음 | | 40 | 0.8401 ± 0.0036 | 0.6074 | +0.2327 | 0.0906 ± 0.0033 | 0.1033 ± 0.0009 |
+| `rawos3` | 가림막 | 넓음 | | 37 | 0.8066 ± 0.0024 | 0.3912 | +0.4154 | 0.1260 ± 0.0030 | 0.0830 ± 0.0039 |
+| `rawos4` | 가림막 | 넓음 | | 36 | **0.8012 ± 0.0031** | 0.3875 | +0.4137 | 0.1042 ± 0.0016 | 0.1186 ± 0.0041 |
+| **macro** | | | | | **0.8304**, fold SD 0.0249 | 0.5367, fold SD 0.1413 | **+0.2937**, fold SD 0.1218 | 0.0969, fold SD 0.0203 | 0.0936, fold SD 0.0128 |
+
+- fold 내부 seed SD 평균은 `iou_free` **0.0024**, `fatal_rate` 0.0027, `free_miss_rate` 0.0032이다.
+- fold 간 SD는 fold 내부 seed SD의 **10.3배**다(0.0249 / 0.0024).
+- `iou_free` 최고 `raws2` 0.8723, 최저 `rawos4` 0.8012, 차 0.0710.
+- margin 최고는 외삽 fold `raws3` +0.4366, 최저는 `rawos1` +0.1640이다.
+- 통로폭별 평균: 좁음 4 fold는 baseline 0.6482 / margin +0.1975, 넓음 3 fold는
+  baseline 0.3880 / margin +0.4219다. 조명별 차이는 이보다 작다(햇빛 baseline 0.5621 /
+  margin +0.2767, 가림막 0.5176 / +0.3064).
+
+**해석(사실과 분리).** 위 표는 측정값이고, 아래는 읽는 방식이다.
+
+- **raw `iou_free` 순위와 margin 순위가 뒤집힌다.** `rawos1`은 `iou_free` 0.8485로 상위지만
+  margin은 +0.1640으로 7개 중 최저이고, `raws3`는 `iou_free` 0.8220으로 중하위지만 margin은
+  +0.4366으로 최고다. baseline 없이 fold를 줄세우면 결론이 반대가 된다.
+- **baseline 변동(fold SD 0.1413)이 모델 변동(0.0249)보다 5.7배 크다.** 즉 fold 간 raw
+  `iou_free` 차이는 모델의 일반화 능력보다 "그 장면이 상수 지도로 얼마나 잘 맞춰지는가"를
+  더 많이 반영한다. 넓은 통로 fold에서 baseline이 낮은 것이 그 구조다.
+- **외삽 fold `raws3`**(햇빛 O · 넓은 통로 조합이 train에 없는 유일한 fold)는 `iou_free`
+  0.8220으로 macro 평균 0.8304보다 0.0084 낮은 데 그쳤고 margin은 가장 컸다. 다만 fold
+  하나의 값이므로 §4.3의 단서(표본 오차·라벨 품질을 분리할 수 없음)가 그대로 적용된다.
+- **두 프로토콜의 margin이 거의 같다**(고정 split +0.2938, LOSO macro +0.2937). 우연의
+  일치일 수 있고 train 크기(192 대 229~231 frames)와 질문이 다르므로 §2에 따라 합치거나
+  직접 우열을 비교하지 않는다.
+- fold 간 차이의 원인은 장면 난이도·표본 오차·시퀀스별 라벨 품질 셋이며 분리할 수 없다.
+  `SD/√7`을 독립 표본 표준오차로 쓰지 않는다.
+
+**산출물 경로.** 루트 `runs/paper_final/01_overall/`.
+
+| 경로 | 내용 |
+|---|---|
+| `analysis/RESULTS.json` · `RESULTS.csv` · `README.md` | 상위 색인과 무결성 요약(두 프로토콜을 합치지 않음) |
+| `fixed_split/analysis/RESULTS.json` · `RESULTS.csv` | 런별 값 + epoch 40 mean/SD + best-epoch 진단 |
+| `fixed_split/analysis/constant_map_baseline.json` | 고정 split constant-map baseline |
+| `loso/analysis/RESULTS.json` · `RESULTS.csv` · `report_loso.json` | fold별 seed 원자료·mean/SD·baseline·margin·macro |
+| `*/analysis/scalars.csv` · `configs.json` · `manifest.json` | 런 × epoch 전 지표, 해석된 설정, 완료·hash |
+| `fixed_split/analysis/predictions/` (10개) · `loso/analysis/predictions/{fold}/` (70개) | threshold 전 `p(free)`, GT, valid mask, 거리장 |
+| `fixed_split/analysis/verify_predictions.json` · `loso/analysis/verify_predictions_{fold}.json` | 재채점 대조 8건, 전부 `failures=0` |
+| `training_queue.log` · `analysis_driver.log` | 학습·분석 콘솔 전문 |
+
+**논문 작성용 패키지.** 위 산출물 중 논문에 필요한 것만 추려 `docs/paper_package/`에
+모았다(1 MB 미만, 가중치·확률맵 제외). 노트북에 통째로 받아 서버 접속 없이 논문을 쓸 수
+있게 구성했다. 실험이 넷이므로 **실험별 폴더는 독립으로 두되 공통 사항은 `common/`에만**
+둔다 — 지표 정의를 실험마다 복사하면 하나만 고쳤을 때 나머지가 조용히 틀려진다.
+
+```
+docs/paper_package/
+├── README.md                 색인 + 실험 폴더 규약
+├── common/setup.md           과제·시퀀스 7개·라벨 출처·동결 설정·환경·무결성 방식
+├── common/metrics.md         지표 정의·range_bias 부호 규약·보고 규칙
+└── 01_overall/               REPORT.md · README.md · make_package.py · data/ · figures/ · provenance/
+```
+
+`data/`의 CSV는 `make_package.py`가, Figure 1은 `figures/make_margin_inversion.py`가
+각각 정본 생성 스크립트다 — **내보낸 CSV와 그림을 손으로 고치지 않는다.** 문서의 수치
+57건을 생성된 CSV와 자동 대조해 전부 일치함을 확인했고, 그림 색은 colorblind 검사를
+통과한 조합이다. 노트북 재생성 의존성은 matplotlib 하나다.
+
+디스크는 `loso` 33 GB, `fixed_split` 4.7 GB다. 출력 방식 변경 중 생긴 `final_s2`의
+2-epoch 산출물은 `archive_interrupted_20260918_1353/`(471 MB)에 그대로 두었고 논문
+숫자에는 쓰지 않는다.
+
+### 2026-09-21 — worktree를 `/tmp`에서 Desktop으로 옮김
+
+사용자가 `docs/paper_package/`가 자기 폴더에서 보이지 않는다고 지적했다. 원인은 캠페인
+worktree가 `/tmp/bev-chamdog-paper-final`에 있었기 때문이다. 실행 중에는 메인 체크아웃의
+미커밋 변경과 분리하는 합리적인 격리였지만, 산출물을 전달하는 단계에서는 잘못된 위치였다.
+
+`/tmp`의 정리 정책이 `D /tmp 1777 root root 30d`였다 — `D`는 **부팅 시 내용 삭제**,
+`30d`는 30일 경과 파일의 주기적 삭제다. uptime이 6주여서 아직 남아 있었을 뿐이고,
+재부팅 한 번이면 원장과 패키지가 사라질 상태였다.
+
+`/data/home/dhlee/Desktop/bev-chamdog-paper-final`으로 옮겼다. `git worktree move`는
+submodule이 있는 worktree를 거부하므로(`working trees containing submodules cannot be
+moved`) 수동 `mv` 후 `git worktree repair`를 썼다. 그 뒤 submodule 두 개
+(`simple_bev`, `WoodScape`)가 깨졌는데, `.git` 파일의 gitdir이 **루트 기준 상대경로**
+(`../` 5개)라 디렉터리 깊이가 달라지며 어긋난 것이었다. 양방향 포인터를 절대경로로 고쳤다.
+
+- `<checkout>/.git` 의 `gitdir:` → `<main>/.git/worktrees/bev-chamdog-paper-final/modules/<name>`
+- 그 모듈 `config` 의 `core.worktree` → 새 체크아웃 경로
+
+이동 후 `git status`·`git submodule status` 정상, submodule 고정 커밋 동일, 전체 테스트
+**421 passed, 7 skipped**로 이동 전과 같았다. 패키지 데이터·그림 재생성과 수치 대조도
+새 경로에서 다시 통과했다.
+
+전달 방식은 사용자가 "서버에 두면 직접 받아가겠다"로 정했다. 따라서 tar 묶음은 만들지
+않는다(실험이 추가되면 즉시 낡기 때문이다). 폴더를 그대로 가져간다.
+
 ### 다음 작업
 
-`01_overall` 실행 orchestrator는 40개 런을 완전한 명시 설정으로 생성하며, plan-only
-manifest에서 고정 split 5개와 LOSO 35개, 시드 0~4, 7 folds, 고유 런 이름을 확인했다.
-불완전 런은 덮어쓰거나 삭제하지 않고 `blocked_incomplete`로 남긴다. 분석 driver와 결과
-bundle 구현도 완료했고 두 종류의 1-epoch dry-run도 통과했다. 다음은 40런 본 실행이다.
-LOSO 집계기는 fold별
-seed 원자료·mean/SD·constant-map margin을 JSON으로도 보존한다. 과거 `Y=1`에서 얻은 프레임
-표준편차 상수 기반 `fold SE`는 새 구조화 결과에서 제외해 절단선 이전 숫자가 섞이지 않게 했다.
-확률맵은 LOSO fold마다 별도 `labels.npz`와 함께 저장하며, fold별 무결성 JSON이 모두 통과해야
-결과 bundle 생성 단계로 진행한다. Bundle은 프로토콜별 `RESULTS.json`/CSV/README와 상위
-색인을 만들되, 고정 split과 LOSO를 하나의 평균으로 합치지 않는다.
+`01_overall`은 종료됐다. 남은 것은 `02_sensor_task_adaptation`(§6이 정리한 미동결 사항을
+먼저 확정해야 한다), `03_boundary_uncertainty` 재정리, `04_edge_deployment`의 Orin 측정이다.
+`04`는 배포 메모의 20.2 FPS가 `Y=1` 값이므로 `Y=4` 재실측이 필요하다.
 
-실행 진입점:
+재현 진입점:
 
 ```bash
+# 학습 (완료된 런은 자동으로 건너뛴다)
 CUDA_VISIBLE_DEVICES=0 \
 OUT_ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall \
 PROTOCOL=all SEEDS=0,1,2,3,4 NUM_EPOCHS=40 \
     bash configs/paper_final_overall.sh
+
+# 분석·무결성·bundle
+CUDA_VISIBLE_DEVICES=0 \
+ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall \
+    bash configs/paper_final_overall_analysis.sh
 ```
 
 ---
