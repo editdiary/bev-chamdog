@@ -84,7 +84,7 @@
 
 | 문서 | 역할 |
 |---|---|
-| [`paper_final_experiments.md`](paper_final_experiments.md) | **논문 최종 설정 재실험의 단일 진행 원장 -- 지금 진행 중인 작업은 여기가 정본이다.** 계획·동결 설정·실행 상태·무결성·결과를 계속 갱신한다. **`01_overall` 완료(40런), `02` 설계 논의 중(§6)** |
+| [`paper_final_experiments.md`](paper_final_experiments.md) | **논문 최종 설정 재실험의 단일 진행 원장 -- 지금 진행 중인 작업은 여기가 정본이다.** 계획·동결 설정·실행 상태·무결성·결과를 계속 갱신한다. **`01_overall`(40런)·`02_projection_and_prior`(20런) 완료. 남은 것은 `03` 재정리와 `04` Orin 측정** |
 | [`paper_package/`](paper_package) | **논문 작성용 패키지.** 표 CSV·그림·해석을 실험별로 모았고 노트북에 그대로 받아 쓴다. `common/`에 지표 정의·보고 규칙·동결 설정. **CSV와 그림은 생성 스크립트가 정본이고 손으로 고치지 않는다** |
 | [`next_session_binary_and_verification.md`](next_session_binary_and_verification.md) | 2026-08-19 시점 인수인계에서 **운영 메모로 격하**. 도구 목록·실행 명령·시퀀스 이질성 실측·`cam0..3` 매핑 함정(**`left=cam3`이다**)처럼 다른 곳에 중복되지 않은 실무 정보가 남아 있다. §0의 "논의 중"은 종결됐다 |
 
