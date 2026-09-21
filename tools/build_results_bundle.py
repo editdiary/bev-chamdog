@@ -59,7 +59,10 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 # 사다리 순서. 표와 JSON의 키 순서가 이걸 따른다.
-LADDER = ("A_ce", "B_perset", "C_hard", "C_soft", "D_range")
+# **`D_range`와 `E_cumulative`는 이어지는 계단이 아니라 `C_soft`에서 갈라지는 대체 팔**이다
+# (`configs/loss_effect.sh` 머리말). 논문에 싣는 것은 `E`다 --
+# `docs/loss_effect_results.md` §16.
+LADDER = ("A_ce", "B_perset", "C_hard", "C_soft", "D_range", "E_cumulative")
 
 # (TensorBoard 태그, 짧은 이름, 높을수록 좋은가)
 METRICS = (

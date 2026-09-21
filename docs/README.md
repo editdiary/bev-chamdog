@@ -14,54 +14,30 @@
 
 ---
 
-> ## ▶ [2026-09-21] cumulative soft-target ray loss probe — **n=5 완료, 채택 안 함**
+> ## ▶ [2026-09-21] `L_range`를 누적형으로 바꿨다 — **논문은 `D`가 아니라 `E`를 쓴다**
 >
-> 기존 `L_range`의 dead zone은 경계의 수직 거리 band가 아니라 ray 방향의 총 arc 오차에
-> 걸리고, 종점 합에서는 광선 안의 양·음 오차가 상쇄될 수 있다. 이를 피하려고 $L_{cell}$과
-> 같은 soft target의 **누적 radial arc profile L1**을 실험 mode로 구현했다.
+> 기존 `arc_huber`는 광선을 종점 스칼라 하나로 합쳐 비교해서, `δ_R`이 경계의 수직 거리
+> band가 아니라 ray 방향 arc 오차에 걸리고 광선 안의 양·음 오차가 상쇄된다. 그래서
+> `L_cell`과 **같은 soft target**의 **누적 radial arc profile L1**(`cumulative_l1`)로 바꿨다.
+> `δ_R`과 `β`는 새 식에 없다.
 >
-> seed 0~4를 같은 설정으로 돌리고 `runs/loss_effect`의 대조군과 **같은 seed끼리 짝지어**
-> 판정했다. **정확도는 처음으로 실제로 올랐다** -- `iou_free`가 `C_soft` 대비 +0.0018,
-> `D_range` 대비 +0.0023이고 **둘 다 5/5 seed에서 같은 방향**이다. 그러나 **안전은 개선되지
-> 않았고**(같은 `free_miss`에서 곡선이 대조군 seed σ 안에서 겹친다 -- 동작점 이동이다)
-> **재현성은 오히려 나빠졌다**(`iou_free`의 σ_seed가 `D_range`의 2.7배).
+> **`D_range`와 `E_cumulative`는 이어지는 계단이 아니라 `C_soft`에서 갈라지는 대체 팔**이고,
+> **[사용자 결정] 논문 ablation 표에는 `E`만 싣고 `D`는 뺀다.** 확정 표기는
+> `RANGE_LOSS_MODE=cumulative_l1`, `λ_R = 0.15`다(`λ_R` 0.3 → 0.15는 **gradient 기여를
+> 맞춘 결과**이지 "절반으로 줄인" 것이 아니다).
 >
-> 수식 정본은 [`loss_function_spec.md`](loss_function_spec.md) §8.8, 결과·판정은
-> [`loss_effect_results.md`](loss_effect_results.md) §15, 전체 서사의 현재 지점은
-> [`experiment_history.md`](experiment_history.md) §5다. 기존 `arc_huber`는 여전히 기본이고
-> 새 mode는 **미채택 실험형**이다. 누적항을 **정식 loss 가중치로 올린 탐색(n=1)**은 §15.9다.
-
-> ## ▶ [2026-08-27] lifting 높이 축 `Y=1 → 4`를 채택했다
+> `runs/loss_effect/` 30런에서 짝지은 판정 규약을 통과한 것은 셋이다 — `iou_free` **+0.0020**
+> (대 `D`), `range_mae` **−0.0053/−0.0033 m**(둘 다 5/5, 가장 단단하다), 그리고
+> `missed_obstacle` **+0.0010**(**나빠진다**). **안전은 개선이 아니고**(같은 `free_miss`에서
+> 곡선이 겹친다) **되올림도 안 움직이는데**, 그것이 "되올림의 원인은 경계의 hard target"을
+> 오히려 보강한다.
 >
-> **아키텍처 축이 다시 열렸다가 닫혔다.** 라벨이 지면 occupancy가 아니라 **지상
-> 0.87~1.67 m 기둥 질의**라는 것이 라벨 코드에서 확인되면서 `Y`를 실험했고, n=3에서
-> `iou_free` 0.7950 → **0.8104**, `f1@10cm` 0.5437 → **0.6085**가 나왔다.
-> **이 프로젝트에서 나온 단일 변경으로는 가장 큰 개선이다.** 근거는
-> [`paper_experiment_compendium.md`](paper_experiment_compendium.md) §11.
+> 작성 규칙과 표는 [`loss_effect_results.md`](loss_effect_results.md) **§16**, 수식은
+> [`loss_function_spec.md`](loss_function_spec.md) §8.8, 서사는
+> [`experiment_history.md`](experiment_history.md) §5다.
+> **⚠ `runs/paper_final/`의 완료된 캠페인은 `arc_huber`로 학습돼 있다** — 논문 구성에 대한
+> 사용자 판단이 남아 있다(§16.6 말미).
 >
-> **2026-08-27 이후의 런은 그 이전 런과 lifting 기하가 다르다.** `pixel_convention`을
-> 옮겼을 때와 같은 성격의 절단선이다 -- 옛 숫자와 한 표에 세우려면 `HEIGHT_BINS=1`을
-> 명시해야 한다. 도구들은 체크포인트 옆 `height.json`으로 이 구분을 자동으로 한다.
->
-> 남은 것은 **논문 집필**과 **Orin 재실측**(Y=4에서, 사용자)이다.
-> **논문을 쓰거나 전체 상황을 빠르게 파악하려면 compendium 하나만 읽으면 된다** --
-> 모든 실험이 목적→설계→결과→해석으로 모여 있고 용어 정의도 안에 있다(§0.6).
-> 끝난 것: stride 8→4(**기각**), LOSO 21런, 안정성 축 둘, Orin 실측(Y=1), **높이 축(채택)**.
-> 자세한 현재 상태는 [`../AGENTS.md`](../AGENTS.md) 상단 블록이 정본이다.
-
-## 처음 오는 사람이 읽을 순서
-
-1. [`experiment_history.md`](experiment_history.md) — **여기서 시작한다.** 무엇을 시도했고
-   무엇을 배웠고 왜 지금 여기인지가 한 문서에 있다.
-   **cumulative ray loss의 현재 지점은 §5의 2026-09-21 블록이다.**
-2. [`../AGENTS.md`](../AGENTS.md) — 작업 규칙(소통·git·폴더·환경)
-3. [`loss_function_spec.md`](loss_function_spec.md) — **지금 쓰는 loss가 수식으로 정확히 무엇인가.** 근거·결과는 없고 형태만 있다
-4. [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) — loss 설계·결과 정본. **연구는 §16으로 종결됐다** -- 결론만 볼 거면 §16.4 한 표. **확정 config는 §21(2026-08-28)이 최신이다**
-4b. [`loss_effect_results.md`](loss_effect_results.md) — **loss가 실제로 무엇을 바꿨나(2026-09-02, 25런).** **원인은 경계의 hard target이다.** 위 문서와 독립이고 옛 숫자와 섞지 않는다
-4. [`finetuning_guide.md`](finetuning_guide.md) — 실제로 학습을 돌리는 순서
-5. [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) — 코드가 데이터를
-   어떻게 읽고 어떤 텐서가 되어 어떤 loss로 학습되는지
-
 ---
 
 ## 🟢 정본
@@ -70,9 +46,9 @@
 |---|---|---|
 | [`experiment_history.md`](experiment_history.md) | **서사 정본.** 2-head → 3-class → binary 전환 이유, 기각된 가설, 최종 결론과 근거, 방법론 교훈, 다음 수집 권고 | 개별 숫자의 근거 정본은 아니다 -- 각 절이 원본 문서 절 번호를 가리킨다 |
 | [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) | **근거 정본.** §1–§14 과적합 진단, §15–§19 binary 전환, §20–§21 분할·held-out test, §22 오차 구조, §23 `unknown`의 정체와 지표 축소, §24 시드 분산, §25 요인 구조·CV(**§25.6 LOSO를 읽는 법**, **§25.7 config 동결**, §25.8 사전 예상), §26 경계 대역 loss 분해, §27 lifting 표본 간격, **§28 프로브 실측·라벨 출처·결론 문장**, **§29 stride 8→4(사전 선언 + §29.9 결과=기각)**, **§30 안정성 축 둘**, **§31 LOSO 결과**, **§32 Orin 벤치마크(§32.6 TensorRT future work)**, **§33 lifting 높이 축 Y=1→4(실행 절차·코드 계약)** | 가장 길고(약 2900줄) 가장 자주 인용된다. **새 실측은 여기 절을 추가한다** |
-| [`loss_function_spec.md`](loss_function_spec.md) | **loss 형태 정본.** 현재 loss의 수식·기호·확정 하이퍼파라미터·코드 위치. §3 거리장, §4 영역 분할, §5 hard 항, §6 soft target 유도, §7 엔트로피 하한과 KL, §8 기본 `arc_huber`와 실험형 `cumulative_l1`, §9 mode별 λ_R 캘리브레이션 | **설계 근거와 실험 결과는 여기에 쓰지 않는다** -- 그건 아래 설계·결과 문서가 정본이다. 두 문서가 어긋나면 코드가 맞다. **누적형은 §8.8이며 n=5 뒤에도 미채택** |
+| [`loss_function_spec.md`](loss_function_spec.md) | **loss 형태 정본.** 현재 loss의 수식·기호·확정 하이퍼파라미터·코드 위치. §3 거리장, §4 영역 분할, §5 hard 항, §6 soft target 유도, §7 엔트로피 하한과 KL, §8 기본 `arc_huber`와 실험형 `cumulative_l1`, §9 mode별 λ_R 캘리브레이션 | **설계 근거와 실험 결과는 여기에 쓰지 않는다** -- 그건 아래 설계·결과 문서가 정본이다. 두 문서가 어긋나면 코드가 맞다. **누적형은 §8.8이고, 논문에 쓰는 것은 이쪽이다**(결과 §16.6) |
 | [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) | **loss 설계·결과 정본.** §2–§5 정식화, §6 구현 상태, §7 왜 하이퍼파라미터를 라벨에서 못 얻나, §8 실행법, §9–§10 스윕 10런 실측, §11 확정/기각, §12 보조 loss 계획, §13 `L_range`, §14 판정 프로토콜, §15 n=3 ablation, **§16 threshold sweep -- 최종 결론(정본)**, §17–§18 cm 재진술·교차 앙상블, **§19 `L_range` dead zone 진단**, **§20 경계 target 네 축 스윕(2026-08-27)**, **§21 `(σ, k)` 재매개변수화와 확정 config 변경(2026-08-28)** | **loss 연구는 §16으로 종결됐고 §20이 그 판단의 정량적 근거다.** 결론만 볼 거면 **§16.4**와 **§20.8** 두 표다. **⚠ §21이 확정 config를 바꿨다(δ=0.30, σ=0.10) -- §20.9의 "확정 config는 안 바뀐다"는 철회됐고, `α`는 더 쓰지 않는다.** **⚠ §20.1: `kl_boundary`는 config끼리 비교할 수 없다 -- 옛 절의 그 비교는 인용 금지이고 정본 지표는 `tools/report_boundary_calibration.py`의 `공통 kl`이다.** **§15.5(3)의 "안전 개선"은 §16.2가 철회했고, §13.6~§13.8의 σ 값은 §15.4가 철회했다 -- 순위만 인용한다.** **다음 할 일은 이 문서가 아니다** -- 계획된 실험은 전부 끝났고 남은 것은 논문 집필이다(위 2026-08-26 블록) |
-| [`loss_effect_results.md`](loss_effect_results.md) | **loss 영향력 대조 실험의 결과 정본.** 본 실험 25런(2026-09-02)과 후속 cumulative probe(§15, n=5, 2026-09-21). 현재 확정 config·정본 환경에서 일곱 축을 분리해 판정한다 | 본 실험 결론은 §0·§9. **되올림 원인은 hard boundary target**이고 재현성은 고정 epoch에서도 확인해야 한다. **§15 누적형은 n=5까지 갔지만 미채택** -- 정확도 +0.002(5/5)는 얻고 안전·재현성은 못 얻었다. 본 실험 데이터는 `runs/loss_effect/analysis/RESULTS.json`, probe는 `runs/cumulative_ray_loss/` |
+| [`loss_effect_results.md`](loss_effect_results.md) | **loss 영향력 대조 실험의 결과 정본.** 본 실험 25런(2026-09-02)과 `E_cumulative` 5런(§16, 2026-09-21, 총 30런). 현재 확정 config·정본 환경에서 일곱 축을 분리해 판정한다 | 본 실험 결론은 §0·§9. **되올림 원인은 hard boundary target**이고 재현성은 고정 epoch에서도 확인해야 한다. **§16이 논문용 정본이다** -- `D`를 빼고 `E`를 쓰고, 통과한 주장은 `iou_free` +0.0020과 `range_mae` −0.0033 m 둘뿐이며 `missed_obstacle`은 나빠진다. §15는 `λ_R=0.1526`의 재현 시도다. 본 실험 데이터는 `runs/loss_effect/analysis/RESULTS.json`, probe는 `runs/cumulative_ray_loss/` |
 | [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) | **지표 정의 정본.** 지표 하나하나의 정의와 채택/기각 사유 | 지표를 추가·삭제·변경할 때 **먼저 읽고 여기에 기록한다** |
 | [`finetuning_guide.md`](finetuning_guide.md) | fine-tuning 실행 절차 | 실행 전 데이터 점검 체크리스트가 여기 있다 |
 | [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드(데이터 → 텐서 → loss → 지표). **§3 항목 5에 수용영역·FLOPs 실측**, §6.5~§6.6에 upstream 함정 둘 | 코드를 처음 만질 때 |
