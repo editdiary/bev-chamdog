@@ -288,11 +288,11 @@ CUDA_VISIBLE_DEVICES=0 OUT_ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_
 
 Monitor `queue_status.json`; preserve and diagnose failures before retrying.
 
-- [ ] **Step 3: Gate analysis on complete artifacts**
+- [x] **Step 3: Gate analysis on complete artifacts**
 
 Require 5 fixed and 35 LOSO runs at epoch 40, correct split counts, Y=4 metadata, uniform environment/config, and final checkpoints.
 
-- [ ] **Step 4: Run analysis and publication gates**
+- [x] **Step 4: Run analysis and publication gates**
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall bash configs/paper_final_overall_analysis.sh
@@ -300,11 +300,11 @@ CUDA_VISIBLE_DEVICES=0 ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_fina
 
 Require all integrity checks to pass, fixed `n=5`, seven folds each `n_seed=5`, no missing files, and every fold's baseline margin.
 
-- [ ] **Step 5: Update the single campaign ledger**
+- [x] **Step 5: Update the single campaign ledger**
 
 Record commit, environment, wall time, sizes, integrity maximum delta, fixed mean±SD, LOSO macro/fold SD, fold margins, extrema, and bundle paths. Separate facts from interpretation.
 
-- [ ] **Step 6: Final verification and commit**
+- [x] **Step 6: Final verification and commit**
 
 ```bash
 conda run -n bev-chamdog pytest -q
