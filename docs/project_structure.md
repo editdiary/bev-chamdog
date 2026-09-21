@@ -143,6 +143,8 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 | `measure_label_geometry.py` | IPM 대 GT 라벨 정렬 | 진단 §18 |
 | `measure_lifting_resolution.py` | **표본 간격·왜곡·특징 예산.** 캘리브레이션만 쓴다 | 진단 §27 |
 | **`measure_height_bin_visibility.py`** | **높이 bin이 화각 안에 들어오나.** `Y>1` 실험의 사전 확인 -- 화각 밖이면 그 bin은 항상 0이라 "변화 없음"이 가설 기각이 아니게 된다 | 진단 §33.2, compendium §12.2 |
+| **`measure_projection_tradeoff.py`** | **어안 대 가상 핀홀의 화각·각해상도·커버리지 절충.** 학습 없이 calib만 쓴다. 핀홀 120°에서 정면 각해상도가 어안과 일치(2.58 대 2.55 px/deg)하는 것이 축 A의 공정 비교점이다. front-only 커버리지(81.7 %)와 이미지 원 점검도 같이 찍는다 | 원장 §6.1, §6.2 |
+| **`measure_domain_prior.py`** | **SynWoodScape와 로봇의 라벨 prior 비교.** 도메인 격차가 free 비율이 아니라 **관측 비율**(93.8 % 대 27.8 %)에서 온다는 것을 보인다 | 원장 §6.3, compendium §4 정정 |
 | `measure_range_gradient.py` | `λ_R` gradient 비 캘리브레이션 | 설계 §13.3 |
 | **`measure_perturbation_stability.py`** | **same-frame perturbation consistency.** 모션 성분 0인 축 | 진단 §30.1 |
 | **`measure_frame_gap_stability.py`** | **frame-gap consistency diagnostic.** pose·라벨 불필요 | 진단 §30.2 |
