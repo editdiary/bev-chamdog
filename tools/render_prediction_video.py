@@ -10,9 +10,14 @@
     하단 좌측    IPM (지면 투영 -- 실제 장면)
     하단 우측    모델 예측
 
-`valid`(수집 아티팩트 마스크)는 리그 고정이므로 라벨 없이도 계산된다. 예측 `occupied`는
-binary 정식화에서 예측 free의 경계에서 유도한다 -- 학습·시각화와 **같은 함수**를 쓴다
-(`binary_metrics.predicted_parts`).
+`valid`(수집 아티팩트 마스크)는 리그 고정이므로 라벨 없이도 계산된다.
+
+**예측 패널의 기본 색은 `--style=clean`이다**: free 흰색 / non-free 검정 / 후방 마스킹 중간
+회색. 모델의 출력이 free / non-free binary이므로 그림도 그 두 값만 보여 준다(마스킹은 판정
+밖이라 회색으로 비켜 둔다). `--style=3class`를 주면 예전처럼
+free(초록) / occupied(빨강) / unknown(검정) / 마스킹(보라)으로 칠한다 -- 그때 빨간 occupied는
+예측값이 아니라 예측 free의 경계에서 유도한 값이고, 학습·지표와 **같은 함수**를 쓴다
+(`binary_metrics.predicted_parts`). 유도 자체는 스타일과 무관하게 항상 돌아간다.
 
 실행 예:
     CUDA_VISIBLE_DEVICES=0 python tools/render_prediction_video.py \\
@@ -41,8 +46,10 @@ from projects.common.free_space import decompose_from_class_index  # noqa: E402
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.common.three_class_panels import (  # noqa: E402
     CLASS_COLOURS,
+    CLEAN_COLOURS,
+    PANEL_STYLES,
     load_font,
-    render_classes,
+    render_prediction,
 )
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
@@ -147,30 +154,38 @@ _DIFF_COLOURS = {
 }
 
 
-def render_free_disagreement(parts_a, parts_b, valid) -> np.ndarray:
+def render_free_disagreement(parts_a, parts_b, valid, style="3class") -> np.ndarray:
     """두 모델의 예측 `free`가 갈리는 곳만 보여 준다.
 
     **이 패널이 이 도구의 비교 모드에서 실제로 눈에 띄는 유일한 그림이다** -- 예측 두 장을
     나란히 놓으면 사람 눈으로는 거의 같아 보이는데, 차이는 대개 경계 몇 셀이기 때문이다.
+
+    `style="clean"`이면 바탕을 예측 패널과 같은 규칙으로 칠한다(일치 = 검정, 마스킹 = 중간
+    회색). 예측 패널에서 지운 보라색이 옆 칸에만 남으면 그게 다시 제일 튀는 색이 된다.
     """
     from projects.common.three_class_panels import CLASS_COLOURS, _as_2d
 
     valid_2d = _as_2d(valid)
     free_a, free_b = _as_2d(parts_a["free"]), _as_2d(parts_b["free"])
+    clean = style == "clean"
     image = np.empty((*valid_2d.shape, 3), np.uint8)
-    image[...] = CLASS_COLOURS["invalid"]
-    image[valid_2d] = _DIFF_COLOURS["agree"]
+    image[...] = CLEAN_COLOURS["masked"] if clean else CLASS_COLOURS["invalid"]
+    image[valid_2d] = CLEAN_COLOURS["non_free"] if clean else _DIFF_COLOURS["agree"]
     image[valid_2d & free_a & ~free_b] = _DIFF_COLOURS["a_only"]
     image[valid_2d & free_b & ~free_a] = _DIFF_COLOURS["b_only"]
     return image
 
 
 def compose_frame(camera_images, camera_names, bev_panels, title,
-                  bev_upscale=4, camera_width=320) -> Image.Image:
+                  bev_upscale=4, camera_width=320, panel_border=None) -> Image.Image:
     """상단 RGB 3장 / 하단 BEV 패널들. 순수 이미지 조립이라 모델과 무관하다.
 
     `bev_panels`는 `[(label, (H, W, 3) uint8), ...]`이다. 기본은 IPM + 예측 둘이지만
     `--compare_ckpt`를 주면 예측 둘과 차이 지도까지 넷이 된다.
+
+    `panel_border`는 BEV 패널을 두르는 1 px 선 색이다. **clean 스타일에 필요하다** -- 캔버스가
+    거의 흰색(250)이라 흰 free 영역이 격자 가장자리에 닿으면 패널의 경계가 사라져 자유공간이
+    화면 밖으로 새는 것처럼 보인다. 3-class 패널은 가장자리가 어두워 필요 없다.
     """
     bev_side = bev_panels[0][1].shape[0] * bev_upscale
     bev_row_w = len(bev_panels) * bev_side + (len(bev_panels) - 1) * _PAD
@@ -201,6 +216,11 @@ def compose_frame(camera_images, camera_names, bev_panels, title,
             Image.fromarray(bev).resize((bev_side, bev_side), Image.NEAREST),
             (x, y + _LABEL_H),
         )
+        if panel_border is not None:
+            draw.rectangle(
+                [x, y + _LABEL_H, x + bev_side - 1, y + _LABEL_H + bev_side - 1],
+                outline=panel_border,
+            )
     return canvas
 
 
@@ -238,6 +258,10 @@ def main(
     label_a="A",
     label_b="B",
     out="runs/robot_bev/viz/prediction.mp4",
+    # 예측 패널의 색. `clean`은 free 흰색 / non-free(유도된 occupied + unknown) 검정 /
+    # 후방 마스킹 중간 회색이다 -- 모델이 실제로 출력한 binary 판정만 보여 준다. 유도된
+    # 경계선을 따로 보거나 마스킹을 GT와 함께 가려야 하면 `3class`를 준다.
+    style="clean",
     formulation="binary",
     encoder_type="res101",
     fps=5,
@@ -250,6 +274,9 @@ def main(
 ):
     """`limit=0`이면 전체 프레임. `save_frames=True`면 PNG도 함께 남긴다."""
     import cv2  # 여기서만 쓴다 -- 임포트 실패가 다른 도구를 막지 않도록 지연 임포트한다.
+
+    if style not in PANEL_STYLES:
+        raise ValueError(f"--style은 {PANEL_STYLES} 중 하나여야 한다: {style!r}")
 
     grid = ROBOT_GRID_SPEC
     frames = list_frames(sequence_root)
@@ -309,14 +336,14 @@ def main(
                 panels = [("IPM (실제 장면)",
                            render_ipm(images, cameras_by_name, ego_T_cams, grid))]
                 if logits_b is None:
-                    panels.append(("예측", render_classes(parts, valid_t)))
+                    panels.append(("예측", render_prediction(parts, valid_t, style)))
                 else:
                     parts_b = _parts(logits_b[index:index + 1])
                     panels += [
-                        (f"예측 {label_a}", render_classes(parts, valid_t)),
-                        (f"예측 {label_b}", render_classes(parts_b, valid_t)),
+                        (f"예측 {label_a}", render_prediction(parts, valid_t, style)),
+                        (f"예측 {label_b}", render_prediction(parts_b, valid_t, style)),
                         (f"차이 (빨강={label_a}만 free, 파랑={label_b}만 free)",
-                         render_free_disagreement(parts, parts_b, valid_t)),
+                         render_free_disagreement(parts, parts_b, valid_t, style)),
                     ]
                 canvas = compose_frame(
                     [images[name] for name in FINETUNE_CAMERA_NAMES],
@@ -325,6 +352,7 @@ def main(
                     f"{Path(sequence_root).name}/{path.name}   frame {start + index + 1}"
                     f"/{len(frames)}",
                     bev_upscale=bev_upscale,
+                    panel_border=(200, 200, 200) if style == "clean" else None,
                 )
                 if save_frames:
                     canvas.save(frame_dir / f"{path.name}.png")

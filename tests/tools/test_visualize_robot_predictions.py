@@ -9,11 +9,14 @@ from projects.bev_gt.ipm import render_ipm
 from projects.common.polar import RAY_CENSORED, RAY_NO_FREE, RAY_OK, build_ray_index
 from projects.common.three_class_panels import (
     CLASS_COLOURS,
+    CLEAN_COLOURS,
     ERROR_COLOURS,
     draw_range_profile,
     load_font,
     render_classes,
     render_errors,
+    render_free_binary,
+    render_prediction,
 )
 from projects.datasets.robot_simplebev import split_samples_within_sequences
 from projects.geometry.double_sphere import (
@@ -85,6 +88,64 @@ def test_invalid_cells_get_their_own_colour_not_unknown():
 
     assert tuple(panel[0, 0]) == CLASS_COLOURS["invalid"]
     assert CLASS_COLOURS["invalid"] != CLASS_COLOURS["unknown"]
+
+
+def test_clean_style_paints_only_free_and_folds_everything_else_into_one_colour():
+    """clean 스타일은 모델이 실제로 출력한 binary 판정만 보여 준다.
+
+    유도된 `occupied`와 `unknown`이 같은 색이어야 한다 -- 다르면 예측하지 않은 경계선이
+    다시 그림의 주인공이 된다.
+    """
+    parts = {
+        "free": torch.tensor([[True, False, False]]),
+        "occupied": torch.tensor([[False, True, False]]),
+        "unknown": torch.tensor([[False, False, True]]),
+    }
+    valid = torch.tensor([[True, True, True]])
+
+    panel = render_free_binary(parts, valid)
+
+    assert tuple(panel[0, 0]) == CLEAN_COLOURS["free"]
+    assert tuple(panel[0, 1]) == CLEAN_COLOURS["non_free"]
+    assert tuple(panel[0, 2]) == CLEAN_COLOURS["non_free"]
+
+
+def test_clean_style_puts_the_rear_mask_between_free_and_non_free():
+    """후방 자기 가림 상자(`valid=0`)는 중간 회색이다 -- 판정 밖이라 free도 non-free도 아니다.
+
+    검정(non-free)으로 눕히면 트인 장면에서 흰 바닥에 난 구멍처럼 튀고, 3-class 패널의
+    보라색으로 두면 예측보다 그 덩어리가 먼저 눈에 들어온다. 그래서 두 색 **사이**여야 한다.
+
+    `free`가 마스킹 밖까지 켜져 있어도 희게 새지 않아야 한다.
+    """
+    parts = {
+        "free": torch.tensor([[True]]),
+        "occupied": torch.tensor([[False]]),
+        "unknown": torch.tensor([[False]]),
+    }
+
+    panel = render_free_binary(parts, torch.tensor([[False]]))
+
+    assert tuple(panel[0, 0]) == CLEAN_COLOURS["masked"]
+    assert CLEAN_COLOURS["masked"] != CLASS_COLOURS["invalid"]
+    low, high = sorted((CLEAN_COLOURS["free"][0], CLEAN_COLOURS["non_free"][0]))
+    assert low < CLEAN_COLOURS["masked"][0] < high
+
+
+def test_render_prediction_dispatches_on_style_name():
+    parts = {
+        "free": torch.tensor([[True, False]]),
+        "occupied": torch.tensor([[False, True]]),
+        "unknown": torch.tensor([[False, False]]),
+    }
+    valid = torch.tensor([[True, True]])
+
+    assert np.array_equal(render_prediction(parts, valid, "clean"),
+                          render_free_binary(parts, valid))
+    assert np.array_equal(render_prediction(parts, valid, "3class"),
+                          render_classes(parts, valid))
+    with pytest.raises(ValueError):
+        render_prediction(parts, valid, "3-class")
 
 
 def test_error_map_separates_fatal_from_miss_and_from_class_confusion():

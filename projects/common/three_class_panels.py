@@ -38,6 +38,26 @@ ERROR_COLOURS = {
 }
 RANGE_COLOURS = {"gt": (255, 255, 255), "pred": (255, 235, 100)}
 
+# 정성 확인용 2색 팔레트. **진단이 아니라 보여 주기 위한 그림**이다 -- 자유공간의 모양과
+# 시간축 일관성만 보면 되는 자리(라벨 없는 시퀀스 동영상, 논문·발표 그림)에서 쓴다.
+#
+# 왜 두 색뿐인가: 모델의 출력은 free / non-free **binary**다. 3-class 패널의 빨간 `occupied`는
+# 예측값이 아니라 예측 free의 ego 기준 경계에서 유도한 값이고(`binary_metrics.predicted_parts`),
+# `unknown`은 그 나머지다. 지표를 채점할 때는 그 분해가 필요하지만, 예측 자체를 보여 주는
+# 그림에서는 모델이 내놓지 않은 경계선이 화면의 주인공처럼 보인다. 여기서는 그 유도 단계를
+# 빼고 모델이 실제로 판단한 것만 남긴다.
+CLEAN_COLOURS = {
+    "free": (255, 255, 255),
+    "non_free": (18, 18, 18),
+    # 후방 자기 가림 상자(`valid=0`). free도 non-free도 아닌 **판정 밖**이라 두 색의 중간에
+    # 둔다. non-free와 같은 검정으로 눕혀 봤더니 좁은 통로에서는 배경에 잘 섞이는데, 주변이
+    # free로 넓게 예측되는 트인 장면에서는 흰 바닥에 난 구멍처럼 오히려 튀었다. 중간 회색은
+    # 흰색 위에서도 검정 위에서도 대비가 약해 어느 장면에서든 조용히 남는다.
+    "masked": (128, 128, 128),
+}
+
+PANEL_STYLES = ("3class", "clean")
+
 _BG = (250, 250, 250)
 _FG = (20, 20, 20)
 
@@ -85,6 +105,43 @@ def render_classes(parts, valid) -> np.ndarray:
     for name in ("unknown", "occupied", "free"):
         image[_as_2d(parts[name])] = CLASS_COLOURS[name]
     return image
+
+
+def render_free_binary(parts, valid) -> np.ndarray:
+    """예측 `free`는 흰색, non-free는 검정, `valid` 밖은 중간 회색 -> `(H, W, 3)` uint8.
+
+    유도된 `occupied`(3-class 패널의 빨간 테두리)를 따로 칠하지 않는다. 그 셀은 정의상
+    non-free이므로 검정에 흡수되고, 그림은 모델이 실제로 출력한 binary 판정만 보여 준다.
+
+    후방 자기 가림 상자(`rear_self_box.png`, `valid=0`)는 중간 회색이다. 3-class 패널의
+    보라색은 예측보다 먼저 눈에 들어왔고, 반대로 non-free와 같은 검정으로 눕히면 트인
+    장면에서 흰 바닥에 난 구멍처럼 보였다. 중간 회색은 양쪽 대비가 모두 약해 어느 장면에서든
+    조용히 남고, **판정 밖이라는 것 자체는 그림에 남는다** -- 모델이 non-free로 판단한
+    영역과 애초에 묻지 않은 영역은 다른 말이다.
+
+    **`unknown`과 유도된 `occupied`의 구분은 사라진다.** 그 둘을 가려야 하면
+    `render_classes`(3-class 패널)를 쓴다.
+
+    `parts["free"]`에 `valid`를 다시 한 번 곱한다. 호출부가 이미 곱해서 넘기지만
+    (`binary_metrics.predicted_parts`), 마스킹 밖이 희게 새는 것은 그림을 조용히 틀리게
+    만들므로 여기서 한 번 더 막는다.
+    """
+    valid_2d = _as_2d(valid)
+    image = np.empty((*valid_2d.shape, 3), np.uint8)
+    image[...] = CLEAN_COLOURS["masked"]
+    image[valid_2d] = CLEAN_COLOURS["non_free"]
+    image[_as_2d(parts["free"]) & valid_2d] = CLEAN_COLOURS["free"]
+    return image
+
+
+def render_prediction(parts, valid, style: str = "3class") -> np.ndarray:
+    """스타일 이름 -> 예측 패널. 도구가 `--style`을 그대로 넘긴다.
+
+    이름을 한 곳에서만 해석해 도구마다 문자열 비교가 흩어지지 않게 한다.
+    """
+    if style not in PANEL_STYLES:
+        raise ValueError(f"style은 {PANEL_STYLES} 중 하나여야 한다: {style!r}")
+    return render_free_binary(parts, valid) if style == "clean" else render_classes(parts, valid)
 
 
 def render_errors(pred_parts, gt_parts, valid) -> np.ndarray:

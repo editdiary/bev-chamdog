@@ -150,7 +150,7 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 | 도구 | 무엇 |
 |---|---|
 | `visualize_robot_predictions.py` | 예측 패널(현행). **`- 0.5` 정규화 누락 사고가 있었던 경로**(진단 §18.1) |
-| `render_prediction_video.py` | 전체 시퀀스 영상. `cam0..3` 매핑은 `orientation.json`이 정한다(**`left=cam3`**). **`--compare_ckpt`로 체크포인트 둘을 나란히 + 차이 지도** -- `Y`가 달라도 각자 자기 `height.json`을 따라간다 |
+| `render_prediction_video.py` | 전체 시퀀스 영상. `cam0..3` 매핑은 `orientation.json`이 정한다(**`left=cam3`**). **`--compare_ckpt`로 체크포인트 둘을 나란히 + 차이 지도** -- `Y`가 달라도 각자 자기 `height.json`을 따라간다. 예측 패널 색은 **기본 `--style=clean`**(free 흰색 / non-free 검정 / 후방 마스킹 중간 회색 -- 모델이 출력한 binary 판정만), `--style=3class`면 옛 4색 |
 | `visualize_predictions.py` | SynWoodScape 시절 경로 |
 | `visualize_occupancy_gt` · `visualize_camera_visibility` · `visualize_depth_overlay` | 라벨·가시성·깊이 점검 |
 
