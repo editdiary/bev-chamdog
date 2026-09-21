@@ -16,8 +16,14 @@ import pytest
 import torch
 
 from projects.bev_gt.grid import OccupancyGridSpec
+from projects.common import binary_metrics
 from projects.common.polar import RAY_OK, build_ray_index, first_free_range
-from projects.common.soft_boundary import compute_soft_boundary_loss, signed_distance_field
+from projects.common.soft_boundary import (
+    TARGET_GAUSSIAN,
+    build_soft_boundary_target,
+    compute_soft_boundary_loss,
+    signed_distance_field,
+)
 from projects.common import range_loss as range_loss_module
 from projects.common.range_loss import (
     DEFAULT_HUBER_BETA_M,
@@ -115,6 +121,56 @@ def test_cumulative_loss_excludes_invalid_samples_from_sum_and_average():
 
     assert loss.item() == pytest.approx(0.0, abs=1e-9)
     assert parts["range_cumulative_mae"].item() == pytest.approx(0.0, abs=1e-9)
+
+
+class _FixedLogitModel:
+    def __init__(self, logits):
+        self.logits = logits
+
+    def __call__(self, *args):
+        return None, None, self.logits, None, None
+
+
+def test_range_loss_mode_selects_cumulative_and_preserves_arc_default(rays, gather):
+    """mode 분기가 틀리거나 기본값이 바뀌면 실제 batch loss 값으로 드러나야 한다."""
+    free_np = _disc(0.6)
+    free = _as_batch(free_np)
+    valid = _as_batch(np.ones_like(free_np))
+    blind = _as_batch(np.zeros_like(free_np))
+    d = _as_batch(signed_distance_field(free_np, np.ones_like(free_np), SPEC.cell_m))
+    prob = torch.where(free, 0.7, 0.3).float()
+    logits = torch.cat([torch.log1p(-prob), torch.log(prob)], dim=1)
+    batch = {
+        "rgb_camXs": torch.zeros(1),
+        "pix_T_cams": torch.zeros(1),
+        "cam0_T_camXs": torch.zeros(1),
+        "seg_bev_g": free,
+        "vis_bev_g": valid,
+        "valid_bev_g": valid,
+        "d_bev_g": d,
+    }
+    common = dict(
+        model=_FixedLogitModel(logits), batch=batch, vox_util=object(), device="cpu",
+        rays=rays, permanent_blind=blind, delta=0.30, lambda_b=0.5,
+        target=TARGET_GAUSSIAN, sigma=0.10, alpha=None, gather=gather, lambda_r=0.3,
+    )
+
+    _, default_parts, _ = binary_metrics.run_batch_soft_boundary(**common)
+    _, expected_arc = compute_range_loss(prob, free, valid, gather)
+    assert "range_cumulative_mae" not in default_parts
+    assert default_parts["loss_range"].item() == pytest.approx(
+        expected_arc["loss_range"].item(), abs=1e-7)
+
+    _, cumulative_parts, _ = binary_metrics.run_batch_soft_boundary(
+        **common, range_loss_mode="cumulative_l1")
+    target_free = build_soft_boundary_target(
+        d, valid, blind, delta=0.30, kind=TARGET_GAUSSIAN, sigma=0.10)
+    _, expected_cumulative = range_loss_module.compute_cumulative_range_loss(
+        prob, target_free, free, valid, gather)
+    assert cumulative_parts["range_cumulative_mae"].item() == pytest.approx(
+        expected_cumulative["range_cumulative_mae"].item(), abs=1e-7)
+    assert cumulative_parts["loss_range"].item() == pytest.approx(
+        expected_cumulative["loss_range"].item(), abs=1e-7)
 
 
 def test_ray_is_ok_matches_first_free_range(rays, gather):

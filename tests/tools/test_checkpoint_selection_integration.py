@@ -234,6 +234,12 @@ def test_an_unknown_formulation_fails_before_training_starts(tmp_path):
         robot_trainer.main(formulation="binry", dataset_root=tmp_path)
 
 
+def test_an_unknown_range_loss_mode_fails_before_training_starts(tmp_path):
+    """mode 오타가 기존 arc-Huber로 조용히 떨어지면 잘못된 40 epoch 런을 만든다."""
+    with pytest.raises(ValueError, match="range_loss_mode"):
+        robot_trainer.main(range_loss_mode="cumulativ_l1", dataset_root=tmp_path)
+
+
 def _forbidden(message):
     """불려서는 안 되는 경로. 조용히 다른 경로로 떨어지는 것을 잡는다."""
     def _raise(*args, **kwargs):

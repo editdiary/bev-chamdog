@@ -115,6 +115,7 @@ fi
 #                 대칭이면 "벽 안쪽 δ_R까지 free 예측"이 무벌점이 되는데 그게 주 판정 축이다
 #   HUBER_BETA_M  Huber 전환점 [m]. 미터로 둔다 (정규화하면 L2로 퇴화한다)
 LAMBDA_R="${LAMBDA_R:-0.0}"
+RANGE_LOSS_MODE="${RANGE_LOSS_MODE:-arc_huber}"
 DELTA_R_M="${DELTA_R_M:-0.15}"
 DELTA_R_OVER_M="${DELTA_R_OVER_M:-None}"
 HUBER_BETA_M="${HUBER_BETA_M:-0.15}"
@@ -260,6 +261,7 @@ python tools/train_robot_bev.py \
     --sigma_alpha="${SIGMA_ALPHA}" \
     --sigma_m="${SIGMA_M}" \
     --lambda_r="${LAMBDA_R}" \
+    --range_loss_mode="${RANGE_LOSS_MODE}" \
     --delta_r_m="${DELTA_R_M}" \
     --delta_r_over_m="${DELTA_R_OVER_M}" \
     --huber_beta_m="${HUBER_BETA_M}" \

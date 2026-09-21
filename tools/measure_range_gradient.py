@@ -52,9 +52,13 @@ from projects.common.range_loss import (  # noqa: E402
     DEFAULT_DELTA_R_M,
     DEFAULT_HUBER_BETA_M,
     RayGather,
+    compute_cumulative_range_loss,
     compute_range_loss,
 )
-from projects.common.soft_boundary import compute_soft_boundary_loss  # noqa: E402
+from projects.common.soft_boundary import (  # noqa: E402
+    build_soft_boundary_target,
+    compute_soft_boundary_loss,
+)
 from projects.datasets.robot_simplebev import (  # noqa: E402
     DEFAULT_COMMON_ROOT,
     DEFAULT_DATASET_ROOT,
@@ -102,15 +106,22 @@ def main(
     num_workers=8,
     # 재는 대상 config. 스윕의 베이스와 같아야 한다 -- 다른 `δ`/`α`에서 잰 비율을 쓰면
     # `λ_R`이 그만큼 어긋난다.
-    delta_m=0.15,
+    delta_m=0.30,
     lambda_b=0.5,
     soft_target="gaussian",
-    sigma_alpha=0.5,
+    sigma_m=0.10,
+    sigma_alpha=None,
+    band_kappa=1.0,
+    label_eps=0.0,
+    range_loss_mode="arc_huber",
     delta_r_m=DEFAULT_DELTA_R_M,
     huber_beta_m=DEFAULT_HUBER_BETA_M,
     target_ratio=0.1,
     seed=0,
 ):
+    if range_loss_mode not in ("arc_huber", "cumulative_l1"):
+        raise ValueError("range_loss_mode는 arc_huber 또는 cumulative_l1이어야 한다: "
+                         f"{range_loss_mode}")
     torch.manual_seed(seed)
     np.random.seed(seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -163,13 +174,22 @@ def main(
 
         boundary_loss, _ = compute_soft_boundary_loss(
             logits, d, valid, blind, delta=delta_m, lambda_b=lambda_b,
-            kind=soft_target, alpha=sigma_alpha,
+            kind=soft_target, sigma=sigma_m, alpha=sigma_alpha,
+            kappa=band_kappa, eps=label_eps,
         )
-        range_loss, range_parts = compute_range_loss(
-            torch.softmax(logits, dim=1)[:, 1:2],
-            decompose(seg, vis, valid)["free"], valid, gather,
-            delta_r=delta_r_m, beta=huber_beta_m,
-        )
+        prob_free = torch.softmax(logits, dim=1)[:, 1:2]
+        free_gt = decompose(seg, vis, valid)["free"]
+        if range_loss_mode == "arc_huber":
+            range_loss, range_parts = compute_range_loss(
+                prob_free, free_gt, valid, gather,
+                delta_r=delta_r_m, beta=huber_beta_m,
+            )
+        else:
+            target_free = build_soft_boundary_target(
+                d, valid, blind, delta=delta_m, kind=soft_target,
+                sigma=sigma_m, alpha=sigma_alpha, kappa=band_kappa, eps=label_eps)
+            range_loss, range_parts = compute_cumulative_range_loss(
+                prob_free, target_free, free_gt, valid, gather)
         g_b = _grad_norm(boundary_loss, logits)
         g_r = _grad_norm(range_loss, logits)          # λ_R = 1에서의 값
         ratios.append(g_r / g_b if g_b > 0 else float("nan"))
@@ -179,8 +199,11 @@ def main(
 
     ratio = float(np.mean(ratios))
     print(f"\n배치 {len(ratios)}개 / {device} / init={init_checkpoint}")
-    print(f"  base config: δ={delta_m} λ_B={lambda_b} target={soft_target} α={sigma_alpha}")
-    print(f"               δ_R={delta_r_m} m  β={huber_beta_m} m")
+    print(f"  base config: δ={delta_m} λ_B={lambda_b} target={soft_target}"
+          f" σ={sigma_m} α={sigma_alpha} κ={band_kappa} ε={label_eps}")
+    print(f"  range mode: {range_loss_mode}")
+    if range_loss_mode == "arc_huber":
+        print(f"               δ_R={delta_r_m} m  β={huber_beta_m} m")
     print(f"\n  arc_mae        {np.mean(mae):.4f} m  (dead zone 전)")
     print(f"  arc_bias      {np.mean(bias):+.4f} m  (양수 = 자유공간 과대예측)")
     print(f"  frac_rays_used {np.mean(used):.4f}")

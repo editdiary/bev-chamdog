@@ -26,6 +26,7 @@ from projects.common.segmentation_loss import (
 from projects.common.range_loss import (
     DEFAULT_DELTA_R_M,
     DEFAULT_HUBER_BETA_M,
+    compute_cumulative_range_loss,
     compute_range_loss,
 )
 from projects.common.soft_boundary import (
@@ -34,6 +35,7 @@ from projects.common.soft_boundary import (
     DEFAULT_KAPPA,
     DEFAULT_LAMBDA_B,
     TARGET_LINEAR,
+    build_soft_boundary_target,
     compute_soft_boundary_loss,
 )
 
@@ -196,7 +198,8 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
                             target=TARGET_LINEAR, sigma=None, alpha=None,
                             gather=None, lambda_r=0.0, delta_r=DEFAULT_DELTA_R_M,
                             delta_r_over=None, huber_beta=DEFAULT_HUBER_BETA_M,
-                            kappa=DEFAULT_KAPPA, eps=DEFAULT_EPS):
+                            kappa=DEFAULT_KAPPA, eps=DEFAULT_EPS,
+                            range_loss_mode="arc_huber"):
     """soft-boundary loss로 한 배치. 설계는 `docs/soft_boundary_loss_design.md`.
 
     `run_batch`와 **지표 계산은 완전히 같다** -- 다른 것은 loss 하나뿐이다. 그래야 두 loss의
@@ -212,6 +215,10 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
     붙는다(설계 문서 §13). **둘 중 하나라도 없으면 항이 계산조차 되지 않는다** -- 대조군과
     기존 스윕 런이 새 코드 경로를 타지 않아야 한다.
     """
+    if range_loss_mode not in ("arc_huber", "cumulative_l1"):
+        raise ValueError("range_loss_mode는 arc_huber 또는 cumulative_l1이어야 한다: "
+                         f"{range_loss_mode}")
+
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5
     pix_T_cams = batch["pix_T_cams"].to(device)
     cam0_T_camXs = batch["cam0_T_camXs"].to(device)
@@ -222,18 +229,26 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
 
     _, _, logits, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
 
+    blind = permanent_blind.to(device)
     range_term = None
     if gather is not None and lambda_r > 0.0:
         # `p(free)`는 loss가 쓰는 것과 같은 softmax에서 나와야 한다 -- 여기서 따로 sigmoid를
         # 쓰면 두 항이 다른 확률을 보게 된다.
         prob_free = torch.softmax(logits, dim=1)[:, 1:2]
         free_gt = decompose(seg_bev_g, vis_bev_g, valid_bev_g)["free"]
-        range_term = compute_range_loss(prob_free, free_gt, valid_bev_g, gather,
-                                        delta_r=delta_r, delta_r_over=delta_r_over,
-                                        beta=huber_beta)
+        if range_loss_mode == "arc_huber":
+            range_term = compute_range_loss(prob_free, free_gt, valid_bev_g, gather,
+                                            delta_r=delta_r, delta_r_over=delta_r_over,
+                                            beta=huber_beta)
+        else:
+            target_free = build_soft_boundary_target(
+                d_bev_g, valid_bev_g, blind, delta=delta, kind=target,
+                sigma=sigma, alpha=alpha, kappa=kappa, eps=eps)
+            range_term = compute_cumulative_range_loss(
+                prob_free, target_free, free_gt, valid_bev_g, gather)
 
     loss, loss_parts = compute_soft_boundary_loss(
-        logits, d_bev_g, valid_bev_g, permanent_blind.to(device),
+        logits, d_bev_g, valid_bev_g, blind,
         delta=delta, lambda_b=lambda_b, kind=target, sigma=sigma, alpha=alpha,
         range_term=range_term, lambda_r=lambda_r, kappa=kappa, eps=eps,
     )

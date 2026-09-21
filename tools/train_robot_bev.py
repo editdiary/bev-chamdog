@@ -324,6 +324,9 @@ def main(
     # `L_range`는 미터, BCE는 nats라 공통 스케일이 없어서 숫자만 보고는 뜻이 정해지지 않는다.
     # gradient 비 `G_R/G_B ≈ 0.1`에 맞추면 "gradient의 10 %"라는 뜻 있는 값이 된다.
     lambda_r=0.0,
+    # `arc_huber`는 기존 endpoint arc + dead zone + Huber이고 기본값이다.
+    # `cumulative_l1`은 동일 soft target과의 누적 arc profile L1이다.
+    range_loss_mode="arc_huber",
     # `delta_r_m` -- 허용 반폭 [m]. **이 항의 요점이다** -- 이 안에서 loss가 평평해져
     # gradient가 정확히 0이 되고, 그래서 라벨의 반경 방향 오차를 외울 동기가 사라진다.
     # `0.0`으로 두면 "dead zone이 실제로 필요한가"의 ablation이 된다.
@@ -404,6 +407,9 @@ def main(
         raise ValueError("soft_boundary loss는 --formulation=binary에서만 쓴다")
     if float(lambda_r) > 0.0 and loss != "soft_boundary":
         raise ValueError("lambda_r은 --loss=soft_boundary에서만 쓴다")
+    if range_loss_mode not in ("arc_huber", "cumulative_l1"):
+        raise ValueError("range_loss_mode는 arc_huber 또는 cumulative_l1이어야 한다: "
+                         f"{range_loss_mode}")
     if not 0.0 < float(band_kappa) <= 1.0:
         raise ValueError(f"band_kappa는 (0, 1] 범위여야 한다: {band_kappa}")
     if float(band_kappa) != 1.0 and loss != "soft_boundary":
@@ -534,13 +540,15 @@ def main(
         # `L_range` 보조항. 별도 줄로 두는 이유: `λ_R`은 gradient 비로 캘리브레이션한 값이라
         # (§13.3) 다른 손잡이와 성격이 다르고, 꺼져 있을 때는 줄 자체가 없어야 한다.
         *([f" loss += λ_R={float(lambda_r):.4f} · L_range"
-           f" | δ_R⁻={float(delta_r_m):.3f} m"
-           f" | δ_R⁺={float(delta_r_m if delta_r_over_m is None else delta_r_over_m):.3f} m"
-           f" | β={float(huber_beta_m):.3f} m"
-           + ("  <- δ_R=0: dead zone ablation" if float(delta_r_m) == 0.0 else "")
-           + ("  <- 비대칭: 과대예측(fatal 방향)만 좁혔다"
-              if delta_r_over_m is not None
-              and float(delta_r_over_m) != float(delta_r_m) else "")]
+           + (" | mode=cumulative_l1 | soft-target cumulative arc L1"
+              if range_loss_mode == "cumulative_l1" else
+              f" | δ_R⁻={float(delta_r_m):.3f} m"
+              f" | δ_R⁺={float(delta_r_m if delta_r_over_m is None else delta_r_over_m):.3f} m"
+              f" | β={float(huber_beta_m):.3f} m"
+              + ("  <- δ_R=0: dead zone ablation" if float(delta_r_m) == 0.0 else "")
+              + ("  <- 비대칭: 과대예측(fatal 방향)만 좁혔다"
+                 if delta_r_over_m is not None
+                 and float(delta_r_over_m) != float(delta_r_m) else ""))]
           if float(lambda_r) > 0.0 else []),
         f" class weights ({spec['weight_label']}) = {class_weights.tolist()}"
         + ("  <- soft_boundary에서는 쓰이지 않는다 (per-set 평균이 대체)"
@@ -664,7 +672,7 @@ def main(
                 model, batch, vox, device, rays, blind_mask,
                 delta=delta_m, lambda_b=lambda_b, target=soft_target,
                 sigma=sigma_m, alpha=sigma_alpha,
-                gather=gather, lambda_r=float(lambda_r),
+                gather=gather, lambda_r=float(lambda_r), range_loss_mode=range_loss_mode,
                 delta_r=float(delta_r_m), huber_beta=float(huber_beta_m),
                 delta_r_over=None if delta_r_over_m is None else float(delta_r_over_m),
                 kappa=float(band_kappa), eps=float(label_eps),
