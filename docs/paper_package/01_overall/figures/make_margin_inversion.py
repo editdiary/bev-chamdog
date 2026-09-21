@@ -21,6 +21,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
+# 재생성해도 바이트가 같게 만든다. 기본값은 PDF/SVG에 생성 시각과 무작위 element id를
+# 박아서, 내용이 같아도 돌릴 때마다 git이 변경으로 잡는다. 그러면 "스크립트가 정본"이
+# 무의미해진다 -- 진짜 수정과 잡음을 구별할 수 없기 때문이다.
+matplotlib.rcParams["svg.hashsalt"] = "bev-chamdog-fig1"
+#: 포맷별로 지워야 하는 타임스탬프 키가 다르다.
+_NO_TIMESTAMP = {"pdf": {"CreationDate": None}, "svg": {"Date": None}, "png": {}}
+
 HERE = Path(__file__).resolve().parent
 DATA = HERE.parent / "data" / "figure_margin_inversion.csv"
 
@@ -129,7 +136,8 @@ def main(formats: str = "pdf,png,svg", dpi: int = 400, out_dir: str = str(HERE))
     for fmt in (f.strip() for f in formats.split(",") if f.strip()):
         path = out_dir / f"fig1_margin_inversion.{fmt}"
         fig.savefig(path, format=fmt, dpi=dpi, bbox_inches="tight",
-                    facecolor=fig.get_facecolor())
+                    facecolor=fig.get_facecolor(),
+                    metadata=_NO_TIMESTAMP.get(fmt, {}))
         print(f"  {path.name}")
     plt.close(fig)
 
