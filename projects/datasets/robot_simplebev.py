@@ -50,6 +50,7 @@ from projects.common.free_space import decompose
 from projects.common.soft_boundary import signed_distance_field
 from projects.datasets.photometric import apply_photometric, sample_photometric_params
 from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
+from projects.models.virtual_pinhole import IMAGE_CIRCLE_PX, remap_maps, undistort
 from projects.geometry.double_sphere import (
     FINETUNE_CAMERA_NAMES,
     load_cameras,
@@ -266,6 +267,10 @@ class RobotBEVDataset(Dataset):
         resize_wh=(RESIZE_WIDTH, RESIZE_HEIGHT),
         augment=False,
         grid_spec=GRID_SPEC,
+        # `02_projection_and_prior` 축 A (원장 §6.2). `ds_native`가 확정 설정이다.
+        # `pinhole`이면 어안을 가상 핀홀로 편 뒤 통상적인 핀홀 파이프라인으로 lifting한다.
+        projection="ds_native",
+        pinhole_hfov_deg=None,
     ):
         self.samples = [(Path(root), sample_id) for root, sample_id in samples]
         self.common_root = Path(common_root)
@@ -273,6 +278,13 @@ class RobotBEVDataset(Dataset):
         self.resize_wh = resize_wh
         self.augment = augment  # train split에서만 True -- val은 항상 원본이어야 비교가 된다
         self.grid_spec = grid_spec
+        if projection not in ("ds_native", "pinhole"):
+            raise ValueError(f"projection은 ds_native 또는 pinhole이어야 한다: {projection}")
+        if (projection == "pinhole") != (pinhole_hfov_deg is not None):
+            raise ValueError("pinhole_hfov_deg는 projection=pinhole일 때만, 그리고 그때는 "
+                             f"반드시 준다: projection={projection}, hfov={pinhole_hfov_deg}")
+        self.projection = projection
+        self.pinhole_hfov_deg = None if pinhole_hfov_deg is None else float(pinhole_hfov_deg)
 
         calib_path = self.common_root / "calibration/calib.yaml"
         cameras = load_cameras(calib_path)
@@ -290,21 +302,40 @@ class RobotBEVDataset(Dataset):
         ).float()
         # `DoubleSphereVoxUtil`이 렌즈 파라미터를 직접 들고 있으므로 이 텐서는 쓰이지 않는다.
         # `Segnet.forward`가 인자로 요구하기 때문에 형상만 맞춰 넘긴다.
+        # 핀홀 팔에서도 마찬가지다 -- `VirtualPinholeVoxUtil`이 화각을 직접 들고 있다.
         self._pix_T_cams = torch.eye(4).repeat(len(self.camera_names), 1, 1)
+
+        # 리맵 테이블은 캘리브레이션과 화각만의 함수라 샘플과 무관하다. 한 번만 만든다.
+        # (`num_workers`가 프로세스를 fork하므로 워커마다 복사되지만 512x288 float32
+        # 두 장 x 3대 = 3.5 MB라 문제가 없다.)
+        self._remap = None
+        if self.projection == "pinhole":
+            self._remap = [
+                remap_maps(cameras[name], self.pinhole_hfov_deg, *self.resize_wh,
+                           circle_px=IMAGE_CIRCLE_PX.get(name), src_wh=self.resize_wh)
+                for name in self.camera_names
+            ]
 
     def __len__(self):
         return len(self.samples)
 
-    def _load_rgb(self, sequence_root: Path, sample_id: str, camera_name: str) -> np.ndarray:
+    def _load_rgb(self, sequence_root: Path, sample_id: str, camera_name: str,
+                  camera_index: int = 0) -> np.ndarray:
         path = sequence_root / "rgb_images" / sample_id / f"cam_{camera_name}.jpg"
         image = Image.open(path).convert("RGB").resize(self.resize_wh, Image.BILINEAR)
-        return np.asarray(image, dtype=np.float32) / 255.0  # Segnet 내부 정규화 전 [0,1]
+        array = np.asarray(image, dtype=np.float32) / 255.0  # Segnet 내부 정규화 전 [0,1]
+        if self._remap is None:
+            return array
+        # 축 A: 같은 512x288 어안 이미지를 가상 핀홀로 편다. 두 팔의 유일한 차이가
+        # 이 한 단계여야 한다 -- 근거는 `projects/models/virtual_pinhole.remap_maps`.
+        return undistort(array, *self._remap[camera_index])
 
     def __getitem__(self, index):
         sequence_root, sample_id = self.samples[index]
 
         rgb_camXs = np.stack(
-            [self._load_rgb(sequence_root, sample_id, name) for name in self.camera_names]
+            [self._load_rgb(sequence_root, sample_id, name, index)
+             for index, name in enumerate(self.camera_names)]
         )
         rgb_camXs = np.transpose(rgb_camXs, (0, 3, 1, 2))  # (S, H, W, 3) -> (S, 3, H, W)
         rgb_tensor = torch.from_numpy(rgb_camXs).float()

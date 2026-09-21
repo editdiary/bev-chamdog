@@ -74,10 +74,8 @@ from projects.common.bev_occupancy_metrics import (  # noqa: E402
     weighted_mean,
     write_epoch_scalars,
 )
-from projects.common.three_class_metrics import (  # noqa: E402
-    class_weights_from_labels,
-    run_batch,
-)
+from projects.common import binary_metrics, three_class_metrics  # noqa: E402
+from projects.common.range_loss import RayGather  # noqa: E402
 from projects.common.free_space import decompose  # noqa: E402
 from projects.common.free_space_metrics import build_ring_masks  # noqa: E402
 from projects.common.polar import build_ray_index  # noqa: E402
@@ -163,9 +161,42 @@ def main(
     # `docs/finetune_overfitting_diagnosis.md` §3, §12에 있다. `1`이면 가중치 없음.
     max_class_weight=None,
     n_theta=None,
+    # ---- 아래는 `02_projection_and_prior` 축 B를 위해 추가됐다 (2026-09-21) ----
+    # **목적: 사전학습을 확정 설정(원장 §3)과 같은 정식화·같은 loss·같은 Y로 맞추는 것.**
+    # 그래야 출력 head까지 형상이 맞아 네트워크 전체가 target으로 전이되고, "합성 도메인의
+    # prior를 최대한 물려받았을 때 얼마나 해로운가"를 잰다. 기본값은 예전 그대로라
+    # 옛 3-class 호출은 바뀌지 않는다.
+    formulation="three_class",   # three_class | binary
+    loss="weighted_ce",          # weighted_ce | soft_boundary (binary에서만)
+    seed=0,                      # **예전에는 0으로 하드코딩돼 있었다.** 시드를 바꿔야
+                                 # target 시드와 1:1로 짝지을 수 있다 (원장 §6.3)
+    run_name=None,               # 비우면 자동 이름(타임스탬프 포함)
+    # soft_boundary 파라미터. 의미와 확정값 근거는 `configs/train_robot_bev_finetune.sh`.
+    delta_m=0.30,
+    sigma_m=0.10,
+    lambda_b=0.5,
+    soft_target="gaussian",
+    lambda_r=0.3,
+    delta_r_m=0.15,
+    huber_beta_m=0.15,
+    band_kappa=1.0,
+    label_eps=0.0,
 ):
-    torch.manual_seed(0)
-    np.random.seed(0)
+    if formulation not in ("three_class", "binary"):
+        raise ValueError(f"formulation은 three_class 또는 binary여야 한다: {formulation}")
+    if loss not in ("weighted_ce", "soft_boundary"):
+        raise ValueError(f"loss는 weighted_ce 또는 soft_boundary여야 한다: {loss}")
+    if loss == "soft_boundary" and formulation != "binary":
+        raise ValueError("soft_boundary loss는 --formulation=binary에서만 쓴다")
+    formulation_spec = {
+        "three_class": {"num_classes": 3, "module": three_class_metrics,
+                        "weight_label": "unknown/free/occupied"},
+        "binary": {"num_classes": 2, "module": binary_metrics,
+                   "weight_label": "not_free/free"},
+    }[formulation]
+
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
     all_ids = discover_all_sample_ids(DEFAULT_DATASET_ROOT)
     train_ids, val_ids = train_val_split(
@@ -175,7 +206,7 @@ def main(
         train_ids, val_ids = train_ids[:max_samples], val_ids[: max(1, max_samples // 4)]
 
     trivial_iou = compute_trivial_baseline_iou(val_ids, DEFAULT_OCCUPANCY_GT_ROOT)
-    class_weights = class_weights_from_labels(
+    class_weights = formulation_spec["module"].class_weights_from_labels(
         load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT),
         max_class_weight=max_class_weight,
     )
@@ -190,11 +221,12 @@ def main(
     )
 
     _print_banner([
-        " SynWoodScape -> Simple-BEV three-class pretrain",
+        f" SynWoodScape -> Simple-BEV {formulation} pretrain",
         f" exp_name={exp_name} | encoder={encoder_type} | fisheye={use_fisheye}",
-        f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
+        f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs} | seed={seed}",
+        f" formulation={formulation} | loss={loss}",
         f" train={len(train_ids)} | val={len(val_ids)}",
-        f" class weights (unknown/free/occupied) = {class_weights.tolist()}",
+        f" class weights ({formulation_spec['weight_label']}) = {class_weights.tolist()}",
         f" photometric augment (train only) = {bool(augment)}",
         f" trivial 'always predict drivable' baseline IoU on val = {trivial_iou:.3f}",
         f" constant-map baseline iou_free = {constant_baseline:.3f}  <- compare against this",
@@ -225,6 +257,7 @@ def main(
         Z, Y, X, vox_util,
         use_radar=False, use_lidar=False, do_rgbcompress=True,
         encoder_type=encoder_type, rand_flip=False,
+        num_classes=formulation_spec["num_classes"],
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -237,16 +270,39 @@ def main(
     rays = (build_ray_index(GRID_SPEC) if n_theta is None
             else build_ray_index(GRID_SPEC, n_theta=n_theta))
     ring_masks = build_ring_masks(GRID_SPEC, edges_m=PRETRAIN_RING_EDGES_M)
-    step = lambda batch: run_batch(  # noqa: E731
-        model, batch, vox_util, class_weights, device
-    )
+    # step 구성은 `tools/train_robot_bev.py`와 **같은 모양으로 유지한다** -- 두 스크립트가
+    # 다른 경로로 같은 loss를 계산하기 시작하면 사전학습과 fine-tuning이 조용히 갈린다.
+    if loss == "soft_boundary":
+        # SynWoodScape에는 리그 고정 가림(`permanent_blind`)이 없으므로 0 마스크를 넘긴다.
+        blind_mask = torch.zeros(1, 1, GRID_SPEC.n_rows, GRID_SPEC.n_cols)
+        gather = (RayGather(rays, (GRID_SPEC.n_rows, GRID_SPEC.n_cols), device)
+                  if float(lambda_r) > 0.0 else None)
+
+        def step(batch):
+            return binary_metrics.run_batch_soft_boundary(
+                model, batch, vox_util, device, rays, blind_mask,
+                delta=delta_m, lambda_b=lambda_b, target=soft_target,
+                sigma=sigma_m, alpha=None,
+                gather=gather, lambda_r=float(lambda_r),
+                delta_r=float(delta_r_m), huber_beta=float(huber_beta_m),
+                delta_r_over=None,
+                kappa=float(band_kappa), eps=float(label_eps),
+            )
+    elif formulation == "binary":
+        step = lambda batch: binary_metrics.run_batch(  # noqa: E731
+            model, batch, vox_util, class_weights, device, rays)
+    else:
+        step = lambda batch: three_class_metrics.run_batch(  # noqa: E731
+            model, batch, vox_util, class_weights, device)
 
     # 타임스탬프를 반드시 넣는다: 이게 없으면 같은 exp_name으로 재실행할 때 global_step(epoch)이
     # 1부터 다시 시작하면서 이전 실행의 체크포인트(model-000000001.pth 등)를 그대로 덮어쓰고,
     # keep_latest 정리 로직이 이전 실행분을 지워버린다 (model_best는 keep_latest=1이라
     # 새 실행의 첫 저장에서 즉시 삭제됨). tensorboard 로그는 파일 자체가 지워지진 않지만
     # 같은 폴더에 섞여 들어가 epoch 축이 겹쳐 보인다.
-    run_name = f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}_{datetime.now().strftime('%y%m%d_%H%M%S')}"
+    if run_name in (None, "None", ""):
+        run_name = (f"{exp_name}_{encoder_type}_bs{batch_size}_lr{lr:.0e}_s{seed}"
+                    f"_{datetime.now().strftime('%y%m%d_%H%M%S')}")
     log_path = Path(log_dir) / run_name
     writer = SummaryWriter(str(log_path))
     ckpt_path = Path(ckpt_dir) / run_name

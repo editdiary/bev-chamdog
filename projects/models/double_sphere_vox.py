@@ -114,6 +114,31 @@ class DoubleSphereVoxUtil(utils.vox.Vox_util):
             torch.tensor([float(cam.domain_cos_limit) for cam in cameras], dtype=torch.float32),
         )
 
+    def _project_to_native(self, x_cam, y_cam, z_cam, B, device):
+        """카메라 프레임 점 -> **native 해상도** 픽셀 좌표와 유효 플래그.
+
+        `unproject_image_to_mem`에서 떼어낸 유일한 이유는 **투영 모델만 갈아끼우기 위해서**다
+        (`VirtualPinholeVoxUtil`). 나머지 경로 -- 해상도 스케일, `pixel_offset`, `mirror_x`,
+        유효 영역 판정, `grid_sample` 정규화 -- 는 두 모델이 **비트 단위로 같아야** 한다.
+        그래야 `02_projection_and_prior` 축 A의 비교가 투영 방식 하나만 다른 비교가 된다.
+
+        반환: `(u_native, v_native, valid, native_w, native_h)`. 앞 셋은 `(B, N)`,
+        뒤 둘은 `(B, 1)`로 브로드캐스트되는 텐서다.
+        """
+        S = self.camera_count
+        assert B % S == 0, f"packed batch({B})는 camera 수({S})로 나눠떨어져야 한다"
+        n_repeat = B // S
+        xi, alpha, fx, fy, cx, cy, native_w, native_h, w2 = (
+            t.to(device).repeat(n_repeat).unsqueeze(1) for t in self._calib_tensors
+        )  # 각각 (B, 1) -- 점 차원(N)과 브로드캐스트된다
+
+        # native(캘리브레이션 원본) 해상도로 계산한 뒤 호출부가 현재 해상도로 스케일한다.
+        # DS 투영은 (fx, cx)/(fy, cy)에 대해 선형이라 사후 스케일과 계수 사전 스케일이 동치다.
+        u_native, v_native, valid = double_sphere_pixel_coords(
+            x_cam, y_cam, z_cam, xi, alpha, fx, fy, cx, cy, w2
+        )
+        return u_native, v_native, valid, native_w, native_h
+
     def unproject_image_to_mem(self, rgb_camB, pixB_T_camA, camB_T_camA, Z, Y, X,
                                assert_cube=False, xyz_camA=None):
         assert getattr(self, "camera_count", None), "먼저 set_camera_calibrations()를 호출해야 한다"
@@ -134,17 +159,8 @@ class DoubleSphereVoxUtil(utils.vox.Vox_util):
         xyz_camB = utils.geom.apply_4x4(camB_T_camA, xyz_camA)  # B x N x 3, OpenCV 카메라 프레임
         x_cam, y_cam, z_cam = xyz_camB[:, :, 0], xyz_camB[:, :, 1], xyz_camB[:, :, 2]
 
-        S = self.camera_count
-        assert B % S == 0, f"packed batch({B})는 camera 수({S})로 나눠떨어져야 한다"
-        n_repeat = B // S
-        xi, alpha, fx, fy, cx, cy, native_w, native_h, w2 = (
-            t.to(device).repeat(n_repeat).unsqueeze(1) for t in self._calib_tensors
-        )  # 각각 (B, 1) -- 점 차원(N)과 브로드캐스트된다
-
-        # native(캘리브레이션 원본) 해상도로 계산한 뒤 지금 rgb_camB의 해상도로 스케일한다.
-        # DS 투영은 (fx, cx)/(fy, cy)에 대해 선형이라 사후 스케일과 계수 사전 스케일이 동치다.
-        u_native, v_native, valid = double_sphere_pixel_coords(
-            x_cam, y_cam, z_cam, xi, alpha, fx, fy, cx, cy, w2
+        u_native, v_native, valid, native_w, native_h = self._project_to_native(
+            x_cam, y_cam, z_cam, B, device
         )
         x = u_native * (float(W) / native_w)
         y = v_native * (float(H) / native_h)

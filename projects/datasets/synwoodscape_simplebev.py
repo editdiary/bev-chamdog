@@ -23,6 +23,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 from projects.bev_gt.grid import SYNWOODSCAPE_PRETRAIN_GRID_SPEC
+from projects.common.free_space import decompose
+from projects.common.soft_boundary import signed_distance_field
 from projects.datasets.photometric import apply_photometric, sample_photometric_params
 from projects.datasets.simplebev_calib import ego_T_cam_from_camera, pinhole_pix_T_cam_from_camera
 from projects.datasets.simplebev_vox import ref_T_cam_from_ego_T_cam
@@ -93,6 +95,21 @@ class SynWoodScapeSimpleBEVDataset(Dataset):
 
         occupancy = np.load(self.occupancy_gt_root / f"{sample_id}_occupancy.npy")
         visible = np.load(self.occupancy_gt_root / f"{sample_id}_visible.npy")
+        valid = np.ones_like(occupancy, dtype=bool)
+
+        # `d_bev_g` -- GT 경계까지의 부호 있는 수직 거리 [m]. `robot_simplebev.py`와 **같은
+        # 함수·같은 규약**이다. soft-boundary loss가 영역을 나누는 데 쓴다.
+        #
+        # 여기서 계산하는 이유도 같다: 거리변환이 CPU numpy라 학습 루프에서 부르면 매 배치
+        # GPU->CPU 왕복이 생긴다. `__getitem__`이면 `num_workers`가 병렬로 처리한다.
+        # loss 종류와 무관하게 항상 넣는다 -- 배치 계약이 갈리면 두 loss의 런을 같은 코드로
+        # 다룰 수 없다.
+        #
+        # 로봇 쪽과 다른 점 하나: SynWoodScape에는 `permanent_blind`(리그 자체가 영구히
+        # 가리는 영역)와 `valid=0`(수집 아티팩트)이 없으므로 `keep`이 전부 True다.
+        distance = signed_distance_field(
+            decompose(occupancy, visible, valid)["free"], valid, GRID_SPEC.cell_m
+        )
 
         rgb_tensor = torch.from_numpy(rgb_camXs).float()
         if self.augment:
@@ -106,5 +123,6 @@ class SynWoodScapeSimpleBEVDataset(Dataset):
             "cam0_T_camXs": self._cam0_T_camXs,
             "seg_bev_g": torch.from_numpy(occupancy.astype(np.float32)).unsqueeze(0),
             "vis_bev_g": torch.from_numpy(visible.astype(np.float32)).unsqueeze(0),
-            "valid_bev_g": torch.ones_like(torch.from_numpy(occupancy.astype(np.float32))).unsqueeze(0),
+            "valid_bev_g": torch.from_numpy(valid.astype(np.float32)).unsqueeze(0),
+            "d_bev_g": torch.from_numpy(distance).unsqueeze(0),
         }

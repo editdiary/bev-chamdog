@@ -88,6 +88,7 @@ from projects.datasets.simplebev_vox import (  # noqa: E402
     vox_dims,
 )
 from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
+from projects.models.virtual_pinhole import build_virtual_pinhole_vox_util  # noqa: E402
 from projects.models.simplebev_three_class import (  # noqa: E402
     ThreeClassSegnet,
     head_was_transferred,
@@ -281,6 +282,13 @@ def main(
     # (3) 광도 증강 파라미터(worker 시드가 base 시드에서 파생된다). cuDNN 비결정성이
     # 남으므로 같은 시드라도 비트 단위로 같지는 않다 -- σ는 그 몫까지 포함한 값이다.
     seed=0,
+    # 카메라 투영 모델. `ds_native`(확정 설정)는 어안 원본을 Double Sphere로 직접 lifting하고,
+    # `pinhole`은 가상 핀홀로 편 뒤 통상적인 핀홀 파이프라인을 쓴다 -- 캠페인
+    # `02_projection_and_prior` 축 A의 대조 팔이다(원장 §6.2, `projects/models/virtual_pinhole.py`).
+    # **`pinhole`은 화각(`--pinhole_hfov_deg`)을 반드시 함께 준다.** 빠뜨리면 조용히
+    # 확정 설정으로 돌아가 "핀홀 팔"이라는 이름의 DS 런이 생긴다.
+    projection="ds_native",
+    pinhole_hfov_deg=None,
     # loss 종류. `weighted_ce`(현행, 역빈도 가중 CE) 또는 `soft_boundary`.
     # **현행 경로를 지우지 않는 이유: 대조군이다.** soft-boundary가 이겼다는 판정은 같은
     # 시드·같은 split에서 두 loss를 나란히 돌려서만 나온다
@@ -383,6 +391,11 @@ def main(
     torch.manual_seed(seed)
     np.random.seed(seed)
 
+    if projection not in ("ds_native", "pinhole"):
+        raise ValueError(f"projection은 ds_native 또는 pinhole이어야 한다: {projection}")
+    if (projection == "pinhole") != (pinhole_hfov_deg not in (None, "None")):
+        raise ValueError("pinhole_hfov_deg는 --projection=pinhole일 때만, 그리고 그때는 "
+                         f"반드시 준다: projection={projection}, hfov={pinhole_hfov_deg}")
     if loss not in ("weighted_ce", "soft_boundary"):
         raise ValueError(f"loss는 weighted_ce 또는 soft_boundary여야 한다: {loss}")
     # soft-boundary는 free/not-free 두 클래스를 전제로 유도됐다(부호 있는 거리 하나로
@@ -480,6 +493,8 @@ def main(
         f" robot dataset -> Simple-BEV {formulation} fine-tuning",
         f" exp_name={exp_name} | encoder={encoder_type} | cameras={','.join(FINETUNE_CAMERA_NAMES)}",
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs}",
+        f" projection={projection}" + ("" if projection == "ds_native"
+                                       else f" (가상 핀홀 HFOV {float(pinhole_hfov_deg):.1f}°)"),
         f" lifting height: Y={height_bins} bins, 표본 높이 [m] = "
         + ", ".join(f"{z:+.3f}" for z in height_bin_centers_m(
             vox_bounds(GRID_SPEC, height_min_m=height_min_m, height_max_m=height_max_m,
@@ -548,7 +563,12 @@ def main(
         print(_c(_Ansi.YELLOW + _Ansi.BOLD,
                  " [warning] val 시퀀스가 없다 -- 체크포인트 선택 없이 마지막 epoch만 남는다."))
 
-    train_ds = RobotBEVDataset(train_samples, common_root=common_root, augment=augment)
+    projection_kwargs = dict(
+        projection=projection,
+        pinhole_hfov_deg=None if pinhole_hfov_deg in (None, "None") else float(pinhole_hfov_deg),
+    )
+    train_ds = RobotBEVDataset(train_samples, common_root=common_root, augment=augment,
+                               **projection_kwargs)
     # 마지막 배치가 1개일 때만 버린다(BatchNorm이 배치 1에서 죽는다). pretrain 쪽은
     # 그냥 drop_last=True인데, 여기서는 시퀀스 하나가 수십 장뿐이라 그러면 한 epoch에서
     # 샘플의 10~20%가 통째로 빠진다.
@@ -557,25 +577,36 @@ def main(
         drop_last=len(train_samples) % batch_size == 1,
     )
     val_loader = DataLoader(
-        RobotBEVDataset(val_samples, common_root=common_root),  # val은 항상 원본
+        RobotBEVDataset(val_samples, common_root=common_root, **projection_kwargs),  # val은 항상 원본
         batch_size=batch_size, shuffle=False, num_workers=num_workers,
     )
 
     Z, Y, X = vox_dims(GRID_SPEC, height_bins)
     height_kwargs = dict(height_bins=height_bins,
                          height_min_m=height_min_m, height_max_m=height_max_m)
-    vox_util = build_double_sphere_vox_util(
-        GRID_SPEC, train_ds.cameras, device=device,
-        pixel_convention=pixel_convention, pixel_offset=float(pixel_offset),
-        **height_kwargs,
-    )
+    # 두 경로는 **투영식만 다르다.** 해상도 스케일·`pixel_offset`·`mirror_x`·유효 영역
+    # 판정·`grid_sample` 정규화는 `VirtualPinholeVoxUtil`이 상속으로 그대로 물려받는다.
+    # upstream `Vox_util`을 쓰면 `legacy_index` 규약의 배율 오차가 핀홀 팔에만 들어가
+    # "DS + 옳은 표본 위치" 대 "핀홀 + 틀린 표본 위치"를 비교하게 된다.
+    if projection == "pinhole":
+        def _build_vox(mirror_x=False):
+            return build_virtual_pinhole_vox_util(
+                GRID_SPEC, len(train_ds.camera_names), float(pinhole_hfov_deg),
+                *train_ds.resize_wh, device=device, mirror_x=mirror_x,
+                pixel_convention=pixel_convention, pixel_offset=float(pixel_offset),
+                **height_kwargs,
+            )
+    else:
+        def _build_vox(mirror_x=False):
+            return build_double_sphere_vox_util(
+                GRID_SPEC, train_ds.cameras, device=device, mirror_x=mirror_x,
+                pixel_convention=pixel_convention, pixel_offset=float(pixel_offset),
+                **height_kwargs,
+            )
+    vox_util = _build_vox()
     # 반전 배치는 lifting 기하가 달라지므로 vox util을 하나 더 둔다. 캘리브레이션은 같고
     # `mirror_x`만 다르다 -- 만드는 비용이 사실상 0이라 플래그와 무관하게 항상 준비해 둔다.
-    mirror_vox_util = build_double_sphere_vox_util(
-        GRID_SPEC, train_ds.cameras, device=device, mirror_x=True,
-        pixel_convention=pixel_convention, pixel_offset=float(pixel_offset),
-        **height_kwargs,
-    )
+    mirror_vox_util = _build_vox(mirror_x=True)
     # rand_flip=False: 이 리그의 ROI는 전후 비대칭(전방 4 m / 후방 2 m)이라
     # Simple-BEV의 Z축 flip 증강이 물리적으로 성립하지 않는다.
     model = ThreeClassSegnet(

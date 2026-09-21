@@ -61,6 +61,26 @@ FLIP_AUGMENT="${FLIP_AUGMENT:-False}"
 # 그 σ보다 작은 차이는 주장하지 않는다. 집계는 `tools/summarize_repeats.py`.
 SEED="${SEED:-0}"
 
+# 카메라 투영 모델. `ds_native`(확정 설정)는 어안 원본을 Double Sphere로 직접 lifting하고,
+# `pinhole`은 가상 핀홀로 편 뒤 통상적인 핀홀 파이프라인을 쓴다 -- 캠페인
+# `02_projection_and_prior` 축 A의 대조 팔이다(원장 §6.2).
+#
+# **`PROJECTION=pinhole`이면 `PINHOLE_HFOV_DEG`를 반드시 준다.** 빠뜨리면 조용히 확정
+# 설정으로 돌아가 "pinhole120"이라는 이름의 DS 런이 생기고, 그 런은 겉보기에 정상이라
+# 분석 단계까지 아무도 알아채지 못한다. 동결값은 120(정면 각해상도가 어안과 일치)과
+# 150(커버리지 우선)이다 -- 근거는 `tools/measure_projection_tradeoff.py`.
+PROJECTION="${PROJECTION:-ds_native}"
+PINHOLE_HFOV_DEG="${PINHOLE_HFOV_DEG:-None}"
+if [ "${PROJECTION}" = "pinhole" ] && [ "${PINHOLE_HFOV_DEG}" = "None" ]; then
+    echo "ERROR: PROJECTION=pinhole이면 PINHOLE_HFOV_DEG를 지정해야 한다. 예:" >&2
+    echo "  PROJECTION=pinhole PINHOLE_HFOV_DEG=120 bash configs/train_robot_bev_finetune.sh" >&2
+    exit 1
+fi
+if [ "${PROJECTION}" != "pinhole" ] && [ "${PINHOLE_HFOV_DEG}" != "None" ]; then
+    echo "ERROR: PINHOLE_HFOV_DEG는 PROJECTION=pinhole에서만 쓴다 (지금 ${PROJECTION})." >&2
+    exit 1
+fi
+
 # loss 종류: `weighted_ce`(현행 역빈도 가중 CE, 대조군) 또는 `soft_boundary`.
 # 설계는 docs/soft_boundary_loss_design.md. 아래 넷은 soft_boundary에서만 쓰인다.
 #   SIGMA_M      **라벨 경계 불확실성 [m]. 여기에 사전 지식이 들어간다.** 확정 0.10
@@ -231,6 +251,8 @@ python tools/train_robot_bev.py \
     --label_smoothing="${LABEL_SMOOTHING}" \
     --flip_augment="${FLIP_AUGMENT}" \
     --seed="${SEED}" \
+    --projection="${PROJECTION}" \
+    --pinhole_hfov_deg="${PINHOLE_HFOV_DEG}" \
     --loss="${LOSS}" \
     --delta_m="${DELTA_M}" \
     --lambda_b="${LAMBDA_B}" \

@@ -234,6 +234,13 @@ def test_an_unknown_formulation_fails_before_training_starts(tmp_path):
         robot_trainer.main(formulation="binry", dataset_root=tmp_path)
 
 
+def _forbidden(message):
+    """불려서는 안 되는 경로. 조용히 다른 경로로 떨어지는 것을 잡는다."""
+    def _raise(*args, **kwargs):
+        raise AssertionError(message)
+    return _raise
+
+
 def test_synwoodscape_trainer_uses_free_score_at_checkpoint_selection_boundary(
     monkeypatch, tmp_path
 ):
@@ -242,8 +249,10 @@ def test_synwoodscape_trainer_uses_free_score_at_checkpoint_selection_boundary(
     step = _install_common_cpu_doubles(
         monkeypatch, synwoodscape_trainer, captured, selected, saved, calls
     )
-    monkeypatch.setattr(synwoodscape_trainer, "run_batch", step)
-    monkeypatch.setattr(synwoodscape_trainer, "class_weights_from_labels",
+    # 로봇 trainer와 같은 방식으로 패치한다 -- 두 스크립트 모두 정식화별 모듈을 거쳐
+    # `run_batch`를 부른다(2026-09-21, 사전학습에 binary 경로를 추가하면서 통일했다).
+    monkeypatch.setattr(synwoodscape_trainer.three_class_metrics, "run_batch", step)
+    monkeypatch.setattr(synwoodscape_trainer.three_class_metrics, "class_weights_from_labels",
                         lambda *args, **kwargs: torch.ones(3))
     monkeypatch.setattr(
         synwoodscape_trainer, "discover_all_sample_ids", lambda *args: ["train", "val"]
@@ -270,3 +279,58 @@ def test_synwoodscape_trainer_uses_free_score_at_checkpoint_selection_boundary(
     )
 
     _assert_free_score_reaches_checkpoint_path(captured, selected, saved, calls)
+
+
+def test_synwoodscape_trainer_runs_the_binary_soft_boundary_path(monkeypatch, tmp_path):
+    """`02_projection_and_prior` 축 B는 **사전학습도 확정 설정과 같은 정식화·loss**로 돈다.
+
+    이것이 성립해야 출력 head까지 형상이 맞아 네트워크 전체가 target으로 전이되고,
+    "합성 도메인의 prior를 최대한 물려받았을 때 얼마나 해로운가"를 재는 실험이 된다
+    (원장 §6.3). 3-class 경로로 조용히 떨어지면 head 2개가 빠지는데, 학습은 그대로
+    돌아가므로 분석 단계까지 아무도 알아채지 못한다.
+    """
+    captured, selected, saved, calls = [], [], [], []
+    step = _install_common_cpu_doubles(
+        monkeypatch, synwoodscape_trainer, captured, selected, saved, calls
+    )
+    monkeypatch.setattr(synwoodscape_trainer.binary_metrics, "run_batch_soft_boundary",
+                        lambda *args, **kwargs: step(args[1]))
+    # `RayGather`는 실제 광선 인덱스를 요구한다. 여기서 재는 것은 "어느 경로로 가는가"이지
+    # 보조항의 내용이 아니므로 자리만 채운다 -- 다만 `lambda_r>0` 분기는 그대로 탄다.
+    monkeypatch.setattr(synwoodscape_trainer, "RayGather", lambda *args, **kwargs: object())
+    monkeypatch.setattr(synwoodscape_trainer.binary_metrics, "class_weights_from_labels",
+                        lambda *args, **kwargs: torch.ones(2))
+    monkeypatch.setattr(synwoodscape_trainer.three_class_metrics, "run_batch",
+                        _forbidden("3-class 경로로 떨어졌다"))
+    monkeypatch.setattr(
+        synwoodscape_trainer, "discover_all_sample_ids", lambda *args: ["train", "val"])
+    monkeypatch.setattr(
+        synwoodscape_trainer, "train_val_split", lambda *args, **kwargs: (["train"], ["val"]))
+    monkeypatch.setattr(
+        synwoodscape_trainer, "load_label_triples",
+        lambda *args: iter([(np.ones((1, 1), bool),) * 3]))
+    monkeypatch.setattr(synwoodscape_trainer, "compute_trivial_baseline_iou", lambda *args: 0.5)
+    monkeypatch.setattr(synwoodscape_trainer, "constant_free_map", lambda masks: masks[0])
+    monkeypatch.setattr(synwoodscape_trainer, "baseline_iou_free", lambda *args: 0.5)
+    monkeypatch.setattr(synwoodscape_trainer, "SynWoodScapeSimpleBEVDataset",
+                        lambda *args, **kwargs: _Dataset())
+    monkeypatch.setattr(synwoodscape_trainer, "build_vox_util", lambda *args, **kwargs: object())
+
+    synwoodscape_trainer.main(
+        formulation="binary", loss="soft_boundary", seed=3,
+        num_epochs=1, batch_size=2, num_workers=0, use_fisheye=False,
+        log_dir=tmp_path / "logs", ckpt_dir=tmp_path / "ckpts", device="cpu",
+    )
+    _assert_free_score_reaches_checkpoint_path(captured, selected, saved, calls)
+
+
+@pytest.mark.parametrize("kwargs, match", [
+    ({"formulation": "binry"}, "formulation"),
+    ({"loss": "focal"}, "loss"),
+    ({"loss": "soft_boundary"}, "binary"),          # 3-class + soft_boundary는 성립하지 않는다
+])
+def test_synwoodscape_trainer_rejects_bad_formulation_combinations(kwargs, match, tmp_path):
+    """오타나 성립하지 않는 조합을 학습 시작 전에 멈춘다 -- 로봇 trainer와 같은 계약이다."""
+    with pytest.raises(ValueError, match=match):
+        synwoodscape_trainer.main(log_dir=tmp_path / "logs", ckpt_dir=tmp_path / "ckpts",
+                                  **kwargs)
