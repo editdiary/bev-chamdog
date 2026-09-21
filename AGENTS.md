@@ -6,7 +6,7 @@
 > 역할과 상태(🟢 정본 / 🔵 운영 메모 / 📚 참고 / 🗄 아카이브)가 거기 있습니다.
 > **`docs/archive/`의 문서는 인용용이고, 거기 적힌 플래그·경로·숫자를 그대로 쓰면 안 됩니다.**
 
-> ## ▶▶▶ [2026-09-21] cumulative soft-target ray loss -- **seed 0 완료, seed 1~4가 다음 일**
+> ## ▶▶▶ [2026-09-21] cumulative soft-target ray loss -- **n=5 완료, 채택 안 함**
 >
 > 사용자가 기존 `L_range`를 다시 검토하면서 두 문제를 찾았다. (1) `δ_R` dead zone은 경계의
 > **수직 거리 band가 아니라 ray 방향 총 arc 오차**에 걸려 입사각에 따라 실효 폭이 달라진다.
@@ -15,30 +15,43 @@
 > 이를 피한 실험형 `RANGE_LOSS_MODE=cumulative_l1`을 브랜치
 > **`exp/cumulative-ray-loss`**에 구현했다. $L_{cell}$과 같은 전체 soft target을 ray에 gather하고,
 > 각 반경까지 누적한 예측/target arc 차이의 L1을 평균한다. **`δ_R`과 `β`는 새 식에 없다.**
-> 기존 `arc_huber`는 기본값으로 그대로 보존되며, 누적형은 아직 미채택이다.
 >
-> seed 0, 40 epoch, batch 8, Y=4, GPU 1 완료. gradient scale만 맞춘
-> **`λ_R=0.1526`**을 썼다(최적값 아님). 고정 epoch 40 결과:
+> seed 0~4, 40 epoch, batch 8, Y=4, 고정 split, GPU 1 완료. gradient scale만 맞춘
+> **`λ_R=0.1526`**을 seed마다 재보정 없이 상수로 썼다. 대조군은 다시 돌리지 않고
+> `runs/loss_effect`의 5런을 **같은 seed끼리 짝지었다.** 고정 epoch 40 결과:
 >
-> | | `C_soft_s0` | `D_range_s0` | `E_cumulative_s0` |
+> | n=5 | `C_soft` | `D_range` | `E_cumulative` |
 > |---|---:|---:|---:|
-> | `iou_free` | 0.81241 | 0.81140 | **0.81341** |
-> | `f1@10cm` | 0.59757 | 0.59068 | **0.60642** |
-> | `fatal` / `free_miss` | 0.12331 / **0.07935** | 0.12153 / 0.08375 | **0.11836** / 0.08419 |
-> | range MAE | 0.21163 m | 0.21597 m | **0.20560 m** |
+> | `iou_free` | 0.81253±0.00083 | 0.81201±0.00050 | **0.81432±0.00133** |
+> | `fatal` / `free_miss` | 0.12200 / **0.08148** | 0.12052 / 0.08413 | **0.11788** / 0.08408 |
+> | `f1@10cm` | 0.59956 | 0.60031 | **0.60682** |
+> | range MAE | 0.21353 m | 0.21154 m | **0.20733 m** |
 >
-> **판정:** 기존 `D_range_s0`의 품질 하락을 되돌리는 신호가 있어 반복할 가치는 있다. 하지만
-> n=1이고 `fatal`↓·`free_miss`↑가 함께 움직이므로 정확도·안전 개선이나 채택은 주장하지 않는다.
+> **판정: 채택하지 않는다.** 살아남은 것은 둘이다 -- **정확도가 처음으로 올랐고**
+> (`iou_free` `C_soft` 대비 **+0.0018**, `D_range` 대비 **+0.0023**, **둘 다 5/5 seed 같은
+> 방향**, 대조군 σ_seed 0.0005~0.0008보다 크다), **자유거리가 정확해진다**(`range_mae`
+> −0.0062/−0.0042, 그리고 `arc_huber`가 **직접 최적화하는** `range_arc_mae`에서도 −0.0068,
+> 전부 5/5). 기각된 것은 셋이다.
 >
-> **새 세션은** 같은 브랜치에서 완료된 seed 0을 보존하고 **seed 1~4만** 같은 설정으로
-> 반복한다. `λ_R`을 seed별로 재보정하지 않고, 고정 epoch 40 paired 비교와 같은 free_miss의
-> threshold sweep을 주 판정으로 쓴다. 현재 probe 셸은 seed 0 전용이라 `SEEDS`와 seed별 run
-> name을 받도록 최소 확장해야 한다.
+> 1. **안전 개선이 아니다.** τ=0.5의 `fatal` −0.0041은 **동작점 이동**이다. 저장한 확률맵을
+>    τ로 쓸어 **같은 `free_miss`**에서 재면 차이가 0.0001~0.0034로 대조군 seed
+>    σ(0.0013~0.0021) 안이고, 같은 `free_miss`를 만드는 τ*가 누적형에서 체계적으로 낮다
+>    (0.410 대 0.425). `D_range`에서 한 번 철회한 것과 **같은 무늬**다.
+> 2. **재현성은 오히려 깎였다** -- `iou_free`의 σ_seed가 `D_range`의 **2.7배**(0.00133 대 0.00050).
+> 3. **되올림 개선은 σ에 묻힌다**(0.309 ± 0.233 %).
 >
-> 정본: 수식 [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §8.8 · 결과/다음 실행 계약
-> [`docs/loss_effect_results.md`](docs/loss_effect_results.md) §15 · 현재 서사
+> **확정 기본값 `RANGE_LOSS_MODE=arc_huber`는 그대로다.** 바꾼다면 근거는 "안전"이 아니라
+> **정확도 +0.002**여야 하고, 그 크기가 배포에서 의미 있는지는 **사용자 판단으로 남아 있다.**
+>
+> **곁가지(탐색, n=1, 판정 아님):** 누적항을 보조가 아니라 **셀 loss와 대등한 정식 loss**로
+> 올리면 어떻게 되는지 -- `λ_R=0.33`(gradient 비 1.0)과 `λ_R=1.0`. `configs/probe_cumulative_primary.sh`,
+> 산출물 `runs/cumulative_primary/`. **σ_seed(0.0013)보다 작은 차이는 이 런들로 갈리지 않는다.**
+>
+> 정본: 수식 [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §8.8 · 결과·판정
+> [`docs/loss_effect_results.md`](docs/loss_effect_results.md) §15 · 서사
 > [`docs/experiment_history.md`](docs/experiment_history.md) §5 · 산출물
-> `runs/cumulative_ray_loss/` · 구현 후 전체 테스트 **453 passed**.
+> `runs/cumulative_ray_loss/` · 전체 테스트 **458 passed**.
+
 
 > ## ▶ [2026-08-27] lifting 높이 축 `Y=1 → 4` **채택** -- 새 세션은 이것부터 안다
 >

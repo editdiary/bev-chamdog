@@ -31,7 +31,9 @@ $$
 
 확정 계수: $\lambda_B = 0.5$. **기본 `arc_huber`의 확정값은 $\lambda_R = 0.3$**이다.
 2026-09-21에 추가한 실험형 `cumulative_l1`은 gradient 크기를 기본형에 맞춘
-$\lambda_R = 0.1526$으로 seed 0만 시험했으며, **아직 확정 config가 아니다.**
+$\lambda_R = 0.1526$으로 **seed 0~4(n=5)를 끝냈지만 채택하지 않았고, 확정 config가 아니다.**
+정확도는 올랐으나(`iou_free` +0.002, 5/5 seed) 안전은 동작점 이동이고 재현성은 나빠졌다 --
+판정 정본은 [`loss_effect_results.md`](loss_effect_results.md) §15다.
 
 구현: `projects/common/soft_boundary.py::compute_soft_boundary_loss`가 네 항을 한 자리에서
 합친다. $L_{\text{range}}$는 mode에 따라 `range_loss.py::{compute_range_loss,
@@ -397,7 +399,7 @@ $\Omega_N$ 셀의 6.3배다. 그래서 로그는 항의 기여 몫 `share_*`(정
 | `RANGE_LOSS_MODE` | 함수 | 상태 | 핵심 비교량 |
 |---|---|---|---|
 | `arc_huber` | `range_loss.py::compute_range_loss` | **기본·확정 config** | 광선 끝의 총 arc 오차에 dead zone + Huber |
-| `cumulative_l1` | `range_loss.py::compute_cumulative_range_loss` | **실험형, seed 0 probe만 완료** | 모든 반경까지의 누적 soft-target arc profile에 L1 |
+| `cumulative_l1` | `range_loss.py::compute_cumulative_range_loss` | **실험형, n=5 완료 · 미채택** | 모든 반경까지의 누적 soft-target arc profile에 L1 |
 
 아래 §8.3~§8.7은 기존 기본형 `arc_huber`를 정의한다. 새 누적형은 §8.8에서 별도로 정의한다.
 둘은 광선 표본화와 `RAY_OK` 판정은 공유하지만, **목표·오차·강건화 방식은 다르므로 같은
@@ -725,7 +727,22 @@ $$
 
 으로 정했다. 이 값은 **최적화한 하이퍼파라미터가 아니라 loss scale만 맞춘 probe 값**이다.
 GPU 1의 상주 프로세스 때문에 calibration은 batch 4 × 40회로 했지만, 실제 학습은 대조군과
-같은 batch 8을 유지했다. 자세한 실측은 `loss_effect_results.md` §15다.
+같은 batch 8을 유지했다. **batch 간 표준편차가 0.58/0.78이므로 유효숫자 4자리는 측정이
+뒷받침하지 않는다** -- 실질적으로 "약 0.15"다. 자세한 실측은 `loss_effect_results.md` §15다.
+
+**[탐색] 누적항을 보조가 아니라 정식 loss로 올릴 때의 $\lambda_R$.** "셀 loss와 대등"을
+$G_R/G_{cell}=1$로 정의하면, 잰 체크포인트에 따라 값이 갈린다.
+
+| 측정 기준 체크포인트 | $G_R/G_{cell}$ ($\lambda_R=1$) | batch σ | 비 1.0을 만드는 $\lambda_R$ |
+|---|---:|---:|---:|
+| `C_soft_s0` ep40 (range 항을 본 적 없음) | 4.0236 | 0.7825 | 0.2485 |
+| `E_cumulative_s0` ep40 (누적항으로 학습됨) | 3.0197 | 0.4428 | 0.3312 |
+
+**둘이 다른 이유는 잰 모델이 다르기 때문이다** -- 앞쪽은 ray 항을 한 번도 본 적이 없어 arc
+오차(0.0582 m)가 크고, 뒤쪽은 이미 줄어 있다(0.0502 m). 즉 이 비율은 **모델 상태의 함수**이지
+loss만의 상수가 아니다. 탐색 런은 그 사이를 취해 $\lambda_R=0.33$을 썼다
+(`configs/probe_cumulative_primary.sh`, `loss_effect_results.md` §15.9).
+**이 0.33이 기본형 `arc_huber`의 0.3과 비슷한 것은 우연이고, 같은 세기를 뜻하지 않는다.**
 
 ---
 
@@ -750,8 +767,8 @@ GPU 1의 상주 프로세스 때문에 calibration은 batch 4 × 40회로 했지
 | $n_\theta$ | 720 | — | `polar` 기본값 |
 | epochs | 40 | `NUM_EPOCHS` | |
 
-위 표는 **확정 기본형 `arc_huber`**의 설정이다. 실험형 seed-0 probe에서 달라진 값만 따로
-쓰면 다음과 같다.
+위 표는 **확정 기본형 `arc_huber`**의 설정이다. 실험형 probe(n=5, 미채택)에서 달라진 값만
+따로 쓰면 다음과 같다.
 
 | 이름 | 실험형 값 | 의미 |
 |---|---:|---|
@@ -759,7 +776,7 @@ GPU 1의 상주 프로세스 때문에 calibration은 batch 4 × 40회로 했지
 | $\lambda_R$ | **0.1526** | §9.1의 gradient scale matching |
 | $\delta_R^\pm$ | 사용 안 함 | 누적형 식에 등장하지 않음 |
 | $\beta$ | 사용 안 함 | 누적형 식에 등장하지 않음 |
-| seed | 0 | probe 1회만 완료; 확정 config 아님 |
+| seed | 0, 1, 2, 3, 4 | n=5 완료; **확정 config 아님**(§15.8) |
 
 > **`\delta \le \delta_R`은 기본형에서도 지킬 필요가 없다.** 설계 초기에 "soft 대역 안에서는
 > $L_{\text{range}}$가 침묵해야 두 항이 안 싸운다"는 이유로 지향했던 제약인데, **불필요하다.**

@@ -455,7 +455,7 @@ L = ½·L_F(Ω_F, hard 1) + ½·L_N(Ω_N, hard 0) + λ_B·L_B(Ω_B, soft target)
 > 캠페인의 전체 원장은 [`paper_final_experiments.md`](paper_final_experiments.md), loss 후속
 > probe의 정본은 [`loss_effect_results.md`](loss_effect_results.md) §15다.
 
-### ▶ 다음 세션: cumulative ray loss를 seed 1~4로 반복한다
+### ▶ cumulative ray loss — n=5로 끝났다 (2026-09-21)
 
 사용자가 기존 $L_{range}$를 수식으로 다시 읽다가 두 가지를 지적했다. 첫째, $\delta_R$은
 경계의 수직 거리 band가 아니라 ray 방향 총 arc 오차에 걸려 입사각에 따라 실효 band 폭이
@@ -466,33 +466,52 @@ $L_{cell}$과 같은 전체 soft target을 광선에 gather하고, 각 반경까
 arc의 차이를 L1로 평균한다. 정확한 식은 [`loss_function_spec.md`](loss_function_spec.md)
 §8.8이다. 새 mode에는 $\delta_R$과 $\beta$가 없고, 기존 `arc_huber`는 기본값으로 보존된다.
 
-seed 0, 40 epoch, GPU 1 probe는 완료됐다.
+seed 0~4, 40 epoch, batch 8, Y=4, 고정 split, GPU 1에서 완료했다. $\lambda_R=0.1526$은
+gradient 크기만 맞춘 값이고 seed마다 재보정하지 않았다. 대조군은 다시 돌리지 않고
+`runs/loss_effect`의 `C_soft`·`D_range` 5런을 같은 seed끼리 짝지었다.
 
-| 고정 epoch 40 | `C_soft_s0` | `D_range_s0` | `E_cumulative_s0` |
+| 고정 epoch 40 (n=5) | `C_soft` | `D_range` | `E_cumulative` |
 |---|---:|---:|---:|
-| `iou_free` | 0.81241 | 0.81140 | **0.81341** |
-| `f1@10cm` | 0.59757 | 0.59068 | **0.60642** |
-| `fatal` | 0.12331 | 0.12153 | **0.11836** |
-| `free_miss` | **0.07935** | 0.08375 | 0.08419 |
-| range MAE | 0.21163 m | 0.21597 m | **0.20560 m** |
+| `iou_free` ↑ | 0.81253 ± 0.00083 | 0.81201 ± 0.00050 | **0.81432 ± 0.00133** |
+| `fatal` ↓ | 0.12200 ± 0.00121 | 0.12052 ± 0.00093 | **0.11788 ± 0.00139** |
+| `free_miss` ↓ | **0.08148 ± 0.00165** | 0.08413 ± 0.00191 | 0.08408 ± 0.00203 |
+| `f1@10cm` ↑ | 0.59956 ± 0.00501 | 0.60031 ± 0.00559 | **0.60682 ± 0.00716** |
+| `range_mae` ↓ | 0.21353 ± 0.00413 | 0.21154 ± 0.00314 | **0.20733 ± 0.00462** |
 
-판정은 **"기존 `D_range_s0`의 품질 하락을 되돌리는 신호가 있어 반복할 가치는 있으나,
-n=1이라 정확도·안전·채택을 주장할 수 없다"**다. `fatal`↓와 `free_miss`↑가 함께 움직였으므로
-안전 개선이 아니라 동작점 이동일 수 있다. $\lambda_R=0.1526$은 최적값이 아니라 기존
-`arc_huber(\lambda_R=0.3)`와 gradient 크기만 맞춘 값이다.
+**살아남은 주장 둘.**
 
-새 세션의 범위는 다음으로 동결한다.
+1. **정확도가 처음으로 올랐다.** 짝지은 차이가 `C_soft` 대비 `iou_free` **+0.0018**,
+   `D_range` 대비 **+0.0023**이고 **둘 다 5/5 seed에서 같은 방향**이다. 대조군의
+   σ_seed(0.0005~0.0008)보다 크다. 사다리 `A_ce → D_range`에서는 정확도가 전부 노이즈
+   안이었으므로(§4-1) 이 축에서 나온 첫 실제 이동이다.
+2. **자유거리가 정확해진다.** `range_mae` −0.0062 / −0.0042, 그리고 `arc_huber`가 **직접
+   최적화하는** 진단량 `range_arc_mae`에서도 −0.0068로 진다. 전부 5/5다.
 
-1. 같은 브랜치에서 완료된 seed 0을 보존하고 seed **1~4**만 추가한다.
-2. $\lambda_R=0.1526$, Y=4, batch 8, 40 epoch, 고정 split을 바꾸거나 seed별로 재보정하지 않는다.
-3. `configs/probe_cumulative_ray_loss.sh`를 seed 목록과 seed별 run name을 받도록 최소 확장한다.
-4. 고정 epoch 40을 주 판정으로 하고, 같은 seed의 `C_soft`·`D_range`와 paired 비교한다.
-5. `iou_free`와 `fatal/free_miss`를 같이 보고, 같은 `free_miss`에서 threshold sweep한
-   `fatal`로 safety를 판정한다.
-6. n=5 결과 전에는 확정 기본 mode `arc_huber`를 바꾸지 않는다.
+**기각된 주장 셋.**
 
-산출물은 `runs/cumulative_ray_loss/`, 상세 보고서는 그 안의 `README.md`, 구현 검증은
-전체 suite **453 passed**다.
+1. **안전 개선이 아니다.** $\tau=0.5$의 `fatal` −0.0041은 동작점 이동이다. 저장된 확률맵을
+   $\tau$로 쓸어 **같은 `free_miss`에서** 재면 차이가 0.0001~0.0034로 대조군의 seed
+   σ(0.0013~0.0021) 안이고 앵커를 따라 단조롭지도 않다. 같은 `free_miss`를 만드는 $\tau^*$가
+   누적형에서 체계적으로 낮다(0.410 대 0.425 등) — $\tau=0.5$가 대조군의 $\tau\approx0.52$
+   자리에 있을 뿐이다. `D_range`에서 한 번 철회한 것과 같은 무늬다.
+2. **재현성은 오히려 깎였다.** `iou_free`의 σ_seed가 0.00133으로 `D_range`의 **2.7배**다.
+   이 loss 계열에서 살아남은 주장이 재현성이었는데 누적형은 그것을 보태지 않는다.
+3. **되올림 개선은 σ에 묻힌다.** 0.309 ± 0.233 %로 평균보다 σ가 크다.
+
+**그래서 확정 기본값 `RANGE_LOSS_MODE=arc_huber`를 바꾸지 않는다.** 얻는 것이 `iou_free`
++0.002와 자유거리 −0.6 cm 수준이고, 주 지표 쌍의 나머지인 `fatal`에서는 실질 개선이 없다.
+바꾼다면 근거는 "안전"이 아니라 정확도여야 하고, 그 크기가 배포에서 의미가 있는지는 사용자
+판단으로 남긴다.
+
+무결성: 5런 40/40 epoch, 확률맵 재채점 10건 전부 통과(최대 차이 2.4e-4, 허용치 1e-3),
+전체 테스트 **458 passed**. 결과 정본은
+[`loss_effect_results.md`](loss_effect_results.md) §15, 산출물은
+[`runs/cumulative_ray_loss/`](../runs/cumulative_ray_loss/)다.
+
+**곁가지(탐색, n=1).** 사용자 요청으로 누적항을 보조가 아니라 **셀 loss와 대등한 정식
+loss**로 올린 런을 따로 열었다($G_R/G_{cell}=1$이 되는 $\lambda_R=0.33$, 그리고 방향을 보려
+$\lambda_R=1.0$). 판정이 아니고 위 결론과 확정 config를 건드리지 않는다 — §15.9와
+[`runs/cumulative_primary/`](../runs/cumulative_primary/)다.
 
 ### 2026-08-23 당시 확정된 것 (역사 기록)
 

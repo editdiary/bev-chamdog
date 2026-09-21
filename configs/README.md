@@ -27,6 +27,8 @@
 | `probe_frame_split.sh` / `probe_frame_blocks.sh` | **같은 장면 일반화 프로브.** 프레임 단위 split(무작위 / 블록+gap). **성능으로 보고하지 않는다** | `runs/frame_split/`, `runs/frame_blocks/` | 진단 §28.4·§28.10 |
 | `stride4_arms.sh` | **stride 8→4 사전 선언 실험** 6런(두 split × 시드 3) | `runs/stride4/` | 진단 §29(사전 선언)·§29.9(결과, **기각**) |
 | `loso_folds.sh` | **LOSO 7-fold × 시드 3 = 21런.** config 동결 후 **한 번만** | `runs/robot_bev_cv/loso/` | 진단 §25.6·§25.7·§25.8·§31 |
+| `probe_cumulative_ray_loss.sh` | **누적형 ray loss probe 5런**(`SEEDS`로 seed 지정, run 이름은 `E_cumulative_s{N}`으로 유도). `LAMBDA_R` 필수 | `runs/cumulative_ray_loss/` | 결과 §15(**n=5, 미채택**) |
+| `probe_cumulative_primary.sh` | **탐색.** 누적항을 셀 loss와 대등한 정식 loss로 올린다(`LAMBDA_R=0.33` 또는 `1.0`). **n=1, 판정 아님** | `runs/cumulative_primary/` | 결과 §15.9 |
 | `train_synwoodscape_baseline.sh` / `..._threeclass_pretrain.sh` | SynWoodScape pretrain. **현행은 from scratch이므로 쓰지 않는다** | — | 진단 §11(pretrain 유해) |
 
 **규약 넷.**
