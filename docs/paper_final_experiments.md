@@ -39,7 +39,7 @@
 | ID | 논문 역할 | 평가 프로토콜 | 상태 |
 |---|---|---|---|
 | `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **완료: 40/40, 무결성 통과, bundle 생성** |
-| `02_sensor_task_adaptation` | 카메라 모델·source prior·센서 범위 불일치 | 고정 split × 5 seeds | 계획 |
+| `02_sensor_task_adaptation` | 카메라 모델·source prior·센서 범위 불일치 | 고정 split × 5 seeds (대조군은 `01`의 5런 재사용) | **설계 논의 중 -- §6** |
 | `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 기존 5조건 × 5 seeds 재사용 | 원자료 존재, 논문용 재정리 대기 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
 
@@ -368,9 +368,10 @@ moved`) 수동 `mv` 후 `git worktree repair`를 썼다. 그 뒤 submodule 두 �
 
 ### 다음 작업
 
-`01_overall`은 종료됐다. 남은 것은 `02_sensor_task_adaptation`(§6이 정리한 미동결 사항을
-먼저 확정해야 한다), `03_boundary_uncertainty` 재정리, `04_edge_deployment`의 Orin 측정이다.
-`04`는 배포 메모의 20.2 FPS가 `Y=1` 값이므로 `Y=4` 재실측이 필요하다.
+`01_overall`은 종료됐다. **지금 진행 중인 것은 `02_sensor_task_adaptation`의 설계 논의이고
+그 상태는 §6에 있다** -- 세 축의 미결 사항과 제안이 거기 적혀 있으며, 사용자 판단이 붙으면
+계획서를 쓴다. 이후 `03_boundary_uncertainty` 재정리, `04_edge_deployment`의 Orin 측정이
+남는다. `04`는 배포 메모의 20.2 FPS가 `Y=1` 값이므로 `Y=4` 재실측이 필요하다.
 
 재현 진입점:
 
@@ -389,11 +390,75 @@ ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall \
 
 ---
 
-## 6. 아직 동결하지 않은 후속 실험 사항
+## 6. 실험 2 설계 논의 — 진행 중 (2026-09-21)
 
-아래는 `01_overall` 실행을 막지 않으며, 해당 실험을 시작하기 전에 별도로 확정한다.
+**상태: 제안 단계. 아직 아무것도 동결하지 않았다.** 아래 제안에 사용자 판단이 붙어야
+계획서를 쓴다. 실행은 설계 확정 후로 미뤘다(사용자 방침).
 
-- `02` DS-native 대 undistort+pinhole의 virtual pinhole FOV와 리샘플링 규약
-- `02` SynWoodScape pretraining의 source 정식화·source seed 처리·전이 범위
-- `02` front-only의 고정 3-camera task 평가와 front 공통 가시영역 보조 평가
+### 6.1 실험 2가 무엇을 묻나
+
+`02_sensor_task_adaptation`은 **"우리 선택이 옳았나"를 세 축에서 묻는 대조 실험**이다.
+세 축 모두 확정 설정에서 축 하나만 바꾼다.
+
+**대조군을 다시 돌리지 않는다.** `01_overall`의 고정 split 5런(`final_s0`~`s4`)이 그대로
+공통 대조군이고, **같은 시드끼리 짝지어 paired difference**를 계산한다. 따라서
+3개 팔 × 5시드 = **15런, 약 1.5~2시간**이면 끝난다.
+
+### 6.2 축 A — 어안 원본 투영 대 undistort+pinhole
+
+**질문:** 어안의 Double Sphere 투영을 그대로 쓰는 것이 통상적인 "핀홀로 편 뒤 처리"보다
+나은가. 확정 설정은 DS-native다.
+
+**미결 — 가상 핀홀 화각(FOV).** 어안은 180°를 넘는 영역이 있어 핀홀로 아예 펼 수 없다.
+화각을 정하는 순간 주변부를 버리게 되고, 그러면 성능 차이가 **"투영 방식" 때문인지 "화각이
+좁아서"인지 섞인다.**
+
+> **제안(미확정):** 화각을 하나 고르되 **그 선택이 BEV 격자의 몇 %를 카메라 커버리지
+> 밖으로 밀어내는지 함께 보고**한다. 교란을 없앨 수는 없으니 숫자로 드러낸다.
+> 리샘플링은 bilinear, 출력 해상도는 512×288로 동일하게 두어 연산량을 맞춘다.
+
+### 6.3 축 B — SynWoodScape 사전학습(source prior)
+
+**질문:** 합성 어안 데이터로 먼저 학습한 것이 도움이 되는가. 확정 설정은 target-only다.
+
+**이미 한 번 기각됐다.** `Y=1` 시절 실험에서 9개 지표 중 7개를 scratch가 이겼고 기전도
+분명했다 — 합성 데이터는 격자의 **83 %가 free**인데 로봇 데이터는 **20 %**라, 사전학습
+모델이 "거의 전부 free"라고 예측하며 시작한다(epoch 1 `fatal_rate` 0.663 대 0.209).
+근거는 `docs/paper_experiment_compendium.md` §4. **확정 설정에서 재확인해야 논문에 쓴다.**
+
+**미결 셋.**
+
+| 항목 | 제안(미확정) | 이유 |
+|---|---|---|
+| source 정식화 | **binary**로 target과 맞춘다 | 3-class로 두면 "전이 효과"와 "정식화 차이"가 섞인다 |
+| source 시드 | 체크포인트 **하나**를 5개 target 시드에 공유 | 5개를 만들면 비싸다. 다만 **5런이 공통 원인을 공유하므로 산포가 총 변동을 과소평가**한다 — 한계로 명시한다 |
+| 전이 범위 | encoder + **BEV decoder** | encoder만이면 ImageNet 기준선과 거의 같아져 질문이 흐려진다 |
+
+### 6.4 축 C — front-only (센서 범위 불일치)
+
+**질문:** 카메라를 3대에서 1대로 줄이면 어떻게 되는가.
+
+**미결 — 무엇으로 평가할 것인가.**
+
+- **고정 3-camera 과제 그대로**: 측면은 애초에 안 보이니 당연히 나쁘다. 하지만 그게
+  배포 질문이다("카메라를 빼도 되나?").
+- **front의 공통 가시영역만**: 커버리지 손실을 빼고 품질만 본다. 대신 과제가 달라져
+  다른 표와 비교가 안 된다.
+
+> **제안(미확정):** **둘 다 보고하되 주 결과는 고정 과제.** 다른 표가 전부 그 과제 위에
+> 있고, 부차 지표가 "손실이 커버리지 때문인지 품질 때문인지"를 갈라 준다.
+
+### 6.5 실험 2 외의 미동결 사항
+
 - `04` Orin warm-up, 반복 횟수, latency percentile, 전력 측정 명령
+
+---
+
+## 7. 부록 — 원래의 미동결 목록 (이력)
+
+`01_overall` 실행 전에 적어 둔 항목이다. §6이 이를 대체한다.
+
+- `02` DS-native 대 undistort+pinhole의 virtual pinhole FOV와 리샘플링 규약 → §6.2
+- `02` SynWoodScape pretraining의 source 정식화·source seed 처리·전이 범위 → §6.3
+- `02` front-only의 고정 3-camera task 평가와 front 공통 가시영역 보조 평가 → §6.4
+- `04` Orin warm-up, 반복 횟수, latency percentile, 전력 측정 명령 → §6.5

@@ -2584,7 +2584,11 @@ full-seq val 시퀀스 둘(`raws1`, `rawos3`), **30 fps**, 시퀀스당 앵커 1
 ## 18. 산출물 -- 논문 그림·표의 원자료
 
 **런 산출물은 전부 gitignore이고 디스크에만 있다.** 2026-08-26 시점.
-**예외는 `docs/figures/`로, 이쪽은 git에 추적된다** (아래 표 마지막 줄).
+
+> **[2026-09-21] `docs/figures/`는 삭제됐다.** 아키텍처 모식도는 참고용 일회성
+> 작업이었고 끝났다(사용자 판단). 생성기 `tools/render_model_architecture.py`와
+> 그 입력 `architecture_assets/`도 함께 지웠다. 필요하면 `79fd12e`에서 꺼낸다.
+> **논문 그림의 정본은 이제 `docs/paper_package/*/figures/`다.**
 
 | 경로 | 무엇 | 크기 | 이 문서의 어느 절 |
 |---|---|---|---|
@@ -2597,8 +2601,6 @@ full-seq val 시퀀스 둘(`raws1`, `rawos3`), **30 fps**, 시퀀스당 앵커 1
 | `runs/robot_bev/analysis/*.csv` | 프레임별 원자료(val 75장, train 153장) | — | §8.2~§8.4 |
 | `runs/robot_bev/viz/noos1_ep35_VAL_worst_iou/` | 최악 10장 패널 | — | §8.5의 세 기제 |
 | `runs/robot_bev/viz/*_fullseq_noos1_ep35_30fps.mp4` (3편) | `rawos1`/`raws1`/`rawos3` 전체 시퀀스, **전부 같은 모델** | — | §8.1의 정성 근거 |
-
-| **`docs/figures/`** | **파이프라인 모식도**(생성기 + 독립 SVG + 설명 페이지). **git 추적** | 약 130 K | §1.3·§12, 정독 가이드 §3 |
 
 **로그(tfevents·`config.json`·`split_*_samples.txt`)는 절대 지우지 않는다** -- 수 MB인데
 실험의 결론이 전부 거기 있고, `split_*_samples.txt`는 프로브 채점의 유일한 근거다.

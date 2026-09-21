@@ -18,7 +18,7 @@ bev-chamdog/
 │   ├── env/                   # pip freeze 스냅샷
 │   ├── git_workflow.md        # git 브랜치 전략
 │   ├── project_structure.md   # (현재 문서)
-│   ├── figures/               # 논문용 그림 (생성기가 정본, SVG 직접 수정 금지)
+│   ├── paper_package/         # 논문 작성용 패키지 (표 CSV·그림·해석. 생성 스크립트가 정본)
 │   ├── dataset_analysis/      # WoodScape/SynWoodScape 등 분석 노트
 │   └── study/                 # 배경 지식 정리 (카메라 모델·캘리브레이션 등)
 ├── dataset/               # 데이터셋 (내용물은 git 미추적, /data 로 symlink)
@@ -95,7 +95,10 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 
 ---
 
-## `tools/` 색인 (2026-08-27, 39개)
+## `tools/` 색인 (2026-09-21)
+
+> **색인은 완전하지 않다.** `tools/`에 51개가 있고 아래에 그중 판정·진단에 실제로 쓰는
+> 것들을 모았다. 없는 도구는 파일 맨 위 docstring을 직접 읽는다.
 
 **각 도구의 맨 위 docstring이 정본이다** -- 무엇을 왜 재는지, 어떻게 읽는지가 거기 있다.
 아래는 찾아가기용 목차이고, **근거 문서**는 그 도구가 만든 숫자가 실린 절이다.
@@ -122,6 +125,12 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 | `report_pixel_offset.py` | 표본 좌표 스윕 집계 | 진단 §18.3.5 |
 | **`report_loso.py`** | **LOSO fold별 집계.** 기준선 마진 주 열 + 요인 라벨 + fold SE + `min` 편향 경고 | 진단 §25.6·§31 |
 | `report_convergence.py` | 되올림·수렴 곡선 | 설계 §9.3 |
+| **`run_paper_final_overall.py`** | **논문 최종 실험 orchestrator.** 40런의 설정을 단일 출처로 생성하고 완료된 런은 건너뛴다. 불완전 런은 덮어쓰지 않고 `blocked_incomplete`로 남긴다 | 원장 §5 |
+| `export_run_scalars.py` | TensorBoard 이벤트 → `scalars.csv`(런 × epoch × 전 지표) | 원장 §4.5 |
+| `export_val_predictions.py` | **threshold 적용 전 확률맵 내보내기.** 재학습 없이 새 문턱값·영역 지표를 계산할 수 있게 한다 | 원장 §4.5 |
+| **`verify_val_predictions.py`** | **무결성 검사.** 학습 로그와 내보낸 확률맵을 독립 경로로 재채점해 대조한다. 실패하면 논문 숫자로 쓰지 않는다 | 원장 §5 |
+| `build_overall_results_bundle.py` | 프로토콜별 `RESULTS.json`/CSV/README. **고정 split과 LOSO를 하나의 평균으로 합치지 않는다** | 원장 §4.5 |
+| `build_results_bundle.py` | loss 영향력 실험의 결과 묶음 | `loss_effect_results.md` |
 
 ### 진단 측정 (학습 불필요)
 

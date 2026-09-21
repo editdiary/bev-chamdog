@@ -57,16 +57,17 @@
 | [`loss_effect_results.md`](loss_effect_results.md) | **loss 영향력 대조 실험의 결과 정본(2026-09-02, 25런 = 사다리 5칸 × 시드 5개).** 현재 확정 config·정본 환경에서 다시 재고, 일곱 축을 **분리해서** 판정한다. `C_hard` 대조군으로 **원인을 귀속**했고, loss와 무관한 공통 눈금으로 되올림의 **경계 국소성**을 쟀다 | **이 문서는 설계 문서 §15·§16과 독립이다** -- 확정 config가 세 번 바뀌어 옛 런은 다른 모델을 학습한다. 결론만 볼 거면 §0과 §9. **⚠ 되올림의 원인은 per-set 평균이 아니라 경계 대역의 hard target이다**(§2.1). **⚠ 재현성은 선택 epoch에서 재지 않는다**(§1.4) -- 이 검사로 옛 주장 셋을 철회했다. 결과 데이터 한 파일은 `runs/loss_effect/analysis/RESULTS.json` |
 | [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) | **지표 정의 정본.** 지표 하나하나의 정의와 채택/기각 사유 | 지표를 추가·삭제·변경할 때 **먼저 읽고 여기에 기록한다** |
 | [`finetuning_guide.md`](finetuning_guide.md) | fine-tuning 실행 절차 | 실행 전 데이터 점검 체크리스트가 여기 있다 |
-| [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드(데이터 → 텐서 → loss → 지표). **§3 항목 5에 수용영역·FLOPs 실측**, §6.5~§6.6에 upstream 함정 둘 | 코드를 처음 만질 때. **아키텍처를 그림으로 보려면 [`figures/bev_pipeline.html`](figures/bev_pipeline.html)** |
+| [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드(데이터 → 텐서 → loss → 지표). **§3 항목 5에 수용영역·FLOPs 실측**, §6.5~§6.6에 upstream 함정 둘 | 코드를 처음 만질 때 |
 | [`setup_guide_pro6000.md`](setup_guide_pro6000.md) | 환경 세팅 정본 (RTX PRO 6000 Blackwell) | **PyTorch는 `cu128` 빌드여야 한다** -- sm_120에서 cu118 커널은 실행되지 않는다 |
 | [`git_workflow.md`](git_workflow.md) | 브랜치·커밋 규칙 | `merge`/`push`는 사용자만 수행한다 |
-| [`project_structure.md`](project_structure.md) | 폴더 구조 + **`tools/` 색인 39개**(무엇을 재는 도구이고 그 숫자가 어느 절에 실렸나) | `third_party/`·`mmdetection3d/`는 submodule -- 직접 수정 금지. **재채점 시 `--encoder_type`을 맞춰 넘긴다** |
+| [`project_structure.md`](project_structure.md) | 폴더 구조 + **`tools/` 색인**(무엇을 재는 도구이고 그 숫자가 어느 절에 실렸나. 완전하지 않으며 없는 도구는 docstring을 읽는다) | `third_party/`·`mmdetection3d/`는 submodule -- 직접 수정 금지. **재채점 시 `--encoder_type`을 맞춰 넘긴다** |
 
 ## 🔵 운영 메모
 
 | 문서 | 역할 |
 |---|---|
-| [`paper_final_experiments.md`](paper_final_experiments.md) | **논문 최종 설정 재실험의 단일 진행 원장.** `runs/paper_final/`의 계획·동결 설정·실행 상태·무결성·논문용 결과를 계속 갱신한다 |
+| [`paper_final_experiments.md`](paper_final_experiments.md) | **논문 최종 설정 재실험의 단일 진행 원장 -- 지금 진행 중인 작업은 여기가 정본이다.** 계획·동결 설정·실행 상태·무결성·결과를 계속 갱신한다. **`01_overall` 완료(40런), `02` 설계 논의 중(§6)** |
+| [`paper_package/`](paper_package) | **논문 작성용 패키지.** 표 CSV·그림·해석을 실험별로 모았고 노트북에 그대로 받아 쓴다. `common/`에 지표 정의·보고 규칙·동결 설정. **CSV와 그림은 생성 스크립트가 정본이고 손으로 고치지 않는다** |
 | [`next_session_binary_and_verification.md`](next_session_binary_and_verification.md) | 2026-08-19 시점 인수인계에서 **운영 메모로 격하**. 도구 목록·실행 명령·시퀀스 이질성 실측·`cam0..3` 매핑 함정(**`left=cam3`이다**)처럼 다른 곳에 중복되지 않은 실무 정보가 남아 있다. §0의 "논의 중"은 종결됐다 |
 
 ## 📚 참고
@@ -75,7 +76,6 @@
 |---|---|
 | [`paper_experiment_compendium.md`](paper_experiment_compendium.md) | **논문 집필용 실험 총정리(2026-08-26).** 모든 실험을 목적→설계→결과(수치)→해석으로 한 곳에 모은 **파생 문서다 -- 정본이 아니다.** 숫자가 정본과 어긋나면 정본이 맞고, **새 실측을 여기에 추가하지 않는다**(정본에 절을 추가한 뒤 옮겨 적는다). 사실과 해석을 표기로 구분하고(§0.3), **철회·정정 16건을 §12에 모아 두었다** |
 | [`dataset_analysis/`](dataset_analysis) | SynWoodScape 기하 조사, 수동 라벨링 ROI 결정, WoodScape 분석 |
-| [`figures/`](figures) | **파이프라인 모식도.** [현행 모델 논문용 그림](figures/model_architecture.html)(영문 SVG/PDF/PNG, 실제 입력·예측, 별도 loss 도식), [캡션·코드 근거](figures/model_architecture_notes.md). 생성기는 `tools/render_model_architecture.py`. 기존 `bev_pipeline.html`과 `make_pipeline_figure.py`는 상세 설명용으로 유지한다. **각 그림의 정본은 생성 스크립트이며 SVG를 직접 고치지 않는다** |
 | `env/` | 환경 고정용 `pip freeze` 스냅샷 |
 | `superpowers/` | 스킬 시스템이 생성한 spec·plan (도구가 관리한다 -- 손으로 고치지 않는다) |
 
