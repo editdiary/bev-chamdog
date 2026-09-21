@@ -74,7 +74,7 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
    |---|---|---|
    | `datasets/` | Simple-BEV 입력 텐서로 변환 | `synwoodscape_simplebev.py`(pretrain), `robot_simplebev.py`(자체 데이터셋), `simplebev_vox.py`(그리드↔ref 프레임), `photometric.py` |
    | `geometry/` | 카메라 모델과 좌표 프레임 | `fisheye.py`(SynWoodScape `radial_poly`), `double_sphere.py`(자체 리그 DS + ego extrinsic 체인), `frames.py`, `reprojection.py` |
-   | `models/` | submodule을 건드리지 않는 래퍼 | `fisheye_vox.py`·`double_sphere_vox.py`(`Vox_util` 서브클래싱), `simplebev_two_head.py` |
+   | `models/` | submodule을 건드리지 않는 래퍼 | `fisheye_vox.py`·`double_sphere_vox.py`·`virtual_pinhole.py`(`Vox_util` 서브클래싱), `simplebev_two_head.py` |
    | `bev_gt/` | BEV GT 생성·판정 | `grid.py`(ROI 스펙), `visibility.py`(depth 기반 가림), `camera_coverage.py`(화각 커버리지), `ipm.py`(시각화용) |
    | `common/` | 데이터셋 비의존 공용 | `two_head_metrics.py`(지표·로깅), `bev_panels.py`(시각화 패널), `metrics.py` |
 
@@ -126,6 +126,8 @@ Simple-BEV는 registry나 플러그인 체계가 없는 평범한 파이썬 코�
 | **`report_loso.py`** | **LOSO fold별 집계.** 기준선 마진 주 열 + 요인 라벨 + fold SE + `min` 편향 경고 | 진단 §25.6·§31 |
 | `report_convergence.py` | 되올림·수렴 곡선 | 설계 §9.3 |
 | **`run_paper_final_overall.py`** | **논문 최종 실험 orchestrator.** 40런의 설정을 단일 출처로 생성하고 완료된 런은 건너뛴다. 불완전 런은 덮어쓰지 않고 `blocked_incomplete`로 남긴다 | 원장 §5 |
+| **`run_paper_final_projection_prior.py`** | **실험 02 orchestrator.** 네 팔(`source_pretrain`/`source_prior`/`pinhole120`/`pinhole150`) 20런. `source_prior`는 짝지은 사전학습 체크포인트가 없으면 실행하지 않는다 | 원장 §6 |
+| **`report_paired_arms.py`** | **시드끼리 짝지은 대조군-팔 비교.** 실험 02의 주 통계다 -- 대조군을 재사용하므로 같은 시드끼리 빼면 런 간 산포가 상쇄된다. n=5라 p값을 만들지 않고 평균 차이·차이 sd·부호 일치 시드 수를 싣는다 | 원장 §6.4 |
 | `export_run_scalars.py` | TensorBoard 이벤트 → `scalars.csv`(런 × epoch × 전 지표) | 원장 §4.5 |
 | `export_val_predictions.py` | **threshold 적용 전 확률맵 내보내기.** 재학습 없이 새 문턱값·영역 지표를 계산할 수 있게 한다 | 원장 §4.5 |
 | **`verify_val_predictions.py`** | **무결성 검사.** 학습 로그와 내보낸 확률맵을 독립 경로로 재채점해 대조한다. 실패하면 논문 숫자로 쓰지 않는다 | 원장 §5 |

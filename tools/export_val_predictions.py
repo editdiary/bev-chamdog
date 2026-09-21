@@ -70,7 +70,11 @@ from projects.datasets.robot_simplebev import (  # noqa: E402
     split_samples_by_sequence,
 )
 from projects.datasets.simplebev_vox import height_config_for_ckpt_dirs  # noqa: E402
-from projects.models.double_sphere_vox import build_double_sphere_vox_util  # noqa: E402
+from projects.models.double_sphere_vox import build_double_sphere_vox_util
+from projects.models.virtual_pinhole import (
+    build_virtual_pinhole_vox_util,
+    projection_for_run_dirs,
+)  # noqa: E402
 from projects.models.pixel_grid import convention_for_run_dirs  # noqa: E402
 from projects.models.simplebev_three_class import ThreeClassSegnet  # noqa: E402
 
@@ -120,7 +124,13 @@ def main(
     names = parse_sequence_names(train_sequences)
     val_names = parse_sequence_names(val_sequences)
     _, val_samples = split_samples_by_sequence([root / n for n in names + val_names], val_names)
-    dataset = RobotBEVDataset(val_samples, common_root=common_root, augment=False)
+    # 투영 모델은 **런의 `config.json`에서 되찾는다.** 플래그로 받으면 빠뜨릴 수 있고,
+    # 그러면 핀홀로 학습한 모델에 어안 원본을 먹이게 된다(`virtual_pinhole` 참고).
+    _run_dirs_for_projection = [log_root / "logs" / f"{c}_s{s}" for c in cells for s in seeds]
+    projection, pinhole_hfov_deg = projection_for_run_dirs(
+        [d for d in _run_dirs_for_projection if d.exists()])
+    dataset = RobotBEVDataset(val_samples, common_root=common_root, augment=False,
+                              projection=projection, pinhole_hfov_deg=pinhole_hfov_deg)
     # **`shuffle=False`가 계약이다** -- 저장된 행 순서가 `sample_ids`와 짝지어야 한다.
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
@@ -128,11 +138,17 @@ def main(
     ckpt_dirs = [log_root / "ckpt" / f"{c}_s{s}" for c in cells for s in seeds]
     convention, offset = convention_for_run_dirs([d for d in run_dirs if d.exists()])
     height = height_config_for_ckpt_dirs([d for d in ckpt_dirs if d.exists()])
-    vox_util = build_double_sphere_vox_util(GRID_SPEC, dataset.cameras, device=device,
-                                            pixel_convention=convention, pixel_offset=offset,
-                                            height_bins=height["height_bins"],
-                                            height_min_m=height["height_min_m"],
-                                            height_max_m=height["height_max_m"])
+    height_kwargs = dict(height_bins=height["height_bins"],
+                         height_min_m=height["height_min_m"],
+                         height_max_m=height["height_max_m"])
+    if projection == "pinhole":
+        vox_util = build_virtual_pinhole_vox_util(
+            GRID_SPEC, len(dataset.camera_names), pinhole_hfov_deg, *dataset.resize_wh,
+            device=device, pixel_convention=convention, pixel_offset=offset, **height_kwargs)
+    else:
+        vox_util = build_double_sphere_vox_util(
+            GRID_SPEC, dataset.cameras, device=device,
+            pixel_convention=convention, pixel_offset=offset, **height_kwargs)
     print(f"val {len(val_samples)}프레임 | 격자 {GRID_SPEC.n_rows}x{GRID_SPEC.n_cols} |"
           f" Y={height['height_bins']} | 표본 규약 {convention} offset {offset}")
 

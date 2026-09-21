@@ -31,6 +31,9 @@
   (커버리지 자체는 별도로 보고한다 -- 원장 §6.2.)
 - 화각 밖 화소는 검게 남으므로 **유효로 세지 않는다**(`remap_maps`의 `valid`).
 """
+import json
+from pathlib import Path
+
 import numpy as np
 import torch
 
@@ -166,3 +169,39 @@ def build_virtual_pinhole_vox_util(grid_spec: OccupancyGridSpec, n_cameras: int,
     vox_util.set_mirror_x(mirror_x)
     vox_util.set_pixel_grid(pixel_convention, pixel_offset)
     return vox_util
+
+
+def projection_for_run_dirs(log_dirs, *, quiet=False):
+    """여러 런의 로그 폴더에서 학습 때 쓴 `(projection, hfov)`를 되찾는다.
+
+    `convention_for_run_dirs`(`pixel_grid.py`)와 같은 계약이다 -- 없는 폴더는 건너뛰고,
+    **섞여 있으면 `SystemExit`**이며, 하나도 못 찾으면 확정 설정(`ds_native`)으로 떨어진다.
+
+    **인자가 아니라 런에서 읽는 이유.** 확률맵을 다시 내보낼 때 투영이 학습 때와 다르면
+    모델이 본 적 없는 입력을 받는다. 플래그로 받으면 사람이 빠뜨릴 수 있지만 런의
+    `config.json`에서 읽으면 어긋날 수가 없다.
+    """
+    found = {}
+    for log_dir in log_dirs:
+        path = Path(log_dir) / "config.json"
+        if not path.exists():
+            continue
+        config = json.loads(path.read_text())
+        hfov = config.get("pinhole_hfov_deg")
+        key = (config.get("projection", "ds_native"),
+               None if hfov in (None, "None") else float(hfov))
+        found.setdefault(key, []).append(Path(log_dir).name)
+
+    if not found:
+        if not quiet:
+            print("[투영] config.json을 못 찾았다 -> 확정 설정 ds_native")
+        return "ds_native", None
+    if len(found) > 1:
+        lines = [f"  {proj} / hfov {hfov}: {', '.join(sorted(runs))}"
+                 for (proj, hfov), runs in sorted(found.items(), key=str)]
+        raise SystemExit("투영 모델이 섞인 런을 한 번에 다룰 수 없다:\n" + "\n".join(lines))
+    (projection, hfov), runs = next(iter(found.items()))
+    if not quiet:
+        detail = "" if projection == "ds_native" else f" (가상 핀홀 HFOV {hfov:.1f}°)"
+        print(f"[투영] {projection}{detail}  ({len(runs)}개 런에서 읽음)")
+    return projection, hfov

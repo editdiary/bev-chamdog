@@ -366,12 +366,48 @@ moved`) 수동 `mv` 후 `git worktree repair`를 썼다. 그 뒤 submodule 두 �
 전달 방식은 사용자가 "서버에 두면 직접 받아가겠다"로 정했다. 따라서 tar 묶음은 만들지
 않는다(실험이 추가되면 즉시 낡기 때문이다). 폴더를 그대로 가져간다.
 
+### 2026-09-21 — `02_projection_and_prior` 설계 동결·구현·실행 시작
+
+설계는 §6이 정본이다. 여기에는 **구현하면서 내린 결정과 실행 상태**만 적는다.
+
+**구현 결정 넷** (전부 "비교가 축 하나만 다르게" 만들기 위한 것이다).
+
+1. **핀홀 lifting은 `VirtualPinholeVoxUtil`로 한다** -- upstream `Vox_util`이 아니다.
+   upstream은 `legacy_index` 규약의 배율 오차(`x·W/(W−1) − 0.5`)를 갖고 있어서, 그것을
+   쓰면 "DS + 옳은 표본 위치" 대 "핀홀 + 틀린 표본 위치"를 비교하게 된다. 그래서
+   `DoubleSphereVoxUtil`에서 투영만 `_project_to_native`로 떼어내고 나머지 경로(해상도
+   스케일·`pixel_offset`·`mirror_x`·유효 영역 판정·`grid_sample` 정규화)를 **상속으로**
+   물려받는다.
+2. **리샘플링은 512×288로 줄인 어안에서 한다.** native 1280×720에서 직접 펴면 핀홀 팔만
+   원본 해상도를 더 쓰게 되고, 게다가 120° 핀홀의 중심 각해상도(2.58 px/deg)가
+   native(≈6.4)보다 낮아 bilinear 탭 하나로는 **중심부에 에일리어싱**이 생긴다
+   (PIL 축소는 안티에일리어싱을 하지만 `cv2.remap`은 하지 않는다). 줄인 뒤 펴면 중심이
+   거의 1:1(2.55 → 2.58)이라 두 문제가 동시에 사라지고, 두 팔이 **글자 그대로 같은 입력
+   이미지**를 본다.
+3. **`permanent_blind` 마스크는 DS 기준 그대로 둔다.** 핀홀이 못 보는 셀도 과제에 남아야
+   `01_overall`과 같은 과제가 되고 커버리지 손실이 결과에 정직하게 반영된다.
+4. **셸에 가드를 넣었다.** `PROJECTION=pinhole`인데 화각을 빠뜨리면 조용히 확정 설정으로
+   돌아가 "pinhole120"이라는 이름의 DS 런이 생긴다. 그 런은 겉보기에 정상이라 분석
+   단계까지 아무도 알아채지 못한다.
+
+**축 B의 전제를 실측으로 확인했다.** binary source 체크포인트를 target 모델에 붙이면
+**668 텐서 전부, `skipped 0`**이다(3-class source면 head 2개가 빠진다). 격자가
+240×240 → 120×120으로 달라도 상관없다 -- BEV decoder가 전부 convolution이고 셀이 둘 다
+5 cm라 "필터 하나가 몇 미터를 보는가"가 보존된다.
+
+**전이하는 체크포인트는 `model-000000040.pth`(고정 epoch)다.** `model_best`가 아니다 --
+캠페인 규약이 val 기반 선택을 쓰지 않는다(§3).
+
+**실행 상태.** 20런(사전학습 5 + `source_prior` 5 + `pinhole120` 5 + `pinhole150` 5),
+GPU 0, 출력은 `runs/paper_final/02_projection_and_prior/training_queue.log`로 리다이렉트해
+세션과 무관하게 돈다. 사전학습 한 런이 에폭 약 29초 × 40 = 20분이다.
+
 ### 다음 작업
 
-`01_overall`은 종료됐다. **지금 진행 중인 것은 `02_sensor_task_adaptation`의 설계 논의이고
-그 상태는 §6에 있다** -- 세 축의 미결 사항과 제안이 거기 적혀 있으며, 사용자 판단이 붙으면
-계획서를 쓴다. 이후 `03_boundary_uncertainty` 재정리, `04_edge_deployment`의 Orin 측정이
-남는다. `04`는 배포 메모의 20.2 FPS가 `Y=1` 값이므로 `Y=4` 재실측이 필요하다.
+`01_overall`은 종료됐다. **지금 진행 중인 것은 `02_projection_and_prior` 실행이다**(위 항목).
+끝나면 paired difference 분석과 bundle을 만든다. 이후 `03_boundary_uncertainty` 재정리,
+`04_edge_deployment`의 Orin 측정이 남는다. `04`는 배포 메모의 20.2 FPS가 `Y=1` 값이므로
+`Y=4` 재실측이 필요하다.
 
 재현 진입점:
 
@@ -386,6 +422,13 @@ PROTOCOL=all SEEDS=0,1,2,3,4 NUM_EPOCHS=40 \
 CUDA_VISIBLE_DEVICES=0 \
 ROOT=/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall \
     bash configs/paper_final_overall_analysis.sh
+
+# 실험 02 (완료된 런은 자동으로 건너뛴다). --plan_only로 먼저 계획만 볼 수 있다
+python tools/run_paper_final_projection_prior.py --arms=all --gpu=0
+
+# 설계 근거가 된 기하·라벨 측정 (학습 불필요)
+python tools/measure_projection_tradeoff.py
+python tools/measure_domain_prior.py
 ```
 
 ---
