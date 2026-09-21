@@ -177,18 +177,30 @@ def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=su
     except (OSError, subprocess.CalledProcessError):
         commit = None
 
+    # manifest도 **병합한다.** 팔을 나눠 돌리면 통째로 덮어쓸 경우 앞 호출의 런이 사라져,
+    # 논문 provenance의 런 목록이 실제보다 짧아진다(2026-09-21에 20런이 10런으로 줄었다).
+    manifest_path = output_root / "experiment_manifest.json"
+    known = {}
+    if manifest_path.exists():
+        try:
+            known = {r["run_name"]: r for r in json.loads(manifest_path.read_text())["runs"]}
+        except (json.JSONDecodeError, KeyError, TypeError):
+            known = {}
+    known.update({s.run_name: asdict(s) for s in specs})
+    ordered = sorted(known.values(),
+                     key=lambda r: (ARMS.index(r["arm"]) if r["arm"] in ARMS else 99, r["seed"]))
     manifest = {
-        "created_at": datetime.now().astimezone().isoformat(),
+        "updated_at": datetime.now().astimezone().isoformat(),
         "git_commit": commit,
         "output_root": str(output_root),
-        "n_runs": len(specs),
+        "n_runs": len(ordered),
+        "n_runs_this_invocation": len(specs),
         "control_arm": "runs/paper_final/01_overall/fixed_split (재사용, 시드 1:1)",
         "runtime": {"python": platform.python_version(), "executable": sys.executable,
                     "conda_env": Path(sys.prefix).name},
-        "runs": [asdict(s) for s in specs],
+        "runs": ordered,
     }
-    (output_root / "experiment_manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
 
     status = {}
     for spec in specs:

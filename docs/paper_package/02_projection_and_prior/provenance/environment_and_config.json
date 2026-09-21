@@ -1,0 +1,59 @@
+{
+  "experiment": "02_projection_and_prior",
+  "git_commit": "3dc1237e700d057f6d96e9d07ed6961a24ccc86c",
+  "runtime": {
+    "python": "3.11.15",
+    "torch": "2.7.0+cu128",
+    "numpy": "1.26.4",
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q",
+    "conda_env": "bev-chamdog"
+  },
+  "protocol": {
+    "split": "fixed (train raws2,raws3,rawos1,rawos2,rawos4 = 192 frames; val raws1,rawos3 = 75 frames)",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "epoch": 40,
+    "control": "reused from 01_overall/fixed_split (paired by seed)",
+    "constant_map_baseline_iou_free": 0.5180230692525705
+  },
+  "arms": {
+    "control": {
+      "label": "DS-native (frozen)",
+      "hfov_deg": null,
+      "coverage_pct": 99.8,
+      "front_px_per_deg": 2.55,
+      "edge_px_per_deg": 1.96
+    },
+    "pinhole120": {
+      "label": "Undistort + pinhole 120deg",
+      "hfov_deg": 120.0,
+      "coverage_pct": 93.1,
+      "front_px_per_deg": 2.58,
+      "edge_px_per_deg": 10.32
+    },
+    "pinhole150": {
+      "label": "Undistort + pinhole 150deg",
+      "hfov_deg": 150.0,
+      "coverage_pct": 96.7,
+      "front_px_per_deg": 1.2,
+      "edge_px_per_deg": 17.87
+    },
+    "source_prior": {
+      "label": "SynWoodScape pretrain",
+      "hfov_deg": null,
+      "coverage_pct": 99.8,
+      "front_px_per_deg": 2.55,
+      "edge_px_per_deg": 1.96
+    }
+  },
+  "statistics": {
+    "practical_floor": "|paired mean diff| > sigma_seed (0.0018, measured in 01_overall)",
+    "statistical_floor": "|paired mean diff| >= 2 * SE, SE = sd(diffs)/sqrt(5)",
+    "note": "no p-values at n=5; both floors must be cleared to claim a winner"
+  }
+}

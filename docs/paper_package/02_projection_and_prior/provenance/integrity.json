@@ -1,0 +1,25 @@
+{
+  "tolerance": 0.001,
+  "tau": 0.5,
+  "n_checks": 240,
+  "n_failures": 0,
+  "max_abs_diff": 0.0004500967422274016,
+  "per_arm": {
+    "pinhole120": {
+      "n_files": 10,
+      "n_rows": 80,
+      "max_abs_diff": 0.0002582539930834349
+    },
+    "pinhole150": {
+      "n_files": 10,
+      "n_rows": 80,
+      "max_abs_diff": 0.0004500967422274016
+    },
+    "source_prior": {
+      "n_files": 10,
+      "n_rows": 80,
+      "max_abs_diff": 0.0002347156021532404
+    }
+  },
+  "method": "exported pre-threshold probability maps re-scored on an independent path and compared against the training logs"
+}

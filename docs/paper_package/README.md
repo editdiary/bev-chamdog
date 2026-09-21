@@ -1,10 +1,10 @@
 # 논문 작성용 패키지
 
-논문에 필요한 **숫자·그림·해석만** 모아 둔 폴더다. 체크포인트(약 38 GB)와 확률맵은 들어
+논문에 필요한 **숫자·그림·해석만** 모아 둔 폴더다. 체크포인트(약 57 GB)와 확률맵은 들어
 있지 않다. 이 폴더를 통째로 노트북에 받아 두면 서버 접속 없이 논문을 쓸 수 있다.
 
-> 서버 경로: `~/Desktop/bev-chamdog-paper-final/docs/paper_package/`
-> 전체 크기: 1 MB 미만
+> 서버 경로: `~/Desktop/bev-chamdog/docs/paper_package/`
+> 전체 크기: 2 MB 미만
 
 ---
 
@@ -22,7 +22,7 @@
 | 실험 | 논문 역할 | 상태 | 핵심 결과 |
 |---|---|---|---|
 | [`01_overall`](01_overall/) | 최종 모델 대표 성능 + 시퀀스 일반화 | **완료** (2026-09-18, 40런) | 고정 split `iou_free` 0.812 ± 0.002 (margin **+0.294**) · LOSO macro 0.830 (margin **+0.294**) |
-| `02_sensor_task_adaptation` | 카메라 모델 · source prior · 센서 범위 불일치 | 미시작 (설계 미동결) | — |
+| [`02_projection_and_prior`](02_projection_and_prior/) | 카메라 모델과 source prior (설계 결정 둘의 방어) | **완료** (2026-09-21, 20런) | 어안 원본이 가상 핀홀을 이긴다 (**−0.0134** at 120°, **−0.0078** at 150°) · **커버리지가 해상도를 이긴다** · 합성 사전학습은 `iou_free` 불변, `f1@10cm` **−0.0169** |
 | `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 원자료 존재, 재정리 대기 | — |
 | `04_edge_deployment` | Jetson AGX Orin 지연 · FPS · 전력 · 메모리 | 측정 대기 | 기존 20.2 FPS는 `Y=1` 값이라 `Y=4` 재실측 필요 |
 

@@ -1,0 +1,4 @@
+arm,label,hfov_deg,bev_coverage_pct,front_px_per_deg,edge_px_per_deg,iou_free_mean,iou_free_sd,margin
+control,DS-native (frozen),,99.8,2.55,1.96,0.811862,0.001786,0.293839
+pinhole150,Undistort + pinhole 150deg,150.0,96.7,1.2,17.87,0.804031,0.001737,0.286007
+pinhole120,Undistort + pinhole 120deg,120.0,93.1,2.58,10.32,0.798487,0.001316,0.280464
