@@ -36,6 +36,7 @@
 | **I** | (변경 없음) | Orin **512×288 fp16 20.2 FPS**, 32.7 W, throttling 없음 | 배포 장비 최초 측정. 흔들림 세 원천이 모델 오차보다 작다 (진단 §30·§32) |
 | **J** | **lifting 높이 `Y=1 → 4`** (**사전 선언**) | **`iou_free` 0.7950 → 0.8104**, `f1@10cm` 0.5437 → **0.6085** | **라벨이 지면 occupancy가 아니라 지상 0.87~1.67 m 기둥 질의였다.** 단일 변경 최대 개선, **채택** (compendium §12) |
 | **K** | (변경 없음) **사다리 5칸 대조 실험** | 되올림 `A_ce` 45.0 % / **`C_hard` 47.6 %** / `C_soft` 0.5 %. CE 오차 증가분의 **96.5 %가 경계 대역** | **단계 E의 "왜"가 밝혀졌다: 원인은 per-set 평균이 아니라 경계 대역의 hard 감독이다.** 그리고 **E가 주장했던 재현성 개선은 선택 epoch에서만 성립했다** -- 철회 ([`loss_effect_results.md`](loss_effect_results.md)) |
+| **L** | 실험형 **soft-target cumulative ray L1** | seed 0 고정 ep40: `iou_free` 0.81341, `f1@10cm` 0.60642, range MAE 0.2056 m | 기존 ray 종점 합의 입사각·상쇄 문제를 피하는 구현은 **반복할 가치가 있는 신호**를 냈다. n=1이므로 미채택, seed 1~4 대기 (`loss_effect_results.md` §15) |
 
 각 단계의 전환은 성능 향상이 아니라 **"무엇이 병목인지에 대한 판단 변경"**이 이유였다.
 그것이 이 프로젝트에서 가장 중요한 패턴이다.
@@ -448,9 +449,52 @@ L = ½·L_F(Ω_F, hard 1) + ½·L_N(Ω_N, hard 0) + λ_B·L_B(Ω_B, soft target)
 
 ---
 
-## 5. 현재 상태 (2026-08-23)
+## 5. 현재 상태 (2026-09-21 갱신)
 
-### 확정된 것
+> 아래에 남아 있는 2026-08-23~25의 긴 상태표는 **그 시점의 역사 기록**이다. 현재 논문
+> 캠페인의 전체 원장은 [`paper_final_experiments.md`](paper_final_experiments.md), loss 후속
+> probe의 정본은 [`loss_effect_results.md`](loss_effect_results.md) §15다.
+
+### ▶ 다음 세션: cumulative ray loss를 seed 1~4로 반복한다
+
+사용자가 기존 $L_{range}$를 수식으로 다시 읽다가 두 가지를 지적했다. 첫째, $\delta_R$은
+경계의 수직 거리 band가 아니라 ray 방향 총 arc 오차에 걸려 입사각에 따라 실효 band 폭이
+달라진다. 둘째, 광선 전체 합만 비교하면 앞쪽 과대예측과 뒤쪽 과소예측이 상쇄될 수 있다.
+
+이를 확인하기 위해 `exp/cumulative-ray-loss` 브랜치에 `cumulative_l1` mode를 추가했다.
+$L_{cell}$과 같은 전체 soft target을 광선에 gather하고, 각 반경까지 누적한 예측 arc와 target
+arc의 차이를 L1로 평균한다. 정확한 식은 [`loss_function_spec.md`](loss_function_spec.md)
+§8.8이다. 새 mode에는 $\delta_R$과 $\beta$가 없고, 기존 `arc_huber`는 기본값으로 보존된다.
+
+seed 0, 40 epoch, GPU 1 probe는 완료됐다.
+
+| 고정 epoch 40 | `C_soft_s0` | `D_range_s0` | `E_cumulative_s0` |
+|---|---:|---:|---:|
+| `iou_free` | 0.81241 | 0.81140 | **0.81341** |
+| `f1@10cm` | 0.59757 | 0.59068 | **0.60642** |
+| `fatal` | 0.12331 | 0.12153 | **0.11836** |
+| `free_miss` | **0.07935** | 0.08375 | 0.08419 |
+| range MAE | 0.21163 m | 0.21597 m | **0.20560 m** |
+
+판정은 **"기존 `D_range_s0`의 품질 하락을 되돌리는 신호가 있어 반복할 가치는 있으나,
+n=1이라 정확도·안전·채택을 주장할 수 없다"**다. `fatal`↓와 `free_miss`↑가 함께 움직였으므로
+안전 개선이 아니라 동작점 이동일 수 있다. $\lambda_R=0.1526$은 최적값이 아니라 기존
+`arc_huber(\lambda_R=0.3)`와 gradient 크기만 맞춘 값이다.
+
+새 세션의 범위는 다음으로 동결한다.
+
+1. 같은 브랜치에서 완료된 seed 0을 보존하고 seed **1~4**만 추가한다.
+2. $\lambda_R=0.1526$, Y=4, batch 8, 40 epoch, 고정 split을 바꾸거나 seed별로 재보정하지 않는다.
+3. `configs/probe_cumulative_ray_loss.sh`를 seed 목록과 seed별 run name을 받도록 최소 확장한다.
+4. 고정 epoch 40을 주 판정으로 하고, 같은 seed의 `C_soft`·`D_range`와 paired 비교한다.
+5. `iou_free`와 `fatal/free_miss`를 같이 보고, 같은 `free_miss`에서 threshold sweep한
+   `fatal`로 safety를 판정한다.
+6. n=5 결과 전에는 확정 기본 mode `arc_huber`를 바꾸지 않는다.
+
+산출물은 `runs/cumulative_ray_loss/`, 상세 보고서는 그 안의 `README.md`, 구현 검증은
+전체 suite **453 passed**다.
+
+### 2026-08-23 당시 확정된 것 (역사 기록)
 
 - **정식화**: binary(free / not-free). `occupied`는 예측 free의 경계에서 유도해 보고.
 - **초기화**: from scratch(ImageNet trunk + 랜덤 decoder). SynWoodScape pretrain은 해롭다.
@@ -545,7 +589,7 @@ L = ½·L_F(Ω_F, hard 1) + ½·L_N(Ω_N, hard 0) + λ_B·L_B(Ω_B, soft target)
   최고점→ep40 하락은 0.0007~0.0015로 거의 없다** -- "과적합이 빨리 온다"는 val loss의
   성질이지 모델의 성질이 아니다. 지목된 다음 병목은 진단 문서 §18.3(특징맵 표본 좌표, 미해결)이다.
 
-### 현재 성능
+### 2026-08-23 당시 성능
 
 | | val (`raws1`+`rawos3`, 75장) | held-out test (`rawos1`, 39장) |
 |---|---|---|
@@ -592,7 +636,7 @@ binary ablation 4개(`ft_bin_{flip,frozen,ls05,res50}`), SynWoodScape pretrain 1
 실험의 결론이 전부 거기 있고, `split_*_samples.txt`는 프로브 채점의 유일한 근거다.
 체크포인트는 `model_best-*.pth`만 남기고 주기 저장분(`model-*.pth`)은 지우는 규약이다.
 
-### 다음 세션이 할 일 (2026-08-25 갱신 -- 2차 외부 검토 + §28 반영)
+### 2026-08-25 당시 다음 세션 계획 (완료된 역사 기록)
 
 **loss 연구는 §16으로 닫혔다.** `δ` 스윕은 **하지 않는다**(§16.8: 근거인 `σ_model`이
 geometry 결함에 오염됐을 수 있고, 개선 여지가 있는 안정성 축은 이미 확보됐다). 확정 config도

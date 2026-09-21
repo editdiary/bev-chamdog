@@ -24,17 +24,19 @@ $$
 | $L_F$ | 확실히 drivable한 셀 $\Omega_F$ | hard BCE, 목표 1 |
 | $L_N$ | 확실히 non-drivable한 셀 $\Omega_N$ | hard BCE, 목표 0 |
 | $L_B$ | GT 경계 ±$\delta$ 안의 셀 $\Omega_B$ | **soft** BCE, 목표는 $d$의 함수 |
-| $L_{\text{range}}$ | 방위각 광선당 자유거리 스칼라 | dead zone + Huber 회귀 |
+| $L_{\text{range}}$ | 방위각 광선 위 free profile | 기본 `arc_huber` 또는 실험형 `cumulative_l1` |
 
 앞의 세 항은 **셀 단위**이고 마지막 하나만 **광선 단위**다. 그 차이가 $L_{\text{range}}$를
 넣은 이유다(§8).
 
-확정 계수: $\lambda_B = 0.5$, $\lambda_R = 0.3$.
+확정 계수: $\lambda_B = 0.5$. **기본 `arc_huber`의 확정값은 $\lambda_R = 0.3$**이다.
+2026-09-21에 추가한 실험형 `cumulative_l1`은 gradient 크기를 기본형에 맞춘
+$\lambda_R = 0.1526$으로 seed 0만 시험했으며, **아직 확정 config가 아니다.**
 
-구현: `projects/common/soft_boundary.py::compute_soft_boundary_loss` 하나가 네 항을 모두
-합친다. $L_{\text{range}}$는 `projects/common/range_loss.py::compute_range_loss`가 계산해
-`range_term` 인자로 넘겨진다 — **총합을 밖에서 더하지 않는다.** 두 곳에서 더하면 `share_*`
-(각 항의 기여 몫, 정의상 합이 1)이 조용히 무의미해진다.
+구현: `projects/common/soft_boundary.py::compute_soft_boundary_loss`가 네 항을 한 자리에서
+합친다. $L_{\text{range}}$는 mode에 따라 `range_loss.py::{compute_range_loss,
+compute_cumulative_range_loss}`가 계산해 `range_term` 인자로 넘긴다 — **총합을 밖에서 더하지
+않는다.** 두 곳에서 더하면 `share_*`(각 항의 기여 몫, 정의상 합이 1)이 조용히 무의미해진다.
 
 ---
 
@@ -47,15 +49,17 @@ $$
 | $d_i$ | GT free 경계까지의 **부호 있는 수직 거리** | m, `+`가 free 쪽 |
 | $v_i$ | `valid` 마스크 (라벨이 존재하는 셀) | $\{0,1\}$ |
 | $b_i$ | `permanent_blind` — ego 아래 정적 사각 원반 | $\{0,1\}$, 프레임 불변 |
-| $\delta$ | 불확실 대역 반폭 | **0.15 m** (3셀) |
-| $\sigma$ | 경계 위치 오차의 표준편차 | $\alpha\delta$ = **0.075 m** |
-| $\alpha$ | 모양 매개변수 $\sigma/\delta$ | **0.5** |
+| $\delta$ | 불확실 대역 반폭 | **0.30 m** (6셀) |
+| $\sigma$ | 경계 위치 오차의 표준편차 | **0.10 m** |
+| $\alpha$ | 옛 모양 매개변수 $\sigma/\delta$ | **직접 지정하지 않음** ($1/3$으로 유도) |
 | $\kappa$ | 대역 target 수축 계수 | **1.0** (= 끔) |
 | $\varepsilon$ | 전역 label smoothing | **0.0** (= 끔) |
 | $\theta_j$ | 방위각 광선, $j = 1..720$ | $\theta = 0$이 전방 |
 | $\Delta r$ | 광선 위 표본 간격 | **0.025 m** (0.5셀), 200 step |
-| $\delta_R^{\pm}$ | 자유거리 허용 반폭 (과대/과소) | **0.15 / 0.15 m** |
-| $\beta$ | Huber 전환점 | **0.15 m** |
+| $\delta_R^{\pm}$ | `arc_huber` 자유거리 허용 반폭 (과대/과소) | **0.15 / 0.15 m** |
+| $\beta$ | `arc_huber` Huber 전환점 | **0.15 m** |
+| $m_{jk}$ | 광선 $j$, step $k$가 유효한지 | $v_{jk}\,\mathrm{in}_{jk}\in\{0,1\}$ |
+| $y_{jk}$ | $L_{cell}$과 동일한 전체 free 확률 target | $[0,1]$ |
 
 격자는 120×120, 셀 0.05 m, ego 기준 전방 4.0 m / 후방 2.0 m / 좌우 ±3.0 m
 (`ROBOT_GRID_SPEC`). 최대 반경 4.975 m.
@@ -388,7 +392,16 @@ $\Omega_N$ 셀의 6.3배다. 그래서 로그는 항의 기여 몫 `share_*`(정
 
 ## 8. 보조항 $L_{\text{range}}$
 
-구현: `range_loss.py::compute_range_loss`.
+구현은 두 형태가 공존한다.
+
+| `RANGE_LOSS_MODE` | 함수 | 상태 | 핵심 비교량 |
+|---|---|---|---|
+| `arc_huber` | `range_loss.py::compute_range_loss` | **기본·확정 config** | 광선 끝의 총 arc 오차에 dead zone + Huber |
+| `cumulative_l1` | `range_loss.py::compute_cumulative_range_loss` | **실험형, seed 0 probe만 완료** | 모든 반경까지의 누적 soft-target arc profile에 L1 |
+
+아래 §8.3~§8.7은 기존 기본형 `arc_huber`를 정의한다. 새 누적형은 §8.8에서 별도로 정의한다.
+둘은 광선 표본화와 `RAY_OK` 판정은 공유하지만, **목표·오차·강건화 방식은 다르므로 같은
+loss라고 간주하거나 절대값을 직접 비교하면 안 된다.**
 
 ### 8.1 왜 필요한가
 
@@ -494,7 +507,8 @@ $$
 
 **Huber를 미터 단위로 두는 이유**: 정규화된 스케일($R_{\max}$로 나누기)에서 $\beta$를 주면
 실효 오차가 항상 $\beta$보다 훨씬 작아져 Huber가 순수 L2로 퇴화하고 "outlier에 덜
-끌려간다"는 도입 이유가 사라진다. $\beta = 0.10$ m는 dead zone 통과 후의 전형적 잔차 규모다.
+끌려간다"는 도입 이유가 사라진다. 현재 $\beta = 0.15$ m이고, 2026-09-01에
+$\delta_R=0.20\to0.15$ m로 좁힌 변화와 짝지어 $0.10\to0.15$ m로 조정했다.
 
 gradient는 확률까지 이렇게 흐른다:
 
@@ -506,6 +520,26 @@ $$
 $$
 
 **한 광선의 모든 표본이 같은 스칼라 gradient를 나눠 받는다** — 그게 "셀을 광선으로 묶는" 항이라는 뜻이다.
+
+#### 고정 radial dead zone이 수직 band로는 왜 좁아지는가
+
+경계의 단위 법선을 $\mathbf n$, ray 진행 방향을 $\mathbf u_\theta$, 둘 사이 각을 $\phi$라고
+하자. ray를 따라 $\Delta r$만큼 움직인 점의 경계 법선 방향 변위는 국소적으로
+
+$$
+\Delta d_\perp \simeq \Delta r\,|\mathbf n\cdot\mathbf u_\theta|
+=\Delta r\,|\cos\phi|
+$$
+
+이다. 따라서 radial 허용폭 $\delta_R$이 만드는 수직 허용 band는
+
+$$
+\delta_\perp(\theta)\simeq\delta_R|\cos\phi|
+$$
+
+이다. ray가 경계에 수직으로 들어가면 $|\cos\phi|=1$이라 의도한 폭과 같지만, 경계를
+스치듯 만나면 0에 가까워진다. 즉 기존 dead zone은 **경계로부터 일정 폭인 2D band가 아니라
+입사각에 따라 수축하는 radial 허용구간**이다.
 
 ### 8.6 비대칭 $\delta_R^{+}$ (구현됨, 현재 대칭으로 사용)
 
@@ -520,7 +554,7 @@ $$
 $\delta_R^{-}$(보수 방향)는 넓게 두는 것이 맞다 — 그쪽 오차는 라벨 불확실성과 구별되지 않고
 비용도 낮다.
 
-> **현재 확정값은 대칭 $\delta_R^{+} = \delta_R^{-} = 0.20$이다.** $\delta_R^{+} = 0$은
+> **현재 확정값은 대칭 $\delta_R^{+} = \delta_R^{-} = 0.15$ m다.** $\delta_R^{+} = 0$은
 > `fatal_rate`를 개선하지만 `free_miss_rate`를 악화시키는 교환이라 채택을 보류했다 — 로봇
 > 운용 판단이므로 사용자 결정 대기다. 실측은 설계 문서 §13.8.
 
@@ -532,9 +566,124 @@ $\theta \to 2\pi - \theta$, 즉 **순열**(`roll(flip(x), 1)`)이다. 여기서�
 텐서에서 매번 다시 뽑으므로 **$\theta$ 축이 저장되지 않고 그 함정이 아예 생기지 않는다.**
 비용은 고정 인덱스 gather 한 번(프레임당 720×200)이라 사실상 0이다.
 
+### 8.8 실험형 `cumulative_l1` — soft-target 누적 arc profile의 L1
+
+기존형은 광선 전체를 한 번 합친 **종점 스칼라**만 비교한다. hard GT 표본을
+$t_{jk}=\mathrm{free}^{gt}_{jk}$라 하면, 앞부분의 과대예측과 뒷부분의 과소예측이 같은 크기일 때
+
+$$
+\Delta r\sum_k (p_{jk}-t_{jk}) = 0
+$$
+
+으로 상쇄되어, 중간 profile이 틀렸는데도 종점 오차는 0이 될 수 있다. 실험형은 각 step까지의
+부분합을 모두 비교해 이 상쇄를 막는다.
+
+먼저 셀 loss가 사용하는 것과 **완전히 같은 전체 target**을 만든다. $\tilde y_i$를 §6.1의
+절단 Gaussian target이라고 하면
+
+$$
+y_i = \begin{cases}
+1-\varepsilon, & i\in\Omega_F,\\
+\varepsilon, & i\in\Omega_N,\\
+\frac12 + \kappa(1-2\varepsilon)\left(\tilde y_i-\frac12\right),
+& i\in\Omega_B.
+\end{cases}
+$$
+
+seed-0 probe는 $\kappa=1$, $\varepsilon=0$이므로 $\Omega_F/\Omega_N$에서는 1/0이고,
+$\Omega_B$에서만 절단 Gaussian soft target이다. `permanent_blind`는 §4와 동일하게
+$\Omega_N$에 들어가 target 0을 받는다.
+
+광선 $j$의 step $k$에서
+
+$$
+m_{jk}=v_{jk}\,\mathrm{in}_{jk}
+$$
+
+로 둔다. 즉 `valid=0`이거나 격자 밖인 표본은 예측·target·평균 분모에서 모두 제외한다.
+반경 $r_k$까지 누적한 예측과 target의 soft arc profile은
+
+$$
+A^p_{jk}=\Delta r\sum_{\ell=1}^{k}m_{j\ell}p_{j\ell},
+\qquad
+A^y_{jk}=\Delta r\sum_{\ell=1}^{k}m_{j\ell}y_{j\ell}
+$$
+
+이고, 누적 오차는
+
+$$
+C_{jk}=A^p_{jk}-A^y_{jk}
+=\Delta r\sum_{\ell=1}^{k}m_{j\ell}(p_{j\ell}-y_{j\ell})
+$$
+
+이다. 광선 하나의 loss는 유효한 radial step에서 그 절대값을 평균한다.
+
+$$
+\ell_j^{\mathrm{cum}}
+=\frac{\sum_k m_{jk}|C_{jk}|}{\sum_k m_{jk}}
+$$
+
+최종 보조항은 hard GT로 판정한 `RAY_OK` 광선에서만 평균한다.
+
+$$
+\boxed{
+L_{\mathrm{range}}^{\mathrm{cum}}
+=\frac{1}{|\mathcal R_{OK}|}
+\sum_{j\in\mathcal R_{OK}}\ell_j^{\mathrm{cum}}
+}
+$$
+
+분자 $C_{jk}$와 최종 loss의 단위는 모두 **m**다. $\Delta r$가 일정하고 광선 안에 무효
+구멍이 없다면 연속 형태
+
+$$
+\ell_j^{\mathrm{cum}}\approx
+\frac{1}{L_j}\int_0^{L_j}|A^p_j(r)-A^y_j(r)|\,dr
+$$
+
+의 이산 근사로 읽을 수 있다. 즉 두 free 확률 profile 사이의 단순 셀별 L1이 아니라,
+**원점에서 각 반경까지 누적된 free 길이의 차이**를 반경 전체에서 평균한다.
+
+#### 기존형과 달라지는 성질
+
+1. **$\delta_R$과 $\beta$를 쓰지 않는다.** dead zone이나 Huber 전환점이 없고 순수 L1이다.
+2. 경계 불확실성은 별도 반경 dead zone이 아니라 **$L_{cell}$과 같은 $y$**로 전달된다.
+   $p=y$이면 모든 $C_{jk}=0$이므로 보조항과 gradient도 정확히 0이다.
+3. 종점에서 $\sum_k(p-y)=0$이어도 중간 $C_{jk}$가 0이 아니면 loss가 남는다. 이것이
+   기존 arc 합의 상쇄 문제를 처리하는 부분이다.
+4. soft target의 transition은 $d_i$라는 **경계 수직 거리**로 정의되므로, §8.5의
+   $\delta_R|\cos\phi|$ 수축이 없다. ray는 이 2D target을 읽기만 한다.
+5. 각 셀의 gradient는 그 셀 이후의 모든 누적 오차에서 온다. $q$번째 표본에 대해서는
+
+   $$
+   \frac{\partial \ell_j^{cum}}{\partial p_{jq}}
+   =\frac{\Delta r\,m_{jq}}{\sum_k m_{jk}}
+   \sum_{k\ge q}m_{jk}\,\operatorname{sign}(C_{jk}).
+   $$
+
+   따라서 기존형처럼 한 광선의 모든 표본이 같은 gradient를 받지 않고, **오차가 ray의 어느
+   위치에서 시작됐는지**를 구분한다. 실제 BEV 셀이 0.5-cell 간격 sampling으로 중복 gather되면
+   그 셀에는 해당 표본들의 gradient가 합쳐진다.
+6. 정확히 $C_{jk}=0$인 지점에서 L1의 PyTorch subgradient는 0이다. 따라서 상쇄가 끝난
+   step 자체는 직접 gradient를 받지 않을 수 있지만, 그 전에 남은 $|C|$가 profile을 교정한다.
+
+#### `range_arc_mae`와 혼동하지 않는다
+
+누적형을 학습해도 로그의 `range_arc_mae`와 `range_arc_bias`는 기존 비교를 유지하려고
+**hard GT endpoint 진단**으로 계산한다.
+
+$$
+a^{hard}_{gt,j}=\Delta r\sum_k\mathrm{free}^{gt}_{jk},
+\qquad
+\hat a_j=\Delta r\sum_k m_{jk}p_{jk}
+$$
+
+따라서 `range_arc_mae`는 $|\hat a-a^{hard}_{gt}|$이고, 실제 최적화되는 값은
+`range_cumulative_mae` $=L_{\mathrm{range}}^{\mathrm{cum}}$다. 전자는 진단, 후자는 loss다.
+
 ---
 
-## 9. $\lambda_R$은 왜 0.3인가 — gradient 비 캘리브레이션
+## 9. $\lambda_R$의 gradient 비 캘리브레이션
 
 $L_{\text{range}}$는 **미터** 단위이고 BCE는 **nats**다. 두 항의 절대값에 공통 스케일이 없으므로
 $\lambda_R$을 숫자로 고르면 그 뜻이 정해지지 않는다. 그래서 logits에서의 gradient 비로 맞춘다:
@@ -554,6 +703,29 @@ $L_{\text{range}}$ gradient가 줄기 때문이다. 학습 중반 기준으로 $
 
 실측 확인(train, `sb_r30` ep40): `share_range` = 0.0033. **loss 값의 몫으로는 0.3 %지만
 gradient 비로는 10 % 대**다 — 두 숫자를 혼동하면 이 항이 아무 일도 안 하는 것처럼 보인다.
+
+### 9.1 누적형 probe의 $\lambda_R=0.1526$
+
+`cumulative_l1`은 `arc_huber`와 함수 자체가 달라 같은 $\lambda_R$을 그대로 쓰면 gradient
+기여가 달라진다. `C_soft_s0` epoch 40 체크포인트에서 두 mode를 같은 seed·같은 160표본으로
+측정한 $\lambda_R=1$의 비는 다음과 같다.
+
+| mode | $G_R/G_{cell}$ ($\lambda_R=1$) | batch 간 표준편차 |
+|---|---:|---:|
+| `arc_huber` | 2.0460 | 0.5811 |
+| `cumulative_l1` | 4.0236 | 0.7825 |
+
+기존형 $\lambda_R=0.3$과 같은 gradient 기여를 만들도록
+
+$$
+\lambda_R^{cum}
+=0.3\times\frac{2.0460}{4.0236}
+=\boxed{0.1526}
+$$
+
+으로 정했다. 이 값은 **최적화한 하이퍼파라미터가 아니라 loss scale만 맞춘 probe 값**이다.
+GPU 1의 상주 프로세스 때문에 calibration은 batch 4 × 40회로 했지만, 실제 학습은 대조군과
+같은 batch 8을 유지했다. 자세한 실측은 `loss_effect_results.md` §15다.
 
 ---
 
@@ -578,12 +750,24 @@ gradient 비로는 10 % 대**다 — 두 숫자를 혼동하면 이 항이 아�
 | $n_\theta$ | 720 | — | `polar` 기본값 |
 | epochs | 40 | `NUM_EPOCHS` | |
 
-> **`\delta \le \delta_R`은 지킬 필요가 없다.** 설계 초기에 "soft 대역 안에서는
+위 표는 **확정 기본형 `arc_huber`**의 설정이다. 실험형 seed-0 probe에서 달라진 값만 따로
+쓰면 다음과 같다.
+
+| 이름 | 실험형 값 | 의미 |
+|---|---:|---|
+| `RANGE_LOSS_MODE` | `cumulative_l1` | §8.8의 누적 soft-target profile L1 |
+| $\lambda_R$ | **0.1526** | §9.1의 gradient scale matching |
+| $\delta_R^\pm$ | 사용 안 함 | 누적형 식에 등장하지 않음 |
+| $\beta$ | 사용 안 함 | 누적형 식에 등장하지 않음 |
+| seed | 0 | probe 1회만 완료; 확정 config 아님 |
+
+> **`\delta \le \delta_R`은 기본형에서도 지킬 필요가 없다.** 설계 초기에 "soft 대역 안에서는
 > $L_{\text{range}}$가 침묵해야 두 항이 안 싸운다"는 이유로 지향했던 제약인데, **불필요하다.**
 > soft target이 $y(d) + y(-d) = 1$로 대칭이라 **적분한 `arc`의 기댓값이 GT와 같고**(이 성질은
 > `tests/common/test_soft_boundary_kappa.py`가 고정한다), 따라서 완벽히 보정된 모델은 대역
 > 폭과 무관하게 $e = 0$이다. 실측으로도 $\delta$를 0.15 → 0.30으로 넓혔을 때 val
-> `loss_range`가 0.0867 → 0.0871로 불변이다(설계 문서 §21.5). $\delta_R$은 0.20 그대로 둔다.
+> `loss_range`가 0.0867 → 0.0871로 불변이다(설계 문서 §21.5). 이후 확정값은 별도 스윕으로
+> $\delta_R=0.15$ m가 됐다. 누적형에는 $\delta_R$ 자체가 없다.
 
 실행:
 
@@ -592,12 +776,23 @@ export PATH=/data/home/dhlee/miniconda3/envs/bev-chamdog/bin:$PATH   # torch 2.7
 EXP_NAME=my_run RUN_NAME=my_run \
 LOSS=soft_boundary SOFT_TARGET=gaussian \
 DELTA_M=0.30 SIGMA_M=0.10 SIGMA_ALPHA=None LAMBDA_B=0.5 \
-LAMBDA_R=0.3 DELTA_R_M=0.20 DELTA_R_OVER_M=None HUBER_BETA_M=0.10 \
+RANGE_LOSS_MODE=arc_huber \
+LAMBDA_R=0.3 DELTA_R_M=0.15 DELTA_R_OVER_M=None HUBER_BETA_M=0.15 \
 BAND_KAPPA=1.0 LABEL_EPS=0.0 \
 FORMULATION=binary ENCODER_TYPE=res101 AUGMENT=True INIT_CHECKPOINT=none \
 NUM_EPOCHS=40 \
 bash configs/train_robot_bev_finetune.sh
 ```
+
+누적형 seed-0 probe의 완전한 동결 설정과 덮어쓰기 방지는
+`configs/probe_cumulative_ray_loss.sh`에 있다. 재실행에는 보정값을 명시한다.
+
+```bash
+LAMBDA_R=0.1526 bash configs/probe_cumulative_ray_loss.sh
+```
+
+단, 이 스크립트는 seed 0 전용이고 기존 `E_cumulative_s0`을 덮어쓰지 않는다. 반복 실험은
+seed 1~4에 대해 run name을 분리하도록 먼저 확장해야 한다.
 
 **`SIGMA_M`과 `SIGMA_ALPHA`를 동시에 주면 trainer가 거부한다.** 2026-08-27 이전 런은
 `SIGMA_ALPHA`로 지정돼 있고, 그 런들의 $\sigma$는 $\alpha\delta$로 되돌려 읽어야 한다
@@ -617,7 +812,9 @@ bash configs/train_robot_bev_finetune.sh
 | 영역 분할 | `projects/common/soft_boundary.py::region_masks` |
 | soft target, $\alpha$ 해석 | `projects/common/soft_boundary.py::{soft_target, resolve_sigma}` |
 | 엔트로피 하한 | `projects/common/soft_boundary.py::target_entropy` |
-| $L_{\text{range}}$ | `projects/common/range_loss.py::compute_range_loss` |
+| 기본 $L_{\text{range}}$ | `projects/common/range_loss.py::compute_range_loss` |
+| 누적형 $L_{\text{range}}$ | `projects/common/range_loss.py::compute_cumulative_range_loss` |
+| 셀/누적형 공통 전체 target | `projects/common/soft_boundary.py::build_soft_boundary_target` |
 | 광선 gather, `RAY_OK` | `projects/common/range_loss.py::{RayGather, ray_is_ok}` |
 | 배치 실행 (항 조립) | `projects/common/binary_metrics.py::run_batch_soft_boundary` |
 | 학습 루프, 플래그 검증 | `tools/train_robot_bev.py::main` |
@@ -640,6 +837,10 @@ bash configs/train_robot_bev_finetune.sh
 | `valid = 0` 셀이 양쪽에서 빠진다 | §8.3 |
 | `share_*`의 합이 1, `range_term=None`이면 항이 아예 없다 | §1의 "한 자리에서만 더한다" |
 | $\rho_\beta$가 $\beta$에서 이차→선형 ($\beta$ 2배 → 이차 영역 loss 절반, 선형 영역 `loss = mae − β/2` 정확히) | §8.5. **`mean(ρ(e)) ≠ ρ(mean(e))`**(Jensen)이라 분포 무관 성질로 고정해야 한다 |
+| 누적형은 $p=y$에서 loss와 gradient가 0 | 셀 loss와 다른 경계 가정을 다시 강요하지 않는다 |
+| endpoint 오차가 상쇄돼 0이어도 중간 누적 profile 오차는 검출 | §8.8의 도입 목적 |
+| 누적형에서도 `valid=0` 표본은 누적합과 평균에서 제외 | 무감독 셀이 ray loss로 돌아오지 않는다 |
+| mode 미지정 시 기존 `arc_huber`와 수치가 동일 | 실험형 추가가 기존 확정 config를 바꾸지 않는다 |
 
 ---
 
@@ -649,7 +850,7 @@ bash configs/train_robot_bev_finetune.sh
 |---|---|
 | 왜 이 설계인가, 무엇을 기각했나, 스윕 결과 | [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) |
 | 지표 하나하나의 정의와 채택 사유 | [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) |
-| 이 loss가 CE보다 나은가, 각 항이 얼마나 기여하나 | 설계 문서 §13.7, 그리고 `configs/ablation_loss.sh` → `tools/report_ablation.py` |
+| 이 loss가 CE보다 나은가, 각 항이 얼마나 기여하나 | 설계 문서 §13.7, `configs/ablation_loss.sh` → `tools/report_ablation.py`, 누적형 probe는 [`loss_effect_results.md`](loss_effect_results.md) §15 |
 | 왜 binary 정식화인가, 경계 대역 loss 분해 | [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §15, §26 |
 | 전체 서사와 현재 지점 | [`experiment_history.md`](experiment_history.md) §5 |
 | 라벨이 무엇을 `vis=0`/`valid=0`으로 두나 | 진단 문서 §23 |

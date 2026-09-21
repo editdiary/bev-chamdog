@@ -1,6 +1,6 @@
 # loss 재설계의 영향력 — 확정 config에서의 대조 실험 결과
 
-**2026-09-02. 산출물 `runs/loss_effect/`. 25런(사다리 5칸 × 시드 5개).**
+**2026-09-02. 산출물 `runs/loss_effect/`. 본 실험 25런(사다리 5칸 × 시드 5개).**
 정본 환경 `bev-chamdog`(Python 3.11.15 · torch 2.7.0+cu128 · numpy 1.26.4).
 결과 데이터 한 파일: **[`runs/loss_effect/analysis/RESULTS.json`](../runs/loss_effect/analysis/RESULTS.json)**
 (폴더 안내는 같은 곳 `README.md`).
@@ -11,6 +11,9 @@
 
 > **이 문서는 이전 loss 실험과 독립이다.** 확정 config가 세 번 바뀌었으므로(§1.2) 2026-08-28
 > 이전의 런은 **지금 코드와 다른 모델을 학습한다.** 옛 숫자와 한 표에 세우지 않는다.
+
+> **[2026-09-21] 후속 `cumulative_l1` seed-0 probe를 §15에 추가했다.** 본문 25런의 결론이나
+> 확정 config를 바꾸지 않으며, seed 1~4 반복 전까지는 탐색 결과로만 읽는다.
 
 ---
 
@@ -558,3 +561,135 @@ CUDA_VISIBLE_DEVICES=0 SEEDS="0 1 2" bash configs/loss_effect.sh
 # 원시 보존 -> 무결성 -> 집계 -> 결과 묶음 (약 12분)
 CUDA_VISIBLE_DEVICES=0 bash configs/loss_effect_analysis.sh
 ```
+
+---
+
+## 15. [2026-09-21] soft-target 누적 arc L1 probe — seed 0 완료, 반복 실험 대기
+
+이 절은 위 25런의 결론을 덮어쓰지 않는 **후속 probe**다. 사용자가 기존 $L_{range}$의
+dead zone이 경계의 수직 거리 band가 아니라 ray 방향의 총 arc 오차에 걸린다는 점을 지적하면서
+열렸다. 구현·실행 브랜치는 `exp/cumulative-ray-loss`, 산출물은
+[`runs/cumulative_ray_loss/`](../runs/cumulative_ray_loss/)다.
+
+### 15.1 문제 정의 — 기존형의 두 불일치
+
+기존 `arc_huber`는 한 광선 전체의 **예측 확률 arc**와 hard-GT arc
+
+$$
+\hat a_j=\Delta r\sum_k p_{jk},\qquad a^{hard}_{gt,j}=\Delta r\sum_k free^{gt}_{jk}
+$$
+
+를 스칼라 하나로 만든 뒤, 그 차이에 $\delta_R$ dead zone과 Huber를 적용한다. 따라서
+
+1. $\delta_R$은 **경계면으로부터의 수직 거리 band가 아니라 ray 방향 arc 오차 허용량**이고,
+   입사각에 따라 같은 수직 band가 서로 다른 radial 길이로 보인다.
+2. 앞쪽 과대예측과 뒤쪽 과소예측이 합에서 상쇄되면, 광선 내부 profile이 틀려도 종점 오차는
+   0이 될 수 있다.
+
+처음 의도는 $L_{cell}$이 경계의 불확실성을 soft target으로 표현한 자리를 $L_{range}$가 다시
+hard하게 못박지 않는 것이었다. 그래서 dead zone을 수직 거리로 억지 변환하지 않고,
+**$L_{cell}$과 같은 soft target 자체를 ray 목표로 사용**하도록 바꿨다.
+
+### 15.2 새 식
+
+정확한 수식과 각 마스크의 계약은 [`loss_function_spec.md`](loss_function_spec.md) §8.8이
+정본이다. 요약하면, 유효 마스크 $m_{jk}=v_{jk}\,in_{jk}$와 전체 soft target $y_{jk}$에 대해
+
+$$
+C_{jk}=\Delta r\sum_{\ell\le k}m_{j\ell}(p_{j\ell}-y_{j\ell}),
+\qquad
+L_{range}^{cum}
+=\frac1{|\mathcal R_{OK}|}\sum_{j\in\mathcal R_{OK}}
+\frac{\sum_k m_{jk}|C_{jk}|}{\sum_k m_{jk}}.
+$$
+
+- `RAY_OK`는 기존과 똑같이 **hard GT**로 판정한다.
+- target $y$는 $L_{cell}$의 `build_soft_boundary_target`과 동일하다.
+- $\delta_R$과 $\beta$는 식에서 사라진다.
+- 종점에서 오차가 상쇄돼도 그 전의 $|C_{jk}|$는 남는다.
+- `range_arc_mae`는 hard-GT endpoint 진단으로 계속 로그하고, 실제 loss는
+  `range_cumulative_mae`로 따로 기록한다.
+
+### 15.3 gradient scale matching
+
+함수가 바뀌었으므로 $\lambda_R=0.3$을 그대로 쓰지 않았다. `C_soft_s0` epoch 40에서 같은
+seed와 같은 160표본을 사용해 $\lambda_R=1$일 때의 gradient norm 비를 측정했다.
+
+| mode | $G_R/G_{cell}$ | batch 표준편차 | arc MAE | arc bias | 사용 ray 비율 |
+|---|---:|---:|---:|---:|---:|
+| `arc_huber` | 2.0460 | 0.5811 | 0.0582 m | +0.0249 m | 0.4347 |
+| `cumulative_l1` | 4.0236 | 0.7825 | 0.0582 m | +0.0249 m | 0.4347 |
+
+따라서 기존 `D_range`의 gradient 기여에 맞춘 값은
+
+$$
+\lambda_R^{cum}=0.3\frac{2.0460}{4.0236}=\boxed{0.1526}.
+$$
+
+이것은 최적값이 아니라 **두 loss의 scale만 맞춘 probe 보정값**이다. GPU 1에서 root 소유
+vLLM이 75.6 GB를 점유해 calibration만 batch 4 × 40회로 했고, 실제 학습은 기존과 같은
+batch 8로 40 epoch를 완료했다.
+
+### 15.4 seed-0 결과
+
+선택 checkpoint는 `iou_free` 최고점을 골라 위로 편향될 수 있으므로, **주 판정은 사전 선언한
+고정 epoch 40**이다.
+
+| run @ epoch 40 | iou_free | f1@10cm | fatal | free_miss | range MAE |
+|---|---:|---:|---:|---:|---:|
+| `C_soft_s0` | 0.81241 | 0.59757 | 0.12331 | **0.07935** | 0.21163 m |
+| `D_range_s0` | 0.81140 | 0.59068 | 0.12153 | 0.08375 | 0.21597 m |
+| `E_cumulative_s0` | **0.81341** | **0.60642** | **0.11836** | 0.08419 | **0.20560 m** |
+
+`E_cumulative_s0`의 차이:
+
+- `C_soft_s0` 대비: `iou_free` +0.00101, `f1@10cm` +0.00885, `fatal` −0.00495,
+  `free_miss` +0.00485, range MAE −0.0060 m.
+- `D_range_s0` 대비: `iou_free` +0.00202, `f1@10cm` +0.01574, `fatal` −0.00317,
+  `free_miss` +0.00045, range MAE −0.0104 m.
+
+선택 checkpoint에서도 `E_cumulative_s0`(epoch 37)이 `iou_free` 0.81388,
+`f1@10cm` 0.60709로 세 칸 중 가장 높았다.
+
+| run @ epoch 40 | reducible loss 되올림 | val arc MAE | train arc MAE | train `share_R` | val `share_R` |
+|---|---:|---:|---:|---:|---:|
+| `C_soft_s0` | 1.335 % | — | — | — | — |
+| `D_range_s0` | 1.123 % | 0.22816 m | 0.0553 m | 0.00937 | 0.08407 |
+| `E_cumulative_s0` | **0.606 %** | **0.22384 m** | **0.0500 m** | 0.00971 | 0.04707 |
+
+누적형 자체의 epoch 40 `range_cumulative_mae`는 train 0.00918 m, val 0.09396 m다.
+`D_range`와 `E_cumulative`의 `loss_range` 절대값은 함수가 다르므로 직접 비교하지 않는다.
+
+### 15.5 판정 — 반복할 가치는 있지만 아직 채택하지 않는다
+
+**긍정 신호:** 기존 `D_range_s0`에서 보이던 품질 하락을 되돌렸고, 고정 epoch에서
+`f1@10cm`과 range MAE가 동시에 좋아지면서 주 지표 `iou_free`도 악화하지 않았다. 목적함수
+되올림도 더 작았다. 따라서 n=5로 반복할 가치는 있다.
+
+**아직 말할 수 없는 것:** 한 seed의 `iou_free` +0.00101은 같은 config·같은 seed 재실행
+노이즈 $\sigma_{run}\approx0.0009$와 비슷한 크기다. `fatal` 감소와 `free_miss` 증가는 기존
+실험에서 반복해서 본 동작점 이동 무늬이므로 **안전 개선이라고 부르지 않는다.** 정확도 개선,
+재현성 개선, 채택을 모두 보류한다.
+
+### 15.6 다음 세션 실행 계약
+
+다음 세션은 새 설계를 열지 말고 아래 반복만 한다.
+
+1. 브랜치 `exp/cumulative-ray-loss`에서 시작한다. 현재 HEAD는 이 절을 기록한 문서 커밋이다.
+2. 완료된 `E_cumulative_s0`은 보존하고 **seed 1, 2, 3, 4**를 같은 config로 추가한다.
+3. $\lambda_R=0.1526$을 seed마다 다시 보정하거나 튜닝하지 않는다.
+4. train/val 시퀀스, Y=4, batch 8, 40 epoch, frame split 0을 그대로 고정한다.
+5. `configs/probe_cumulative_ray_loss.sh`는 현재 seed 0/run name 전용이고 덮어쓰기를 거부한다.
+   새 세션에서 먼저 `SEEDS`와 seed별 run name을 받도록 **최소 확장**하고 계약 테스트를 붙인다.
+6. 주 비교는 고정 epoch 40의 `E_cumulative − C_soft`와
+   `E_cumulative − D_range`의 paired seed 차이다. 선택 checkpoint는 보조로만 본다.
+7. mean±seed SD, paired delta, 방향 일관성을 보고한다. `iou_free`와 `fatal/free_miss`를 항상
+   함께 읽고, `f1@10cm`·range MAE·되올림은 보조 축으로 둔다.
+8. safety는 τ=0.5로 판정하지 않는다. 저장한 확률맵으로 threshold sweep을 하고 **같은
+   `free_miss`에서 fatal**을 비교한다.
+9. n=5 결과가 나오기 전에는 확정 config의 기본 `RANGE_LOSS_MODE=arc_huber`를 바꾸지 않는다.
+
+산출물 상세와 seed-0 무결성은
+[`runs/cumulative_ray_loss/README.md`](../runs/cumulative_ray_loss/README.md)에 있다. 전체 학습은
+40/40 epoch를 완료했고 best epoch 37·fixed epoch 40 체크포인트가 있으며, 구현 후 전체 suite
+453개가 통과했다.

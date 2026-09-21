@@ -6,6 +6,40 @@
 > 역할과 상태(🟢 정본 / 🔵 운영 메모 / 📚 참고 / 🗄 아카이브)가 거기 있습니다.
 > **`docs/archive/`의 문서는 인용용이고, 거기 적힌 플래그·경로·숫자를 그대로 쓰면 안 됩니다.**
 
+> ## ▶▶▶ [2026-09-21] cumulative soft-target ray loss -- **seed 0 완료, seed 1~4가 다음 일**
+>
+> 사용자가 기존 `L_range`를 다시 검토하면서 두 문제를 찾았다. (1) `δ_R` dead zone은 경계의
+> **수직 거리 band가 아니라 ray 방향 총 arc 오차**에 걸려 입사각에 따라 실효 폭이 달라진다.
+> (2) 광선 전체 합에서는 앞쪽 과대예측과 뒤쪽 과소예측이 **상쇄**될 수 있다.
+>
+> 이를 피한 실험형 `RANGE_LOSS_MODE=cumulative_l1`을 브랜치
+> **`exp/cumulative-ray-loss`**에 구현했다. $L_{cell}$과 같은 전체 soft target을 ray에 gather하고,
+> 각 반경까지 누적한 예측/target arc 차이의 L1을 평균한다. **`δ_R`과 `β`는 새 식에 없다.**
+> 기존 `arc_huber`는 기본값으로 그대로 보존되며, 누적형은 아직 미채택이다.
+>
+> seed 0, 40 epoch, batch 8, Y=4, GPU 1 완료. gradient scale만 맞춘
+> **`λ_R=0.1526`**을 썼다(최적값 아님). 고정 epoch 40 결과:
+>
+> | | `C_soft_s0` | `D_range_s0` | `E_cumulative_s0` |
+> |---|---:|---:|---:|
+> | `iou_free` | 0.81241 | 0.81140 | **0.81341** |
+> | `f1@10cm` | 0.59757 | 0.59068 | **0.60642** |
+> | `fatal` / `free_miss` | 0.12331 / **0.07935** | 0.12153 / 0.08375 | **0.11836** / 0.08419 |
+> | range MAE | 0.21163 m | 0.21597 m | **0.20560 m** |
+>
+> **판정:** 기존 `D_range_s0`의 품질 하락을 되돌리는 신호가 있어 반복할 가치는 있다. 하지만
+> n=1이고 `fatal`↓·`free_miss`↑가 함께 움직이므로 정확도·안전 개선이나 채택은 주장하지 않는다.
+>
+> **새 세션은** 같은 브랜치에서 완료된 seed 0을 보존하고 **seed 1~4만** 같은 설정으로
+> 반복한다. `λ_R`을 seed별로 재보정하지 않고, 고정 epoch 40 paired 비교와 같은 free_miss의
+> threshold sweep을 주 판정으로 쓴다. 현재 probe 셸은 seed 0 전용이라 `SEEDS`와 seed별 run
+> name을 받도록 최소 확장해야 한다.
+>
+> 정본: 수식 [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §8.8 · 결과/다음 실행 계약
+> [`docs/loss_effect_results.md`](docs/loss_effect_results.md) §15 · 현재 서사
+> [`docs/experiment_history.md`](docs/experiment_history.md) §5 · 산출물
+> `runs/cumulative_ray_loss/` · 구현 후 전체 테스트 **453 passed**.
+
 > ## ▶ [2026-08-27] lifting 높이 축 `Y=1 → 4` **채택** -- 새 세션은 이것부터 안다
 >
 > **확정 config가 바뀌었다.** `Segnet(Z, Y, X)`의 `Y`가 1 → **4**이고 높이 범위는
