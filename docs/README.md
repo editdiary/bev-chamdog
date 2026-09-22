@@ -35,8 +35,8 @@
 > 작성 규칙과 표는 [`loss_effect_results.md`](loss_effect_results.md) **§16**, 수식은
 > [`loss_function_spec.md`](loss_function_spec.md) §8.8, 서사는
 > [`experiment_history.md`](experiment_history.md) §5다.
-> **⚠ `runs/paper_final/`의 완료된 캠페인은 `arc_huber`로 학습돼 있다** — 논문 구성에 대한
-> 사용자 판단이 남아 있다(결과 문서 §16.7 말미).
+> **⚠ `runs/paper_final/`의 완료된 캠페인은 `arc_huber`로 학습돼 있다.** **[2026-09-22 결정]
+> 다시 돌리지 않고, 시스템 결과표에 그 설정을 명시한다**(결과 문서 §16.7 말미).
 >
 ---
 

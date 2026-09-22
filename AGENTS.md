@@ -50,10 +50,13 @@
 > **그리고 (3)은 오히려 "되올림의 원인은 경계의 hard target"이라는 결론을 보강한다** --
 > 원인이 거기라면 ray 항을 바꿔도 안 움직여야 하고, 실제로 안 움직였다.
 >
-> **⚠⚠ 캠페인과 불일치한다 -- 사용자 판단이 남아 있다.** `runs/paper_final/`의 **완료된
-> 실험 1(40런)과 실행된 실험 2는 전부 `arc_huber`(`λ_R=0.3`), 즉 `D` 설정**이다. 지금 상태면
-> 논문이 "방법은 `E`인데 주 결과표의 모델은 `D`"가 된다. (a) ablation 표에서만 `E`를 쓰고
-> 시스템 결과는 `D` 설정임을 명시하거나, (b) 캠페인을 40런 이상 다시 돌린다. **정하지 않았다.**
+> **⚠⚠ 캠페인과 불일치한다 -- [2026-09-22 결정] 다시 돌리지 않고 명시한다.**
+> `runs/paper_final/`의 **완료된 실험 1(40런)과 실험 2는 전부 `arc_huber`(`λ_R=0.3`), 즉 `D`
+> 설정**이다. 60런을 다시 돌릴 만한 차이가 아니라고 판단했다(얻는 것이 `iou_free` +0.0020과
+> `range_mae` −0.0033 m뿐이고 `missed_obstacle`은 나빠진다). **그래서 숨기지 않고 쓴다** --
+> 시스템 결과표·Training Details에 **보조항이 `arc_huber`·`λ_R=0.3`임을 명시**하고, ablation에서
+> `E`를 권고할 때 **시스템 결과는 이전 형태로 학습됐음을 한 줄로 밝힌다.** 논문 문구는
+> [`docs/paper_package/common/training_details.md`](docs/paper_package/common/training_details.md) §9.2다.
 >
 > 정본: 판정·논문 규칙 [`docs/loss_effect_results.md`](docs/loss_effect_results.md) **§16** ·
 > 수식 [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §8.8·§9.1 · 서사

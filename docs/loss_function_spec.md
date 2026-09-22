@@ -34,7 +34,8 @@ $$
 (`E_cumulative`, n=5), **논문에는 기본형 `arc_huber`(`D_range`)를 빼고 이쪽을 쓴다**
 (사용자 결정, [`loss_effect_results.md`](loss_effect_results.md) **§16.7**).
 **다만 저장소의 기본값은 아직 `arc_huber`이고 `runs/paper_final/`의 캠페인도 그것으로
-학습돼 있다** -- 결과 문서 §16.7 말미의 미결 판단을 먼저 읽는다.
+학습돼 있다** -- **[2026-09-22 결정] 캠페인은 다시 돌리지 않고, 논문에 그 설정을 명시한다**
+(결과 문서 §16.7 말미).
 
 구현: `projects/common/soft_boundary.py::compute_soft_boundary_loss`가 네 항을 한 자리에서
 합친다. $L_{\text{range}}$는 mode에 따라 `range_loss.py::{compute_range_loss,
@@ -573,8 +574,8 @@ $\theta \to 2\pi - \theta$, 즉 **순열**(`roll(flip(x), 1)`)이다. 여기서�
 
 > **지위.** 이 형태가 **논문에 싣는 $L_{range}$**이고(결과 문서 §16.7, 사용자 결정),
 > $\lambda_R = 0.15$다. **저장소의 기본값은 아직 §8.3~§8.7의 `arc_huber`**이며
-> `runs/paper_final/`의 캠페인도 그것으로 학습돼 있다 -- 결과 문서 §16.7 말미의 미결 판단을
->먼저 읽는다. **바꾼 이유는 결과 문서 §15**에 있다(요약: $\delta_R$이 수직 band가 아니라
+> `runs/paper_final/`의 캠페인도 그것으로 학습돼 있다 -- **[2026-09-22 결정] 캠페인은 다시
+> 돌리지 않고 논문에 그 설정을 명시한다**(결과 문서 §16.7 말미). **바꾼 이유는 결과 문서 §15**에 있다(요약: $\delta_R$이 수직 band가 아니라
 > ray 방향 arc 오차에 걸리고, 광선 안에서 오차가 상쇄된다).
 
 기존형은 광선 전체를 한 번 합친 **종점 스칼라**만 비교한다. hard GT 표본을
