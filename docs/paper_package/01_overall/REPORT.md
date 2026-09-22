@@ -319,11 +319,16 @@ Table 2는 행이 8개라 `\resizebox`보다 `\small` + 열 축약(조명/통로
 
 논문 작성에 필요 없어서 뺐다. 다시 필요하면 서버에서 꺼낸다.
 
+
+> **경로 주의.** 논문에 쓰는 결과는 **`runs/paper_final_cumulative/`**(2026-09-23
+> 재학습, `cumulative_l1`)에 있다. `runs/paper_final/`은 옛 `arc_huber` 캠페인이고
+> 비교용으로 남겨 둔 것이다.
+
 | 있는 곳 | 무엇 | 크기 |
 |---|---|---|
-| `runs/paper_final/01_overall/*/ckpt/` | 40런 체크포인트 | 약 38 GB |
-| `runs/paper_final/01_overall/*/analysis/predictions/` | **threshold 적용 전 확률맵 80개**(`p(free)`, GT, valid mask, 거리장) | 수 GB |
-| `runs/paper_final/01_overall/*/logs/` | TensorBoard 이벤트 원본 | — |
+| `runs/paper_final_cumulative/01_overall/*/ckpt/` | 40런 체크포인트 | 약 38 GB |
+| `runs/paper_final_cumulative/01_overall/*/analysis/predictions/` | **threshold 적용 전 확률맵 80개**(`p(free)`, GT, valid mask, 거리장) | 수 GB |
+| `runs/paper_final_cumulative/01_overall/*/logs/` | TensorBoard 이벤트 원본 | — |
 
 확률맵을 남겨둔 이유가 있다. **새 문턱값이나 새 영역 지표를 계산할 때 재학습이 필요 없다.**
 예를 들어 "같은 `free_miss`에서 `fatal`을 비교" 같은 동작점 곡선은 이 확률맵만으로 그린다.

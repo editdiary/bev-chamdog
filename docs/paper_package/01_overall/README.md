@@ -80,7 +80,7 @@ cd figures && python make_margin_inversion.py
 
 ```bash
 cd docs/paper_package/01_overall
-python make_package.py            # 기본 root = runs/paper_final/01_overall
+python make_package.py --root=../../../runs/paper_final_cumulative/01_overall
 cd figures && python make_margin_inversion.py
 ```
 
@@ -90,7 +90,7 @@ cd figures && python make_margin_inversion.py
 
 | 무엇 | 어디에 | 왜 뺐나 |
 |---|---|---|
-| 40런 체크포인트 (약 38 GB) | 서버 `runs/paper_final/01_overall/*/ckpt/` | 논문 작성에 불필요 |
+| 40런 체크포인트 (약 38 GB) | 서버 `runs/paper_final_cumulative/01_overall/*/ckpt/` | 논문 작성에 불필요 |
 | threshold 전 확률맵 80개 | 서버 `*/analysis/predictions/` | 새 문턱값·영역 지표 계산용. **재학습 없이** 쓸 수 있으나 서버에서 해야 한다 |
 | TensorBoard 이벤트 원본 | 서버 `*/logs/` | 필요한 스칼라는 `val_curves.csv`에 뽑아 두었다 |
 
@@ -99,6 +99,7 @@ cd figures && python make_margin_inversion.py
 - 공통 설정·지표: [`../common/setup.md`](../common/setup.md), [`../common/metrics.md`](../common/metrics.md)
 - 캠페인 원장(정본): `docs/paper_final_experiments.md`
 - 실행 계획: `docs/superpowers/plans/2026-09-18-paper-final-overall.md`
-- 기계 판독 결과 원본: 서버 `runs/paper_final/01_overall/*/analysis/RESULTS.json`
-- 실행일 2026-09-18 · Git `78da736` · Python 3.11.15 / torch 2.7.0+cu128 / CUDA 12.8
+- 기계 판독 결과 원본: 서버 `runs/paper_final_cumulative/01_overall/*/analysis/RESULTS.json`
+  (옛 `arc_huber` 캠페인은 `runs/paper_final/01_overall/`에 그대로 보존)
+- 실행일 **2026-09-23 재학습**(`cumulative_l1`) · Python 3.11.15 / torch 2.7.0+cu128 / CUDA 12.8
   · NVIDIA RTX PRO 6000 Blackwell Max-Q

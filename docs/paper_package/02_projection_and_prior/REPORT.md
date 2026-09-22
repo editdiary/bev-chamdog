@@ -452,9 +452,14 @@ Undistort $\to$ pinhole & 120\textdegree & 93.1\% & 2.58 & 0.7985 $\pm$ 0.0013 &
 
 ## 8. 이 폴더에 없는 것 (서버에 있는 것)
 
+
+> **경로 주의.** 논문에 쓰는 결과는 **`runs/paper_final_cumulative/`**(2026-09-23
+> 재학습, `cumulative_l1`)에 있다. `runs/paper_final/`은 옛 `arc_huber` 캠페인이고
+> 비교용으로 남겨 둔 것이다.
+
 | 무엇 | 어디 | 왜 |
 |---|---|---|
-| 20런 체크포인트 (약 19 GB) | `runs/paper_final/02_projection_and_prior/*/ckpt/` | 논문 작성에 불필요 |
-| threshold 전 확률맵 30개 | `runs/paper_final/02_projection_and_prior/*/analysis/predictions/` | 새 문턱값·동작점 곡선을 **재학습 없이** 계산할 수 있다. 계산은 서버에서 |
-| TensorBoard 원본 | `runs/paper_final/02_projection_and_prior/*/logs/` | 필요한 스칼라는 `data/val_curves.csv`에 있다 |
+| 20런 체크포인트 (약 19 GB) | `runs/paper_final_cumulative/02_projection_and_prior/*/ckpt/` | 논문 작성에 불필요 |
+| threshold 전 확률맵 30개 | `runs/paper_final_cumulative/02_projection_and_prior/*/analysis/predictions/` | 새 문턱값·동작점 곡선을 **재학습 없이** 계산할 수 있다. 계산은 서버에서 |
+| TensorBoard 원본 | `runs/paper_final_cumulative/02_projection_and_prior/*/logs/` | 필요한 스칼라는 `data/val_curves.csv`에 있다 |
 | 사전학습 source 런 로그 | `.../source_pretrain/logs/` | source 도메인 성능(val `iou_free` 0.986)은 논문에 쓰지 않는다 |
