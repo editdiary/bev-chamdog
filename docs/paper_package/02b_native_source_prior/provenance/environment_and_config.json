@@ -1,6 +1,6 @@
 {
   "experiment": "02b_native_source_prior",
-  "git_commit": "8e9474c4ffc71e0365519efbf8fc2f7d9ecf8a12",
+  "git_commit": "0deb51c5bcb7f8dc8e8848eaa77c9164b10945b3",
   "runtime": {
     "python": "3.11.15",
     "torch": "2.7.0+cu128",
