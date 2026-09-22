@@ -25,6 +25,8 @@ from tools.summarize_repeats import read_run  # noqa: E402
 HERE = Path(__file__).resolve().parent
 DEFAULT_ROOT = _REPO_ROOT / "runs/paper_final/02_projection_and_prior"
 CONTROL_LOGS = _REPO_ROOT / "runs/paper_final/01_overall/fixed_split/logs"
+DEFAULT_BASELINE_PATH = (_REPO_ROOT / "runs/paper_final/01_overall/fixed_split/"
+                        "analysis/constant_map_baseline.json")
 SEEDS = (0, 1, 2, 3, 4)
 ARMS = ("pinhole120", "pinhole150", "source_prior")
 FIXED_EPOCH = 40
@@ -65,7 +67,19 @@ def _write(path: Path, header, rows):
         writer = csv.writer(handle)
         writer.writerow(header)
         writer.writerows(rows)
-    print(f"  {path.relative_to(HERE)}  ({len(rows)}행)")
+    try:
+        shown = path.relative_to(HERE)
+    except ValueError:
+        shown = path
+    print(f"  {shown}  ({len(rows)}행)")
+
+
+def _rel(path):
+    """저장소 안이면 저장소 기준 상대 경로, 아니면 그대로."""
+    try:
+        return str(Path(path).resolve().relative_to(_REPO_ROOT))
+    except ValueError:
+        return str(path)
 
 
 def _round(value, places=6):
@@ -95,8 +109,10 @@ def _load(log_dir_pattern):
     return out
 
 
-def main(root=DEFAULT_ROOT, out_dir=HERE):
-    root, out_dir = Path(root), Path(out_dir)
+def main(root=DEFAULT_ROOT, out_dir=HERE, control=CONTROL_LOGS,
+         baseline_path=DEFAULT_BASELINE_PATH):
+    """`control`/`baseline_path`는 대조군을 다시 학습했을 때 그쪽을 가리키려고 연다."""
+    root, out_dir, control = Path(root), Path(out_dir), Path(control)
     data, prov = out_dir / "data", out_dir / "provenance"
 
     # --- 무결성 게이트 ------------------------------------------------------------
@@ -115,11 +131,9 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
           f"(허용치 {integrity[ARMS[0]]['tol']})")
 
     baseline = float(json.loads(
-        (_REPO_ROOT / "runs/paper_final/01_overall/fixed_split/analysis/"
-                      "constant_map_baseline.json").read_text()
-    )["constant_map_baseline_iou_free"])
+        Path(baseline_path).read_text())["constant_map_baseline_iou_free"])
 
-    runs = {"control": _load(CONTROL_LOGS / "final_s{seed}")}
+    runs = {"control": _load(control / "final_s{seed}")}
     for arm in ARMS:
         runs[arm] = _load(root / arm / "logs" / (arm + "_s{seed}"))
 
@@ -334,7 +348,9 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
                      "val raws1,rawos3 = 75 frames)",
             "seeds": list(SEEDS),
             "epoch": FIXED_EPOCH,
-            "control": "reused from 01_overall/fixed_split (paired by seed)",
+            # 저장소 기준 상대 경로로 적는다 -- 절대 경로를 적으면 서버가 바뀔 때
+            # provenance만 달라져 diff가 시끄러워진다.
+            "control": f"reused from {_rel(control)} (paired by seed)",
             "constant_map_baseline_iou_free": baseline,
         },
         "arms": {a: ARM_DESIGN[a] for a in ("control",) + ARMS},

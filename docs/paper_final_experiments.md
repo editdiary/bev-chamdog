@@ -1002,9 +1002,13 @@ python tools/run_paper_final_native_prior.py --gpu=0             # 전체 10런,
 | **합계** | **70** | | **약 8시간** (GPU 1개) |
 
 **GPU 0만 쓴다.** GPU 1은 다른 사용자의 작업(75 GB)이 올라와 있다.
-디스크는 체크포인트 70 × 약 490 MB = **약 34 GB**가 필요하고 2.8 TB가 비어 있다.
 
-### ⚠ Phase 0 — 먼저 고쳐야 할 것 하나 (실행 전, 약 30분)
+디스크는 **약 66 GB**가 필요하다. 런마다 체크포인트가 **둘**이다(고정 epoch의
+`model-000000040.pth`와 `model_best-*.pth`, 각 470 MB) -- 계획 단계에서 하나로 세어
+34 GB로 적었던 것을 실측으로 정정했다(941 MB/런 × 70). 2.8 TB가 비어 있어 문제는 없고,
+기존 `runs/paper_final/`이 이미 61 GB를 쓰고 있는 것과 같은 규모다.
+
+### ✅ Phase 0 — 완료 (2026-09-22)
 
 **`tools/train_synwoodscape.py`가 `range_loss_mode`를 노출하지 않는다.** 지금 그대로 돌리면
 **미세조정만 `cumulative_l1`로 가고 사전학습 둘은 `arc_huber`에 남는다.** 그러면 "걷어낸다"가
@@ -1018,35 +1022,122 @@ python tools/run_paper_final_native_prior.py --gpu=0             # 전체 10런,
    `range_loss_mode`와 로그의 `loss_range`를 둘 다 본다
 5. 테스트 470개 통과 확인 후 커밋
 
-### Phase 1 — 학습 (약 8시간)
+**결과.** `tools/paper_final_aux_loss.py`가 세 러너의 공통 정본이 됐고, 두 사전학습 셸이
+`RANGE_LOSS_MODE`/`LAMBDA_R`을 환경변수로 받는다. 기본값은 `arc_huber`/0.3이라 **러너를
+그냥 돌리면 기존 캠페인이 그대로 재현된다**(기존 manifest와 대조해 확인: 차이는 새로 기록된
+칸뿐이고 값은 같다).
 
-순서가 중요하다. **사전학습이 먼저**여야 그것에서 시작하는 팔이 막히지 않는다.
+1-epoch 스모크 두 개로 플래그가 **실제 계산 경로를 바꾸는지** 확인했다:
+
+| | `arc_huber` | `cumulative_l1` |
+|---|---|---|
+| `config.json` `range_loss_mode` | `arc_huber` | `cumulative_l1` |
+| `range_cumulative_mae` 스칼라 | 없음 | **0.9101 (= `loss_range`와 일치)** |
+| train `loss_total` (1 epoch) | 1.2022 | 0.8101 |
+
+`range_cumulative_mae`는 누적 분기에서만 기록되는 태그다. 회귀 테스트 9개
+(`tests/tools/test_paper_final_aux_loss.py`)가 **사전학습 런을 포함해** 모든 런이 같은
+보조항을 받는지 고정한다. 테스트 479개 통과.
+
+### ▶ Phase 1 — 학습 (2026-09-22 17:18 시작, 약 8시간)
 
 ```bash
-# 1) 01_overall  (대조군. 다른 모든 비교의 기준이라 가장 먼저 완성한다)
-# 2) 02  (사전학습 5런이 먼저, 그다음 세 팔 15런)
-# 3) 02b (사전학습 5런이 먼저, 그다음 5런)
+bash tools/run_paper_final_cumulative_campaign.sh   # 70런, 순서 고정
 ```
+
+순서가 중요하다. **사전학습이 먼저**여야 그것에서 시작하는 팔이 막히지 않는다
+(01_overall → 02 → 02b, 각 실험 안에서는 러너가 팔 순서를 보장한다).
 
 큐는 **완료된 런을 건너뛰고 불완전한 런을 덮어쓰지 않는다**(`blocked_incomplete`). 중간에
 죽어도 같은 명령을 다시 실행하면 이어진다.
 
+#### 멈춤 방지 — `tools/paper_final_run_command.py`
+
+러너 셋은 `subprocess.run`을 **timeout 없이** 부르고 있었다. 학습이 교착되면 큐가 그
+자리에 영원히 선다 -- 사람이 없는 동안 8시간이 1런에서 날아간다. 두 한도를 건다.
+
+| 한도 | 값 | 무엇을 잡나 |
+|---|---|---|
+| **침묵** | 20분 무출력 | 주 감지기. 가장 느린 런도 epoch이 30초 미만이다 |
+| **총 시간** | 2시간 | 출력은 나오는데 안 끝나는 경우. 최장 런(19분)의 6배 |
+
+**프로세스 그룹째 죽인다** -- `bash`만 죽이면 `python`이 GPU를 붙든 채 고아로 남아 다음
+런이 연쇄 실패한다. 회귀 테스트가 손자 프로세스가 실제로 죽는지까지 잰다.
+런마다 stdout이 `<루트>/<실험>/run_logs/<런>.log`에 남는다.
+
+#### 실행 전 리허설 (1 epoch × 7런)
+
+8시간을 태우기 전에 전 경로를 관통시켰다. 확인한 것:
+
+- 세 러너 모두 `cumulative_l1`/λ_R=0.15로 런을 만든다 (70/70 검사, 새 루트 밖을 가리키는
+  경로 0건)
+- **체크포인트 의존 사슬** -- `source_prior`·`source_prior_native`가 **새 루트의**
+  사전학습을 문다(전이 668텐서, 건너뜀 0)
+- Phase 2 전 경로 rc=0. 무결성 재채점 최대 오차 **2.9e-4 < 허용치 1e-3**
+  (실패는 "5런 기대, 1런 발견" 같은 **구조 검사**뿐 -- 1시드 리허설이므로 정상)
+
 ### Phase 2 — 무결성과 분석 (약 1시간)
+
+```bash
+bash tools/run_paper_final_cumulative_analysis.sh
+```
 
 확률맵을 내보내 **독립 경로로 다시 채점**하고 학습 로그와 대조한다(허용치 1e-3).
 **하나라도 실패하면 패키지를 만들지 않는다.** 그다음 짝지은 비교를 낸다.
 
+**σ_seed를 새 대조군에서 다시 잰다.** 판정 규칙(`|Δ̄| > σ_seed` **그리고** `|Δ̄| ≥ 2·SE`)이
+이 값에 걸려 있는데, 대조군을 재학습했으니 예전 0.0018을 그대로 쓰면 "차이 없음" 경계가
+옛 런의 산포로 정해진다. 그래서 `01`을 먼저 돌리고 그 고정 split 5시드의 `iou_free` 표준편차를
+`02`·`02b`에 넘긴다(`report_paired_arms.py --sigma_seed`).
+
+constant-map baseline은 라벨과 val split만으로 정해지므로 바뀌지 않는다 -- 그래도 새 트리의
+것을 가리켜 대조할 수 있게 `--baseline_path`를 열어 뒀다.
+
 ### Phase 3 — 패키지 (약 1시간)
+
+```bash
+bash tools/run_paper_final_cumulative_packages.sh            # 대조만 (기본)
+APPLY=1 bash tools/run_paper_final_cumulative_packages.sh    # 검토 뒤 반영
+```
+
+**기본은 덮어쓰지 않는다.** 임시 폴더에 만들고 칸 단위 대조만 출력한다.
 
 | 패키지 | 무엇을 하나 |
 |---|---|
 | `01_overall` | 새 루트로 재생성 → **CSV diff** → 바뀐 칸만 목록으로 |
-| `02_projection_and_prior` | 같음 |
-| `02b_native_source_prior` | **신규 생성** (03과 같은 구조: REPORT·README·make_package·data·figures·provenance) |
-| `03_boundary_uncertainty` | **손대지 않는다** — `runs/loss_effect`는 재학습 대상이 아니고, `A_ce`~`C_soft`는 `λ_R=0`, `E_cumulative`는 이미 `cumulative_l1`이다 |
+| `02_projection_and_prior` | 같음 (`--control`도 새 루트를 가리킨다) |
+| `02b_native_source_prior` | **신규 생성.** 표를 세 줄로 낸다 — scratch / 가공한 사전학습 / 원본 기하 |
+| `03_boundary_uncertainty` | **손대지 않는다** — 아래 표로 실증했다 |
 
 **논문 문장은 바뀌지 않고 자릿수만 바뀐다**는 예상을 diff로 검증한다. 만약 결론이 뒤집히는
 칸이 나오면 **그것 자체가 보고 대상**이다 -- 조용히 숫자만 갈아끼우지 않는다.
+
+#### `03`을 건드리지 않는 근거 (30런 config.json 실측)
+
+| 칸 | `λ_R` | `range_loss_mode` | 보조항이 계산되나 |
+|---|---:|---|---|
+| `A_ce` · `B_perset` · `C_hard` · `C_soft` | 0.0 | (기록 없음) | **아니오 — 항 자체가 만들어지지 않는다** |
+| `D_range` | 0.3 | (기록 없음 = 당시 기본값 `arc_huber`) | 예 |
+| `E_cumulative` | 0.15 | `cumulative_l1` | 예 |
+
+논문 사다리는 `A_ce → B_perset → C_hard → C_soft → E_cumulative` 다섯 칸이고 `D_range`는
+빠진다. 그래서 **사다리의 어느 칸도 `arc_huber`로 학습되지 않았다.** 재학습이 불필요하다.
+(`D_range`가 `arc_huber`였다는 사실은 `03` 패키지 provenance에 이미 글자로 적혀 있다.)
+
+#### 검증 도구 셋 — 눈으로 훑지 않는다
+
+| 도구 | 무엇을 잡나 |
+|---|---|
+| `tools/diff_paper_package_csv.py` | CSV 칸 단위 대조. **판정 열**(`verdict`·`sign_agreement`·`better_direction`)이 바뀌면 따로 센다 |
+| `tools/audit_paper_prose_numbers.py` | **산문에 박힌 숫자.** 옛 CSV에는 있고 새 CSV에는 없는 값을 `stale`로 뽑는다 |
+| `tools/check_results_tree_purity.py` | **옛 결과 트리가 섞인 것.** 산출물의 경로 문자열을 훑는다. 만들자마자 `experiment_manifest.json`의 `control_arm`이 옛 경로를 박고 있는 것을 잡았다 |
+
+산문 감사가 필요한 이유는 규모다 -- `REPORT.md`·`README.md`에 소수 셋넷 자리 숫자가
+**416개** 박혀 있다(01 125 · 02 146 · 03 145). CSV만 갈고 산문을 두면 논문이 데이터와
+어긋난 채 작성되는데, 그건 눈으로 잡히지 않는다.
+
+지금(재학습 전) 추적률: **01 122/125 · 02 136/146 · 03 143/145**. 남는 것은 팔 사이
+차이처럼 손으로 계산해 적은 값이라 사람이 본다.
 
 ### Phase 4 — 기록
 

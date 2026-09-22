@@ -40,6 +40,16 @@ BATCH_SIZE="${BATCH_SIZE:-8}"
 LR="${LR:-1e-4}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-1e-7}"
 
+# 보조항 `L_range`. **기본값은 기존 런과 같은 `arc_huber`, λ_R=0.3이다** -- 여기를 바꾸면
+# 이미 돌아간 사전학습과 비교가 깨진다. 캠페인을 `cumulative_l1`로 옮길 때는 큐 러너가
+# RANGE_LOSS_MODE=cumulative_l1 LAMBDA_R=0.15를 넘긴다(원장 §8).
+# 이름은 `configs/train_robot_bev_finetune.sh`와 **글자 그대로 같게** 둔다 -- 사전학습과
+# 미세조정에 서로 다른 변수명을 쓰면 한쪽만 바뀐 것을 알아채지 못한다.
+LAMBDA_R="${LAMBDA_R:-0.3}"
+RANGE_LOSS_MODE="${RANGE_LOSS_MODE:-arc_huber}"
+DELTA_R_M="${DELTA_R_M:-0.15}"
+HUBER_BETA_M="${HUBER_BETA_M:-0.15}"
+
 OUT_ROOT="${OUT_ROOT:-runs/paper_final/02_projection_and_prior/source_pretrain}"
 
 python tools/train_synwoodscape.py \
@@ -52,9 +62,10 @@ python tools/train_synwoodscape.py \
     --sigma_m=0.10 \
     --lambda_b=0.5 \
     --soft_target=gaussian \
-    --lambda_r=0.3 \
-    --delta_r_m=0.15 \
-    --huber_beta_m=0.15 \
+    --lambda_r="${LAMBDA_R}" \
+    --range_loss_mode="${RANGE_LOSS_MODE}" \
+    --delta_r_m="${DELTA_R_M}" \
+    --huber_beta_m="${HUBER_BETA_M}" \
     --band_kappa=1.0 \
     --label_eps=0.0 \
     --num_epochs="${NUM_EPOCHS}" \

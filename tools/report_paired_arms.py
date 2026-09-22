@@ -44,9 +44,13 @@ from tools.summarize_repeats import REPORTED, pick_epochs, read_run  # noqa: E40
 
 # `01_overall`의 고정 split constant-map baseline. 같은 val split이므로 모든 팔이 공유한다.
 # 출처: `runs/paper_final/01_overall/fixed_split/analysis/constant_map_baseline.json`.
+# **라벨과 val split만으로 정해지는 값이라 학습을 다시 해도 바뀌지 않는다.** 그래도
+# 다른 트리에서 돌릴 때는 `--baseline_path`로 그쪽 것을 가리켜 대조할 수 있게 열어 둔다.
 _BASELINE_PATH = ("runs/paper_final/01_overall/fixed_split/analysis/"
                   "constant_map_baseline.json")
 # `01_overall`에서 실측한 시드 간 산포. 이보다 작은 차이는 우열로 쓰지 않는다.
+# **대조군을 다시 학습하면 이 값도 다시 재야 한다** -- 판정 규칙이 여기 걸려 있다.
+# `--sigma_seed`로 넘길 수 있고, 넘기지 않으면 2026-09-18 캠페인의 실측값을 쓴다.
 SIGMA_SEED = 0.0018
 # 짝지은 평균이 그 평균의 표준오차의 몇 배여야 우열로 쓰나. n=5에서 2는 느슨한 편이지만
 # p값을 만들지 않기로 했으므로 보수적인 눈금 하나로 둔다.
@@ -130,7 +134,7 @@ def _fmt(value, width=8, places=4):
     return f"{value:>{width}.{places}f}"
 
 
-def format_table(name, result, baseline=None):
+def format_table(name, result, baseline=None, sigma_seed=SIGMA_SEED):
     lines = [f"\n=== {name}  (시드 {result['seeds']}, 짝지은 차이) ===",
              f"  {'지표':<16}{'대조군':>10}{'팔':>10}{'차이(팔−대조)':>15}"
              f"{'차이 sd':>10}{'|Δ|/SE':>8}{'부호':>7}  판정"]
@@ -142,8 +146,8 @@ def format_table(name, result, baseline=None):
         ratio = row.get("abs_mean_over_se", float("nan"))
         if mean is None or not math.isfinite(mean):
             verdict = "-"
-        elif abs(mean) < SIGMA_SEED:
-            verdict = f"차이 없음 (|Δ| < σ_seed {SIGMA_SEED})"
+        elif abs(mean) < sigma_seed:
+            verdict = f"차이 없음 (|Δ| < σ_seed {sigma_seed})"
         elif not (math.isfinite(ratio) and ratio >= MIN_SE_RATIO):
             verdict = f"불확실 (|Δ|/SE {ratio:.1f} < {MIN_SE_RATIO})"
         elif hib is None:
@@ -163,9 +167,13 @@ def format_table(name, result, baseline=None):
     return "\n".join(lines)
 
 
-def main(control, arms, fixed_epoch: int = 40, json_out=None):
+def main(control, arms, fixed_epoch: int = 40, json_out=None,
+         sigma_seed: float = SIGMA_SEED, baseline_path: str = _BASELINE_PATH):
+    sigma_seed = float(sigma_seed)
     baseline = None
-    path = _REPO_ROOT / _BASELINE_PATH
+    path = Path(baseline_path)
+    if not path.is_absolute():
+        path = _REPO_ROOT / path
     if path.exists():
         baseline = float(json.loads(path.read_text())["constant_map_baseline_iou_free"])
 
@@ -173,17 +181,18 @@ def main(control, arms, fixed_epoch: int = 40, json_out=None):
     print(f"대조군 {control}: 시드 {sorted(control_runs)}")
     if baseline is not None:
         print(f"constant-map baseline iou_free = {baseline:.4f}  (고정 split 공통)")
+    print(f"판정 눈금: σ_seed = {sigma_seed:.4f} | |Δ|/SE ≥ {MIN_SE_RATIO}")
 
     if isinstance(arms, str):
         arms = [a for a in arms.split(",") if a]
     payload = {"control": str(control), "fixed_epoch": fixed_epoch,
-               "baseline_iou_free": baseline, "sigma_seed": SIGMA_SEED,
+               "baseline_iou_free": baseline, "sigma_seed": sigma_seed,
                "min_se_ratio": MIN_SE_RATIO, "arms": {}}
     for entry in arms:
         name, _, log_root = str(entry).partition("=")
         result = compare(control_runs, load_arm(log_root, fixed_epoch))
         payload["arms"][name] = {"log_root": log_root, **result}
-        print(format_table(name, result, baseline))
+        print(format_table(name, result, baseline, sigma_seed))
 
     if json_out:
         Path(json_out).parent.mkdir(parents=True, exist_ok=True)

@@ -183,6 +183,11 @@ def main(
     lambda_b=0.5,
     soft_target="gaussian",
     lambda_r=0.3,
+    # 보조항의 형태. `arc_huber`는 endpoint arc + dead zone + Huber(기존 기본값),
+    # `cumulative_l1`은 같은 soft target과의 누적 arc profile L1이다.
+    # **미세조정 쪽(`tools/train_robot_bev.py`)과 같은 값이어야 한다** -- 사전학습과
+    # 미세조정이 다른 보조항으로 학습되면 "이 loss로 캠페인을 돌렸다"가 성립하지 않는다.
+    range_loss_mode="arc_huber",
     delta_r_m=0.15,
     huber_beta_m=0.15,
     band_kappa=1.0,
@@ -194,6 +199,11 @@ def main(
         raise ValueError(f"loss는 weighted_ce 또는 soft_boundary여야 한다: {loss}")
     if loss == "soft_boundary" and formulation != "binary":
         raise ValueError("soft_boundary loss는 --formulation=binary에서만 쓴다")
+    # `train_robot_bev.py`와 **같은 문구로 막는다** -- 오타가 조용히 기본값으로 떨어지면
+    # 사전학습만 다른 보조항으로 돌아간다.
+    if range_loss_mode not in ("arc_huber", "cumulative_l1"):
+        raise ValueError("range_loss_mode는 arc_huber 또는 cumulative_l1이어야 한다: "
+                         f"{range_loss_mode}")
     formulation_spec = {
         "three_class": {"num_classes": 3, "module": three_class_metrics,
                         "weight_label": "unknown/free/occupied"},
@@ -304,6 +314,7 @@ def main(
                 delta=delta_m, lambda_b=lambda_b, target=soft_target,
                 sigma=sigma_m, alpha=None,
                 gather=gather, lambda_r=float(lambda_r),
+                range_loss_mode=range_loss_mode,
                 delta_r=float(delta_r_m), huber_beta=float(huber_beta_m),
                 delta_r_over=None,
                 kappa=float(band_kappa), eps=float(label_eps),
@@ -343,11 +354,10 @@ def main(
         "formulation": formulation, "loss": loss,
         "delta_m": delta_m, "sigma_m": sigma_m, "lambda_b": lambda_b,
         "lambda_r": lambda_r,
-        # 이 스크립트는 `range_loss_mode` 플래그를 노출하지 않는다 -- 보조항은 항상
-        # 저장소 기본형(`arc_huber`)이다. 값을 비워 두면 나중에 "몰라서 안 적었나"와
-        # 구분되지 않으므로 사실을 적는다.
-        "range_loss_mode": "arc_huber",
-        "range_loss_mode_note": "not exposed by this trainer; repo default",
+        # [2026-09-22] 플래그로 노출된다(그 전 런은 전부 `arc_huber`였고 이 칸이
+        # 하드코딩돼 있었다). `λ_R=0`이면 항 자체가 만들어지지 않으므로 이 값은 무의미하다.
+        "range_loss_mode": range_loss_mode,
+        "range_loss_active": bool(float(lambda_r) > 0.0 and loss == "soft_boundary"),
         "delta_r_m": delta_r_m, "huber_beta_m": huber_beta_m,
         "soft_target": soft_target, "band_kappa": band_kappa, "label_eps": label_eps,
         "encoder_type": encoder_type, "use_fisheye": use_fisheye, "augment": augment,
@@ -370,6 +380,17 @@ def main(
     (log_path / "split_train_ids.txt").write_text("\n".join(train_ids) + "\n")
     (log_path / "split_val_ids.txt").write_text("\n".join(val_ids) + "\n")
     print(f"train/val sample id lists saved to: {log_path}/split_{{train,val}}_ids.txt")
+
+    # **보조항이 실제로 무엇으로 켜졌는지 로그 한 줄로 못박는다.** config.json만으로는
+    # 나중에 로그를 grep해서 확인할 수 없고, 사전학습이 미세조정과 다른 보조항으로
+    # 돌아가는 사고가 조용히 지나간다(2026-09-22에 이 스크립트가 그 상태였다).
+    if loss == "soft_boundary":
+        print("[loss] " + (
+            f"soft_boundary | delta={delta_m} sigma={sigma_m} lambda_b={lambda_b}"
+            + (f" | L_range ON: mode={range_loss_mode} lambda_r={lambda_r}"
+               + (f" delta_r={delta_r_m} beta={huber_beta_m}"
+                  if range_loss_mode == "arc_huber" else "")
+               if float(lambda_r) > 0.0 else " | L_range OFF (lambda_r=0)")))
 
     global_step = 0
     best_val_score = 0.0  # iou_free; free 영역을 과대/과소 예측한 퇴행 해를 벌한다

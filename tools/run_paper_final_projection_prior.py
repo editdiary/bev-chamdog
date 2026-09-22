@@ -34,6 +34,8 @@ from datetime import datetime
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 # `01_overall`의 고정 split과 **같아야 한다** -- 대조군을 재사용하므로 split이 다르면
 # paired difference가 성립하지 않는다.
@@ -58,9 +60,19 @@ def _source_checkpoint(output_root: Path, seed: int, num_epochs: int) -> Path:
             / f"swscape_binary_pretrain_s{seed}" / f"model-{num_epochs:09d}.pth")
 
 
-def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
+from tools.paper_final_run_command import make_command_runner  # noqa: E402
+from tools.paper_final_aux_loss import (  # noqa: E402
+    DEFAULT_AUX_LOSS, add_aux_loss_argument, aux_loss_env,
+)
+
+
+def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
+                    range_loss_mode: str = DEFAULT_AUX_LOSS):
     """요청된 팔의 런 사양 전부. `source_pretrain`이 항상 앞에 온다 -- 뒤 팔이 그 산출물에 의존한다."""
     output_root = Path(output_root)
+    # **사전학습에도 같은 보조항을 건다.** 예전에는 사전학습 셸이 값을 하드코딩하고 있어
+    # 미세조정만 형태를 바꾸면 절반만 적용됐다(원장 §8 Phase 0).
+    aux_env = aux_loss_env(range_loss_mode)
     specs = []
     for arm in [a for a in ARMS if a in arms]:
         for seed in seeds:
@@ -75,6 +87,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
                         "RUN_NAME": f"swscape_binary_pretrain_s{seed}",
                         "NUM_EPOCHS": str(num_epochs),
                         "OUT_ROOT": str(root),
+                        **aux_env,
                     },
                 ))
                 continue
@@ -99,9 +112,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
                 "SOFT_TARGET": "gaussian",
                 "BAND_KAPPA": "1.0",
                 "LABEL_EPS": "0.0",
-                "LAMBDA_R": "0.3",
-                "DELTA_R_M": "0.15",
-                "HUBER_BETA_M": "0.15",
+                **aux_env,
                 "HEIGHT_BINS": "4",
                 "HEIGHT_MIN_M": "-0.25",
                 "HEIGHT_MAX_M": "1.75",
@@ -176,7 +187,16 @@ def _write_status(output_root: Path, status: dict) -> None:
     path.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
 
 
-def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=subprocess.run):
+def _control_arm_for(output_root) -> str:
+    """대조군 경로. `<루트>/02_...`의 형제인 `<루트>/01_overall/fixed_split`이다."""
+    path = Path(output_root).resolve().parent / "01_overall" / "fixed_split"
+    try:
+        return str(path.relative_to(_REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=None):
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     try:
@@ -203,7 +223,9 @@ def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=su
         "output_root": str(output_root),
         "n_runs": len(ordered),
         "n_runs_this_invocation": len(specs),
-        "control_arm": "runs/paper_final/01_overall/fixed_split (재사용, 시드 1:1)",
+        # **출력 루트에서 유도한다.** 문자열로 박아 두면 캠페인을 다른 루트에 다시
+        # 돌렸을 때 manifest만 옛 트리를 가리켜 사람을 오도한다(실제로 그랬다).
+        "control_arm": f"{_control_arm_for(output_root)} (재사용, 시드 1:1)",
         "runtime": {"python": platform.python_version(), "executable": sys.executable,
                     "conda_env": Path(sys.prefix).name},
         "runs": ordered,
@@ -247,6 +269,9 @@ def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=su
             print(f"[skip] {spec.run_name}: {blockers[0]}", flush=True)
             continue
         status[spec.run_name].update(decision="run", blockers=[])
+        # watchdog(침묵 20분 / 총 2시간)을 건다. 없으면 멈춘 런에서 큐가 영원히 선다.
+        if command_runner is None:
+            command_runner = make_command_runner(output_root / "run_logs")
         env = dict(os.environ)
         env.update(spec.environment)
         print(f"\n{'='*70}\n[run] {spec.run_name}  ({spec.arm})\n{'='*70}", flush=True)
@@ -269,6 +294,7 @@ def main():
     parser.add_argument("--gpu", default=os.environ.get("CUDA_VISIBLE_DEVICES", "0"))
     parser.add_argument("--output_root", default="runs/paper_final/02_projection_and_prior")
     parser.add_argument("--plan_only", action="store_true")
+    add_aux_loss_argument(parser)
     args = parser.parse_args()
 
     arms = ARMS if args.arms == "all" else tuple(a.strip() for a in args.arms.split(","))
@@ -276,7 +302,8 @@ def main():
     if unknown:
         raise SystemExit(f"모르는 arm: {unknown}. 가능한 값: {list(ARMS)}")
     seeds = [int(s) for s in str(args.seeds).split(",")]
-    specs = build_run_specs(arms, seeds, args.output_root, args.num_epochs, args.gpu)
+    specs = build_run_specs(arms, seeds, args.output_root, args.num_epochs, args.gpu,
+                            args.range_loss_mode)
     print(f"arms={list(arms)} seeds={seeds} epochs={args.num_epochs} gpu={args.gpu}")
     print(f"런 {len(specs)}개\n")
     run_queue(specs, args.output_root, args.num_epochs, plan_only=args.plan_only)
