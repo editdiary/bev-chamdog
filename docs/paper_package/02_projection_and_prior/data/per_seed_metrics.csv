@@ -1,181 +1,181 @@
 arm,arm_label,seed,run_name,epoch,metric,value
-control,DS-native (frozen),0,final_s0,40,iou_free,0.810562
-control,DS-native (frozen),0,final_s0,40,fatal_rate,0.12213
-control,DS-native (frozen),0,final_s0,40,free_miss_rate,0.08503
-control,DS-native (frozen),0,final_s0,40,occupied_f1_10cm,0.590906
-control,DS-native (frozen),0,final_s0,40,occupied_f1_20cm,0.828545
-control,DS-native (frozen),0,final_s0,40,occupied_f1_40cm,0.927747
-control,DS-native (frozen),0,final_s0,40,range_mae,0.217993
-control,DS-native (frozen),0,final_s0,40,range_bias,0.051206
-control,DS-native (frozen),0,final_s0,40,range_missed_obstacle_rate,0.040829
-control,DS-native (frozen),1,final_s1,40,iou_free,0.80994
-control,DS-native (frozen),1,final_s1,40,fatal_rate,0.120189
-control,DS-native (frozen),1,final_s1,40,free_miss_rate,0.084588
-control,DS-native (frozen),1,final_s1,40,occupied_f1_10cm,0.597569
-control,DS-native (frozen),1,final_s1,40,occupied_f1_20cm,0.829245
-control,DS-native (frozen),1,final_s1,40,occupied_f1_40cm,0.927461
-control,DS-native (frozen),1,final_s1,40,range_mae,0.210257
-control,DS-native (frozen),1,final_s1,40,range_bias,0.048167
-control,DS-native (frozen),1,final_s1,40,range_missed_obstacle_rate,0.035609
-control,DS-native (frozen),2,final_s2,40,iou_free,0.812007
-control,DS-native (frozen),2,final_s2,40,fatal_rate,0.120494
-control,DS-native (frozen),2,final_s2,40,free_miss_rate,0.085044
-control,DS-native (frozen),2,final_s2,40,occupied_f1_10cm,0.600633
-control,DS-native (frozen),2,final_s2,40,occupied_f1_20cm,0.832953
-control,DS-native (frozen),2,final_s2,40,occupied_f1_40cm,0.928717
-control,DS-native (frozen),2,final_s2,40,range_mae,0.209023
-control,DS-native (frozen),2,final_s2,40,range_bias,0.050713
-control,DS-native (frozen),2,final_s2,40,range_missed_obstacle_rate,0.037283
-control,DS-native (frozen),3,final_s3,40,iou_free,0.814544
-control,DS-native (frozen),3,final_s3,40,fatal_rate,0.118132
-control,DS-native (frozen),3,final_s3,40,free_miss_rate,0.084853
-control,DS-native (frozen),3,final_s3,40,occupied_f1_10cm,0.606413
-control,DS-native (frozen),3,final_s3,40,occupied_f1_20cm,0.834908
-control,DS-native (frozen),3,final_s3,40,occupied_f1_40cm,0.932123
-control,DS-native (frozen),3,final_s3,40,range_mae,0.209734
-control,DS-native (frozen),3,final_s3,40,range_bias,0.051679
-control,DS-native (frozen),3,final_s3,40,range_missed_obstacle_rate,0.036791
-control,DS-native (frozen),4,final_s4,40,iou_free,0.812256
-control,DS-native (frozen),4,final_s4,40,fatal_rate,0.12092
-control,DS-native (frozen),4,final_s4,40,free_miss_rate,0.082726
-control,DS-native (frozen),4,final_s4,40,occupied_f1_10cm,0.595139
-control,DS-native (frozen),4,final_s4,40,occupied_f1_20cm,0.830869
-control,DS-native (frozen),4,final_s4,40,occupied_f1_40cm,0.928954
-control,DS-native (frozen),4,final_s4,40,range_mae,0.211713
-control,DS-native (frozen),4,final_s4,40,range_bias,0.057467
-control,DS-native (frozen),4,final_s4,40,range_missed_obstacle_rate,0.037874
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,iou_free,0.798162
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,fatal_rate,0.133558
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,free_miss_rate,0.089629
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,occupied_f1_10cm,0.558473
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,occupied_f1_20cm,0.794737
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,occupied_f1_40cm,0.919574
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,range_mae,0.226495
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,range_bias,0.071102
-pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,range_missed_obstacle_rate,0.051271
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,iou_free,0.797336
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,fatal_rate,0.1311
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,free_miss_rate,0.093902
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,occupied_f1_10cm,0.555885
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,occupied_f1_20cm,0.807307
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,occupied_f1_40cm,0.924966
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,range_mae,0.232847
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,range_bias,0.074568
-pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,range_missed_obstacle_rate,0.048119
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,iou_free,0.799912
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,fatal_rate,0.129602
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,free_miss_rate,0.090974
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,occupied_f1_10cm,0.572581
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,occupied_f1_20cm,0.808193
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,occupied_f1_40cm,0.921733
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,range_mae,0.223564
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,range_bias,0.065661
-pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,range_missed_obstacle_rate,0.048562
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,iou_free,0.799829
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,fatal_rate,0.127206
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,free_miss_rate,0.093595
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,occupied_f1_10cm,0.559134
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,occupied_f1_20cm,0.798982
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,occupied_f1_40cm,0.922387
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,range_mae,0.225204
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,range_bias,0.062812
-pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,range_missed_obstacle_rate,0.048414
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,iou_free,0.797196
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,fatal_rate,0.13473
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,free_miss_rate,0.088814
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,occupied_f1_10cm,0.560435
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,occupied_f1_20cm,0.799115
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,occupied_f1_40cm,0.921064
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,range_mae,0.227251
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,range_bias,0.072957
-pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,range_missed_obstacle_rate,0.052354
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,iou_free,0.803576
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,fatal_rate,0.129175
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,free_miss_rate,0.087399
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,occupied_f1_10cm,0.569377
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,occupied_f1_20cm,0.807719
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,occupied_f1_40cm,0.920634
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,range_mae,0.232151
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,range_bias,0.066703
-pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,range_missed_obstacle_rate,0.042799
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,iou_free,0.801584
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,fatal_rate,0.130323
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,free_miss_rate,0.090164
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,occupied_f1_10cm,0.56443
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,occupied_f1_20cm,0.80816
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,occupied_f1_40cm,0.919967
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,range_mae,0.234768
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,range_bias,0.05837
-pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,range_missed_obstacle_rate,0.041814
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,iou_free,0.804698
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,fatal_rate,0.128243
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,free_miss_rate,0.089973
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,occupied_f1_10cm,0.560217
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,occupied_f1_20cm,0.807406
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,occupied_f1_40cm,0.920029
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,range_mae,0.231692
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,range_bias,0.053903
-pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,range_missed_obstacle_rate,0.041568
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,iou_free,0.806359
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,fatal_rate,0.124551
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,free_miss_rate,0.091677
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,occupied_f1_10cm,0.578133
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,occupied_f1_20cm,0.809675
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,occupied_f1_40cm,0.920765
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,range_mae,0.23482
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,range_bias,0.053967
-pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,range_missed_obstacle_rate,0.037874
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,iou_free,0.803936
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,fatal_rate,0.126331
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,free_miss_rate,0.091621
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,occupied_f1_10cm,0.57412
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,occupied_f1_20cm,0.810384
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,occupied_f1_40cm,0.92757
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,range_mae,0.230821
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,range_bias,0.047472
-pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,range_missed_obstacle_rate,0.043637
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,iou_free,0.814543
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,fatal_rate,0.11356
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,free_miss_rate,0.085952
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,occupied_f1_10cm,0.590101
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,occupied_f1_20cm,0.8193
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,occupied_f1_40cm,0.930405
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,range_mae,0.217152
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,range_bias,0.042209
-source_prior,SynWoodScape pretrain,0,source_prior_s0,40,range_missed_obstacle_rate,0.035658
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,iou_free,0.806085
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,fatal_rate,0.127095
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,free_miss_rate,0.084057
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,occupied_f1_10cm,0.573638
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,occupied_f1_20cm,0.80514
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,occupied_f1_40cm,0.925318
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,range_mae,0.2281
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,range_bias,0.051608
-source_prior,SynWoodScape pretrain,1,source_prior_s1,40,range_missed_obstacle_rate,0.03881
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,iou_free,0.809058
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,fatal_rate,0.121618
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,free_miss_rate,0.084439
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,occupied_f1_10cm,0.567747
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,occupied_f1_20cm,0.813532
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,occupied_f1_40cm,0.927182
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,range_mae,0.222576
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,range_bias,0.051149
-source_prior,SynWoodScape pretrain,2,source_prior_s2,40,range_missed_obstacle_rate,0.039056
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,iou_free,0.80896
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,fatal_rate,0.119651
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,free_miss_rate,0.08779
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,occupied_f1_10cm,0.583579
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,occupied_f1_20cm,0.812061
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,occupied_f1_40cm,0.92063
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,range_mae,0.221588
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,range_bias,0.039793
-source_prior,SynWoodScape pretrain,3,source_prior_s3,40,range_missed_obstacle_rate,0.039401
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,iou_free,0.81066
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,fatal_rate,0.124566
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,free_miss_rate,0.080743
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,occupied_f1_10cm,0.590997
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,occupied_f1_20cm,0.829011
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,occupied_f1_40cm,0.930605
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,range_mae,0.217503
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,range_bias,0.056937
-source_prior,SynWoodScape pretrain,4,source_prior_s4,40,range_missed_obstacle_rate,0.0395
+control,DS-native (frozen),0,final_s0,40,iou_free,0.813539
+control,DS-native (frozen),0,final_s0,40,fatal_rate,0.119082
+control,DS-native (frozen),0,final_s0,40,free_miss_rate,0.083494
+control,DS-native (frozen),0,final_s0,40,occupied_f1_10cm,0.607352
+control,DS-native (frozen),0,final_s0,40,occupied_f1_20cm,0.839235
+control,DS-native (frozen),0,final_s0,40,occupied_f1_40cm,0.928954
+control,DS-native (frozen),0,final_s0,40,range_mae,0.205557
+control,DS-native (frozen),0,final_s0,40,range_bias,0.048634
+control,DS-native (frozen),0,final_s0,40,range_missed_obstacle_rate,0.04014
+control,DS-native (frozen),1,final_s1,40,iou_free,0.814472
+control,DS-native (frozen),1,final_s1,40,fatal_rate,0.116504
+control,DS-native (frozen),1,final_s1,40,free_miss_rate,0.084723
+control,DS-native (frozen),1,final_s1,40,occupied_f1_10cm,0.600764
+control,DS-native (frozen),1,final_s1,40,occupied_f1_20cm,0.830835
+control,DS-native (frozen),1,final_s1,40,occupied_f1_40cm,0.92464
+control,DS-native (frozen),1,final_s1,40,range_mae,0.209447
+control,DS-native (frozen),1,final_s1,40,range_bias,0.044437
+control,DS-native (frozen),1,final_s1,40,range_missed_obstacle_rate,0.036643
+control,DS-native (frozen),2,final_s2,40,iou_free,0.815128
+control,DS-native (frozen),2,final_s2,40,fatal_rate,0.118015
+control,DS-native (frozen),2,final_s2,40,free_miss_rate,0.082675
+control,DS-native (frozen),2,final_s2,40,occupied_f1_10cm,0.614856
+control,DS-native (frozen),2,final_s2,40,occupied_f1_20cm,0.839947
+control,DS-native (frozen),2,final_s2,40,occupied_f1_40cm,0.927817
+control,DS-native (frozen),2,final_s2,40,range_mae,0.199404
+control,DS-native (frozen),2,final_s2,40,range_bias,0.043247
+control,DS-native (frozen),2,final_s2,40,range_missed_obstacle_rate,0.037234
+control,DS-native (frozen),3,final_s3,40,iou_free,0.815079
+control,DS-native (frozen),3,final_s3,40,fatal_rate,0.117263
+control,DS-native (frozen),3,final_s3,40,free_miss_rate,0.084066
+control,DS-native (frozen),3,final_s3,40,occupied_f1_10cm,0.605199
+control,DS-native (frozen),3,final_s3,40,occupied_f1_20cm,0.835717
+control,DS-native (frozen),3,final_s3,40,occupied_f1_40cm,0.925598
+control,DS-native (frozen),3,final_s3,40,range_mae,0.209844
+control,DS-native (frozen),3,final_s3,40,range_bias,0.046143
+control,DS-native (frozen),3,final_s3,40,range_missed_obstacle_rate,0.037628
+control,DS-native (frozen),4,final_s4,40,iou_free,0.815026
+control,DS-native (frozen),4,final_s4,40,fatal_rate,0.118571
+control,DS-native (frozen),4,final_s4,40,free_miss_rate,0.081534
+control,DS-native (frozen),4,final_s4,40,occupied_f1_10cm,0.606267
+control,DS-native (frozen),4,final_s4,40,occupied_f1_20cm,0.83185
+control,DS-native (frozen),4,final_s4,40,occupied_f1_40cm,0.929708
+control,DS-native (frozen),4,final_s4,40,range_mae,0.21064
+control,DS-native (frozen),4,final_s4,40,range_bias,0.048859
+control,DS-native (frozen),4,final_s4,40,range_missed_obstacle_rate,0.040731
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,iou_free,0.800399
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,fatal_rate,0.130522
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,free_miss_rate,0.090271
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,occupied_f1_10cm,0.569229
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,occupied_f1_20cm,0.794917
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,occupied_f1_40cm,0.921104
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,range_mae,0.224432
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,range_bias,0.065241
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,40,range_missed_obstacle_rate,0.054423
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,iou_free,0.800429
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,fatal_rate,0.126224
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,free_miss_rate,0.094247
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,occupied_f1_10cm,0.56028
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,occupied_f1_20cm,0.815997
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,occupied_f1_40cm,0.930584
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,range_mae,0.225577
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,range_bias,0.060508
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,40,range_missed_obstacle_rate,0.048513
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,iou_free,0.798148
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,fatal_rate,0.131141
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,free_miss_rate,0.093269
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,occupied_f1_10cm,0.54607
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,occupied_f1_20cm,0.797918
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,occupied_f1_40cm,0.916834
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,range_mae,0.232096
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,range_bias,0.059662
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,40,range_missed_obstacle_rate,0.05063
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,iou_free,0.800044
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,fatal_rate,0.126463
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,free_miss_rate,0.095401
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,occupied_f1_10cm,0.558432
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,occupied_f1_20cm,0.796313
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,occupied_f1_40cm,0.922053
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,range_mae,0.229428
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,range_bias,0.057706
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,40,range_missed_obstacle_rate,0.047035
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,iou_free,0.799907
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,fatal_rate,0.132424
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,free_miss_rate,0.087311
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,occupied_f1_10cm,0.559573
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,occupied_f1_20cm,0.801212
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,occupied_f1_40cm,0.917575
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,range_mae,0.229715
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,range_bias,0.070113
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,40,range_missed_obstacle_rate,0.051172
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,iou_free,0.802374
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,fatal_rate,0.133442
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,free_miss_rate,0.085933
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,occupied_f1_10cm,0.563339
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,occupied_f1_20cm,0.805444
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,occupied_f1_40cm,0.919384
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,range_mae,0.230682
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,range_bias,0.068033
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,40,range_missed_obstacle_rate,0.044277
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,iou_free,0.803705
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,fatal_rate,0.125312
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,free_miss_rate,0.093269
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,occupied_f1_10cm,0.562105
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,occupied_f1_20cm,0.807719
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,occupied_f1_40cm,0.921117
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,range_mae,0.23091
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,range_bias,0.051096
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,40,range_missed_obstacle_rate,0.040977
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,iou_free,0.808013
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,fatal_rate,0.126632
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,free_miss_rate,0.086222
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,occupied_f1_10cm,0.584113
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,occupied_f1_20cm,0.818125
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,occupied_f1_40cm,0.923989
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,range_mae,0.220705
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,range_bias,0.057734
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,40,range_missed_obstacle_rate,0.041962
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,iou_free,0.806636
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,fatal_rate,0.12236
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,free_miss_rate,0.092161
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,occupied_f1_10cm,0.571271
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,occupied_f1_20cm,0.803686
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,occupied_f1_40cm,0.915516
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,range_mae,0.233301
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,range_bias,0.055103
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,40,range_missed_obstacle_rate,0.038958
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,iou_free,0.805699
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,fatal_rate,0.127236
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,free_miss_rate,0.089787
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,occupied_f1_10cm,0.566417
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,occupied_f1_20cm,0.806782
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,occupied_f1_40cm,0.925106
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,range_mae,0.231615
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,range_bias,0.052944
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,40,range_missed_obstacle_rate,0.044277
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,iou_free,0.811541
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,fatal_rate,0.119304
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,free_miss_rate,0.085319
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,occupied_f1_10cm,0.585329
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,occupied_f1_20cm,0.821002
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,occupied_f1_40cm,0.931276
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,range_mae,0.219809
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,range_bias,0.045382
+source_prior,SynWoodScape pretrain,0,source_prior_s0,40,range_missed_obstacle_rate,0.036791
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,iou_free,0.808266
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,fatal_rate,0.118023
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,free_miss_rate,0.090988
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,occupied_f1_10cm,0.586157
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,occupied_f1_20cm,0.818282
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,occupied_f1_40cm,0.929799
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,range_mae,0.223325
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,range_bias,0.039575
+source_prior,SynWoodScape pretrain,1,source_prior_s1,40,range_missed_obstacle_rate,0.039697
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,iou_free,0.812626
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,fatal_rate,0.116552
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,free_miss_rate,0.085747
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,occupied_f1_10cm,0.58922
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,occupied_f1_20cm,0.825512
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,occupied_f1_40cm,0.934095
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,range_mae,0.219232
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,range_bias,0.045399
+source_prior,SynWoodScape pretrain,2,source_prior_s2,40,range_missed_obstacle_rate,0.03753
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,iou_free,0.812802
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,fatal_rate,0.116691
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,free_miss_rate,0.085849
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,occupied_f1_10cm,0.573463
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,occupied_f1_20cm,0.815312
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,occupied_f1_40cm,0.92505
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,range_mae,0.224286
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,range_bias,0.041897
+source_prior,SynWoodScape pretrain,3,source_prior_s3,40,range_missed_obstacle_rate,0.038121
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,iou_free,0.814273
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,fatal_rate,0.11981
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,free_miss_rate,0.081022
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,occupied_f1_10cm,0.590331
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,occupied_f1_20cm,0.829019
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,occupied_f1_40cm,0.932902
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,range_mae,0.217647
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,range_bias,0.051297
+source_prior,SynWoodScape pretrain,4,source_prior_s4,40,range_missed_obstacle_rate,0.040337

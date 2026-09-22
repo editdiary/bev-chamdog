@@ -41,6 +41,14 @@ train_sequences_without() {
 echo "=== paper_final overall analysis ($(date +%F' '%H:%M:%S)) ==="
 echo "root=${ROOT} seeds=${SEEDS} fixed_epoch=${FIXED_EPOCH} gpu=${CUDA_VISIBLE_DEVICES}"
 
+# constant-map 기준선. **학습과 무관한 값**이라(라벨과 split만으로 정해진다) 이미 있으면
+# 다시 만들지 않는다. 예전에는 즉석으로 만든 파일만 있어서, 캠페인을 새 루트에 돌리면
+# 그 루트에 파일이 없어 패키지 생성이 멈췄다.
+if [ ! -f "${FIXED_OUT}/constant_map_baseline.json" ]; then
+    step "${FIXED_OUT}/make_constant_map_baseline.txt" \
+        python tools/make_constant_map_baseline.py --out="${FIXED_OUT}"
+fi
+
 step "${FIXED_OUT}/export_run_scalars.txt" \
     python tools/export_run_scalars.py --log_root="${FIXED}/logs" --out_dir="${FIXED_OUT}"
 step "${LOSO_OUT}/export_run_scalars.txt" \

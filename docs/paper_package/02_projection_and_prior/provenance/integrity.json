@@ -3,22 +3,22 @@
   "tau": 0.5,
   "n_checks": 240,
   "n_failures": 0,
-  "max_abs_diff": 0.0004500967422274016,
+  "max_abs_diff": 0.0005273897353031964,
   "per_arm": {
     "pinhole120": {
       "n_files": 10,
       "n_rows": 80,
-      "max_abs_diff": 0.0002582539930834349
+      "max_abs_diff": 0.0005273897353031964
     },
     "pinhole150": {
       "n_files": 10,
       "n_rows": 80,
-      "max_abs_diff": 0.0004500967422274016
+      "max_abs_diff": 0.00022038995240114545
     },
     "source_prior": {
       "n_files": 10,
       "n_rows": 80,
-      "max_abs_diff": 0.0002347156021532404
+      "max_abs_diff": 0.0003675512722857155
     }
   },
   "method": "exported pre-threshold probability maps re-scored on an independent path and compared against the training logs"

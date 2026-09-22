@@ -1,0 +1,4 @@
+arm,arm_label,source_grid,source_cell_m,source_front_m,manual_refinement,iou_free_mean,iou_free_sd,margin_vs_constant_map,paired_diff_mean,paired_diff_sd,abs_mean_over_se,sign_agreement,verdict
+control,Target only (scratch),,,,,0.814649,0.000674,0.296626,,,,,
+source_prior,SynWoodScape pretrain (adapted),240x240,0.05,8.0,True,0.811902,0.002253,0.293879,-0.002747,0.002049,2.998,5/5,control better
+source_prior_native,SynWoodScape pretrain (native),200x200,0.15,15.0,False,0.807307,0.00242,0.289284,-0.007342,0.001979,8.297,5/5,control better

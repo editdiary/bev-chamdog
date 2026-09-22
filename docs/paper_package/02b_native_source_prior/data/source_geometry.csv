@@ -1,0 +1,3 @@
+arm,label,grid,cell_m,front_m,rear_m,half_width_m,manual_refinement,note
+source_prior,SynWoodScape pretrain (adapted),240x240,0.05,8.0,4.0,6.0,True,cropped and resampled to the target task's cell size
+source_prior_native,SynWoodScape pretrain (native),200x200,0.15,15.0,15.0,15.0,False,the source's own 30 m coverage at a driving-standard cell size

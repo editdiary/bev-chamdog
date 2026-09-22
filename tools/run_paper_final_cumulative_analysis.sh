@@ -32,8 +32,12 @@ ROOT="${ROOT}/01_overall" SEEDS="${SEEDS}" FIXED_EPOCH="${FIXED_EPOCH}" \
     bash configs/paper_final_overall_analysis.sh
 echo "PHASE2_DONE 01_overall"
 
-# **σ_seed를 새 대조군에서 다시 잰다.** 고정 split 5시드의 `iou_free` 표준편차다.
-SIGMA_SEED="$(python - "${ROOT}/01_overall/fixed_split/analysis/RESULTS.json" <<'PY'
+# **판정 눈금은 사전 등록값 0.0018을 유지한다.** 새 대조군에서 다시 재면 0.0007이 나오지만,
+# 그건 5표본 sd의 흔들림이다 -- LOSO 7 fold까지 묶어 자유도 32로 추정하면 0.0025 -> 0.0026,
+# 사실상 변화가 없다(원장 §8). **눈금을 낮추면 같은 차이가 더 쉽게 유의가 되므로**
+# 근거 없이 낮추지 않는다. 측정값은 투명성을 위해 출력만 한다.
+SIGMA_SEED="${SIGMA_SEED:-0.0018}"
+MEASURED_SIGMA="$(python - "${ROOT}/01_overall/fixed_split/analysis/RESULTS.json" <<'PY'
 import json, sys
 sd = json.load(open(sys.argv[1]))["metrics_at_fixed_epoch"]["iou_free"]["sd"]
 if sd is None:
@@ -44,7 +48,8 @@ PY
 CONTROL="${ROOT}/01_overall/fixed_split/logs"
 BASELINE_PATH="${ROOT}/01_overall/fixed_split/analysis/constant_map_baseline.json"
 echo ""
-echo "### 새 대조군에서 다시 잰 판정 눈금: σ_seed = ${SIGMA_SEED}  (기존 캠페인 0.0018)"
+echo "### 판정 눈금 σ_seed = ${SIGMA_SEED} (사전 등록값 유지)"
+echo "### 새 대조군에서 다시 잰 값 = ${MEASURED_SIGMA} -- 5표본 sd의 흔들림이라 쓰지 않는다"
 echo "### 대조군 로그: ${CONTROL}"
 
 ROOT="${ROOT}/02_projection_and_prior" CONTROL="${CONTROL}" \
@@ -68,4 +73,4 @@ python tools/check_results_tree_purity.py --targets="${ROOT}" \
 
 echo ""
 echo "=== 재학습 캠페인 분석 종료 $(date '+%F %T') ==="
-echo "CAMPAIGN_ANALYSIS_DONE sigma_seed=${SIGMA_SEED}"
+echo "CAMPAIGN_ANALYSIS_DONE sigma_seed=${SIGMA_SEED} measured=${MEASURED_SIGMA}"

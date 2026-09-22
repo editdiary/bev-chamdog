@@ -301,6 +301,32 @@ def main(root=DEFAULT_ROOT, out_dir=HERE, control=DEFAULT_CONTROL,
         _write(data / "source_pretrain_curves.csv",
                ["run", "seed", "epoch", "metric", "value"], rows)
 
+    # --- 6b. 두 사전학습의 source 도메인 최종 성능 --------------------------------------
+    # **"학습 실패가 아니라 전이 실패"의 근거다.** 이 숫자가 없으면 "사전학습이 그냥
+    # 안 된 것 아니냐"는 반박을 막을 수 없다. 두 팔은 서로 다른 과제를 풀므로
+    # 값끼리 비교하지 않는다 -- 각자 자기 과제에서 수렴했는지만 본다.
+    rows = []
+    for arm, pat, log_root in (
+        ("source_pretrain", "swscape_binary_pretrain_s{seed}",
+         Path(str(adapted).replace("/source_prior/logs", "/source_pretrain/logs"))),
+        (PRETRAIN_ARM, "swscape_native_pretrain_s{seed}", root / PRETRAIN_ARM / "logs"),
+    ):
+        runs_here = _load(log_root / pat, required=False)
+        if runs_here is None:
+            print(f"  (source 최종 성능 생략: {log_root} 에 5시드가 없다)")
+            continue
+        vals = [runs_here[s]["iou_free"] for s in SEEDS]
+        mean, sd, n = _mean_sd(vals)
+        label = ("SynWoodScape pretrain (adapted)" if arm == "source_pretrain"
+                 else SOURCE_GEOMETRY[ARM]["label"])
+        grid = "240x240" if arm == "source_pretrain" else SOURCE_GEOMETRY[ARM]["grid"]
+        cell = 0.05 if arm == "source_pretrain" else SOURCE_GEOMETRY[ARM]["cell_m"]
+        rows.append([arm, label, grid, cell, FIXED_EPOCH, _round(mean), _round(sd), n])
+    if rows:
+        _write(data / "source_pretrain_summary.csv",
+               ["arm", "label", "source_grid", "source_cell_m", "epoch",
+                "source_iou_free_mean", "source_iou_free_sd", "n_seeds"], rows)
+
     # --- 7. 전체 검증 곡선 (부록) -----------------------------------------------------
     rows = []
     for arm in ["control"] + arms:

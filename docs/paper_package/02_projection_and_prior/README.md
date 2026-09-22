@@ -16,8 +16,9 @@
   `iou_free` **−0.0134**, 150°에서 **−0.0078**. 9개 지표 전부, 5개 시드 전부 같은 방향
 - **이긴 이유는 해상도가 아니라 커버리지다.** 핀홀 120°는 150°보다 정면 각해상도가
   **2.2배** 높은데도 더 나쁘다(−0.0055, 5/5 시드)
-- **합성 사전학습은 자유공간의 양은 그대로 두고 경계만 뭉갠다.** `iou_free` 차이 없음,
-  `f1@10cm` **−0.0169**(5/5). 1에폭에 보이는 prior는 **3에폭이면 풀린다**
+- **합성 사전학습은 경계를 흐리고, 자유공간의 양도 조금 깎는다.** `f1@10cm` **−0.0220**,
+  `iou_free` **−0.0027**(둘 다 5/5). 40 cm 허용오차에서는 오히려 +0.0033로 뒤집힌다 —
+  경계가 부서진 게 아니라 흐려진 것이다. 1에폭에 보이는 prior는 **3에폭이면 풀린다**
 
 대조군은 `01_overall`의 고정 split 5런을 **시드 1:1로 짝지어** 재사용했다.
 
@@ -90,7 +91,8 @@ python make_source_prior_mechanism.py
 
 ```bash
 cd docs/paper_package/02_projection_and_prior
-python make_package.py            # 기본 root = runs/paper_final/02_projection_and_prior
+python make_package.py --root=../../../runs/paper_final_cumulative/02_projection_and_prior \
+    --control=../../../runs/paper_final_cumulative/01_overall/fixed_split/logs
 cd figures && python make_coverage_vs_accuracy.py && python make_source_prior_mechanism.py
 ```
 
@@ -107,7 +109,7 @@ bash configs/paper_final_projection_prior_analysis.sh
 
 | 무엇 | 어디에 | 왜 뺐나 |
 |---|---|---|
-| 20런 체크포인트 (약 19 GB) | 서버 `runs/paper_final/02_projection_and_prior/*/ckpt/` | 논문 작성에 불필요 |
+| 20런 체크포인트 (약 19 GB) | 서버 `runs/paper_final_cumulative/02_projection_and_prior/*/ckpt/` | 논문 작성에 불필요 |
 | threshold 전 확률맵 30개 | 서버 `*/analysis/predictions/` | 새 문턱값·영역 지표 계산용. **재학습 없이** 쓸 수 있으나 서버에서 해야 한다 |
 | TensorBoard 이벤트 원본 | 서버 `*/logs/` | 필요한 스칼라는 `data/val_curves.csv`에 뽑아 두었다 |
 | SynWoodScape 사전학습 로그 | 서버 `*/source_pretrain/logs/` | source 도메인 성능은 논문에 쓰지 않는다 |
@@ -117,5 +119,5 @@ bash configs/paper_final_projection_prior_analysis.sh
 - 공통 설정·지표: [`../common/setup.md`](../common/setup.md), [`../common/metrics.md`](../common/metrics.md)
 - 캠페인 원장(정본): `docs/paper_final_experiments.md` §6
 - 설계 근거 측정 도구: `tools/measure_projection_tradeoff.py`, `tools/measure_domain_prior.py`
-- 실행일 2026-09-21 · Python 3.11.15 / torch 2.7.0+cu128 / CUDA 12.8
+- 실행일 **2026-09-23 재학습**(`cumulative_l1`) · Python 3.11.15 / torch 2.7.0+cu128 / CUDA 12.8
   · NVIDIA RTX PRO 6000 Blackwell Max-Q
