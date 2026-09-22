@@ -1039,7 +1039,7 @@ python tools/run_paper_final_native_prior.py --gpu=0             # 전체 10런,
 (`tests/tools/test_paper_final_aux_loss.py`)가 **사전학습 런을 포함해** 모든 런이 같은
 보조항을 받는지 고정한다. 테스트 479개 통과.
 
-### ▶ Phase 1 — 학습 (2026-09-22 17:18 시작, 약 8시간)
+### ✅ Phase 1 — 학습 완료 (2026-09-22 17:18 → 2026-09-23 02:01, 8시간 43분)
 
 ```bash
 bash tools/run_paper_final_cumulative_campaign.sh   # 70런, 순서 고정
@@ -1064,6 +1064,18 @@ bash tools/run_paper_final_cumulative_campaign.sh   # 70런, 순서 고정
 **프로세스 그룹째 죽인다** -- `bash`만 죽이면 `python`이 GPU를 붙든 채 고아로 남아 다음
 런이 연쇄 실패한다. 회귀 테스트가 손자 프로세스가 실제로 죽는지까지 잰다.
 런마다 stdout이 `<루트>/<실험>/run_logs/<런>.log`에 남는다.
+
+#### 실행 결과 — 70/70 정상
+
+| 실험 | 런 | 소요 |
+|---|---:|---|
+| `01_overall` (고정 5 + LOSO 35) | 40/40 | 3시간 46분 |
+| `02_projection_and_prior` | 20/20 | 3시간 01분 |
+| `02b_native_source_prior` | 10/10 | 1시간 56분 |
+
+**watchdog 발동 0회, Traceback·OOM 0건.** 70런 전부 `config.json`을 다시 읽어
+`range_loss_mode=cumulative_l1`, `λ_R=0.15`, `num_epochs=40`, 최종 체크포인트 존재를
+확인했다. 디스크 **65 GB**(정정한 추정 66 GB와 일치).
 
 #### 실행 전 리허설 (1 epoch × 7런)
 
