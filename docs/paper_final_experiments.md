@@ -1095,15 +1095,36 @@ constant-map baseline은 라벨과 val split만으로 정해지므로 바뀌지 
 
 ### Phase 3 — 패키지 (약 1시간)
 
+```bash
+bash tools/run_paper_final_cumulative_packages.sh            # 대조만 (기본)
+APPLY=1 bash tools/run_paper_final_cumulative_packages.sh    # 검토 뒤 반영
+```
+
+**기본은 덮어쓰지 않는다.** 임시 폴더에 만들고 칸 단위 대조만 출력한다.
+
 | 패키지 | 무엇을 하나 |
 |---|---|
 | `01_overall` | 새 루트로 재생성 → **CSV diff** → 바뀐 칸만 목록으로 |
-| `02_projection_and_prior` | 같음 |
-| `02b_native_source_prior` | **신규 생성** (03과 같은 구조: REPORT·README·make_package·data·figures·provenance) |
+| `02_projection_and_prior` | 같음 (`--control`도 새 루트를 가리킨다) |
+| `02b_native_source_prior` | **신규 생성.** 표를 세 줄로 낸다 — scratch / 가공한 사전학습 / 원본 기하 |
 | `03_boundary_uncertainty` | **손대지 않는다** — `runs/loss_effect`는 재학습 대상이 아니고, `A_ce`~`C_soft`는 `λ_R=0`, `E_cumulative`는 이미 `cumulative_l1`이다 |
 
 **논문 문장은 바뀌지 않고 자릿수만 바뀐다**는 예상을 diff로 검증한다. 만약 결론이 뒤집히는
 칸이 나오면 **그것 자체가 보고 대상**이다 -- 조용히 숫자만 갈아끼우지 않는다.
+
+#### 검증 도구 둘 — 눈으로 훑지 않는다
+
+| 도구 | 무엇을 잡나 |
+|---|---|
+| `tools/diff_paper_package_csv.py` | CSV 칸 단위 대조. **판정 열**(`verdict`·`sign_agreement`·`better_direction`)이 바뀌면 따로 센다 |
+| `tools/audit_paper_prose_numbers.py` | **산문에 박힌 숫자.** 옛 CSV에는 있고 새 CSV에는 없는 값을 `stale`로 뽑는다 |
+
+산문 감사가 필요한 이유는 규모다 -- `REPORT.md`·`README.md`에 소수 셋넷 자리 숫자가
+**416개** 박혀 있다(01 125 · 02 146 · 03 145). CSV만 갈고 산문을 두면 논문이 데이터와
+어긋난 채 작성되는데, 그건 눈으로 잡히지 않는다.
+
+지금(재학습 전) 추적률: **01 122/125 · 02 136/146 · 03 143/145**. 남는 것은 팔 사이
+차이처럼 손으로 계산해 적은 값이라 사람이 본다.
 
 ### Phase 4 — 기록
 
