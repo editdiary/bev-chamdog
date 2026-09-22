@@ -5,8 +5,11 @@
 개별 숫자의 기계 판독 원본은 각 실험의 `runs/paper_final/*/analysis/RESULTS.json`이고,
 이 문서는 그 출처를 링크하고 사람이 읽는 결론을 기록한다.
 
-> **상태 기준일:** 2026-09-21  
-> **작업 브랜치:** `exp/cumulative-ray-loss`  
+> **상태 기준일:** 2026-09-22  
+> **작업 브랜치:** `exp/paper-campaign`  
+> &nbsp;&nbsp;(2026-09-22에 `exp/cumulative-ray-loss`에서 이름만 바꿨다 -- 커밋은 그대로이고
+> 그 브랜치에 담긴 일이 range-loss 프로브를 넘어 캠페인 전체가 됐기 때문이다.
+> `develop`과 같은 커밋에서 출발한다. **`main`은 실험 정리가 끝난 뒤에 올린다.**)  
 > &nbsp;&nbsp;(2026-09-18~19의 `exp/paper-final` worktree는 **폐기했다** -- submodule 때문에
 > `git worktree move`/`remove`가 둘 다 거부되고 산출물을 못 찾는 사고가 났다. §4.6의 체크리스트는
 > 그 시점의 기록이다. **worktree를 쓰지 않는다** -- `AGENTS.md`의 같은 경고를 본다.)  
