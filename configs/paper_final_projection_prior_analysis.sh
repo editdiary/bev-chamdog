@@ -17,8 +17,18 @@ fi
 ROOT="${ROOT:-runs/paper_final/02_projection_and_prior}"
 CONTROL="${CONTROL:-runs/paper_final/01_overall/fixed_split/logs}"
 ARMS="${ARMS:-source_prior pinhole120 pinhole150}"
+# 사전학습 팔의 이름. `02b`가 이 스크립트를 그대로 재사용하므로 밖에서 바꿀 수 있어야
+# 한다 -- 같은 로직을 복사하면 한쪽만 고쳐졌을 때 조용히 갈린다.
+PRETRAIN_ARM="${PRETRAIN_ARM:-source_pretrain}"
+LABEL="${LABEL:-02 projection & prior}"
+DONE_TAG="${DONE_TAG:-PAPER_FINAL_02_ANALYSIS_DONE}"
 SEEDS="${SEEDS:-0,1,2,3,4}"
 FIXED_EPOCH="${FIXED_EPOCH:-40}"
+# 판정 눈금. **대조군을 다시 학습했으면 그쪽에서 다시 잰 값을 넘겨야 한다** --
+# 비워 두면 도구의 기본값(2026-09-18 캠페인 실측 0.0018)을 쓴다.
+SIGMA_SEED="${SIGMA_SEED:-}"
+# constant-map baseline. 라벨과 val split만으로 정해지므로 보통 그대로 둔다.
+BASELINE_PATH="${BASELINE_PATH:-}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 mkdir -p "${ROOT}/analysis"
@@ -31,8 +41,8 @@ step() {
     "$@" 2>&1 | tee "${out}"
 }
 
-echo "=== paper_final 02 projection & prior analysis ($(date +%F' '%H:%M:%S)) ==="
-echo "root=${ROOT} arms=${ARMS} seeds=${SEEDS} epoch=${FIXED_EPOCH}"
+echo "=== paper_final ${LABEL} analysis ($(date +%F' '%H:%M:%S)) ==="
+echo "root=${ROOT} arms=${ARMS} pretrain=${PRETRAIN_ARM} control=${CONTROL} seeds=${SEEDS} epoch=${FIXED_EPOCH}"
 
 verify_json=()
 arm_specs=""
@@ -60,12 +70,12 @@ for arm in ${ARMS}; do
 done
 
 # 사전학습 팔은 source 도메인 런이라 target 확률맵이 없다. scalar만 보존한다.
-if [ -d "${ROOT}/source_pretrain/logs" ]; then
-    mkdir -p "${ROOT}/source_pretrain/analysis"
-    step "${ROOT}/source_pretrain/analysis/export_run_scalars.txt" \
+if [ -d "${ROOT}/${PRETRAIN_ARM}/logs" ]; then
+    mkdir -p "${ROOT}/${PRETRAIN_ARM}/analysis"
+    step "${ROOT}/${PRETRAIN_ARM}/analysis/export_run_scalars.txt" \
         python tools/export_run_scalars.py \
-            --log_root="${ROOT}/source_pretrain/logs" \
-            --out_dir="${ROOT}/source_pretrain/analysis"
+            --log_root="${ROOT}/${PRETRAIN_ARM}/logs" \
+            --out_dir="${ROOT}/${PRETRAIN_ARM}/analysis"
 fi
 
 # 하나라도 불일치하면 논문용 결과를 만들지 않는다 -- `01`과 같은 게이트다.
@@ -81,9 +91,13 @@ if failed:
 print(f"무결성 게이트 통과: {len(sys.argv) - 1} files")
 PY
 
+paired_extra=()
+[ -n "${SIGMA_SEED}" ] && paired_extra+=(--sigma_seed="${SIGMA_SEED}")
+[ -n "${BASELINE_PATH}" ] && paired_extra+=(--baseline_path="${BASELINE_PATH}")
+
 step "${ROOT}/analysis/report_paired_arms.txt" \
     python tools/report_paired_arms.py --control="${CONTROL}" --arms="${arm_specs}" \
-        --fixed_epoch="${FIXED_EPOCH}" \
+        --fixed_epoch="${FIXED_EPOCH}" "${paired_extra[@]}" \
         --json_out="${ROOT}/analysis/paired_arms.json"
 
-echo "=== PAPER_FINAL_02_ANALYSIS_DONE ($(date +%F' '%H:%M:%S)) ==="
+echo "=== ${DONE_TAG} ($(date +%F' '%H:%M:%S)) ==="

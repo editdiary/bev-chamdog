@@ -60,6 +60,7 @@ def _source_checkpoint(output_root: Path, seed: int, num_epochs: int) -> Path:
             / f"swscape_binary_pretrain_s{seed}" / f"model-{num_epochs:09d}.pth")
 
 
+from tools.paper_final_run_command import make_command_runner  # noqa: E402
 from tools.paper_final_aux_loss import (  # noqa: E402
     DEFAULT_AUX_LOSS, add_aux_loss_argument, aux_loss_env,
 )
@@ -186,7 +187,7 @@ def _write_status(output_root: Path, status: dict) -> None:
     path.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
 
 
-def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=subprocess.run):
+def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=None):
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     try:
@@ -257,6 +258,9 @@ def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=su
             print(f"[skip] {spec.run_name}: {blockers[0]}", flush=True)
             continue
         status[spec.run_name].update(decision="run", blockers=[])
+        # watchdog(침묵 20분 / 총 2시간)을 건다. 없으면 멈춘 런에서 큐가 영원히 선다.
+        if command_runner is None:
+            command_runner = make_command_runner(output_root / "run_logs")
         env = dict(os.environ)
         env.update(spec.environment)
         print(f"\n{'='*70}\n[run] {spec.run_name}  ({spec.arm})\n{'='*70}", flush=True)

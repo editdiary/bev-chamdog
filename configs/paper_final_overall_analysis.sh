@@ -13,6 +13,8 @@ LOSO="${ROOT}/loso"
 FIXED_OUT="${FIXED}/analysis"
 LOSO_OUT="${LOSO}/analysis"
 SEEDS="${SEEDS:-0,1,2,3,4}"
+# LOSO fold 목록. 부분 재실행(한 fold만 다시 채점)과 리허설을 위해 밖에서 바꿀 수 있다.
+FOLDS="${FOLDS:-raws1 raws2 raws3 rawos1 rawos2 rawos3 rawos4}"
 FIXED_EPOCH="${FIXED_EPOCH:-40}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
@@ -53,7 +55,7 @@ step "${FIXED_OUT}/verify_val_predictions.txt" \
         --pred_dir="${FIXED_OUT}/predictions" \
         --out_path="${FIXED_OUT}/verify_predictions.json"
 
-for held in raws1 raws2 raws3 rawos1 rawos2 rawos3 rawos4; do
+for held in ${FOLDS}; do
     pred_dir="${LOSO_OUT}/predictions/${held}"
     train_sequences="$(train_sequences_without "${held}")"
     mkdir -p "${pred_dir}"

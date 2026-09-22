@@ -32,6 +32,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from tools.paper_final_run_command import make_command_runner  # noqa: E402
 from tools.paper_final_aux_loss import (  # noqa: E402
     DEFAULT_AUX_LOSS, add_aux_loss_argument, aux_loss_env,
 )
@@ -127,7 +128,7 @@ def run_queue(
     num_epochs,
     gpu,
     plan_only=False,
-    command_runner=subprocess.run,
+    command_runner=None,
     range_loss_mode=DEFAULT_AUX_LOSS,
 ):
     """실행 manifest를 먼저 쓰고, 요청된 경우 학습 큐를 순서대로 실행한다."""
@@ -187,6 +188,10 @@ def run_queue(
                 json.dumps({"runs": statuses}, indent=2, ensure_ascii=False)
             )
             continue
+        # **watchdog을 여기서 만든다** -- 멈춘 런을 프로세스 그룹째 죽여 큐가 서지 않게 한다.
+        # 테스트는 가짜 `command_runner`를 넘기므로 그때는 만들지 않는다.
+        if command_runner is None:
+            command_runner = make_command_runner(output_root / "run_logs")
         env = os.environ.copy()
         env.update(training_environment(spec, output_root, num_epochs, gpu, range_loss_mode))
         print(f"[{spec.run_name}] start ({spec.protocol}, seed={spec.seed})", flush=True)
