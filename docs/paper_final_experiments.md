@@ -80,7 +80,7 @@
 |---|---|---|---|
 | `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **완료: 40/40, 무결성 통과, bundle 생성** |
 | `02_projection_and_prior` | 카메라 모델(DS-native 대 undistort+pinhole)과 source prior(SynWoodScape) | 고정 split × 5 seeds (대조군은 `01`의 5런 재사용, 시드 1:1) | **완료: 20/20, 무결성 통과, 논문 패키지 생성.** front-only는 기각(§6.1) |
-| `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 기존 5조건 × 5 seeds 재사용 | 원자료 존재, 논문용 재정리 대기 |
+| `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 고정 split, **6조건 × 5 seeds = 30런** (`runs/loss_effect`, 전부 존재) | **논문용 재정리 대기.** 사다리는 `A_ce→B_perset→C_hard→C_soft→E_cumulative`이고 `D_range`는 부록으로 내린다([`loss_effect_results.md`](loss_effect_results.md) §16.7). **시작 전 확인 필요 -- 사용자가 보조항 오류를 고치고 일부 재검증 중** |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
 
 고정 split은 모든 통제 ablation의 공통 benchmark다. LOSO는 최종 모델 하나에 대해서만
@@ -553,10 +553,22 @@ GPU 0, 출력은 `runs/paper_final/02_projection_and_prior/training_queue.log`�
 
 **남은 것 둘.**
 
-1. **`03_boundary_uncertainty`** -- 원자료(5조건 × 5시드)가 이미 있고 **논문용 재정리만**
-   하면 된다. 학습 불필요. 주의: `docs/loss_effect_results.md`와
-   [`bev-soft-boundary-loss`] 계열 문서에 따르면 살아남은 주장은 **재현성 개선 하나**이고
-   "안전 개선"은 동작점 이동으로 이미 철회됐다. 재정리할 때 그 철회를 유지해야 한다.
+1. **`03_boundary_uncertainty`** -- `runs/loss_effect`에 **6조건 × 5시드 = 30런**이 이미 있다
+   (`A_ce`, `B_perset`, `C_hard`, `C_soft`, `D_range`, `E_cumulative`).
+
+   **⚠ 시작 전에 사용자에게 두 가지를 확인한다.**
+   (a) **보조항 오류 수정 후 재검증이 끝났는지, 결과가 어디에 있는지.** 2026-09-22 시점에
+   사용자가 "보조 loss 항의 핵심 오류를 찾아 고치고 일부 테스트를 다시 하는 중"이라고 했다.
+   위 30런이 그 수정을 반영한 것인지 아닌지가 재정리의 출발점이다.
+   (b) **논문 표에 세울 조건 조합.** 현재 규칙은 사다리 `A_ce→B_perset→C_hard→C_soft→E_cumulative`,
+   주 비교쌍 `A_ce` 대 `E_cumulative`, `D_range`는 부록(§16.7).
+
+   **⚠ 재정리할 때 철회를 유지한다.** 살아남은 주장은 **재현성 개선 하나**이고
+   **"안전 개선"은 동작점 이동으로 이미 철회됐다**(같은 `free_miss`에서 곡선이 겹친다).
+   되살리면 안 된다. 사용자가 이 절에서 강조하려는 것은 **soft target이 도움이 된다**이고,
+   그 귀속은 `C_hard` ↔ `C_soft` 쌍(대역 target만 다르다)이 담당한다.
+
+   **논문 Results 절 3의 제목(사용자 확정): "Effect of Boundary-Uncertainty-Aware Learning".**
 2. **`04_edge_deployment`** -- Orin 실측. **사용자 장비가 필요하다.** 기존 20.2 FPS는
    `Y=1` 값이므로 `Y=4` 재실측이 필수다. 미동결 항목은 §6.5에 있다.
 

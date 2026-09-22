@@ -14,11 +14,14 @@
 2. 그 다음 **[`common/metrics.md`](common/metrics.md)** — 지표 정의와 보고 규칙
 3. 그 다음 관심 있는 실험의 `REPORT.md`
 
-논문의 **"Training and Implementation Details"**를 쓸 때는
-**[`common/training_details.md`](common/training_details.md)** 하나면 된다 — optimizer·
-schedule·증강·정밀도·환경·시간이 전부 있고, **`config.json`에 기록돼 있지만 실제로는
-동작하지 않는 값 목록**과 고쳐 쓸 영문 초안이 붙어 있다. 그 문서 하나만 따로 떼어
-넘겨도 자족적이다.
+논문 M&M을 쓸 때는 아래 둘이 정본이고, **각각 따로 떼어 넘겨도 자족적**이다.
+
+- **"Training and Implementation Details"** → **[`common/training_details.md`](common/training_details.md)**
+  optimizer·schedule·증강·정밀도·환경·시간 + **`config.json`에 기록돼 있지만 실제로는
+  동작하지 않는 값 목록** + 고쳐 쓸 영문 초안
+- **"Evaluation Protocol"** → **[`common/evaluation_protocol.md`](common/evaluation_protocol.md)**
+  지표를 **의도별로 수식과 함께** 정의하고, 집계 단위(지표마다 다르다)·평가 마스크
+  (둘이고 취급이 반대다)·통계 규약을 고정한다. **Results 절별로 무엇을 실을지**도 표로 있다
 
 `common/`을 먼저 읽으라는 이유는, 실험 문서가 지표 정의와 보고 규칙을 반복하지 않고
 여기를 가리키기 때문이다. **한 번만 읽으면 네 실험에 다 적용된다.**

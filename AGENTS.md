@@ -146,6 +146,17 @@
 >    `|Δ| >= 2·SE`(`SE = sd(차이)/√n`)를 같이 요구한다. 실제로 실험 2에서 이것 때문에
 >    판정이 한 번 뒤집혔다(`tools/report_paired_arms.py`).
 >
+> **논문 M&M을 쓸 때의 정본 둘** -- 각각 따로 떼어 넘겨도 자족적이다.
+> [`common/training_details.md`](docs/paper_package/common/training_details.md)(optimizer·
+> schedule·증강·정밀도·환경 + **`config.json`에 있지만 동작하지 않는 값 목록**)과
+> [`common/evaluation_protocol.md`](docs/paper_package/common/evaluation_protocol.md)
+> (지표를 **의도별로 수식과 함께** 정의, 집계 단위가 지표마다 다름, 평가 마스크가 둘인데
+> 취급이 반대, Results 절별 지표 선택표).
+>
+> **논문 Results 구성(2026-09-22 사용자 확정).** 1) Overall BEV Perception Performance
+> 2) 설계 선택 ablation(제목 미정 -- `evaluation_protocol.md` §11.2에 제안)
+> 3) Effect of Boundary-Uncertainty-Aware Learning  4) Edge Deployment.
+>
 > **논문 작성용 패키지는 [`docs/paper_package/`](docs/paper_package)다**(2 MB 미만).
 > `common/`에 지표 정의·보고 규칙·동결 설정을 한 번만 두고 실험별 폴더는 독립이다.
 > **`data/`의 CSV와 `figures/`의 그림은 생성 스크립트가 정본이고 손으로 고치지 않는다**
