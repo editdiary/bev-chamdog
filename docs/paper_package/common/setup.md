@@ -62,7 +62,7 @@ space**, 즉 위에서 내려다본 격자에서 "지금 갈 수 있는 칸"을 
 | 특징 표본 | `pixel_center`, offset 0 |
 | loss | soft-boundary, gaussian target |
 | boundary | `δ=0.30`, `σ=0.10`, `λ_B=0.5`, `κ=1.0`, `label_eps=0.0` |
-| range 보조항 | `λ_R=0.3`, `δ_R=0.15`(대칭), Huber `β=0.15` |
+| range 보조항 | **`arc_huber` 형태**, `λ_R=0.3`, `δ_R=0.15`(대칭), Huber `β=0.15` — **논문에 형태를 명시할 것**, 이유는 [`training_details.md`](training_details.md) §9.2 |
 | 최적화 | AdamW, lr 1e-4, weight decay 1e-7, batch 8, **40 epochs** |
 | 증강 | photometric on, flip off |
 | 주 체크포인트 | **고정 epoch 40** (validation-best는 진단용으로만 병기) |
@@ -99,3 +99,13 @@ space**, 즉 위에서 내려다본 격자에서 "지금 갈 수 있는 칸"을 
 
 4번이 핵심이다. 표에 쓰는 숫자와 저장된 예측이 같은 것을 가리킨다는 확인이고, 이게
 깨지면 결과를 쓰지 않는다. 결과는 각 실험의 `provenance/integrity.json`에 있다.
+
+---
+
+## 7. 학습 절차 상세 (optimizer · schedule · 증강 · 정밀도 · 환경 · 시간)
+
+**→ [`training_details.md`](training_details.md)** 에 있다.
+
+논문의 "Training and Implementation Details"를 쓸 때 필요한 수준의 값 전부와,
+**`config.json`에 기록돼 있지만 실제로는 동작하지 않는 값 목록**, 그리고 고쳐 쓸 수 있는
+영문 초안이 거기 있다. 여기 §4는 "무엇을 동결했나"의 요약표이고, 그쪽이 상세 정본이다.
