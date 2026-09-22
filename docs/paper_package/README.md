@@ -32,7 +32,7 @@
 |---|---|---|---|
 | [`01_overall`](01_overall/) | 최종 모델 대표 성능 + 시퀀스 일반화 | **완료** (2026-09-18, 40런) | 고정 split `iou_free` 0.812 ± 0.002 (margin **+0.294**) · LOSO macro 0.830 (margin **+0.294**) |
 | [`02_projection_and_prior`](02_projection_and_prior/) | 카메라 모델과 source prior (설계 결정 둘의 방어) | **완료** (2026-09-21, 20런) | 어안 원본이 가상 핀홀을 이긴다 (**−0.0134** at 120°, **−0.0078** at 150°) · **커버리지가 해상도를 이긴다** · 합성 사전학습은 `iou_free` 불변, `f1@10cm` **−0.0169** |
-| `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 원자료 존재, 재정리 대기 | — |
+| [`03_boundary_uncertainty`](03_boundary_uncertainty/) | boundary-aware loss의 효과와 원인 | **완료** (2026-09-22, 30런) | 되올림 **47.6 % → 0.5 %**(원인은 대역의 hard target) · 증가분의 **96.5 %**가 셀의 12.7 %인 경계에서 · 목적함수-품질 정렬 **22.6 → 2.2 epoch** · **정확도는 불변이고 `F1@10cm`은 −0.012로 나빠진다** |
 | `04_edge_deployment` | Jetson AGX Orin 지연 · FPS · 전력 · 메모리 | 측정 대기 | 기존 20.2 FPS는 `Y=1` 값이라 `Y=4` 재실측 필요 |
 
 ## 실험 폴더 규약

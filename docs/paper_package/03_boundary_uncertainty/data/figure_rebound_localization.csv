@@ -1,0 +1,721 @@
+cell,cell_label,metric,epoch,mean,sd,n
+A_ce,Weighted CE (baseline),ce_all,1,0.322783,0.04712,5
+A_ce,Weighted CE (baseline),ce_all,2,0.252239,0.028046,5
+A_ce,Weighted CE (baseline),ce_all,3,0.229441,0.027734,5
+A_ce,Weighted CE (baseline),ce_all,4,0.208295,0.031705,5
+A_ce,Weighted CE (baseline),ce_all,5,0.206366,0.012587,5
+A_ce,Weighted CE (baseline),ce_all,6,0.19093,0.015365,5
+A_ce,Weighted CE (baseline),ce_all,7,0.190899,0.016957,5
+A_ce,Weighted CE (baseline),ce_all,8,0.194537,0.013862,5
+A_ce,Weighted CE (baseline),ce_all,9,0.184454,0.012551,5
+A_ce,Weighted CE (baseline),ce_all,10,0.184295,0.012558,5
+A_ce,Weighted CE (baseline),ce_all,11,0.18835,0.010544,5
+A_ce,Weighted CE (baseline),ce_all,12,0.186535,0.014051,5
+A_ce,Weighted CE (baseline),ce_all,13,0.184644,0.00961,5
+A_ce,Weighted CE (baseline),ce_all,14,0.187664,0.008117,5
+A_ce,Weighted CE (baseline),ce_all,15,0.190245,0.003958,5
+A_ce,Weighted CE (baseline),ce_all,16,0.189981,0.007103,5
+A_ce,Weighted CE (baseline),ce_all,17,0.191116,0.007948,5
+A_ce,Weighted CE (baseline),ce_all,18,0.188915,0.004639,5
+A_ce,Weighted CE (baseline),ce_all,19,0.191217,0.005522,5
+A_ce,Weighted CE (baseline),ce_all,20,0.197447,0.007585,5
+A_ce,Weighted CE (baseline),ce_all,21,0.194453,0.006104,5
+A_ce,Weighted CE (baseline),ce_all,22,0.19646,0.002777,5
+A_ce,Weighted CE (baseline),ce_all,23,0.198643,0.003116,5
+A_ce,Weighted CE (baseline),ce_all,24,0.199308,0.003484,5
+A_ce,Weighted CE (baseline),ce_all,25,0.201102,0.007065,5
+A_ce,Weighted CE (baseline),ce_all,26,0.202436,0.003744,5
+A_ce,Weighted CE (baseline),ce_all,27,0.206348,0.001748,5
+A_ce,Weighted CE (baseline),ce_all,28,0.208371,0.00443,5
+A_ce,Weighted CE (baseline),ce_all,29,0.2092,0.00584,5
+A_ce,Weighted CE (baseline),ce_all,30,0.21052,0.003126,5
+A_ce,Weighted CE (baseline),ce_all,31,0.212975,0.002081,5
+A_ce,Weighted CE (baseline),ce_all,32,0.213063,0.003457,5
+A_ce,Weighted CE (baseline),ce_all,33,0.215138,0.002733,5
+A_ce,Weighted CE (baseline),ce_all,34,0.21659,0.003424,5
+A_ce,Weighted CE (baseline),ce_all,35,0.217894,0.003153,5
+A_ce,Weighted CE (baseline),ce_all,36,0.217647,0.003161,5
+A_ce,Weighted CE (baseline),ce_all,37,0.218884,0.002669,5
+A_ce,Weighted CE (baseline),ce_all,38,0.219135,0.002226,5
+A_ce,Weighted CE (baseline),ce_all,39,0.219668,0.002359,5
+A_ce,Weighted CE (baseline),ce_all,40,0.219364,0.001775,5
+A_ce,Weighted CE (baseline),ce_boundary,1,0.873707,0.048904,5
+A_ce,Weighted CE (baseline),ce_boundary,2,0.814177,0.026589,5
+A_ce,Weighted CE (baseline),ce_boundary,3,0.79785,0.04382,5
+A_ce,Weighted CE (baseline),ce_boundary,4,0.79103,0.048772,5
+A_ce,Weighted CE (baseline),ce_boundary,5,0.828489,0.06471,5
+A_ce,Weighted CE (baseline),ce_boundary,6,0.805629,0.026158,5
+A_ce,Weighted CE (baseline),ce_boundary,7,0.842132,0.018012,5
+A_ce,Weighted CE (baseline),ce_boundary,8,0.88416,0.032793,5
+A_ce,Weighted CE (baseline),ce_boundary,9,0.849085,0.013925,5
+A_ce,Weighted CE (baseline),ce_boundary,10,0.876427,0.02093,5
+A_ce,Weighted CE (baseline),ce_boundary,11,0.910637,0.04197,5
+A_ce,Weighted CE (baseline),ce_boundary,12,0.920067,0.02318,5
+A_ce,Weighted CE (baseline),ce_boundary,13,0.929982,0.014721,5
+A_ce,Weighted CE (baseline),ce_boundary,14,0.953307,0.015056,5
+A_ce,Weighted CE (baseline),ce_boundary,15,0.973861,0.039061,5
+A_ce,Weighted CE (baseline),ce_boundary,16,0.991291,0.041558,5
+A_ce,Weighted CE (baseline),ce_boundary,17,1.003353,0.018503,5
+A_ce,Weighted CE (baseline),ce_boundary,18,0.994566,0.044601,5
+A_ce,Weighted CE (baseline),ce_boundary,19,1.014058,0.031941,5
+A_ce,Weighted CE (baseline),ce_boundary,20,1.060966,0.008677,5
+A_ce,Weighted CE (baseline),ce_boundary,21,1.051617,0.031311,5
+A_ce,Weighted CE (baseline),ce_boundary,22,1.063299,0.027172,5
+A_ce,Weighted CE (baseline),ce_boundary,23,1.080095,0.045706,5
+A_ce,Weighted CE (baseline),ce_boundary,24,1.091531,0.035184,5
+A_ce,Weighted CE (baseline),ce_boundary,25,1.108335,0.03331,5
+A_ce,Weighted CE (baseline),ce_boundary,26,1.12122,0.014703,5
+A_ce,Weighted CE (baseline),ce_boundary,27,1.148916,0.022995,5
+A_ce,Weighted CE (baseline),ce_boundary,28,1.159207,0.01421,5
+A_ce,Weighted CE (baseline),ce_boundary,29,1.169058,0.015161,5
+A_ce,Weighted CE (baseline),ce_boundary,30,1.17951,0.032682,5
+A_ce,Weighted CE (baseline),ce_boundary,31,1.198339,0.028218,5
+A_ce,Weighted CE (baseline),ce_boundary,32,1.199718,0.025292,5
+A_ce,Weighted CE (baseline),ce_boundary,33,1.213613,0.026728,5
+A_ce,Weighted CE (baseline),ce_boundary,34,1.224882,0.024603,5
+A_ce,Weighted CE (baseline),ce_boundary,35,1.231029,0.020198,5
+A_ce,Weighted CE (baseline),ce_boundary,36,1.231823,0.022159,5
+A_ce,Weighted CE (baseline),ce_boundary,37,1.240267,0.019491,5
+A_ce,Weighted CE (baseline),ce_boundary,38,1.242876,0.018999,5
+A_ce,Weighted CE (baseline),ce_boundary,39,1.246108,0.024796,5
+A_ce,Weighted CE (baseline),ce_boundary,40,1.24564,0.023427,5
+A_ce,Weighted CE (baseline),ce_confident,1,0.241459,0.047346,5
+A_ce,Weighted CE (baseline),ce_confident,2,0.168235,0.030522,5
+A_ce,Weighted CE (baseline),ce_confident,3,0.143804,0.02796,5
+A_ce,Weighted CE (baseline),ce_confident,4,0.120704,0.029719,5
+A_ce,Weighted CE (baseline),ce_confident,5,0.112783,0.019101,5
+A_ce,Weighted CE (baseline),ce_confident,6,0.098394,0.019187,5
+A_ce,Weighted CE (baseline),ce_confident,7,0.092915,0.017509,5
+A_ce,Weighted CE (baseline),ce_confident,8,0.090846,0.01712,5
+A_ce,Weighted CE (baseline),ce_confident,9,0.084524,0.014023,5
+A_ce,Weighted CE (baseline),ce_confident,10,0.080552,0.015259,5
+A_ce,Weighted CE (baseline),ce_confident,11,0.080074,0.012319,5
+A_ce,Weighted CE (baseline),ce_confident,12,0.076537,0.013933,5
+A_ce,Weighted CE (baseline),ce_confident,13,0.072806,0.010327,5
+A_ce,Weighted CE (baseline),ce_confident,14,0.072828,0.010901,5
+A_ce,Weighted CE (baseline),ce_confident,15,0.072763,0.008619,5
+A_ce,Weighted CE (baseline),ce_confident,16,0.070122,0.008122,5
+A_ce,Weighted CE (baseline),ce_confident,17,0.069393,0.008543,5
+A_ce,Weighted CE (baseline),ce_confident,18,0.068086,0.00815,5
+A_ce,Weighted CE (baseline),ce_confident,19,0.067912,0.008429,5
+A_ce,Weighted CE (baseline),ce_confident,20,0.068645,0.009112,5
+A_ce,Weighted CE (baseline),ce_confident,21,0.066245,0.007758,5
+A_ce,Weighted CE (baseline),ce_confident,22,0.066643,0.006974,5
+A_ce,Weighted CE (baseline),ce_confident,23,0.066733,0.006274,5
+A_ce,Weighted CE (baseline),ce_confident,24,0.065867,0.006166,5
+A_ce,Weighted CE (baseline),ce_confident,25,0.065547,0.006732,5
+A_ce,Weighted CE (baseline),ce_confident,26,0.065091,0.005043,5
+A_ce,Weighted CE (baseline),ce_confident,27,0.065476,0.004535,5
+A_ce,Weighted CE (baseline),ce_confident,28,0.066337,0.005169,5
+A_ce,Weighted CE (baseline),ce_confident,29,0.065842,0.006447,5
+A_ce,Weighted CE (baseline),ce_confident,30,0.065942,0.00429,5
+A_ce,Weighted CE (baseline),ce_confident,31,0.066038,0.004792,5
+A_ce,Weighted CE (baseline),ce_confident,32,0.065917,0.004411,5
+A_ce,Weighted CE (baseline),ce_confident,33,0.066281,0.003807,5
+A_ce,Weighted CE (baseline),ce_confident,34,0.06631,0.00468,5
+A_ce,Weighted CE (baseline),ce_confident,35,0.066903,0.004779,5
+A_ce,Weighted CE (baseline),ce_confident,36,0.066453,0.004085,5
+A_ce,Weighted CE (baseline),ce_confident,37,0.066664,0.004043,5
+A_ce,Weighted CE (baseline),ce_confident,38,0.066574,0.003896,5
+A_ce,Weighted CE (baseline),ce_confident,39,0.066755,0.004269,5
+A_ce,Weighted CE (baseline),ce_confident,40,0.066468,0.003809,5
+B_perset,Per-set mean (no boundary term),ce_all,1,0.368516,0.055636,5
+B_perset,Per-set mean (no boundary term),ce_all,2,0.314581,0.042784,5
+B_perset,Per-set mean (no boundary term),ce_all,3,0.297191,0.037225,5
+B_perset,Per-set mean (no boundary term),ce_all,4,0.285551,0.03029,5
+B_perset,Per-set mean (no boundary term),ce_all,5,0.29087,0.025941,5
+B_perset,Per-set mean (no boundary term),ce_all,6,0.286758,0.028575,5
+B_perset,Per-set mean (no boundary term),ce_all,7,0.284036,0.026764,5
+B_perset,Per-set mean (no boundary term),ce_all,8,0.288392,0.030718,5
+B_perset,Per-set mean (no boundary term),ce_all,9,0.289256,0.026686,5
+B_perset,Per-set mean (no boundary term),ce_all,10,0.292029,0.024716,5
+B_perset,Per-set mean (no boundary term),ce_all,11,0.293402,0.02456,5
+B_perset,Per-set mean (no boundary term),ce_all,12,0.297053,0.023706,5
+B_perset,Per-set mean (no boundary term),ce_all,13,0.298889,0.023935,5
+B_perset,Per-set mean (no boundary term),ce_all,14,0.299482,0.022734,5
+B_perset,Per-set mean (no boundary term),ce_all,15,0.300331,0.022608,5
+B_perset,Per-set mean (no boundary term),ce_all,16,0.302918,0.021972,5
+B_perset,Per-set mean (no boundary term),ce_all,17,0.304904,0.023025,5
+B_perset,Per-set mean (no boundary term),ce_all,18,0.306111,0.020047,5
+B_perset,Per-set mean (no boundary term),ce_all,19,0.307768,0.02015,5
+B_perset,Per-set mean (no boundary term),ce_all,20,0.309412,0.020998,5
+B_perset,Per-set mean (no boundary term),ce_all,21,0.309978,0.021532,5
+B_perset,Per-set mean (no boundary term),ce_all,22,0.311212,0.021973,5
+B_perset,Per-set mean (no boundary term),ce_all,23,0.313278,0.022017,5
+B_perset,Per-set mean (no boundary term),ce_all,24,0.31564,0.021001,5
+B_perset,Per-set mean (no boundary term),ce_all,25,0.317677,0.021856,5
+B_perset,Per-set mean (no boundary term),ce_all,26,0.317261,0.022808,5
+B_perset,Per-set mean (no boundary term),ce_all,27,0.317834,0.023473,5
+B_perset,Per-set mean (no boundary term),ce_all,28,0.320353,0.023209,5
+B_perset,Per-set mean (no boundary term),ce_all,29,0.32049,0.022632,5
+B_perset,Per-set mean (no boundary term),ce_all,30,0.321912,0.023562,5
+B_perset,Per-set mean (no boundary term),ce_all,31,0.32067,0.022332,5
+B_perset,Per-set mean (no boundary term),ce_all,32,0.322352,0.022623,5
+B_perset,Per-set mean (no boundary term),ce_all,33,0.32204,0.021512,5
+B_perset,Per-set mean (no boundary term),ce_all,34,0.323178,0.022356,5
+B_perset,Per-set mean (no boundary term),ce_all,35,0.324097,0.022029,5
+B_perset,Per-set mean (no boundary term),ce_all,36,0.324219,0.022918,5
+B_perset,Per-set mean (no boundary term),ce_all,37,0.323824,0.022128,5
+B_perset,Per-set mean (no boundary term),ce_all,38,0.324763,0.021847,5
+B_perset,Per-set mean (no boundary term),ce_all,39,0.32532,0.022916,5
+B_perset,Per-set mean (no boundary term),ce_all,40,0.324557,0.022168,5
+B_perset,Per-set mean (no boundary term),ce_boundary,1,1.146648,0.126364,5
+B_perset,Per-set mean (no boundary term),ce_boundary,2,1.19756,0.086351,5
+B_perset,Per-set mean (no boundary term),ce_boundary,3,1.241763,0.092014,5
+B_perset,Per-set mean (no boundary term),ce_boundary,4,1.261238,0.070223,5
+B_perset,Per-set mean (no boundary term),ce_boundary,5,1.339273,0.083948,5
+B_perset,Per-set mean (no boundary term),ce_boundary,6,1.368582,0.07535,5
+B_perset,Per-set mean (no boundary term),ce_boundary,7,1.387655,0.077666,5
+B_perset,Per-set mean (no boundary term),ce_boundary,8,1.434686,0.094631,5
+B_perset,Per-set mean (no boundary term),ce_boundary,9,1.459498,0.078824,5
+B_perset,Per-set mean (no boundary term),ce_boundary,10,1.485742,0.081178,5
+B_perset,Per-set mean (no boundary term),ce_boundary,11,1.51027,0.075032,5
+B_perset,Per-set mean (no boundary term),ce_boundary,12,1.540778,0.083636,5
+B_perset,Per-set mean (no boundary term),ce_boundary,13,1.56347,0.084059,5
+B_perset,Per-set mean (no boundary term),ce_boundary,14,1.578908,0.081187,5
+B_perset,Per-set mean (no boundary term),ce_boundary,15,1.593324,0.080267,5
+B_perset,Per-set mean (no boundary term),ce_boundary,16,1.614254,0.087611,5
+B_perset,Per-set mean (no boundary term),ce_boundary,17,1.631508,0.094941,5
+B_perset,Per-set mean (no boundary term),ce_boundary,18,1.6457,0.087541,5
+B_perset,Per-set mean (no boundary term),ce_boundary,19,1.661194,0.081379,5
+B_perset,Per-set mean (no boundary term),ce_boundary,20,1.671865,0.087786,5
+B_perset,Per-set mean (no boundary term),ce_boundary,21,1.682358,0.092992,5
+B_perset,Per-set mean (no boundary term),ce_boundary,22,1.694016,0.095096,5
+B_perset,Per-set mean (no boundary term),ce_boundary,23,1.706989,0.100456,5
+B_perset,Per-set mean (no boundary term),ce_boundary,24,1.721298,0.092153,5
+B_perset,Per-set mean (no boundary term),ce_boundary,25,1.735999,0.09872,5
+B_perset,Per-set mean (no boundary term),ce_boundary,26,1.7385,0.100444,5
+B_perset,Per-set mean (no boundary term),ce_boundary,27,1.742158,0.105001,5
+B_perset,Per-set mean (no boundary term),ce_boundary,28,1.758336,0.107452,5
+B_perset,Per-set mean (no boundary term),ce_boundary,29,1.763175,0.103017,5
+B_perset,Per-set mean (no boundary term),ce_boundary,30,1.770457,0.10526,5
+B_perset,Per-set mean (no boundary term),ce_boundary,31,1.769384,0.104823,5
+B_perset,Per-set mean (no boundary term),ce_boundary,32,1.776611,0.104712,5
+B_perset,Per-set mean (no boundary term),ce_boundary,33,1.780221,0.099811,5
+B_perset,Per-set mean (no boundary term),ce_boundary,34,1.784727,0.101443,5
+B_perset,Per-set mean (no boundary term),ce_boundary,35,1.789776,0.100828,5
+B_perset,Per-set mean (no boundary term),ce_boundary,36,1.792201,0.103262,5
+B_perset,Per-set mean (no boundary term),ce_boundary,37,1.792,0.102953,5
+B_perset,Per-set mean (no boundary term),ce_boundary,38,1.796493,0.100629,5
+B_perset,Per-set mean (no boundary term),ce_boundary,39,1.799163,0.104288,5
+B_perset,Per-set mean (no boundary term),ce_boundary,40,1.796546,0.10262,5
+B_perset,Per-set mean (no boundary term),ce_confident,1,0.257721,0.047184,5
+B_perset,Per-set mean (no boundary term),ce_confident,2,0.188091,0.037179,5
+B_perset,Per-set mean (no boundary term),ce_confident,3,0.162084,0.031334,5
+B_perset,Per-set mean (no boundary term),ce_confident,4,0.145988,0.02741,5
+B_perset,Per-set mean (no boundary term),ce_confident,5,0.141348,0.022712,5
+B_perset,Per-set mean (no boundary term),ce_confident,6,0.132653,0.024542,5
+B_perset,Per-set mean (no boundary term),ce_confident,7,0.12683,0.022626,5
+B_perset,Per-set mean (no boundary term),ce_confident,8,0.125464,0.024085,5
+B_perset,Per-set mean (no boundary term),ce_confident,9,0.12305,0.021532,5
+B_perset,Per-set mean (no boundary term),ce_confident,10,0.122664,0.019581,5
+B_perset,Per-set mean (no boundary term),ce_confident,11,0.120802,0.019358,5
+B_perset,Per-set mean (no boundary term),ce_confident,12,0.120824,0.017828,5
+B_perset,Per-set mean (no boundary term),ce_confident,13,0.119845,0.017924,5
+B_perset,Per-set mean (no boundary term),ce_confident,14,0.118513,0.01686,5
+B_perset,Per-set mean (no boundary term),ce_confident,15,0.117466,0.016794,5
+B_perset,Per-set mean (no boundary term),ce_confident,16,0.117578,0.015228,5
+B_perset,Per-set mean (no boundary term),ce_confident,17,0.117469,0.015523,5
+B_perset,Per-set mean (no boundary term),ce_confident,18,0.116996,0.013322,5
+B_perset,Per-set mean (no boundary term),ce_confident,19,0.116721,0.013798,5
+B_perset,Per-set mean (no boundary term),ce_confident,20,0.117143,0.013588,5
+B_perset,Per-set mean (no boundary term),ce_confident,21,0.116352,0.01338,5
+B_perset,Per-set mean (no boundary term),ce_confident,22,0.116193,0.013509,5
+B_perset,Per-set mean (no boundary term),ce_confident,23,0.116796,0.012759,5
+B_perset,Per-set mean (no boundary term),ce_confident,24,0.117537,0.012796,5
+B_perset,Per-set mean (no boundary term),ce_confident,25,0.117864,0.012832,5
+B_perset,Per-set mean (no boundary term),ce_confident,26,0.117035,0.013346,5
+B_perset,Per-set mean (no boundary term),ce_confident,27,0.117176,0.013739,5
+B_perset,Per-set mean (no boundary term),ce_confident,28,0.11784,0.013237,5
+B_perset,Per-set mean (no boundary term),ce_confident,29,0.117374,0.01295,5
+B_perset,Per-set mean (no boundary term),ce_confident,30,0.117975,0.013535,5
+B_perset,Per-set mean (no boundary term),ce_confident,31,0.116712,0.012384,5
+B_perset,Per-set mean (no boundary term),ce_confident,32,0.117636,0.012767,5
+B_perset,Per-set mean (no boundary term),ce_confident,33,0.116823,0.011935,5
+B_perset,Per-set mean (no boundary term),ce_confident,34,0.117504,0.012785,5
+B_perset,Per-set mean (no boundary term),ce_confident,35,0.117841,0.012374,5
+B_perset,Per-set mean (no boundary term),ce_confident,36,0.117663,0.013013,5
+B_perset,Per-set mean (no boundary term),ce_confident,37,0.117245,0.012209,5
+B_perset,Per-set mean (no boundary term),ce_confident,38,0.117714,0.01231,5
+B_perset,Per-set mean (no boundary term),ce_confident,39,0.117977,0.012952,5
+B_perset,Per-set mean (no boundary term),ce_confident,40,0.11747,0.012331,5
+C_hard,"+ boundary term, hard target",ce_all,1,0.318428,0.049814,5
+C_hard,"+ boundary term, hard target",ce_all,2,0.234402,0.034134,5
+C_hard,"+ boundary term, hard target",ce_all,3,0.211833,0.028207,5
+C_hard,"+ boundary term, hard target",ce_all,4,0.194633,0.025801,5
+C_hard,"+ boundary term, hard target",ce_all,5,0.18755,0.021605,5
+C_hard,"+ boundary term, hard target",ce_all,6,0.183458,0.019026,5
+C_hard,"+ boundary term, hard target",ce_all,7,0.178842,0.016763,5
+C_hard,"+ boundary term, hard target",ce_all,8,0.180131,0.015816,5
+C_hard,"+ boundary term, hard target",ce_all,9,0.179841,0.016232,5
+C_hard,"+ boundary term, hard target",ce_all,10,0.179197,0.01295,5
+C_hard,"+ boundary term, hard target",ce_all,11,0.179579,0.012635,5
+C_hard,"+ boundary term, hard target",ce_all,12,0.178224,0.011969,5
+C_hard,"+ boundary term, hard target",ce_all,13,0.180606,0.010619,5
+C_hard,"+ boundary term, hard target",ce_all,14,0.179093,0.010915,5
+C_hard,"+ boundary term, hard target",ce_all,15,0.184541,0.008879,5
+C_hard,"+ boundary term, hard target",ce_all,16,0.182203,0.009893,5
+C_hard,"+ boundary term, hard target",ce_all,17,0.186603,0.01029,5
+C_hard,"+ boundary term, hard target",ce_all,18,0.187443,0.007657,5
+C_hard,"+ boundary term, hard target",ce_all,19,0.188924,0.009766,5
+C_hard,"+ boundary term, hard target",ce_all,20,0.192135,0.008444,5
+C_hard,"+ boundary term, hard target",ce_all,21,0.191791,0.009856,5
+C_hard,"+ boundary term, hard target",ce_all,22,0.193435,0.006081,5
+C_hard,"+ boundary term, hard target",ce_all,23,0.197629,0.005775,5
+C_hard,"+ boundary term, hard target",ce_all,24,0.198873,0.005123,5
+C_hard,"+ boundary term, hard target",ce_all,25,0.200089,0.004564,5
+C_hard,"+ boundary term, hard target",ce_all,26,0.203034,0.004503,5
+C_hard,"+ boundary term, hard target",ce_all,27,0.207424,0.005162,5
+C_hard,"+ boundary term, hard target",ce_all,28,0.207475,0.00214,5
+C_hard,"+ boundary term, hard target",ce_all,29,0.210946,0.00599,5
+C_hard,"+ boundary term, hard target",ce_all,30,0.213063,0.003579,5
+C_hard,"+ boundary term, hard target",ce_all,31,0.214069,0.004383,5
+C_hard,"+ boundary term, hard target",ce_all,32,0.215595,0.004956,5
+C_hard,"+ boundary term, hard target",ce_all,33,0.217335,0.003871,5
+C_hard,"+ boundary term, hard target",ce_all,34,0.218583,0.003921,5
+C_hard,"+ boundary term, hard target",ce_all,35,0.219695,0.003951,5
+C_hard,"+ boundary term, hard target",ce_all,36,0.221391,0.003894,5
+C_hard,"+ boundary term, hard target",ce_all,37,0.221973,0.004081,5
+C_hard,"+ boundary term, hard target",ce_all,38,0.222481,0.003229,5
+C_hard,"+ boundary term, hard target",ce_all,39,0.222621,0.002864,5
+C_hard,"+ boundary term, hard target",ce_all,40,0.22278,0.002943,5
+C_hard,"+ boundary term, hard target",ce_boundary,1,0.692089,0.041402,5
+C_hard,"+ boundary term, hard target",ce_boundary,2,0.652181,0.016893,5
+C_hard,"+ boundary term, hard target",ce_boundary,3,0.674626,0.012466,5
+C_hard,"+ boundary term, hard target",ce_boundary,4,0.684899,0.028568,5
+C_hard,"+ boundary term, hard target",ce_boundary,5,0.699159,0.030674,5
+C_hard,"+ boundary term, hard target",ce_boundary,6,0.723464,0.018399,5
+C_hard,"+ boundary term, hard target",ce_boundary,7,0.742363,0.026719,5
+C_hard,"+ boundary term, hard target",ce_boundary,8,0.775264,0.014392,5
+C_hard,"+ boundary term, hard target",ce_boundary,9,0.797898,0.032159,5
+C_hard,"+ boundary term, hard target",ce_boundary,10,0.818372,0.031977,5
+C_hard,"+ boundary term, hard target",ce_boundary,11,0.847511,0.031844,5
+C_hard,"+ boundary term, hard target",ce_boundary,12,0.849052,0.023001,5
+C_hard,"+ boundary term, hard target",ce_boundary,13,0.881099,0.024161,5
+C_hard,"+ boundary term, hard target",ce_boundary,14,0.879173,0.01759,5
+C_hard,"+ boundary term, hard target",ce_boundary,15,0.919125,0.023282,5
+C_hard,"+ boundary term, hard target",ce_boundary,16,0.919442,0.020905,5
+C_hard,"+ boundary term, hard target",ce_boundary,17,0.950753,0.01085,5
+C_hard,"+ boundary term, hard target",ce_boundary,18,0.963719,0.017369,5
+C_hard,"+ boundary term, hard target",ce_boundary,19,0.981454,0.014265,5
+C_hard,"+ boundary term, hard target",ce_boundary,20,1.00894,0.02299,5
+C_hard,"+ boundary term, hard target",ce_boundary,21,1.009924,0.017382,5
+C_hard,"+ boundary term, hard target",ce_boundary,22,1.025981,0.030333,5
+C_hard,"+ boundary term, hard target",ce_boundary,23,1.051616,0.031948,5
+C_hard,"+ boundary term, hard target",ce_boundary,24,1.067969,0.04109,5
+C_hard,"+ boundary term, hard target",ce_boundary,25,1.076132,0.032188,5
+C_hard,"+ boundary term, hard target",ce_boundary,26,1.098119,0.023381,5
+C_hard,"+ boundary term, hard target",ce_boundary,27,1.129738,0.02335,5
+C_hard,"+ boundary term, hard target",ce_boundary,28,1.12933,0.030802,5
+C_hard,"+ boundary term, hard target",ce_boundary,29,1.153992,0.017194,5
+C_hard,"+ boundary term, hard target",ce_boundary,30,1.167367,0.025085,5
+C_hard,"+ boundary term, hard target",ce_boundary,31,1.177182,0.027981,5
+C_hard,"+ boundary term, hard target",ce_boundary,32,1.187306,0.021404,5
+C_hard,"+ boundary term, hard target",ce_boundary,33,1.198618,0.027332,5
+C_hard,"+ boundary term, hard target",ce_boundary,34,1.210017,0.024825,5
+C_hard,"+ boundary term, hard target",ce_boundary,35,1.217045,0.025725,5
+C_hard,"+ boundary term, hard target",ce_boundary,36,1.227024,0.023372,5
+C_hard,"+ boundary term, hard target",ce_boundary,37,1.231552,0.021094,5
+C_hard,"+ boundary term, hard target",ce_boundary,38,1.236441,0.021716,5
+C_hard,"+ boundary term, hard target",ce_boundary,39,1.23718,0.025401,5
+C_hard,"+ boundary term, hard target",ce_boundary,40,1.238453,0.024081,5
+C_hard,"+ boundary term, hard target",ce_confident,1,0.261235,0.052522,5
+C_hard,"+ boundary term, hard target",ce_confident,2,0.17103,0.038087,5
+C_hard,"+ boundary term, hard target",ce_confident,3,0.141682,0.030441,5
+C_hard,"+ boundary term, hard target",ce_confident,4,0.120661,0.025982,5
+C_hard,"+ boundary term, hard target",ce_confident,5,0.110493,0.026586,5
+C_hard,"+ boundary term, hard target",ce_confident,6,0.102198,0.023165,5
+C_hard,"+ boundary term, hard target",ce_confident,7,0.093983,0.021181,5
+C_hard,"+ boundary term, hard target",ce_confident,8,0.090782,0.018901,5
+C_hard,"+ boundary term, hard target",ce_confident,9,0.087165,0.021181,5
+C_hard,"+ boundary term, hard target",ce_confident,10,0.083762,0.016341,5
+C_hard,"+ boundary term, hard target",ce_confident,11,0.079641,0.014002,5
+C_hard,"+ boundary term, hard target",ce_confident,12,0.077847,0.014912,5
+C_hard,"+ boundary term, hard target",ce_confident,13,0.075683,0.014371,5
+C_hard,"+ boundary term, hard target",ce_confident,14,0.074361,0.014611,5
+C_hard,"+ boundary term, hard target",ce_confident,15,0.074777,0.01175,5
+C_hard,"+ boundary term, hard target",ce_confident,16,0.072219,0.01133,5
+C_hard,"+ boundary term, hard target",ce_confident,17,0.072489,0.011746,5
+C_hard,"+ boundary term, hard target",ce_confident,18,0.071646,0.011102,5
+C_hard,"+ boundary term, hard target",ce_confident,19,0.070575,0.013049,5
+C_hard,"+ boundary term, hard target",ce_confident,20,0.070371,0.010527,5
+C_hard,"+ boundary term, hard target",ce_confident,21,0.069767,0.011043,5
+C_hard,"+ boundary term, hard target",ce_confident,22,0.069272,0.009807,5
+C_hard,"+ boundary term, hard target",ce_confident,23,0.070231,0.009751,5
+C_hard,"+ boundary term, hard target",ce_confident,24,0.069512,0.008074,5
+C_hard,"+ boundary term, hard target",ce_confident,25,0.069775,0.008044,5
+C_hard,"+ boundary term, hard target",ce_confident,26,0.069855,0.007875,5
+C_hard,"+ boundary term, hard target",ce_confident,27,0.070119,0.007985,5
+C_hard,"+ boundary term, hard target",ce_confident,28,0.070213,0.006933,5
+C_hard,"+ boundary term, hard target",ce_confident,29,0.070707,0.008615,5
+C_hard,"+ boundary term, hard target",ce_confident,30,0.071182,0.00739,5
+C_hard,"+ boundary term, hard target",ce_confident,31,0.07098,0.007907,5
+C_hard,"+ boundary term, hard target",ce_confident,32,0.071215,0.007636,5
+C_hard,"+ boundary term, hard target",ce_confident,33,0.071619,0.00669,5
+C_hard,"+ boundary term, hard target",ce_confident,34,0.07137,0.007372,5
+C_hard,"+ boundary term, hard target",ce_confident,35,0.071663,0.006893,5
+C_hard,"+ boundary term, hard target",ce_confident,36,0.072107,0.007016,5
+C_hard,"+ boundary term, hard target",ce_confident,37,0.072094,0.00679,5
+C_hard,"+ boundary term, hard target",ce_confident,38,0.071995,0.006564,5
+C_hard,"+ boundary term, hard target",ce_confident,39,0.072098,0.006784,5
+C_hard,"+ boundary term, hard target",ce_confident,40,0.072074,0.006472,5
+C_soft,+ soft boundary target (proposed),ce_all,1,0.316463,0.049619,5
+C_soft,+ soft boundary target (proposed),ce_all,2,0.229777,0.033434,5
+C_soft,+ soft boundary target (proposed),ce_all,3,0.203061,0.025767,5
+C_soft,+ soft boundary target (proposed),ce_all,4,0.18089,0.024871,5
+C_soft,+ soft boundary target (proposed),ce_all,5,0.174029,0.020856,5
+C_soft,+ soft boundary target (proposed),ce_all,6,0.164734,0.018361,5
+C_soft,+ soft boundary target (proposed),ce_all,7,0.158382,0.016575,5
+C_soft,+ soft boundary target (proposed),ce_all,8,0.154164,0.016623,5
+C_soft,+ soft boundary target (proposed),ce_all,9,0.150268,0.015362,5
+C_soft,+ soft boundary target (proposed),ce_all,10,0.14819,0.01418,5
+C_soft,+ soft boundary target (proposed),ce_all,11,0.144594,0.011955,5
+C_soft,+ soft boundary target (proposed),ce_all,12,0.145069,0.012299,5
+C_soft,+ soft boundary target (proposed),ce_all,13,0.141884,0.010379,5
+C_soft,+ soft boundary target (proposed),ce_all,14,0.139786,0.01157,5
+C_soft,+ soft boundary target (proposed),ce_all,15,0.138418,0.009568,5
+C_soft,+ soft boundary target (proposed),ce_all,16,0.137508,0.0095,5
+C_soft,+ soft boundary target (proposed),ce_all,17,0.136335,0.009158,5
+C_soft,+ soft boundary target (proposed),ce_all,18,0.13567,0.006779,5
+C_soft,+ soft boundary target (proposed),ce_all,19,0.134703,0.008306,5
+C_soft,+ soft boundary target (proposed),ce_all,20,0.133513,0.007319,5
+C_soft,+ soft boundary target (proposed),ce_all,21,0.133375,0.005968,5
+C_soft,+ soft boundary target (proposed),ce_all,22,0.132018,0.006771,5
+C_soft,+ soft boundary target (proposed),ce_all,23,0.131708,0.006502,5
+C_soft,+ soft boundary target (proposed),ce_all,24,0.13099,0.005805,5
+C_soft,+ soft boundary target (proposed),ce_all,25,0.130078,0.006566,5
+C_soft,+ soft boundary target (proposed),ce_all,26,0.130652,0.005768,5
+C_soft,+ soft boundary target (proposed),ce_all,27,0.130001,0.005855,5
+C_soft,+ soft boundary target (proposed),ce_all,28,0.130035,0.004754,5
+C_soft,+ soft boundary target (proposed),ce_all,29,0.12926,0.005039,5
+C_soft,+ soft boundary target (proposed),ce_all,30,0.128898,0.005213,5
+C_soft,+ soft boundary target (proposed),ce_all,31,0.128521,0.005024,5
+C_soft,+ soft boundary target (proposed),ce_all,32,0.128514,0.005078,5
+C_soft,+ soft boundary target (proposed),ce_all,33,0.128108,0.004946,5
+C_soft,+ soft boundary target (proposed),ce_all,34,0.128014,0.004842,5
+C_soft,+ soft boundary target (proposed),ce_all,35,0.128117,0.004694,5
+C_soft,+ soft boundary target (proposed),ce_all,36,0.127931,0.004838,5
+C_soft,+ soft boundary target (proposed),ce_all,37,0.127735,0.004595,5
+C_soft,+ soft boundary target (proposed),ce_all,38,0.127711,0.004641,5
+C_soft,+ soft boundary target (proposed),ce_all,39,0.127624,0.004818,5
+C_soft,+ soft boundary target (proposed),ce_all,40,0.127549,0.004641,5
+C_soft,+ soft boundary target (proposed),ce_boundary,1,0.683649,0.038133,5
+C_soft,+ soft boundary target (proposed),ce_boundary,2,0.623808,0.012045,5
+C_soft,+ soft boundary target (proposed),ce_boundary,3,0.628098,0.016053,5
+C_soft,+ soft boundary target (proposed),ce_boundary,4,0.610236,0.020859,5
+C_soft,+ soft boundary target (proposed),ce_boundary,5,0.626952,0.016451,5
+C_soft,+ soft boundary target (proposed),ce_boundary,6,0.620094,0.019595,5
+C_soft,+ soft boundary target (proposed),ce_boundary,7,0.624729,0.011256,5
+C_soft,+ soft boundary target (proposed),ce_boundary,8,0.623423,0.007586,5
+C_soft,+ soft boundary target (proposed),ce_boundary,9,0.62081,0.015816,5
+C_soft,+ soft boundary target (proposed),ce_boundary,10,0.626418,0.010297,5
+C_soft,+ soft boundary target (proposed),ce_boundary,11,0.626408,0.01315,5
+C_soft,+ soft boundary target (proposed),ce_boundary,12,0.637906,0.010768,5
+C_soft,+ soft boundary target (proposed),ce_boundary,13,0.630106,0.011655,5
+C_soft,+ soft boundary target (proposed),ce_boundary,14,0.631775,0.011372,5
+C_soft,+ soft boundary target (proposed),ce_boundary,15,0.63205,0.012729,5
+C_soft,+ soft boundary target (proposed),ce_boundary,16,0.639528,0.012072,5
+C_soft,+ soft boundary target (proposed),ce_boundary,17,0.636517,0.010492,5
+C_soft,+ soft boundary target (proposed),ce_boundary,18,0.638456,0.012038,5
+C_soft,+ soft boundary target (proposed),ce_boundary,19,0.638357,0.007442,5
+C_soft,+ soft boundary target (proposed),ce_boundary,20,0.637376,0.011589,5
+C_soft,+ soft boundary target (proposed),ce_boundary,21,0.640314,0.009874,5
+C_soft,+ soft boundary target (proposed),ce_boundary,22,0.640363,0.011589,5
+C_soft,+ soft boundary target (proposed),ce_boundary,23,0.639744,0.007807,5
+C_soft,+ soft boundary target (proposed),ce_boundary,24,0.637774,0.009088,5
+C_soft,+ soft boundary target (proposed),ce_boundary,25,0.638255,0.008689,5
+C_soft,+ soft boundary target (proposed),ce_boundary,26,0.642543,0.005556,5
+C_soft,+ soft boundary target (proposed),ce_boundary,27,0.641944,0.007701,5
+C_soft,+ soft boundary target (proposed),ce_boundary,28,0.644029,0.008773,5
+C_soft,+ soft boundary target (proposed),ce_boundary,29,0.641815,0.006941,5
+C_soft,+ soft boundary target (proposed),ce_boundary,30,0.643483,0.007731,5
+C_soft,+ soft boundary target (proposed),ce_boundary,31,0.642357,0.007805,5
+C_soft,+ soft boundary target (proposed),ce_boundary,32,0.643249,0.006125,5
+C_soft,+ soft boundary target (proposed),ce_boundary,33,0.642658,0.006722,5
+C_soft,+ soft boundary target (proposed),ce_boundary,34,0.643012,0.00636,5
+C_soft,+ soft boundary target (proposed),ce_boundary,35,0.643903,0.007031,5
+C_soft,+ soft boundary target (proposed),ce_boundary,36,0.643828,0.005823,5
+C_soft,+ soft boundary target (proposed),ce_boundary,37,0.643815,0.00688,5
+C_soft,+ soft boundary target (proposed),ce_boundary,38,0.644272,0.006746,5
+C_soft,+ soft boundary target (proposed),ce_boundary,39,0.643363,0.007374,5
+C_soft,+ soft boundary target (proposed),ce_boundary,40,0.643503,0.006821,5
+C_soft,+ soft boundary target (proposed),ce_confident,1,0.260389,0.052369,5
+C_soft,+ soft boundary target (proposed),ce_confident,2,0.16994,0.036952,5
+C_soft,+ soft boundary target (proposed),ce_confident,3,0.13874,0.027777,5
+C_soft,+ soft boundary target (proposed),ce_confident,4,0.116087,0.025503,5
+C_soft,+ soft boundary target (proposed),ce_confident,5,0.105627,0.02434,5
+C_soft,+ soft boundary target (proposed),ce_confident,6,0.095986,0.021415,5
+C_soft,+ soft boundary target (proposed),ce_confident,7,0.087919,0.019634,5
+C_soft,+ soft boundary target (proposed),ce_confident,8,0.083269,0.018264,5
+C_soft,+ soft boundary target (proposed),ce_confident,9,0.079264,0.017469,5
+C_soft,+ soft boundary target (proposed),ce_confident,10,0.075993,0.016192,5
+C_soft,+ soft boundary target (proposed),ce_confident,11,0.071896,0.014079,5
+C_soft,+ soft boundary target (proposed),ce_confident,12,0.070555,0.014041,5
+C_soft,+ soft boundary target (proposed),ce_confident,13,0.068139,0.012405,5
+C_soft,+ soft boundary target (proposed),ce_confident,14,0.0655,0.012095,5
+C_soft,+ soft boundary target (proposed),ce_confident,15,0.063814,0.011214,5
+C_soft,+ soft boundary target (proposed),ce_confident,16,0.06171,0.010454,5
+C_soft,+ soft boundary target (proposed),ce_confident,17,0.060773,0.010131,5
+C_soft,+ soft boundary target (proposed),ce_confident,18,0.059719,0.009247,5
+C_soft,+ soft boundary target (proposed),ce_confident,19,0.058617,0.008913,5
+C_soft,+ soft boundary target (proposed),ce_confident,20,0.05743,0.008653,5
+C_soft,+ soft boundary target (proposed),ce_confident,21,0.056769,0.007761,5
+C_soft,+ soft boundary target (proposed),ce_confident,22,0.055233,0.007779,5
+C_soft,+ soft boundary target (proposed),ce_confident,23,0.054906,0.007683,5
+C_soft,+ soft boundary target (proposed),ce_confident,24,0.054392,0.007093,5
+C_soft,+ soft boundary target (proposed),ce_confident,25,0.053306,0.007186,5
+C_soft,+ soft boundary target (proposed),ce_confident,26,0.053311,0.006727,5
+C_soft,+ soft boundary target (proposed),ce_confident,27,0.052612,0.006692,5
+C_soft,+ soft boundary target (proposed),ce_confident,28,0.052334,0.005964,5
+C_soft,+ soft boundary target (proposed),ce_confident,29,0.051784,0.006269,5
+C_soft,+ soft boundary target (proposed),ce_confident,30,0.051137,0.006114,5
+C_soft,+ soft boundary target (proposed),ce_confident,31,0.050868,0.006003,5
+C_soft,+ soft boundary target (proposed),ce_confident,32,0.050721,0.005842,5
+C_soft,+ soft boundary target (proposed),ce_confident,33,0.050343,0.005636,5
+C_soft,+ soft boundary target (proposed),ce_confident,34,0.050178,0.005667,5
+C_soft,+ soft boundary target (proposed),ce_confident,35,0.05016,0.005631,5
+C_soft,+ soft boundary target (proposed),ce_confident,36,0.049949,0.005416,5
+C_soft,+ soft boundary target (proposed),ce_confident,37,0.049727,0.005369,5
+C_soft,+ soft boundary target (proposed),ce_confident,38,0.049637,0.005273,5
+C_soft,+ soft boundary target (proposed),ce_confident,39,0.049677,0.005521,5
+C_soft,+ soft boundary target (proposed),ce_confident,40,0.049562,0.005354,5
+D_range,+ auxiliary range term (arc_huber),ce_all,1,0.313351,0.049221,5
+D_range,+ auxiliary range term (arc_huber),ce_all,2,0.22635,0.031606,5
+D_range,+ auxiliary range term (arc_huber),ce_all,3,0.202375,0.025815,5
+D_range,+ auxiliary range term (arc_huber),ce_all,4,0.181935,0.022114,5
+D_range,+ auxiliary range term (arc_huber),ce_all,5,0.173384,0.019974,5
+D_range,+ auxiliary range term (arc_huber),ce_all,6,0.164908,0.01858,5
+D_range,+ auxiliary range term (arc_huber),ce_all,7,0.160399,0.016302,5
+D_range,+ auxiliary range term (arc_huber),ce_all,8,0.157975,0.016393,5
+D_range,+ auxiliary range term (arc_huber),ce_all,9,0.1522,0.015566,5
+D_range,+ auxiliary range term (arc_huber),ce_all,10,0.150062,0.013244,5
+D_range,+ auxiliary range term (arc_huber),ce_all,11,0.147688,0.01241,5
+D_range,+ auxiliary range term (arc_huber),ce_all,12,0.146848,0.011956,5
+D_range,+ auxiliary range term (arc_huber),ce_all,13,0.144468,0.011555,5
+D_range,+ auxiliary range term (arc_huber),ce_all,14,0.143072,0.010682,5
+D_range,+ auxiliary range term (arc_huber),ce_all,15,0.141212,0.0096,5
+D_range,+ auxiliary range term (arc_huber),ce_all,16,0.138746,0.009693,5
+D_range,+ auxiliary range term (arc_huber),ce_all,17,0.139483,0.010193,5
+D_range,+ auxiliary range term (arc_huber),ce_all,18,0.137075,0.007396,5
+D_range,+ auxiliary range term (arc_huber),ce_all,19,0.137201,0.010003,5
+D_range,+ auxiliary range term (arc_huber),ce_all,20,0.135079,0.007845,5
+D_range,+ auxiliary range term (arc_huber),ce_all,21,0.134935,0.007606,5
+D_range,+ auxiliary range term (arc_huber),ce_all,22,0.134198,0.007737,5
+D_range,+ auxiliary range term (arc_huber),ce_all,23,0.133575,0.007642,5
+D_range,+ auxiliary range term (arc_huber),ce_all,24,0.133036,0.006807,5
+D_range,+ auxiliary range term (arc_huber),ce_all,25,0.132485,0.007274,5
+D_range,+ auxiliary range term (arc_huber),ce_all,26,0.132883,0.006697,5
+D_range,+ auxiliary range term (arc_huber),ce_all,27,0.131794,0.006234,5
+D_range,+ auxiliary range term (arc_huber),ce_all,28,0.131854,0.006113,5
+D_range,+ auxiliary range term (arc_huber),ce_all,29,0.131394,0.005992,5
+D_range,+ auxiliary range term (arc_huber),ce_all,30,0.130818,0.005831,5
+D_range,+ auxiliary range term (arc_huber),ce_all,31,0.130798,0.005624,5
+D_range,+ auxiliary range term (arc_huber),ce_all,32,0.130583,0.005818,5
+D_range,+ auxiliary range term (arc_huber),ce_all,33,0.130241,0.005789,5
+D_range,+ auxiliary range term (arc_huber),ce_all,34,0.129979,0.005361,5
+D_range,+ auxiliary range term (arc_huber),ce_all,35,0.130232,0.005442,5
+D_range,+ auxiliary range term (arc_huber),ce_all,36,0.129747,0.005733,5
+D_range,+ auxiliary range term (arc_huber),ce_all,37,0.12971,0.005454,5
+D_range,+ auxiliary range term (arc_huber),ce_all,38,0.129635,0.005457,5
+D_range,+ auxiliary range term (arc_huber),ce_all,39,0.129548,0.00549,5
+D_range,+ auxiliary range term (arc_huber),ce_all,40,0.129479,0.00528,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,1,0.6693,0.02464,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,2,0.618072,0.01266,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,3,0.628432,0.013699,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,4,0.604573,0.009859,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,5,0.616064,0.016972,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,6,0.609564,0.009614,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,7,0.620313,0.017103,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,8,0.627499,0.010488,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,9,0.617852,0.009421,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,10,0.621933,0.011215,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,11,0.624759,0.014855,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,12,0.630297,0.005555,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,13,0.630604,0.009355,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,14,0.633927,0.006006,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,15,0.629792,0.014349,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,16,0.630782,0.004694,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,17,0.638119,0.012398,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,18,0.634117,0.014013,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,19,0.635375,0.004302,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,20,0.634185,0.009625,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,21,0.633803,0.009409,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,22,0.635177,0.008247,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,23,0.635115,0.007232,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,24,0.635646,0.007892,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,25,0.63522,0.004919,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,26,0.640704,0.006004,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,27,0.637885,0.007111,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,28,0.638906,0.005699,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,29,0.63884,0.009794,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,30,0.638269,0.007327,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,31,0.639968,0.008533,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,32,0.639439,0.007019,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,33,0.638856,0.007767,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,34,0.638939,0.009759,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,35,0.640839,0.007966,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,36,0.639837,0.006499,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,37,0.640666,0.007018,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,38,0.640588,0.00697,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,39,0.639975,0.007014,5
+D_range,+ auxiliary range term (arc_huber),ce_boundary,40,0.640177,0.007254,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,1,0.258841,0.053318,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,2,0.166996,0.034273,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,3,0.137856,0.028758,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,4,0.118132,0.024563,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,5,0.106561,0.024259,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,6,0.09783,0.022455,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,7,0.091,0.020113,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,8,0.087012,0.018985,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,9,0.081941,0.018628,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,10,0.07887,0.016004,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,11,0.075766,0.01558,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,12,0.073875,0.01439,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,13,0.071149,0.014018,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,14,0.069018,0.012705,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,15,0.067459,0.012477,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,16,0.06454,0.011661,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,17,0.06415,0.012141,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,18,0.062044,0.010472,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,19,0.061968,0.011067,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,20,0.05975,0.009936,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,21,0.059588,0.009654,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,22,0.058529,0.009343,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,23,0.057818,0.009273,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,24,0.057121,0.008874,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,25,0.056574,0.008752,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,26,0.056205,0.008517,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,27,0.055361,0.008,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,28,0.055277,0.007764,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,29,0.054728,0.008082,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,30,0.054174,0.007635,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,31,0.053908,0.007592,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,32,0.053731,0.007649,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,33,0.053415,0.007538,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,34,0.053103,0.007333,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,35,0.053098,0.007345,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,36,0.0527,0.007201,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,37,0.05253,0.007134,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,38,0.05246,0.007093,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,39,0.052448,0.007149,5
+D_range,+ auxiliary range term (arc_huber),ce_confident,40,0.052337,0.006985,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,1,0.31466,0.049887,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,2,0.229526,0.033927,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,3,0.201876,0.026118,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,4,0.178781,0.022101,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,5,0.171924,0.021315,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,6,0.162591,0.016199,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,7,0.157294,0.01669,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,8,0.152771,0.015155,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,9,0.150747,0.015135,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,10,0.146915,0.012454,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,11,0.143926,0.012225,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,12,0.142744,0.011956,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,13,0.139266,0.01051,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,14,0.137905,0.010342,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,15,0.13763,0.00839,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,16,0.135895,0.009057,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,17,0.135494,0.008163,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,18,0.133973,0.007667,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,19,0.132878,0.008316,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,20,0.132991,0.007588,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,21,0.13162,0.006965,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,22,0.130583,0.006144,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,23,0.130754,0.006206,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,24,0.129671,0.006124,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,25,0.129419,0.006191,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,26,0.128871,0.005916,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,27,0.128752,0.005258,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,28,0.128551,0.005159,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,29,0.127704,0.005318,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,30,0.127633,0.004981,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,31,0.127746,0.004624,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,32,0.127709,0.00534,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,33,0.127086,0.004643,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,34,0.127232,0.004548,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,35,0.127101,0.004725,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,36,0.126665,0.004779,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,37,0.126567,0.00473,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,38,0.126319,0.004629,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,39,0.126368,0.004757,5
+E_cumulative,+ auxiliary range term (cumulative),ce_all,40,0.12629,0.00461,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,1,0.673128,0.033766,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,2,0.618761,0.018251,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,3,0.622626,0.014796,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,4,0.598236,0.012625,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,5,0.613158,0.014552,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,6,0.606953,0.015636,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,7,0.613613,0.00772,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,8,0.616603,0.006644,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,9,0.614958,0.009134,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,10,0.618276,0.01107,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,11,0.617637,0.011526,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,12,0.623355,0.009172,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,13,0.620149,0.007902,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,14,0.620992,0.005545,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,15,0.625897,0.012031,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,16,0.626352,0.00518,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,17,0.628332,0.00797,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,18,0.629363,0.007428,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,19,0.626665,0.008007,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,20,0.63358,0.00747,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,21,0.631163,0.005937,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,22,0.628415,0.00618,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,23,0.631382,0.008197,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,24,0.629996,0.003716,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,25,0.631074,0.003576,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,26,0.631032,0.003686,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,27,0.634064,0.006961,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,28,0.634721,0.00468,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,29,0.632697,0.004229,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,30,0.633626,0.003939,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,31,0.635757,0.006617,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,32,0.636403,0.00366,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,33,0.634473,0.005571,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,34,0.636472,0.004938,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,35,0.635237,0.004316,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,36,0.634784,0.003047,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,37,0.635253,0.002754,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,38,0.633891,0.003363,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,39,0.634031,0.003502,5
+E_cumulative,+ auxiliary range term (cumulative),ce_boundary,40,0.634316,0.003086,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,1,0.259797,0.053218,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,2,0.170496,0.036623,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,3,0.138207,0.02872,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,4,0.115376,0.023599,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,5,0.105183,0.025459,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,6,0.095557,0.019908,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,7,0.08835,0.019893,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,8,0.082649,0.017552,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,9,0.080607,0.0179,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,10,0.075771,0.01492,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,11,0.072404,0.014397,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,12,0.070152,0.013508,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,13,0.0667,0.012697,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,14,0.065008,0.012112,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,15,0.063864,0.010843,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,16,0.061891,0.01046,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,17,0.061078,0.010168,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,18,0.059191,0.00985,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,19,0.058334,0.010071,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,20,0.05747,0.009195,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,21,0.056198,0.008475,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,22,0.055394,0.00797,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,23,0.055138,0.00808,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,24,0.054137,0.007505,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,25,0.053682,0.007376,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,26,0.053065,0.007138,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,27,0.052401,0.006841,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,28,0.052103,0.006493,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,29,0.051431,0.006577,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,30,0.051217,0.006229,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,31,0.051037,0.006174,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,32,0.050854,0.006325,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,33,0.050445,0.005872,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,34,0.050302,0.005889,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,35,0.050343,0.006014,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,36,0.049909,0.005872,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,37,0.04973,0.005749,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,38,0.049651,0.005709,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,39,0.049686,0.005879,5
+E_cumulative,+ auxiliary range term (cumulative),ce_confident,40,0.049556,0.005671,5

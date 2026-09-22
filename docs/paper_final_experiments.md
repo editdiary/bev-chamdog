@@ -19,7 +19,9 @@
 
 ---
 
-> ## ⚠ [2026-09-21] 미결 — 캠페인의 loss 설정이 loss 절의 권고와 어긋난다
+> ## ⚠ 캠페인의 loss 설정 — **[2026-09-22] 재학습으로 해소하기로 했다**
+>
+> **[2026-09-21] 무엇이 어긋났나.**
 >
 > 같은 날 `runs/loss_effect`에 `E_cumulative`(`RANGE_LOSS_MODE=cumulative_l1`, `λ_R=0.15`)를
 > 넣었고, **사용자 결정으로 논문의 loss ablation 표에서는 `D_range`(`arc_huber`, `λ_R=0.3`)를
@@ -28,6 +30,36 @@
 > **그런데 이 캠페인의 런은 전부 `arc_huber`, `λ_R=0.3`으로 학습돼 있다** — 완료된
 > `01_overall` 40런과 `02_projection_and_prior`가 모두 그렇다(각 런의 `config.json`에서 확인).
 > 지금 상태로 쓰면 **"방법 절은 `E`인데 주 결과표의 모델은 `D`"**가 된다.
+>
+> ### ⚠⚠ [2026-09-22 오후] 결정 — **캠페인을 다시 돌린다**
+>
+> 사용자가 **`arc_huber`를 논문에서 완전히 걷어내기로** 했다. 아래 "(a) 다시 돌리지
+> 않는다"는 **철회**이고, 기록으로만 남긴다.
+>
+> **연휴(2026-09-23~27) 동안 `cumulative_l1`(`λ_R=0.15`)로 65런을 다시 돌린다.**
+>
+> | 대상 | 런 수 | 스크립트 |
+> |---|---:|---|
+> | SynWoodScape 사전학습 | 5 | `configs/train_synwoodscape_binary_pretrain.sh` (**`--lambda_r=0.3`을 고쳐야 한다**) |
+> | `01_overall` 고정 split | 5 | |
+> | `01_overall` LOSO (7 fold × 5 시드) | 35 | |
+> | `02_projection_and_prior` (4팔 × 5 시드) | 20 | |
+>
+> **사전학습을 빠뜨리면 안 된다** — 그 스크립트도 `arc_huber`라서, 그대로 두면 실험 2의
+> 사전학습 팔이 `arc_huber`로 학습된 가중치를 물려받는다. **전부 아니면 전무다.**
+>
+> **`03`의 사다리 넷은 재학습 대상이 아니다.** `A_ce`~`C_soft`는 `λ_R = 0.0`이고 저장소가
+> 그때 보조항을 **계산조차 하지 않는다**(`tools/train_robot_bev.py:322`, "대조군 보호").
+> 로그에 `train/loss_range_epoch` 태그가 아예 없는 것이 그 증거다.
+>
+> **그때까지는 현재 숫자로 논문을 쓰고 자릿수만 갈아끼운다.** 실험 1의 헤드라인은 약
+> 1 σ_seed 움직이고(`D`→`E`의 `iou_free` 차이 +0.002 대 σ_seed 0.0018), 실험 2의 결론은
+> 팔 사이의 **짝지은 차이**라 공통 이동이 상쇄된다. **문장은 안 바뀌고 자릿수만 바뀐다.**
+> 패키지 CSV는 전부 생성 스크립트가 만드므로 재생성 후 diff하면 바뀐 칸만 뜬다.
+
+---
+
+> <details><summary>철회된 결정 (2026-09-22 오전) — 기록용</summary>
 >
 > **[2026-09-22 사용자 결정] (a)를 채택한다 — 캠페인을 다시 돌리지 않는다.**
 >
@@ -50,6 +82,8 @@
 >    답이 본문 안에서 끝난다.
 >
 > 반영 위치: `docs/paper_package/common/training_details.md` §9.2와 [`setup.md`](paper_package/common/setup.md) §4.
+>
+> </details>
 
 ---
 
@@ -80,7 +114,7 @@
 |---|---|---|---|
 | `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **완료: 40/40, 무결성 통과, bundle 생성** |
 | `02_projection_and_prior` | 카메라 모델(DS-native 대 undistort+pinhole)과 source prior(SynWoodScape) | 고정 split × 5 seeds (대조군은 `01`의 5런 재사용, 시드 1:1) | **완료: 20/20, 무결성 통과, 논문 패키지 생성.** front-only는 기각(§6.1) |
-| `03_boundary_uncertainty` | boundary-aware loss의 효과와 원인 | 고정 split, **6조건 × 5 seeds = 30런** (`runs/loss_effect`, 전부 존재) | **논문용 재정리 대기.** 사다리는 `A_ce→B_perset→C_hard→C_soft→E_cumulative`이고 `D_range`는 부록으로 내린다([`loss_effect_results.md`](loss_effect_results.md) §16.7). **시작 전 확인 필요 -- 사용자가 보조항 오류를 고치고 일부 재검증 중** |
+| [`03_boundary_uncertainty`](paper_package/03_boundary_uncertainty/) | boundary-aware loss의 효과와 원인 | 고정 split, **6조건 × 5 seeds = 30런** (`runs/loss_effect`) | **완료** (2026-09-22). 되올림 47.6 → 0.5 % · 증가분의 96.5 %가 경계에서 · 목적함수-품질 정렬 22.6 → 2.2 epoch · **정확도 불변, `f1@10cm` −0.012**. 본문 사다리는 `A_ce→B_perset→C_hard→C_soft` 넷이고 보조항 둘은 부록 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
 
 고정 split은 모든 통제 ablation의 공통 benchmark다. LOSO는 최종 모델 하나에 대해서만
@@ -547,30 +581,29 @@ GPU 0, 출력은 `runs/paper_final/02_projection_and_prior/training_queue.log`�
 
 ### 다음 작업
 
-`01_overall`과 `02_projection_and_prior`가 **둘 다 끝났다.** 결과·해석·논문 구성
-제안은 각각 `docs/paper_package/01_overall/REPORT.md`와
-`docs/paper_package/02_projection_and_prior/REPORT.md`에 있다.
+`01_overall`·`02_projection_and_prior`·`03_boundary_uncertainty`가 **셋 다 끝났다.**
+결과·해석·논문 구성 제안은 각각 `docs/paper_package/<실험>/REPORT.md`에 있다.
 
 **남은 것 둘.**
 
-1. **`03_boundary_uncertainty`** -- `runs/loss_effect`에 **6조건 × 5시드 = 30런**이 이미 있다
-   (`A_ce`, `B_perset`, `C_hard`, `C_soft`, `D_range`, `E_cumulative`).
+1. **연휴 재학습 65런** -- `cumulative_l1`(`λ_R=0.15`)로 실험 1·2와 SynWoodScape 사전학습을
+   다시 돌려 `arc_huber`를 논문에서 걷어낸다. 범위·근거·주의는 이 문서 **맨 위 결정 블록**에
+   있다. **사전학습 스크립트의 `--lambda_r=0.3`을 먼저 고쳐야 한다.**
 
-   **⚠ 시작 전에 사용자에게 두 가지를 확인한다.**
-   (a) **보조항 오류 수정 후 재검증이 끝났는지, 결과가 어디에 있는지.** 2026-09-22 시점에
-   사용자가 "보조 loss 항의 핵심 오류를 찾아 고치고 일부 테스트를 다시 하는 중"이라고 했다.
-   위 30런이 그 수정을 반영한 것인지 아닌지가 재정리의 출발점이다.
-   (b) **논문 표에 세울 조건 조합.** 현재 규칙은 사다리 `A_ce→B_perset→C_hard→C_soft→E_cumulative`,
-   주 비교쌍 `A_ce` 대 `E_cumulative`, `D_range`는 부록(§16.7).
+   끝나면 `01`·`02` 패키지를 **재생성하고 CSV를 diff**한다 -- 바뀐 칸만 뜬다.
+   **`03`은 재생성해도 사다리 넷이 안 바뀐다**(그 런들은 `λ_R=0.0`이라 보조항이 계산조차
+   되지 않는다). 바뀌는 것은 `03`의 부록 표뿐이다.
 
-   **⚠ 재정리할 때 철회를 유지한다.** 살아남은 주장은 **재현성 개선 하나**이고
-   **"안전 개선"은 동작점 이동으로 이미 철회됐다**(같은 `free_miss`에서 곡선이 겹친다).
-   되살리면 안 된다. 사용자가 이 절에서 강조하려는 것은 **soft target이 도움이 된다**이고,
-   그 귀속은 `C_hard` ↔ `C_soft` 쌍(대역 target만 다르다)이 담당한다.
-
-   **논문 Results 절 3의 제목(사용자 확정): "Effect of Boundary-Uncertainty-Aware Learning".**
 2. **`04_edge_deployment`** -- Orin 실측. **사용자 장비가 필요하다.** 기존 20.2 FPS는
    `Y=1` 값이므로 `Y=4` 재실측이 필수다. 미동결 항목은 §6.5에 있다.
+
+> **⚠ `03`을 다시 만질 때 철회를 유지한다.** **"안전 개선"은 동작점 이동으로 철회됐고**
+> (같은 `free_miss`에서 곡선이 겹친다), **"정확도 개선"도 마찬가지다**(§17.1 -- 동작점을
+> 맞추면 `iou_free` 차이가 사라지고 부호가 뒤집힌다). 되살리면 안 된다.
+>
+> 살아남은 주장은 **목적함수 수렴 · 경계 국소화 · 목적함수-품질 정렬 · 문턱 재현성** 넷이고,
+> 그 인과 귀속은 `C_hard` ↔ `C_soft` 쌍(대역 target만 다르다)이 담당한다.
+> **그리고 `f1@10cm` −0.012는 동작점을 맞춰도 남는 실재 비용이므로 반드시 함께 쓴다**(§17.2).
 
 재현 진입점:
 

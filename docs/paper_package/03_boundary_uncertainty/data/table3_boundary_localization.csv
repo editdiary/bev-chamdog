@@ -1,0 +1,7 @@
+cell,cell_label,boundary_target,boundary_cells_pct,boundary_ce_rise_pct_mean,boundary_ce_rise_pct_sd,confident_ce_rise_pct_mean,confident_ce_rise_pct_sd,contribution_boundary,contribution_confident,boundary_share_of_rise_pct
+A_ce,Weighted CE (baseline),hard (all cells),12.679,65.308,3.941,4.207,2.533,0.062351,0.002257,96.506
+B_perset,Per-set mean (no boundary term),none (band unsupervised),12.679,58.367,11.811,2.816,1.581,0.083102,0.002798,96.743
+C_hard,"+ boundary term, hard target",hard 0/1,12.679,90.124,6.938,7.257,5.116,0.074381,0.00399,94.909
+C_soft,+ soft boundary target (proposed),"soft (Gaussian, sigma=0.10 m)",12.679,6.891,1.71,0.092,0.089,0.005249,4.2e-05,99.206
+D_range,+ auxiliary range term (arc_huber),"soft (Gaussian, sigma=0.10 m)",12.679,6.522,1.957,0.109,0.156,0.004957,4.5e-05,99.097
+E_cumulative,+ auxiliary range term (cumulative),"soft (Gaussian, sigma=0.10 m)",12.679,6.947,1.668,0.161,0.177,0.00521,6.6e-05,98.749

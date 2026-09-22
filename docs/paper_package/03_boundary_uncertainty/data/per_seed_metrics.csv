@@ -1,0 +1,271 @@
+cell,cell_label,seed,run_name,epoch,metric,value
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,iou_free,0.80893
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,fatal_rate,0.127034
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,free_miss_rate,0.080068
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,occupied_f1_10cm,0.609208
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,occupied_f1_20cm,0.839225
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,occupied_f1_40cm,0.930038
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,range_mae,0.207995
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,range_bias,0.055995
+A_ce,Weighted CE (baseline),0,A_ce_s0,40,range_missed_obstacle_rate,0.038662
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,iou_free,0.812424
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,fatal_rate,0.128486
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,free_miss_rate,0.071331
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,occupied_f1_10cm,0.61259
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,occupied_f1_20cm,0.841971
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,occupied_f1_40cm,0.930723
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,range_mae,0.206716
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,range_bias,0.062204
+A_ce,Weighted CE (baseline),1,A_ce_s1,40,range_missed_obstacle_rate,0.041026
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,iou_free,0.812333
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,fatal_rate,0.12585
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,free_miss_rate,0.079207
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,occupied_f1_10cm,0.614422
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,occupied_f1_20cm,0.838061
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,occupied_f1_40cm,0.928993
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,range_mae,0.206682
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,range_bias,0.048639
+A_ce,Weighted CE (baseline),2,A_ce_s2,40,range_missed_obstacle_rate,0.037973
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,iou_free,0.809787
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,fatal_rate,0.125848
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,free_miss_rate,0.081004
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,occupied_f1_10cm,0.619005
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,occupied_f1_20cm,0.841792
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,occupied_f1_40cm,0.929585
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,range_mae,0.207243
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,range_bias,0.050494
+A_ce,Weighted CE (baseline),3,A_ce_s3,40,range_missed_obstacle_rate,0.038367
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,iou_free,0.810266
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,fatal_rate,0.125627
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,free_miss_rate,0.081064
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,occupied_f1_10cm,0.602968
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,occupied_f1_20cm,0.834359
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,occupied_f1_40cm,0.92516
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,range_mae,0.21137
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,range_bias,0.054477
+A_ce,Weighted CE (baseline),4,A_ce_s4,40,range_missed_obstacle_rate,0.040288
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,iou_free,0.689345
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,fatal_rate,0.258649
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,free_miss_rate,0.050617
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,occupied_f1_10cm,0.253341
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,occupied_f1_20cm,0.546261
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,occupied_f1_40cm,0.836775
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,range_mae,0.356393
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,range_bias,0.265407
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,40,range_missed_obstacle_rate,0.094809
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,iou_free,0.656
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,fatal_rate,0.302107
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,free_miss_rate,0.031513
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,occupied_f1_10cm,0.155642
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,occupied_f1_20cm,0.41166
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,occupied_f1_40cm,0.813128
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,range_mae,0.428413
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,range_bias,0.377322
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,40,range_missed_obstacle_rate,0.112983
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,iou_free,0.673333
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,fatal_rate,0.280414
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,free_miss_rate,0.039631
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,occupied_f1_10cm,0.204306
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,occupied_f1_20cm,0.475579
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,occupied_f1_40cm,0.827559
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,range_mae,0.393926
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,range_bias,0.324182
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,40,range_missed_obstacle_rate,0.108698
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,iou_free,0.673328
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,fatal_rate,0.277726
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,free_miss_rate,0.044519
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,occupied_f1_10cm,0.219067
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,occupied_f1_20cm,0.481337
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,occupied_f1_40cm,0.828294
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,range_mae,0.390361
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,range_bias,0.306531
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,40,range_missed_obstacle_rate,0.101901
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,iou_free,0.680038
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,fatal_rate,0.27139
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,free_miss_rate,0.044454
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,occupied_f1_10cm,0.227709
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,occupied_f1_20cm,0.503704
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,occupied_f1_40cm,0.832669
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,range_mae,0.377457
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,range_bias,0.299275
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,40,range_missed_obstacle_rate,0.102985
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,iou_free,0.809644
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,fatal_rate,0.122735
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,free_miss_rate,0.083215
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,occupied_f1_10cm,0.621963
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,occupied_f1_20cm,0.843982
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,occupied_f1_40cm,0.92892
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,range_mae,0.212271
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,range_bias,0.047329
+C_hard,"+ boundary term, hard target",0,C_hard_s0,40,range_missed_obstacle_rate,0.034476
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,iou_free,0.807591
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,fatal_rate,0.125006
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,free_miss_rate,0.083694
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,occupied_f1_10cm,0.610675
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,occupied_f1_20cm,0.835033
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,occupied_f1_40cm,0.921172
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,range_mae,0.206993
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,range_bias,0.039834
+C_hard,"+ boundary term, hard target",1,C_hard_s1,40,range_missed_obstacle_rate,0.036298
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,iou_free,0.810842
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,fatal_rate,0.122027
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,free_miss_rate,0.08402
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,occupied_f1_10cm,0.621039
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,occupied_f1_20cm,0.837427
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,occupied_f1_40cm,0.922118
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,range_mae,0.209409
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,range_bias,0.034658
+C_hard,"+ boundary term, hard target",2,C_hard_s2,40,range_missed_obstacle_rate,0.034722
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,iou_free,0.811406
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,fatal_rate,0.120692
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,free_miss_rate,0.08591
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,occupied_f1_10cm,0.620159
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,occupied_f1_20cm,0.836409
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,occupied_f1_40cm,0.927288
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,range_mae,0.207355
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,range_bias,0.045565
+C_hard,"+ boundary term, hard target",3,C_hard_s3,40,range_missed_obstacle_rate,0.035806
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,iou_free,0.809691
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,fatal_rate,0.124055
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,free_miss_rate,0.08253
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,occupied_f1_10cm,0.611864
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,occupied_f1_20cm,0.836889
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,occupied_f1_40cm,0.927402
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,range_mae,0.212108
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,range_bias,0.040507
+C_hard,"+ boundary term, hard target",4,C_hard_s4,40,range_missed_obstacle_rate,0.035313
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,iou_free,0.812407
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,fatal_rate,0.12331
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,free_miss_rate,0.079346
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,occupied_f1_10cm,0.597569
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,occupied_f1_20cm,0.83682
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,occupied_f1_40cm,0.929327
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,range_mae,0.211628
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,range_bias,0.058095
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,40,range_missed_obstacle_rate,0.041568
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,iou_free,0.812392
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,fatal_rate,0.12087
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,free_miss_rate,0.080259
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,occupied_f1_10cm,0.600585
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,occupied_f1_20cm,0.833893
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,occupied_f1_40cm,0.927247
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,range_mae,0.212045
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,range_bias,0.052317
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,40,range_missed_obstacle_rate,0.040583
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,iou_free,0.813124
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,fatal_rate,0.121153
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,free_miss_rate,0.082298
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,occupied_f1_10cm,0.607796
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,occupied_f1_20cm,0.836933
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,occupied_f1_40cm,0.927244
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,range_mae,0.209204
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,range_bias,0.049796
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,40,range_missed_obstacle_rate,0.037037
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,iou_free,0.813429
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,fatal_rate,0.121358
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,free_miss_rate,0.082074
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,occupied_f1_10cm,0.596665
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,occupied_f1_20cm,0.829537
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,occupied_f1_40cm,0.927045
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,range_mae,0.214768
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,range_bias,0.05576
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,40,range_missed_obstacle_rate,0.039894
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,iou_free,0.811284
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,fatal_rate,0.123314
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,free_miss_rate,0.083424
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,occupied_f1_10cm,0.595179
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,occupied_f1_20cm,0.82548
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,occupied_f1_40cm,0.927509
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,range_mae,0.220018
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,range_bias,0.055723
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,40,range_missed_obstacle_rate,0.040928
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,iou_free,0.811399
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,fatal_rate,0.121525
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,free_miss_rate,0.083745
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,occupied_f1_10cm,0.590684
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,occupied_f1_20cm,0.834434
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,occupied_f1_40cm,0.932602
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,range_mae,0.215971
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,range_bias,0.05014
+D_range,+ auxiliary range term (arc_huber),0,D_range_s0,40,range_missed_obstacle_rate,0.039401
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,iou_free,0.812318
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,fatal_rate,0.121444
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,free_miss_rate,0.080999
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,occupied_f1_10cm,0.601948
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,occupied_f1_20cm,0.83174
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,occupied_f1_40cm,0.927759
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,range_mae,0.209544
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,range_bias,0.054899
+D_range,+ auxiliary range term (arc_huber),1,D_range_s1,40,range_missed_obstacle_rate,0.037579
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,iou_free,0.812691
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,fatal_rate,0.119749
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,free_miss_rate,0.085281
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,occupied_f1_10cm,0.604802
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,occupied_f1_20cm,0.837865
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,occupied_f1_40cm,0.929426
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,range_mae,0.207764
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,range_bias,0.048509
+D_range,+ auxiliary range term (arc_huber),2,D_range_s2,40,range_missed_obstacle_rate,0.037431
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,iou_free,0.811798
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,fatal_rate,0.119563
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,free_miss_rate,0.085859
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,occupied_f1_10cm,0.600783
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,occupied_f1_20cm,0.831309
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,occupied_f1_40cm,0.92914
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,range_mae,0.212748
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,range_bias,0.048171
+D_range,+ auxiliary range term (arc_huber),3,D_range_s3,40,range_missed_obstacle_rate,0.037136
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,iou_free,0.811838
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,fatal_rate,0.120302
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,free_miss_rate,0.084746
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,occupied_f1_10cm,0.60332
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,occupied_f1_20cm,0.829747
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,occupied_f1_40cm,0.928614
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,range_mae,0.211666
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,range_bias,0.0533
+D_range,+ auxiliary range term (arc_huber),4,D_range_s4,40,range_missed_obstacle_rate,0.03748
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,iou_free,0.813267
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,fatal_rate,0.120477
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,free_miss_rate,0.082456
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,occupied_f1_10cm,0.606167
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,occupied_f1_20cm,0.838522
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,occupied_f1_40cm,0.928112
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,range_mae,0.209082
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,range_bias,0.052641
+E_cumulative,+ auxiliary range term (cumulative),0,E_cumulative_s0,40,range_missed_obstacle_rate,0.039746
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,iou_free,0.81346
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,fatal_rate,0.116257
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,free_miss_rate,0.085309
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,occupied_f1_10cm,0.601292
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,occupied_f1_20cm,0.828762
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,occupied_f1_40cm,0.926257
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,range_mae,0.207881
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,range_bias,0.042066
+E_cumulative,+ auxiliary range term (cumulative),1,E_cumulative_s1,40,range_missed_obstacle_rate,0.038613
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,iou_free,0.812095
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,fatal_rate,0.121451
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,free_miss_rate,0.085402
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,occupied_f1_10cm,0.605759
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,occupied_f1_20cm,0.83458
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,occupied_f1_40cm,0.926713
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,range_mae,0.207337
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,range_bias,0.047254
+E_cumulative,+ auxiliary range term (cumulative),2,E_cumulative_s2,40,range_missed_obstacle_rate,0.03748
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,iou_free,0.816538
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,fatal_rate,0.115769
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,free_miss_rate,0.083615
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,occupied_f1_10cm,0.614094
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,occupied_f1_20cm,0.836626
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,occupied_f1_40cm,0.927899
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,range_mae,0.208333
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,range_bias,0.051289
+E_cumulative,+ auxiliary range term (cumulative),3,E_cumulative_s3,40,range_missed_obstacle_rate,0.037874
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,iou_free,0.81443
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,fatal_rate,0.119482
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,free_miss_rate,0.081241
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,occupied_f1_10cm,0.601664
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,occupied_f1_20cm,0.831163
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,occupied_f1_40cm,0.92774
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,range_mae,0.208776
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,range_bias,0.052642
+E_cumulative,+ auxiliary range term (cumulative),4,E_cumulative_s4,40,range_missed_obstacle_rate,0.040091

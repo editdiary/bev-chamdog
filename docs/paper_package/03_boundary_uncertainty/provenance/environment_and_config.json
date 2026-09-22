@@ -1,0 +1,127 @@
+{
+  "experiment": "03_boundary_uncertainty",
+  "git_commit": "e388c5e996c2aa4e6475c32a4d0ab09368b0ef79",
+  "runtime_of_analysis": {
+    "python": "3.11.15",
+    "conda_env": "bev-chamdog"
+  },
+  "runtime_of_training": {
+    "python": "3.11.15",
+    "conda_env": "bev-chamdog",
+    "torch": "2.7.0+cu128",
+    "cuda": "12.8",
+    "numpy": "1.26.4",
+    "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+    "numpy_elision_broken": false
+  },
+  "protocol": {
+    "split": "fixed (train raws2,raws3,rawos1,rawos2,rawos4 = 192 frames; val raws1,rawos3 = 75 frames)",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "epoch": 40,
+    "epoch_note": "pre-declared fixed epoch, not the argmax checkpoint -- the argmax is itself a random variable and inflates the seed spread",
+    "checkpoint_selection_rule_for_reference": "val/iou_free 최고점 (select_checkpoint_score)"
+  },
+  "cells": {
+    "A_ce": {
+      "label": "Weighted CE (baseline)",
+      "aggregation": "inverse-frequency class weights",
+      "boundary_target": "hard (all cells)",
+      "aux_range_term": "none",
+      "lambda_b": 0.0,
+      "sigma_m": 0.1,
+      "lambda_r": 0.0,
+      "step_from": "",
+      "knob_changed": ""
+    },
+    "B_perset": {
+      "label": "Per-set mean (no boundary term)",
+      "aggregation": "per-set mean",
+      "boundary_target": "none (band unsupervised)",
+      "aux_range_term": "none",
+      "lambda_b": 0.0,
+      "sigma_m": 0.1,
+      "lambda_r": 0.0,
+      "step_from": "A_ce",
+      "knob_changed": "aggregation + band supervision removed"
+    },
+    "C_hard": {
+      "label": "+ boundary term, hard target",
+      "aggregation": "per-set mean",
+      "boundary_target": "hard 0/1",
+      "aux_range_term": "none",
+      "lambda_b": 0.5,
+      "sigma_m": 0.001,
+      "lambda_r": 0.0,
+      "step_from": "B_perset",
+      "knob_changed": "band supervision on (hard)"
+    },
+    "C_soft": {
+      "label": "+ soft boundary target (proposed)",
+      "aggregation": "per-set mean",
+      "boundary_target": "soft (Gaussian, sigma=0.10 m)",
+      "aux_range_term": "none",
+      "lambda_b": 0.5,
+      "sigma_m": 0.1,
+      "lambda_r": 0.0,
+      "step_from": "C_hard",
+      "knob_changed": "band target hard -> soft"
+    },
+    "D_range": {
+      "label": "+ auxiliary range term (arc_huber)",
+      "aggregation": "per-set mean",
+      "boundary_target": "soft (Gaussian, sigma=0.10 m)",
+      "aux_range_term": "arc_huber, lambda_R=0.3",
+      "lambda_b": 0.5,
+      "sigma_m": 0.1,
+      "lambda_r": 0.3,
+      "step_from": "C_soft",
+      "knob_changed": "auxiliary ray term (endpoint arc)"
+    },
+    "E_cumulative": {
+      "label": "+ auxiliary range term (cumulative)",
+      "aggregation": "per-set mean",
+      "boundary_target": "soft (Gaussian, sigma=0.10 m)",
+      "aux_range_term": "cumulative_l1, lambda_R=0.15",
+      "lambda_b": 0.5,
+      "sigma_m": 0.1,
+      "lambda_r": 0.15,
+      "step_from": "C_soft",
+      "knob_changed": "auxiliary ray term (cumulative profile)"
+    }
+  },
+  "ladder_note": "D_range and E_cumulative are ALTERNATIVE arms branching from C_soft, not further rungs. The main ladder is A_ce -> B_perset -> C_hard -> C_soft.",
+  "training_dates": {
+    "A_ce..D_range": "2026-09-02",
+    "E_cumulative": "2026-09-21"
+  },
+  "code_state_note": "no git SHA is recorded per run. That the 2026-09-02 runs already carried the 2026-09-02 15:35 code is inferred from two independent fingerprints: they log val/ce_boundary_epoch (added in 7bb7aa3) and their config.json records delta_r_m = beta = 0.15 (set in 4424657).",
+  "statistics": {
+    "practical_floor": "|paired mean diff| > sigma_seed of the control at fixed epoch",
+    "statistical_floor": "|paired mean diff| >= 2 * SE, SE = sd(diffs)/sqrt(5)",
+    "note": "no p-values at n=5; both floors must be cleared to claim a winner",
+    "sigma_run": "0.0009 iou_free -- rerun noise floor from 18 matched pairs (runs/archive/loss_effect_v1); cuDNN nondeterminism"
+  },
+  "claims": {
+    "supported": [
+      "objective convergence (rebound removed)",
+      "rebound is localized to the boundary band",
+      "objective realigns with quality (usable for checkpoint selection)",
+      "operating-point threshold reproducibility"
+    ],
+    "not_supported": [
+      "accuracy improvement",
+      "safety improvement (operating-point shift, retracted)",
+      "retraining reproducibility of final metrics",
+      "prediction geometry / cell-decision stability"
+    ],
+    "unanswerable_here": [
+      "sequence-level generalization (val has 2 sequences; LOSO in 01_overall is the canonical answer)"
+    ]
+  }
+}

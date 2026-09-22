@@ -1,0 +1,31 @@
+cell,cell_label,seed,target_free_miss,tau_star
+A_ce,Weighted CE (baseline),0,0.077096,0.607372
+A_ce,Weighted CE (baseline),1,0.077096,0.634706
+A_ce,Weighted CE (baseline),2,0.077096,0.453819
+A_ce,Weighted CE (baseline),3,0.077096,0.512701
+A_ce,Weighted CE (baseline),4,0.077096,0.407509
+B_perset,Per-set mean (no boundary term),0,0.077096,0.640728
+B_perset,Per-set mean (no boundary term),1,0.077096,0.820945
+B_perset,Per-set mean (no boundary term),2,0.077096,0.6611
+B_perset,Per-set mean (no boundary term),3,0.077096,0.682661
+B_perset,Per-set mean (no boundary term),4,0.077096,0.749316
+C_hard,"+ boundary term, hard target",0,0.077096,0.45354
+C_hard,"+ boundary term, hard target",1,0.077096,0.351412
+C_hard,"+ boundary term, hard target",2,0.077096,0.359476
+C_hard,"+ boundary term, hard target",3,0.077096,0.385237
+C_hard,"+ boundary term, hard target",4,0.077096,0.377946
+C_soft,+ soft boundary target (proposed),0,0.077096,0.476657
+C_soft,+ soft boundary target (proposed),1,0.077096,0.478589
+C_soft,+ soft boundary target (proposed),2,0.077096,0.472497
+C_soft,+ soft boundary target (proposed),3,0.077096,0.467611
+C_soft,+ soft boundary target (proposed),4,0.077096,0.459985
+D_range,+ auxiliary range term (arc_huber),0,0.077096,0.453642
+D_range,+ auxiliary range term (arc_huber),1,0.077096,0.460946
+D_range,+ auxiliary range term (arc_huber),2,0.077096,0.444461
+D_range,+ auxiliary range term (arc_huber),3,0.077096,0.437508
+D_range,+ auxiliary range term (arc_huber),4,0.077096,0.440062
+E_cumulative,+ auxiliary range term (cumulative),0,0.077096,0.457124
+E_cumulative,+ auxiliary range term (cumulative),1,0.077096,0.454462
+E_cumulative,+ auxiliary range term (cumulative),2,0.077096,0.444534
+E_cumulative,+ auxiliary range term (cumulative),3,0.077096,0.459145
+E_cumulative,+ auxiliary range term (cumulative),4,0.077096,0.468565

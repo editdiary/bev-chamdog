@@ -1,0 +1,7 @@
+cell,cell_label,target_free_miss,tau_star_mean,tau_star_sd,fatal_at_matched_free_miss_mean,fatal_at_matched_free_miss_sd,fatal_at_tau_0.5_mean,fatal_at_tau_0.5_sd
+A_ce,Weighted CE (baseline),0.077096,0.523221,0.097246,0.126472,0.004005,0.126569,0.001206
+B_perset,Per-set mean (no boundary term),0.077096,0.71095,0.073802,0.207019,0.007579,0.278057,0.015852
+C_hard,"+ boundary term, hard target",0.077096,0.385522,0.040391,0.130212,0.002129,0.122903,0.00169
+C_soft,+ soft boundary target (proposed),0.077096,0.471068,0.007494,0.127162,0.002212,0.122001,0.001209
+D_range,+ auxiliary range term (arc_huber),0.077096,0.447324,0.009782,0.128619,0.001712,0.120517,0.000925
+E_cumulative,+ auxiliary range term (cumulative),0.077096,0.456766,0.008659,0.126527,0.002957,0.118687,0.002545
