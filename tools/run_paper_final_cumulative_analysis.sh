@@ -59,6 +59,13 @@ ROOT="${ROOT}/02b_native_source_prior" CONTROL="${CONTROL}" \
     bash configs/paper_final_native_prior_analysis.sh
 echo "PHASE2_DONE 02b_native_source_prior"
 
+# **옛 결과 트리가 섞이지 않았는지 확인한다.** 분석·패키지 도구의 기본값은 전부 옛 루트를
+# 가리키므로, 덮어쓰기를 하나라도 빠뜨리면 옛 런과 새 런이 섞인 표가 나온다.
+echo ""
+echo "############ 결과 트리 순수성 ############"
+python tools/check_results_tree_purity.py --targets="${ROOT}" \
+    --expect="runs/$(basename "${ROOT}")"
+
 echo ""
 echo "=== 재학습 캠페인 분석 종료 $(date '+%F %T') ==="
 echo "CAMPAIGN_ANALYSIS_DONE sigma_seed=${SIGMA_SEED}"

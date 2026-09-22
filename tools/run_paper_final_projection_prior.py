@@ -187,6 +187,15 @@ def _write_status(output_root: Path, status: dict) -> None:
     path.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
 
 
+def _control_arm_for(output_root) -> str:
+    """대조군 경로. `<루트>/02_...`의 형제인 `<루트>/01_overall/fixed_split`이다."""
+    path = Path(output_root).resolve().parent / "01_overall" / "fixed_split"
+    try:
+        return str(path.relative_to(_REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=None):
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -214,7 +223,9 @@ def run_queue(specs, output_root, num_epochs, plan_only=False, command_runner=No
         "output_root": str(output_root),
         "n_runs": len(ordered),
         "n_runs_this_invocation": len(specs),
-        "control_arm": "runs/paper_final/01_overall/fixed_split (재사용, 시드 1:1)",
+        # **출력 루트에서 유도한다.** 문자열로 박아 두면 캠페인을 다른 루트에 다시
+        # 돌렸을 때 manifest만 옛 트리를 가리켜 사람을 오도한다(실제로 그랬다).
+        "control_arm": f"{_control_arm_for(output_root)} (재사용, 시드 1:1)",
         "runtime": {"python": platform.python_version(), "executable": sys.executable,
                     "conda_env": Path(sys.prefix).name},
         "runs": ordered,

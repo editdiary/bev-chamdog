@@ -87,6 +87,14 @@ else
     echo "대조만 했다. 바뀐 칸을 확인한 뒤 APPLY=1로 다시 돌려라."
 fi
 
+# **패키지 산출물에도 옛 트리가 섞이지 않았는지 확인한다.**
+# `03`은 일부러 `runs/loss_effect`를 가리키므로 무시 목록에 넣는다.
+echo ""
+echo "############ 결과 트리 순수성 ############"
+python tools/check_results_tree_purity.py \
+    --targets="${STAGE}/01_overall,${STAGE}/02_projection_and_prior,${PKG}/02b_native_source_prior" \
+    --expect="runs/$(basename "${ROOT}")" --ignore="runs/loss_effect"
+
 echo ""
 echo "=== Phase 3 종료 $(date '+%F %T') ==="
 echo "CAMPAIGN_PACKAGES_DONE apply=${APPLY}"
