@@ -102,9 +102,21 @@
 >
 > ## ▶▶▶ 논문 최종 실험 캠페인 -- **실험 1·2·3 완료. 남은 것은 연휴 재학습 70런과 04 Orin 측정**
 >
-> **연휴 실행 계획은 원장 §8이다**(2026-09-23~27, 70런, 약 8시간). **Phase 0을 건너뛰면 안 된다** --
-> `train_synwoodscape.py`가 `range_loss_mode`를 노출하지 않아서 그대로 돌리면 **사전학습 둘이
-> `arc_huber`에 남는다.**
+> **연휴 재학습이 [2026-09-22 17:18] 돌고 있다**(원장 §8). 70런을 **`cumulative_l1`**로
+> 새 루트 `runs/paper_final_cumulative/`에 쓴다 -- **기존 `runs/paper_final/`은 건드리지
+> 않는다.** Phase 0(보조항 노출)은 **끝났다**: `tools/paper_final_aux_loss.py`가 세 러너의
+> 공통 정본이고, 사전학습 셸 둘도 `RANGE_LOSS_MODE`를 받는다.
+>
+> | Phase | 명령 | 상태 |
+> |---|---|---|
+> | 0 보조항 노출 | -- | ✅ 완료 (커밋 `03ee463`) |
+> | 1 학습 70런 | `bash tools/run_paper_final_cumulative_campaign.sh` | ▶ 진행 중 (약 8시간) |
+> | 2 무결성·분석 | `bash tools/run_paper_final_cumulative_analysis.sh` | 대기 |
+> | 3 패키지 | `bash tools/run_paper_final_cumulative_packages.sh` (`APPLY=1`이어야 덮어쓴다) | 대기 |
+> | 4 기록 | 원장 §4·§6·§6b, 이 블록, 메모리 | 대기 |
+>
+> **멈춤 방지**가 `tools/paper_final_run_command.py`에 있다(침묵 20분 / 총 2시간, 프로세스
+> 그룹째 종료). 큐가 중간에 죽어도 **같은 명령을 다시 실행하면 이어진다.**
 >
 > **논문 표에 쓸 결과는 `runs/paper_final/`에서 다시 관리한다.** 과거 실험은 lifting
 > 높이·loss·range 설정이 확정되기 전후가 섞여 있기 때문이다. 캠페인의 **단일 진행 원장은
