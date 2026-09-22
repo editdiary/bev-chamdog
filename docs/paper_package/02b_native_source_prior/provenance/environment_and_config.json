@@ -1,0 +1,66 @@
+{
+  "experiment": "02b_native_source_prior",
+  "git_commit": "8e9474c4ffc71e0365519efbf8fc2f7d9ecf8a12",
+  "runtime": {
+    "python": "3.11.15",
+    "torch": "2.7.0+cu128",
+    "numpy": "1.26.4",
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q",
+    "conda_env": "bev-chamdog"
+  },
+  "protocol": {
+    "split": "fixed (train raws2,raws3,rawos1,rawos2,rawos4 = 192 frames; val raws1,rawos3 = 75 frames)",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "epoch": 40,
+    "control": "reused from runs/paper_final_cumulative/01_overall/fixed_split/logs (paired by seed)",
+    "secondary_comparison": "runs/paper_final_cumulative/02_projection_and_prior/source_prior/logs",
+    "constant_map_baseline_iou_free": 0.5180230692525705
+  },
+  "source_geometry": {
+    "source_prior": {
+      "label": "SynWoodScape pretrain (adapted)",
+      "grid": "240x240",
+      "cell_m": 0.05,
+      "front_m": 8.0,
+      "rear_m": 4.0,
+      "half_width_m": 6.0,
+      "manual_refinement": true,
+      "note": "cropped and resampled to the target task's cell size"
+    },
+    "source_prior_native": {
+      "label": "SynWoodScape pretrain (native)",
+      "grid": "200x200",
+      "cell_m": 0.15,
+      "front_m": 15.0,
+      "rear_m": 15.0,
+      "half_width_m": 15.0,
+      "manual_refinement": false,
+      "note": "the source's own 30 m coverage at a driving-standard cell size"
+    },
+    "control": {
+      "label": "Target only (scratch)",
+      "grid": "",
+      "cell_m": null,
+      "front_m": null,
+      "rear_m": null,
+      "half_width_m": null,
+      "manual_refinement": null,
+      "note": "no pretraining"
+    }
+  },
+  "statistics": {
+    "practical_floor": "|paired mean diff| > sigma_seed (0.001800, sd of the control's five seeds)",
+    "statistical_floor": "|paired mean diff| >= 2 * SE, SE = sd(diffs)/sqrt(5)",
+    "note": "no p-values at n=5; both floors must be cleared to claim a winner"
+  },
+  "caveats": [
+    "the native-geometry labels have no manual refinement -- the refined labels exist only at ROI 8/4/+-6, so the gap against the adapted arm mixes geometry with label quality",
+    "the SynWoodScape BEV is a pinhole view from 15 m, not an orthographic projection; a surface at height h is magnified by 15/(15-h)"
+  ]
+}

@@ -1,0 +1,10 @@
+metric,better_direction,target_only_mean,native_pretrained_mean,paired_diff_mean,paired_diff_se,abs_mean_over_se,sign_agreement,verdict
+iou_free,higher,0.814649,0.807307,-0.007342,0.000885,8.297,5/5,control better
+fatal_rate,lower,0.117887,0.119097,0.00121,0.001825,0.663,3/5,no difference (|d| < sigma_seed 0.0018)
+free_miss_rate,lower,0.083298,0.088928,0.00563,0.001465,3.844,5/5,control better
+occupied_f1_10cm,higher,0.606888,0.589006,-0.017882,0.002814,6.354,5/5,control better
+occupied_f1_20cm,higher,0.835517,0.820452,-0.015065,0.004375,3.443,5/5,control better
+occupied_f1_40cm,higher,0.927344,0.922699,-0.004644,0.003029,1.533,3/5,inconclusive (|d|/SE 1.5 < 2)
+range_mae,lower,0.206978,0.217585,0.010606,0.000921,11.512,5/5,control better
+range_bias,,0.046264,0.038855,-0.007409,0.003432,2.159,5/5,-
+range_missed_obstacle_rate,lower,0.038475,0.040583,0.002108,0.001405,1.5,4/5,inconclusive (|d|/SE 1.5 < 2)

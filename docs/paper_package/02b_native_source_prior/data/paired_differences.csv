@@ -1,0 +1,19 @@
+arm,arm_label,metric,better_direction,control_mean,control_sd,arm_mean,arm_sd,paired_diff_mean,paired_diff_sd,paired_diff_se,abs_mean_over_se,sign_agreement,diff_seed0,diff_seed1,diff_seed2,diff_seed3,diff_seed4
+source_prior,SynWoodScape pretrain (adapted),iou_free,higher,0.814649,0.000674,0.811902,0.002253,-0.002747,0.002049,0.000916,2.998,5/5,-0.001998,-0.006206,-0.002502,-0.002277,-0.000752
+source_prior,SynWoodScape pretrain (adapted),fatal_rate,lower,0.117887,0.001026,0.118076,0.00148,0.000189,0.001243,0.000556,0.339,3/5,0.000221,0.001518,-0.001463,-0.000572,0.001239
+source_prior,SynWoodScape pretrain (adapted),free_miss_rate,lower,0.083298,0.001241,0.085785,0.003535,0.002487,0.002477,0.001108,2.244,4/5,0.001825,0.006265,0.003072,0.001783,-0.000512
+source_prior,SynWoodScape pretrain (adapted),occupied_f1_10cm,higher,0.606888,0.00511,0.5849,0.006722,-0.021988,0.007061,0.003158,6.963,5/5,-0.022023,-0.014608,-0.025636,-0.031736,-0.015936
+source_prior,SynWoodScape pretrain (adapted),occupied_f1_20cm,higher,0.835517,0.004149,0.821825,0.0055,-0.013691,0.00681,0.003046,4.496,5/5,-0.018233,-0.012553,-0.014435,-0.020405,-0.002831
+source_prior,SynWoodScape pretrain (adapted),occupied_f1_40cm,higher,0.927344,0.002166,0.930624,0.003514,0.003281,0.00265,0.001185,2.768,4/5,0.002322,0.005159,0.006278,-0.000548,0.003194
+source_prior,SynWoodScape pretrain (adapted),range_mae,lower,0.206978,0.004666,0.22086,0.002824,0.013881,0.004557,0.002038,6.811,5/5,0.014253,0.013878,0.019828,0.014441,0.007007
+source_prior,SynWoodScape pretrain (adapted),range_bias,,0.046264,0.00249,0.04471,0.004433,-0.001554,0.003562,0.001593,0.976,3/5,-0.003252,-0.004863,0.002152,-0.004246,0.002438
+source_prior,SynWoodScape pretrain (adapted),range_missed_obstacle_rate,lower,0.038475,0.001835,0.038495,0.001484,2e-05,0.002293,0.001025,0.019,3/5,-0.003349,0.003054,0.000296,0.000493,-0.000394
+source_prior_native,SynWoodScape pretrain (native),iou_free,higher,0.814649,0.000674,0.807307,0.00242,-0.007342,0.001979,0.000885,8.297,5/5,-0.009626,-0.00614,-0.004601,-0.007938,-0.008406
+source_prior_native,SynWoodScape pretrain (native),fatal_rate,lower,0.117887,0.001026,0.119097,0.00459,0.00121,0.004081,0.001825,0.663,3/5,0.004134,0.002966,-0.002026,-0.004175,0.00515
+source_prior_native,SynWoodScape pretrain (native),free_miss_rate,lower,0.083298,0.001241,0.088928,0.003857,0.00563,0.003275,0.001465,3.844,5/5,0.005921,0.003212,0.00411,0.011195,0.00371
+source_prior_native,SynWoodScape pretrain (native),occupied_f1_10cm,higher,0.606888,0.00511,0.589006,0.007684,-0.017882,0.006293,0.002814,6.354,5/5,-0.022007,-0.013753,-0.015471,-0.011485,-0.026692
+source_prior_native,SynWoodScape pretrain (native),occupied_f1_20cm,higher,0.835517,0.004149,0.820452,0.01147,-0.015065,0.009783,0.004375,3.443,5/5,-0.025233,-0.01603,-0.00687,-0.003421,-0.023772
+source_prior_native,SynWoodScape pretrain (native),occupied_f1_40cm,higher,0.927344,0.002166,0.922699,0.005741,-0.004644,0.006774,0.003029,1.533,3/5,-0.012675,-0.005179,0.000311,0.003782,-0.009461
+source_prior_native,SynWoodScape pretrain (native),range_mae,lower,0.206978,0.004666,0.217585,0.004837,0.010606,0.00206,0.000921,11.512,5/5,0.014138,0.010504,0.009609,0.008869,0.009912
+source_prior_native,SynWoodScape pretrain (native),range_bias,,0.046264,0.00249,0.038855,0.009098,-0.007409,0.007674,0.003432,2.159,5/5,-0.000396,-0.005024,-0.010028,-0.019483,-0.002114
+source_prior_native,SynWoodScape pretrain (native),range_missed_obstacle_rate,lower,0.038475,0.001835,0.040583,0.001822,0.002108,0.003141,0.001405,1.5,4/5,-0.002216,0.005959,0.004088,0.002019,0.00069

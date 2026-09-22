@@ -3,10 +3,10 @@
   "fixed_split": {
     "passed": true,
     "n_prediction_files": 10,
-    "max_abs_diff": 0.00034726170255350297,
+    "max_abs_diff": 0.00031812733957314876,
     "failures": [],
     "sources": [
-      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/fixed_split/analysis/verify_predictions.json"
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final_cumulative/01_overall/fixed_split/analysis/verify_predictions.json"
     ],
     "incomplete_runs": [],
     "structural_failures": []
@@ -14,16 +14,16 @@
   "loso": {
     "passed": true,
     "n_prediction_files": 70,
-    "max_abs_diff": 0.0005155069363579345,
+    "max_abs_diff": 0.0006917107719317528,
     "failures": [],
     "sources": [
-      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/loso/analysis/verify_predictions_raws1.json",
-      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/loso/analysis/verify_predictions_raws2.json",
-      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/loso/analysis/verify_predictions_raws3.json",
-      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/loso/analysis/verify_predictions_rawos1.json",
-      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/loso/analysis/verify_predictions_rawos2.json",
-      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/loso/analysis/verify_predictions_rawos3.json",
-      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall/loso/analysis/verify_predictions_rawos4.json"
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final_cumulative/01_overall/loso/analysis/verify_predictions_raws1.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final_cumulative/01_overall/loso/analysis/verify_predictions_raws2.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final_cumulative/01_overall/loso/analysis/verify_predictions_raws3.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final_cumulative/01_overall/loso/analysis/verify_predictions_rawos1.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final_cumulative/01_overall/loso/analysis/verify_predictions_rawos2.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final_cumulative/01_overall/loso/analysis/verify_predictions_rawos3.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final_cumulative/01_overall/loso/analysis/verify_predictions_rawos4.json"
     ],
     "incomplete_runs": [],
     "structural_failures": []
