@@ -31,11 +31,15 @@ SEEDS = (0, 1, 2, 3, 4)
 FIXED_EPOCH = 40
 
 # 사다리. **`D_range`와 `E_cumulative`는 이어지는 계단이 아니라 `C_soft`에서 갈라지는
-# 대체 팔이다**(`loss_effect_results.md` §16 머리말). 본문 사다리는 `MAIN_LADDER` 넷이고
-# 보조항 둘은 부록으로 뺀다.
-MAIN_LADDER = ("A_ce", "B_perset", "C_hard", "C_soft")
+# 대체 팔이다**(`loss_effect_results.md` §16 머리말).
+#
+# **[2026-09-22 사용자 계획] 논문 본문 사다리는 `A_ce -> B_perset -> C_hard -> C_soft ->
+# E_cumulative` 다섯이고 `D_range`(`arc_huber`)는 논문에서 뺀다.** 보조항을 아예 빼고 넷으로
+# 갈지는 지도교수 논의 후 정한다. **어느 쪽이든 이 스크립트는 여섯 칸을 다 낸다** -- 표를
+# 고르는 것은 논문 쪽 일이고, 데이터가 빠져 있으면 나중에 되돌릴 수 없다.
+PAPER_LADDER = ("A_ce", "B_perset", "C_hard", "C_soft", "E_cumulative")
 AUX_ARMS = ("D_range", "E_cumulative")
-CELLS = MAIN_LADDER + AUX_ARMS
+CELLS = ("A_ce", "B_perset", "C_hard", "C_soft", "D_range", "E_cumulative")
 
 CELL_DESIGN = {
     "A_ce": {
@@ -492,8 +496,13 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
                 "checkpoint_selection_rule"],
         },
         "cells": CELL_DESIGN,
+        "paper_ladder": list(PAPER_LADDER),
         "ladder_note": "D_range and E_cumulative are ALTERNATIVE arms branching from C_soft, "
-                       "not further rungs. The main ladder is A_ce -> B_perset -> C_hard -> C_soft.",
+                       "not further rungs -- they differ only in the formula of the auxiliary "
+                       "ray term. [2026-09-22] The paper ladder is A_ce -> B_perset -> C_hard "
+                       "-> C_soft -> E_cumulative; D_range (arc_huber) is dropped from the "
+                       "paper. Whether to drop the auxiliary term entirely (leaving four rungs) "
+                       "is still open. All six cells are emitted regardless.",
         "training_dates": {"A_ce..D_range": "2026-09-02", "E_cumulative": "2026-09-21"},
         "code_state_note": "no git SHA is recorded per run. That the 2026-09-02 runs already "
                            "carried the 2026-09-02 15:35 code is inferred from two independent "

@@ -114,7 +114,7 @@
 |---|---|---|---|
 | `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **완료: 40/40, 무결성 통과, bundle 생성** |
 | `02_projection_and_prior` | 카메라 모델(DS-native 대 undistort+pinhole)과 source prior(SynWoodScape) | 고정 split × 5 seeds (대조군은 `01`의 5런 재사용, 시드 1:1) | **완료: 20/20, 무결성 통과, 논문 패키지 생성.** front-only는 기각(§6.1) |
-| [`03_boundary_uncertainty`](paper_package/03_boundary_uncertainty/) | boundary-aware loss의 효과와 원인 | 고정 split, **6조건 × 5 seeds = 30런** (`runs/loss_effect`) | **완료** (2026-09-22). 되올림 47.6 → 0.5 % · 증가분의 96.5 %가 경계에서 · 목적함수-품질 정렬 22.6 → 2.2 epoch · **정확도 불변, `f1@10cm` −0.012**. 본문 사다리는 `A_ce→B_perset→C_hard→C_soft` 넷이고 보조항 둘은 부록 |
+| [`03_boundary_uncertainty`](paper_package/03_boundary_uncertainty/) | boundary-aware loss의 효과와 원인 | 고정 split, **6조건 × 5 seeds = 30런** (`runs/loss_effect`) | **완료** (2026-09-22). 되올림 47.6 → 0.5 % · 증가분의 96.5 %가 경계에서 · 목적함수-품질 정렬 22.6 → 2.2 epoch · **정확도 불변, `f1@10cm` −0.012**. 본문 사다리는 `A_ce→B_perset→C_hard→C_soft→E_cumulative` 다섯이고 `D_range`는 뺀다 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
 
 고정 split은 모든 통제 ablation의 공통 benchmark다. LOSO는 최종 모델 하나에 대해서만

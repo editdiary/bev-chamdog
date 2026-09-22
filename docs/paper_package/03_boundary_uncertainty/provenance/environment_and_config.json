@@ -1,6 +1,6 @@
 {
   "experiment": "03_boundary_uncertainty",
-  "git_commit": "e388c5e996c2aa4e6475c32a4d0ab09368b0ef79",
+  "git_commit": "e4c66fdb8e8862128674899828b72be7a838bafa",
   "runtime_of_analysis": {
     "python": "3.11.15",
     "conda_env": "bev-chamdog"
@@ -95,7 +95,14 @@
       "knob_changed": "auxiliary ray term (cumulative profile)"
     }
   },
-  "ladder_note": "D_range and E_cumulative are ALTERNATIVE arms branching from C_soft, not further rungs. The main ladder is A_ce -> B_perset -> C_hard -> C_soft.",
+  "paper_ladder": [
+    "A_ce",
+    "B_perset",
+    "C_hard",
+    "C_soft",
+    "E_cumulative"
+  ],
+  "ladder_note": "D_range and E_cumulative are ALTERNATIVE arms branching from C_soft, not further rungs -- they differ only in the formula of the auxiliary ray term. [2026-09-22] The paper ladder is A_ce -> B_perset -> C_hard -> C_soft -> E_cumulative; D_range (arc_huber) is dropped from the paper. Whether to drop the auxiliary term entirely (leaving four rungs) is still open. All six cells are emitted regardless.",
   "training_dates": {
     "A_ce..D_range": "2026-09-02",
     "E_cumulative": "2026-09-21"

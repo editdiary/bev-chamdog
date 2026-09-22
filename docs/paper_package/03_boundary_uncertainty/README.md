@@ -37,11 +37,13 @@
 | `B_perset` | Per-set mean, no boundary term | 대역 감독 없음 |
 | `C_hard` | Hard boundary target | λ_B=0.5, σ→0 |
 | `C_soft` | **Soft boundary target (proposed)** | λ_B=0.5, σ=0.10 m |
-| `D_range` | + auxiliary range term (`arc_huber`) | λ_R=0.3 — **부록** |
-| `E_cumulative` | + auxiliary range term (`cumulative_l1`) | λ_R=0.15 — **부록** |
+| `D_range` | + auxiliary range term (`arc_huber`) | λ_R=0.3 — **논문에서 뺀다** |
+| `E_cumulative` | + auxiliary range term (`cumulative_l1`) | λ_R=0.15 — **본문 마지막 칸** |
 
 > **⚠ `D`와 `E`는 사다리의 다음 계단이 아니다.** 둘 다 `C_soft`에서 갈라지는 **대체 팔**이고,
-> 다른 것은 보조항의 식뿐이다.
+> 다른 것은 보조항의 식뿐이다. 논문 본문은 `A_ce→B_perset→C_hard→C_soft→E_cumulative`
+> 다섯 칸이고 `D_range`는 뺀다([2026-09-22 사용자 계획]). **보조항을 아예 빼고 넷으로 갈지는
+> 검토 중이다** — 그래서 데이터는 여섯 칸을 다 담아 둔다.
 
 ## 재생성
 
@@ -63,7 +65,7 @@ cd figures && for f in make_*.py; do python "$f"; done
 `cumulative_l1`로 실험 1·2를 다시 돌린 뒤에는 **이 폴더를 다시 생성하고 CSV를 diff한다.**
 그러면 실제로 바뀐 칸만 뜨므로 논문에서 고칠 자리를 손으로 찾지 않아도 된다.
 
-**다만 사다리 넷(`A_ce`~`C_soft`)은 바뀌지 않는다** — 그 런들은 `λ_R = 0.0`이고 저장소가
+**다만 `A_ce`~`C_soft` 네 칸은 바뀌지 않는다** — 그 런들은 `λ_R = 0.0`이고 저장소가
 그때 보조항을 계산조차 하지 않는다(로그에 `loss_range` 태그가 없는 것이 증거다).
 바뀌는 것은 부록의 보조항 표와, 실험 1·2 패키지의 숫자다.
 

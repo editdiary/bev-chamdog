@@ -32,11 +32,15 @@ CE(45.0 %)와 같다. 대역 target만 soft로 바꾸면 **0.5 %**가 된다 —
 ## 1. 설계 — 한 계단에 손잡이 하나
 
 ```
-A_ce ──▶ B_perset ──▶ C_hard ──▶ C_soft        (본문 사다리)
+A_ce ──▶ B_perset ──▶ C_hard ──▶ C_soft
                                     │
-                                    ├──(+ arc_huber,     λ_R=0.3 )──▶ D_range        (부록)
-                                    └──(+ cumulative_l1, λ_R=0.15)──▶ E_cumulative   (부록)
+                                    ├──(+ arc_huber,     λ_R=0.3 )──▶ D_range        ✗ 논문에서 뺀다
+                                    └──(+ cumulative_l1, λ_R=0.15)──▶ E_cumulative   ← 본문 마지막 칸
 ```
+
+**[2026-09-22 사용자 계획] 논문 본문 사다리는 `A_ce → B_perset → C_hard → C_soft →
+E_cumulative` 다섯이고, `D_range`(`arc_huber`)는 논문에서 뺀다.** 보조항을 아예 빼고 넷으로
+갈지는 지도교수 논의 후 정한다 — **어느 쪽이든 이 폴더의 데이터는 여섯 칸을 다 담는다.**
 
 > **⚠ `D`와 `E`는 이어지는 계단이 아니라 `C_soft`에서 갈라지는 대체 팔이다.** 둘 다 `C_soft`에
 > 보조항을 하나 켠 것이고 다른 것은 **그 항의 식뿐**이다. 6칸 사다리로 읽으면 안 된다.
@@ -261,9 +265,10 @@ batch 8 · 40 epoch · augment on · train 192프레임 / val 75프레임, 시�
 
 ---
 
-## 6. 보조 ray 항 — 부록 (`data/appendix_aux_range_term.csv`)
+## 6. 보조 ray 항 — 본문은 `E`, `D`는 뺀다 (`data/appendix_aux_range_term.csv`)
 
-`C_soft` 대비 `D_range`(`arc_huber`)와 `E_cumulative`(`cumulative_l1`).
+`C_soft` 대비 `D_range`(`arc_huber`)와 `E_cumulative`(`cumulative_l1`). **본문 사다리의
+마지막 칸은 `E`이고 `D`는 논문에서 뺀다** — 이 표가 그 근거이므로 부록에 싣는다.
 
 | 지표 | `C_soft` | `D_range` (Δ) | `E_cumulative` (Δ) |
 |---|---:|---:|---:|
@@ -276,11 +281,15 @@ batch 8 · 40 epoch · augment on · train 192프레임 / val 75프레임, 시�
 **읽는 법 셋.**
 
 1. **보조항은 이 절의 어느 주장도 바꾸지 않는다.** 되올림·경계 국소화·동작점 재현성에서
-   세 팔이 구분되지 않는다(짝지은 차이가 전부 `|Δ|/SE < 1.9`).
+   세 팔이 구분되지 않는다(짝지은 차이가 전부 `|Δ|/SE < 1.9`). **즉 사다리의 마지막 칸은
+   결론을 더하지 않는다** — `C_soft`까지가 이 절의 이야기 전부다.
 2. **자기가 재는 값에서만 개선한다** — `MAE_r`이 `cumulative_l1`에서 −0.0053(5/5, 통과).
    순환에 가까우므로 단독 근거로 쓰지 않는다.
 3. **그래서 "보조항이 필요 없다"가 아니라 "이 절의 축과 직교하고 크기가 작다"로 쓴다.**
    전자는 *"그럼 왜 설계했나"*를 불러오고 후자는 측정과 정확히 일치한다.
+4. **`E`가 `D`보다 나은 것은 `MAE_r` 하나다**(−0.0033 m, 5/5). 그래도 `D`를 빼는 근거는
+   숫자가 아니라 **식이다** — `arc_huber`는 δ_R이 입사각에 따라 실효 폭이 달라지고 광선 안에서
+   오차가 상쇄된다(`loss_effect_results.md` §15.1). `E`는 `L_cell`과 같은 soft target을 쓴다.
 
 > **그리고 이것이 §3의 인과 귀속을 보강한다.** 되올림의 원인이 경계의 hard target이라면
 > **ray 항을 어떻게 바꾸든 되올림은 안 움직여야 하고, 실제로 안 움직였다.** 반대로
@@ -312,10 +321,10 @@ batch 8 · 40 epoch · augment on · train 192프레임 / val 75프레임, 시�
 
 | | 내용 | 출처 |
 |---|---|---|
-| **Table A (본문)** | 사다리 4칸 × (`IoU_free`, `FR`/`FMR`, `F1@10/20/40`, `MAE_r`, `MOR`) 평균±SD | `data/table1_ladder_accuracy.csv` |
+| **Table A (본문)** | 사다리 5칸(`D_range` 제외) × (`IoU_free`, `FR`/`FMR`, `F1@10/20/40`, `MAE_r`, `MOR`) 평균±SD | `data/table1_ladder_accuracy.csv` |
 | **Table B (본문)** | 되올림 % + val 최저 epoch + Δep + regret | `data/table2_objective_convergence.csv` |
 | **Table C (본문)** | 경계 대역 / 대역 밖 CE 상승과 대역의 몫 | `data/table3_boundary_localization.csv` |
-| **Table D (부록)** | 보조 ray 항 두 형태 | `data/appendix_aux_range_term.csv` |
+| **Table D (부록)** | 보조 ray 항 두 형태(`D` 대 `E`) — 본문에서 `D`를 뺀 근거 | `data/appendix_aux_range_term.csv` |
 | **Table E (부록)** | 앵커별 τ\* 산포와 같은 `FMR`에서의 `FR`·`F1@10cm` | `data/table5_threshold_dispersion.csv` |
 
 ### 그림
