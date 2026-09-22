@@ -34,6 +34,8 @@ from datetime import datetime
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 # `01_overall`의 고정 split과 **같아야 한다** -- 대조군을 재사용하므로 split이 다르면
 # paired difference가 성립하지 않는다.
@@ -58,9 +60,18 @@ def _source_checkpoint(output_root: Path, seed: int, num_epochs: int) -> Path:
             / f"swscape_binary_pretrain_s{seed}" / f"model-{num_epochs:09d}.pth")
 
 
-def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
+from tools.paper_final_aux_loss import (  # noqa: E402
+    DEFAULT_AUX_LOSS, add_aux_loss_argument, aux_loss_env,
+)
+
+
+def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
+                    range_loss_mode: str = DEFAULT_AUX_LOSS):
     """요청된 팔의 런 사양 전부. `source_pretrain`이 항상 앞에 온다 -- 뒤 팔이 그 산출물에 의존한다."""
     output_root = Path(output_root)
+    # **사전학습에도 같은 보조항을 건다.** 예전에는 사전학습 셸이 값을 하드코딩하고 있어
+    # 미세조정만 형태를 바꾸면 절반만 적용됐다(원장 §8 Phase 0).
+    aux_env = aux_loss_env(range_loss_mode)
     specs = []
     for arm in [a for a in ARMS if a in arms]:
         for seed in seeds:
@@ -75,6 +86,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
                         "RUN_NAME": f"swscape_binary_pretrain_s{seed}",
                         "NUM_EPOCHS": str(num_epochs),
                         "OUT_ROOT": str(root),
+                        **aux_env,
                     },
                 ))
                 continue
@@ -99,9 +111,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
                 "SOFT_TARGET": "gaussian",
                 "BAND_KAPPA": "1.0",
                 "LABEL_EPS": "0.0",
-                "LAMBDA_R": "0.3",
-                "DELTA_R_M": "0.15",
-                "HUBER_BETA_M": "0.15",
+                **aux_env,
                 "HEIGHT_BINS": "4",
                 "HEIGHT_MIN_M": "-0.25",
                 "HEIGHT_MAX_M": "1.75",
@@ -269,6 +279,7 @@ def main():
     parser.add_argument("--gpu", default=os.environ.get("CUDA_VISIBLE_DEVICES", "0"))
     parser.add_argument("--output_root", default="runs/paper_final/02_projection_and_prior")
     parser.add_argument("--plan_only", action="store_true")
+    add_aux_loss_argument(parser)
     args = parser.parse_args()
 
     arms = ARMS if args.arms == "all" else tuple(a.strip() for a in args.arms.split(","))
@@ -276,7 +287,8 @@ def main():
     if unknown:
         raise SystemExit(f"모르는 arm: {unknown}. 가능한 값: {list(ARMS)}")
     seeds = [int(s) for s in str(args.seeds).split(",")]
-    specs = build_run_specs(arms, seeds, args.output_root, args.num_epochs, args.gpu)
+    specs = build_run_specs(arms, seeds, args.output_root, args.num_epochs, args.gpu,
+                            args.range_loss_mode)
     print(f"arms={list(arms)} seeds={seeds} epochs={args.num_epochs} gpu={args.gpu}")
     print(f"런 {len(specs)}개\n")
     run_queue(specs, args.output_root, args.num_epochs, plan_only=args.plan_only)

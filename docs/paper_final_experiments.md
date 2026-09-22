@@ -1004,7 +1004,7 @@ python tools/run_paper_final_native_prior.py --gpu=0             # 전체 10런,
 **GPU 0만 쓴다.** GPU 1은 다른 사용자의 작업(75 GB)이 올라와 있다.
 디스크는 체크포인트 70 × 약 490 MB = **약 34 GB**가 필요하고 2.8 TB가 비어 있다.
 
-### ⚠ Phase 0 — 먼저 고쳐야 할 것 하나 (실행 전, 약 30분)
+### ✅ Phase 0 — 완료 (2026-09-22)
 
 **`tools/train_synwoodscape.py`가 `range_loss_mode`를 노출하지 않는다.** 지금 그대로 돌리면
 **미세조정만 `cumulative_l1`로 가고 사전학습 둘은 `arc_huber`에 남는다.** 그러면 "걷어낸다"가
@@ -1017,6 +1017,23 @@ python tools/run_paper_final_native_prior.py --gpu=0             # 전체 10런,
 4. **1 epoch 스모크로 실제로 그 항이 쓰였는지 확인**한다 -- `config.json`의
    `range_loss_mode`와 로그의 `loss_range`를 둘 다 본다
 5. 테스트 470개 통과 확인 후 커밋
+
+**결과.** `tools/paper_final_aux_loss.py`가 세 러너의 공통 정본이 됐고, 두 사전학습 셸이
+`RANGE_LOSS_MODE`/`LAMBDA_R`을 환경변수로 받는다. 기본값은 `arc_huber`/0.3이라 **러너를
+그냥 돌리면 기존 캠페인이 그대로 재현된다**(기존 manifest와 대조해 확인: 차이는 새로 기록된
+칸뿐이고 값은 같다).
+
+1-epoch 스모크 두 개로 플래그가 **실제 계산 경로를 바꾸는지** 확인했다:
+
+| | `arc_huber` | `cumulative_l1` |
+|---|---|---|
+| `config.json` `range_loss_mode` | `arc_huber` | `cumulative_l1` |
+| `range_cumulative_mae` 스칼라 | 없음 | **0.9101 (= `loss_range`와 일치)** |
+| train `loss_total` (1 epoch) | 1.2022 | 0.8101 |
+
+`range_cumulative_mae`는 누적 분기에서만 기록되는 태그다. 회귀 테스트 9개
+(`tests/tools/test_paper_final_aux_loss.py`)가 **사전학습 런을 포함해** 모든 런이 같은
+보조항을 받는지 고정한다. 테스트 479개 통과.
 
 ### Phase 1 — 학습 (약 8시간)
 

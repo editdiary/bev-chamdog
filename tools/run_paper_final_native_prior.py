@@ -19,9 +19,9 @@
 **대조군을 다시 돌리지 않는다.** `01_overall`의 고정 split 5런이 공통 대조군이다.
 `source_prior_native` 시드 s는 `source_pretrain_native` 시드 s에서 시작한다.
 
-**보조항은 `arc_huber`, `λ_R=0.3`이다.** 대조군·기존 팔이 그것으로 학습돼 있으므로 여기만
-`cumulative_l1`로 바꾸면 비교가 성립하지 않는다. 캠페인 전체를 `cumulative_l1`로 옮길 때
-이 팔도 같이 다시 돈다(원장 맨 위 결정 블록).
+**보조항은 `--range_loss_mode`로 정한다.** 기본값 `arc_huber`(λ_R=0.3)가 기존 런을 재현하고,
+`cumulative_l1`(λ_R=0.15)이 논문에 싣는 형태다. 값은 `tools/paper_final_aux_loss.py`가
+정본이며, **사전학습과 미세조정에 같은 값이 걸린다** -- 여기만 바꾸면 비교가 성립하지 않는다.
 
 큐 기계장치(manifest 병합·상태 판정·완료 런 건너뛰기)는
 `tools/run_paper_final_projection_prior.py`의 것을 **그대로 재사용한다** -- 같은 로직을 두 번
@@ -45,6 +45,9 @@ from tools.run_paper_final_projection_prior import (  # noqa: E402
     RunSpec,
     run_queue,
 )
+from tools.paper_final_aux_loss import (  # noqa: E402
+    DEFAULT_AUX_LOSS, add_aux_loss_argument, aux_loss_env,
+)
 
 ARMS = ("source_pretrain_native", "source_prior_native")
 DEFAULT_OUTPUT_ROOT = _REPO_ROOT / "runs/paper_final/02b_native_source_prior"
@@ -56,9 +59,12 @@ def _source_checkpoint(output_root: Path, seed: int, num_epochs: int) -> Path:
             / f"swscape_native_pretrain_s{seed}" / f"model-{num_epochs:09d}.pth")
 
 
-def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
+def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
+                    range_loss_mode: str = DEFAULT_AUX_LOSS):
     """요청된 팔의 런 사양 전부. 사전학습이 항상 앞에 온다 -- 뒤 팔이 그 산출물에 의존한다."""
     output_root = Path(output_root)
+    # 사전학습과 미세조정에 **같은** 보조항을 건다(원장 §8 Phase 0).
+    aux_env = aux_loss_env(range_loss_mode)
     specs = []
     for arm in [a for a in ARMS if a in arms]:
         for seed in seeds:
@@ -72,6 +78,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
                         "RUN_NAME": f"swscape_native_pretrain_s{seed}",
                         "NUM_EPOCHS": str(num_epochs),
                         "OUT_ROOT": str(output_root / "source_pretrain_native"),
+                        **aux_env,
                     },
                 ))
                 continue
@@ -98,9 +105,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
                     "SOFT_TARGET": "gaussian",
                     "BAND_KAPPA": "1.0",
                     "LABEL_EPS": "0.0",
-                    "LAMBDA_R": "0.3",
-                    "DELTA_R_M": "0.15",
-                    "HUBER_BETA_M": "0.15",
+                    **aux_env,
                     "HEIGHT_BINS": "4",
                     "HEIGHT_MIN_M": "-0.25",
                     "HEIGHT_MAX_M": "1.75",
@@ -127,6 +132,7 @@ def main():
     parser.add_argument("--num_epochs", type=int, default=40)
     parser.add_argument("--gpu", default="0")
     parser.add_argument("--plan_only", action="store_true")
+    add_aux_loss_argument(parser)
     args = parser.parse_args()
 
     if not NATIVE_LABEL_ROOT.exists():
@@ -140,7 +146,8 @@ def main():
         raise SystemExit(f"알 수 없는 arm {unknown}. 가능한 값: {list(ARMS)}")
     seeds = [int(s) for s in args.seeds.split(",") if s.strip()]
 
-    specs = build_run_specs(arms, seeds, args.output_root, args.num_epochs, args.gpu)
+    specs = build_run_specs(arms, seeds, args.output_root, args.num_epochs, args.gpu,
+                            args.range_loss_mode)
     print(f"큐 {len(specs)}런  (arms={arms}, seeds={seeds}, epochs={args.num_epochs})\n")
     run_queue(specs, args.output_root, args.num_epochs, plan_only=args.plan_only)
 
