@@ -114,7 +114,8 @@
 > | `01_overall` | **완료** (2026-09-18, 40런) |
 > | `02_projection_and_prior` | **완료** (2026-09-21, 20런). 원장 §6. **front-only는 기각**(§6.1, 기하로 이미 답이 나온다) |
 > | [`03_boundary_uncertainty`](docs/paper_package/03_boundary_uncertainty/) | **완료** (2026-09-22, 30런). 표 5·그림 3 |
-> | `04_edge_deployment` | Orin 측정 대기. **20.2 FPS는 `Y=1` 값이라 `Y=4` 재실측 필요** |
+> | `02b_native_source_prior` | **[2026-09-22 진행 중]** SynWoodScape를 **원본 기하**(30 m, 200×200, 0.15 m/cell)로 사전학습. 원장 §6b. 가공한 사전학습(02)과 달리 **내용 + 공간 스케일 불일치**를 함께 잰다 |
+| `04_edge_deployment` | Orin 측정 대기. **20.2 FPS는 `Y=1` 값이라 `Y=4` 재실측 필요** |
 >
 > **실험 1 결과.** 고정 split `iou_free` **0.8119 ± 0.0018**(constant-map 기준선 0.5180,
 > margin **+0.2938**). LOSO 7 fold × 5 seeds macro **0.8304**, margin **+0.2937**.
