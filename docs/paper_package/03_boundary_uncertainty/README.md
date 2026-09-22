@@ -71,8 +71,8 @@ cd figures && for f in make_*.py; do python "$f"; done
 
 ## 출처
 
-- 해석 정본: [`../../loss_effect_results.md`](../../loss_effect_results.md)
+- 해석 정본(**서버 전용** — 패키지 밖이다): `docs/loss_effect_results.md`
 - 지표 정의·집계·통계 규약: [`../common/evaluation_protocol.md`](../common/evaluation_protocol.md)
 - 학습 설정: [`../common/training_details.md`](../common/training_details.md)
-- 캠페인 원장: [`../../paper_final_experiments.md`](../../paper_final_experiments.md)
+- 캠페인 원장(**서버 전용**): `docs/paper_final_experiments.md`
 - 기계 판독 원본: 서버 `runs/loss_effect/analysis/RESULTS.json`

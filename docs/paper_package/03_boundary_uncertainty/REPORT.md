@@ -9,7 +9,7 @@
 | 학습일 | `A_ce`~`D_range` 2026-09-02 · `E_cumulative` 2026-09-21 (같은 트리·같은 스크립트) |
 | 보고 epoch | **고정 40** (사전 선언값. 선택 epoch은 argmax라 그 자체가 확률변수다) |
 | 무결성 | 확률맵 60개 재채점 **480건 전부 통과**, 최대 절대차 4.07e-4 (허용치 1e-3) |
-| 해석 정본 | [`docs/loss_effect_results.md`](../../loss_effect_results.md) |
+| 해석 정본 | `docs/loss_effect_results.md` (**서버 전용** — 이 폴더에 없다. 논문에 필요한 숫자는 전부 아래 표와 `data/`에 있다) |
 | 지표·통계 규약 | [`common/evaluation_protocol.md`](../common/evaluation_protocol.md) |
 
 ---

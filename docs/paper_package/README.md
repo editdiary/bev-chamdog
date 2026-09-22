@@ -73,5 +73,5 @@ NN_이름/
 
 ## 출처
 
-- 캠페인 원장(정본): [`../paper_final_experiments.md`](../paper_final_experiments.md)
+- 캠페인 원장(정본, **서버 전용**): `docs/paper_final_experiments.md`
 - 기계 판독 결과 원본: 서버 `runs/paper_final/*/analysis/RESULTS.json`
