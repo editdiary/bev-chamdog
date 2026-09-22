@@ -30,6 +30,10 @@ PKG="$PWD/docs/paper_package"
 CONTROL="${ROOT}/01_overall/fixed_split/logs"
 BASELINE="${ROOT}/01_overall/fixed_split/analysis/constant_map_baseline.json"
 REL_TOL="${REL_TOL:-0.02}"
+# 판정 눈금. **사전 등록값을 유지한다** -- 새 대조군에서 다시 재면 0.0007이 나오지만
+# 그건 5표본 sd의 흔들림이다(원장 §8). 넘기지 않으면 02b 생성기가 대조군에서 직접
+# 재 버리므로 여기서 명시한다.
+SIGMA_SEED="${SIGMA_SEED:-0.0018}"
 
 rm -rf "${STAGE}"
 mkdir -p "${STAGE}"
@@ -60,7 +64,7 @@ echo "############ 02b_native_source_prior (신규) ############"
     --root="${ROOT}/02b_native_source_prior" \
     --control="${CONTROL}" \
     --adapted="${ROOT}/02_projection_and_prior/source_prior/logs" \
-    --baseline_path="${BASELINE}" )
+    --baseline_path="${BASELINE}" --sigma_seed="${SIGMA_SEED}" )
 
 if [ "${APPLY}" = "1" ]; then
     echo ""
