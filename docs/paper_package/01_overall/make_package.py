@@ -35,13 +35,21 @@ CURVE_TAGS = {
 }
 
 
+def _shown(path: Path):
+    """패키지 밖(diff용 임시 폴더)에 쓸 때도 죽지 않게."""
+    try:
+        return path.relative_to(HERE)
+    except ValueError:
+        return path
+
+
 def _write_csv(path: Path, fieldnames, rows) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
-    print(f"  {path.relative_to(HERE)}  ({len(rows)} rows)")
+    print(f"  {_shown(path)}  ({len(rows)} rows)")
 
 
 def _folds(loso: dict) -> list:
@@ -230,11 +238,11 @@ def provenance(root: Path, fixed: dict, loso: dict, combined: dict,
     }
     (out / "environment_and_config.json").write_text(
         json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"  {(out / 'environment_and_config.json').relative_to(HERE)}")
+    print(f"  {_shown(out / 'environment_and_config.json')}")
 
     (out / "integrity.json").write_text(
         json.dumps(combined["integrity"], indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"  {(out / 'integrity.json').relative_to(HERE)}")
+    print(f"  {_shown(out / 'integrity.json')}")
 
     manifest = []
     for protocol, payload_ in (("fixed_split", fixed), ("loso", loso)):
@@ -249,8 +257,10 @@ def provenance(root: Path, fixed: dict, loso: dict, combined: dict,
                ["protocol", "run", "seed", "cell", "max_epoch", "n_scalar_tags"], manifest)
 
 
-def main(root: str = str(DEFAULT_ROOT), skip_curves: bool = False):
-    root = Path(root)
+def main(root: str = str(DEFAULT_ROOT), skip_curves: bool = False,
+         out_dir: str = str(HERE)):
+    """`out_dir`는 재학습본을 **덮어쓰기 전에 diff**하려고 열어 둔 구멍이다."""
+    root, out_dir = Path(root), Path(out_dir)
     fixed = json.loads((root / "fixed_split/analysis/RESULTS.json").read_text())
     loso = json.loads((root / "loso/analysis/RESULTS.json").read_text())
     combined = json.loads((root / "analysis/RESULTS.json").read_text())
@@ -260,13 +270,15 @@ def main(root: str = str(DEFAULT_ROOT), skip_curves: bool = False):
     if not combined["integrity"]["passed"]:
         raise SystemExit("무결성이 통과하지 않은 bundle이다. 패키지를 만들지 않는다.")
 
+    (out_dir / "data").mkdir(parents=True, exist_ok=True)
+    (out_dir / "provenance").mkdir(parents=True, exist_ok=True)
     print("data/")
-    fixed_tables(fixed, baseline_doc["constant_map_baseline_iou_free"], HERE / "data")
-    loso_tables(loso, HERE / "data")
+    fixed_tables(fixed, baseline_doc["constant_map_baseline_iou_free"], out_dir / "data")
+    loso_tables(loso, out_dir / "data")
     if not skip_curves:
-        val_curves(root, HERE / "data")
+        val_curves(root, out_dir / "data")
     print("provenance/")
-    provenance(root, fixed, loso, combined, baseline_doc, HERE / "provenance")
+    provenance(root, fixed, loso, combined, baseline_doc, out_dir / "provenance")
     print("\n완료.")
 
 
