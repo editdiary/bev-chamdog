@@ -22,7 +22,10 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
-from projects.bev_gt.grid import SYNWOODSCAPE_PRETRAIN_GRID_SPEC
+from projects.bev_gt.grid import (
+    SYNWOODSCAPE_NATIVE_GRID_SPEC,
+    SYNWOODSCAPE_PRETRAIN_GRID_SPEC,
+)
 from projects.common.free_space import decompose
 from projects.common.soft_boundary import signed_distance_field
 from projects.datasets.photometric import apply_photometric, sample_photometric_params
@@ -34,6 +37,39 @@ CAMERA_NAMES = ("FV", "MVL", "MVR", "RV")
 DEFAULT_DATASET_ROOT = Path("dataset/synwoodscape/SynWoodScape_V0.1.0")
 DEFAULT_OCCUPANCY_GT_ROOT = Path("dataset/synwoodscape_2head_roi_8_4_6_h08")
 GRID_SPEC = SYNWOODSCAPE_PRETRAIN_GRID_SPEC
+
+# 소스 프로파일 -- **격자와 라벨 루트는 한 쌍으로만 의미가 있다.** 라벨이 그 ROI로 잘려
+# 저장돼 있으므로 둘을 따로 고르게 두면 조용히 어긋난 학습이 돌아간다.
+#
+# `roi_8_4_6`  타깃 과제에 맞춰 좁게 자르고 **사람이 보정한** 라벨. 지금까지의 사전학습.
+# `native`     소스가 실제로 주는 **30 m 전체**를 자율주행 관행 해상도(0.15 m/cell)로.
+#              **수동 보정이 없다**(보정본은 8/4/±6에만 있다).
+#
+# 링 경계도 격자에 맞춰 같이 고른다 -- 8 m용 경계를 30 m 격자에 쓰면 바깥 대부분이 어느
+# 링에도 안 들어간다.
+NATIVE_OCCUPANCY_GT_ROOT = Path("dataset/synwoodscape_native_roi_15_15_15_h08")
+SOURCE_PROFILES = {
+    "roi_8_4_6": {
+        "grid_spec": SYNWOODSCAPE_PRETRAIN_GRID_SPEC,
+        "occupancy_gt_root": DEFAULT_OCCUPANCY_GT_ROOT,
+        "ring_edges_m": (0.0, 2.0, 4.0, 6.0, 8.0),
+        "manual_refinement": True,
+    },
+    "native": {
+        "grid_spec": SYNWOODSCAPE_NATIVE_GRID_SPEC,
+        "occupancy_gt_root": NATIVE_OCCUPANCY_GT_ROOT,
+        "ring_edges_m": (0.0, 3.75, 7.5, 11.25, 15.0),
+        "manual_refinement": False,
+    },
+}
+
+
+def resolve_source_profile(name: str) -> dict:
+    """프로파일 이름 -> `{grid_spec, occupancy_gt_root, ring_edges_m, manual_refinement}`."""
+    if name not in SOURCE_PROFILES:
+        raise ValueError(
+            f"알 수 없는 source_profile {name!r}. 가능한 값: {sorted(SOURCE_PROFILES)}")
+    return SOURCE_PROFILES[name]
 
 # 원본 종횡비(1280/966≈1.325)에 가까운 32의 배수 -- 왜곡을 최소화하면서 conv stride와도 맞는다.
 RESIZE_WIDTH, RESIZE_HEIGHT = 512, 384
@@ -48,6 +84,7 @@ class SynWoodScapeSimpleBEVDataset(Dataset):
         camera_names=CAMERA_NAMES,
         resize_wh=(RESIZE_WIDTH, RESIZE_HEIGHT),
         augment=False,
+        grid_spec=GRID_SPEC,
     ):
         self.sample_ids = list(sample_ids)
         self.dataset_root = Path(dataset_root)
@@ -55,6 +92,9 @@ class SynWoodScapeSimpleBEVDataset(Dataset):
         self.camera_names = tuple(camera_names)
         self.resize_wh = resize_wh
         self.augment = augment  # train split에서만 True -- val은 항상 원본이어야 비교가 된다
+        # 거리장을 미터로 만들려면 셀 크기가 필요하다. **라벨 루트와 짝이 맞아야 한다** --
+        # `SOURCE_PROFILES`가 그 짝을 들고 있으니 따로 넘기지 말고 거기서 꺼내 쓴다.
+        self.grid_spec = grid_spec
 
         cameras = {
             name: load_camera(self.dataset_root / "calibration_data" / f"{name}.json")
@@ -108,7 +148,7 @@ class SynWoodScapeSimpleBEVDataset(Dataset):
         # 로봇 쪽과 다른 점 하나: SynWoodScape에는 `permanent_blind`(리그 자체가 영구히
         # 가리는 영역)와 `valid=0`(수집 아티팩트)이 없으므로 `keep`이 전부 True다.
         distance = signed_distance_field(
-            decompose(occupancy, visible, valid)["free"], valid, GRID_SPEC.cell_m
+            decompose(occupancy, visible, valid)["free"], valid, self.grid_spec.cell_m
         )
 
         rgb_tensor = torch.from_numpy(rgb_camXs).float()

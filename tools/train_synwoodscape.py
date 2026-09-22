@@ -20,6 +20,7 @@ head까지 3-class이므로, fine-tuning이 `load_trunk_weights`로 받을 때 h
 실행 예:
     python tools/train_synwoodscape.py --exp_name=baseline --num_epochs=60 --batch_size=4
 """
+import json
 import sys
 import time
 import warnings
@@ -47,8 +48,10 @@ from projects.datasets.synwoodscape_simplebev import (  # noqa: E402
     CAMERA_NAMES,
     DEFAULT_DATASET_ROOT,
     DEFAULT_OCCUPANCY_GT_ROOT,
-    GRID_SPEC,
+    RESIZE_HEIGHT,
+    RESIZE_WIDTH,
     SynWoodScapeSimpleBEVDataset,
+    resolve_source_profile,
 )
 from projects.datasets.synwoodscape_split import discover_all_sample_ids, train_val_split  # noqa: E402
 from projects.geometry.fisheye import load_camera  # noqa: E402
@@ -85,7 +88,7 @@ from projects.common.free_space_metrics import iou_free  # noqa: E402
 # SynWoodScape pretrain 그리드는 전방 8 m / 후방 4 m / 좌우 ±6 m라 로봇 fine-tuning 그리드
 # (전방 4 m)보다 두 배 넓다. `DEFAULT_RING_EDGES_M`(0/1.5/3/4)를 그대로 쓰면 그리드 바깥쪽
 # 절반이 어느 링에도 들어가지 않는다. 그래서 이 스크립트는 자기 그리드에 맞는 경계를 쓴다.
-PRETRAIN_RING_EDGES_M = (0.0, 2.0, 4.0, 6.0, 8.0)
+PRETRAIN_RING_EDGES_M = (0.0, 2.0, 4.0, 6.0, 8.0)   # `roi_8_4_6` 프로파일의 값 (하위 호환)
 
 
 def load_label_triples(sample_ids, occupancy_gt_root: Path):
@@ -142,6 +145,9 @@ def main(
     num_workers=8,
     val_fraction=0.1,
     split_seed=0,
+    # 소스 격자와 라벨 루트를 한 쌍으로 고른다 (`SOURCE_PROFILES`). 기본값은 지금까지의
+    # 사전학습과 bit 동일한 경로다.
+    source_profile="roi_8_4_6",
     encoder_type="res101",
     use_fisheye=True,
     augment=False,
@@ -198,6 +204,16 @@ def main(
     torch.manual_seed(seed)
     np.random.seed(seed)
 
+    profile = resolve_source_profile(source_profile)
+    grid_spec = profile["grid_spec"]
+    gt_root = profile["occupancy_gt_root"]
+    ring_edges_m = profile["ring_edges_m"]
+    if not gt_root.exists():
+        raise SystemExit(
+            f"라벨 루트가 없다: {gt_root}\n"
+            f"  source_profile={source_profile!r}이면 먼저 라벨을 만들어야 한다.\n"
+            f"  native: python tools/build_synwoodscape_native_labels.py")
+
     all_ids = discover_all_sample_ids(DEFAULT_DATASET_ROOT)
     train_ids, val_ids = train_val_split(
         all_ids, DEFAULT_DATASET_ROOT, val_fraction=val_fraction, seed=split_seed
@@ -205,19 +221,19 @@ def main(
     if max_samples is not None:  # 빠른 smoke run 용 -- 실제 학습에는 쓰지 않는다
         train_ids, val_ids = train_ids[:max_samples], val_ids[: max(1, max_samples // 4)]
 
-    trivial_iou = compute_trivial_baseline_iou(val_ids, DEFAULT_OCCUPANCY_GT_ROOT)
+    trivial_iou = compute_trivial_baseline_iou(val_ids, gt_root)
     class_weights = formulation_spec["module"].class_weights_from_labels(
-        load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT),
+        load_label_triples(train_ids, gt_root),
         max_class_weight=max_class_weight,
     )
     train_free_masks = [
         decompose(*triple)["free"]
-        for triple in load_label_triples(train_ids, DEFAULT_OCCUPANCY_GT_ROOT)
+        for triple in load_label_triples(train_ids, gt_root)
     ]
     constant_map = constant_free_map(train_free_masks) if train_free_masks else None
     del train_free_masks  # 240x240 bool을 train split 전체만큼 들고 있을 이유가 없다
     constant_baseline = baseline_iou_free(
-        val_ids, DEFAULT_OCCUPANCY_GT_ROOT, constant_map, device
+        val_ids, gt_root, constant_map, device
     )
 
     _print_banner([
@@ -225,6 +241,8 @@ def main(
         f" exp_name={exp_name} | encoder={encoder_type} | fisheye={use_fisheye}",
         f" batch_size={batch_size} | lr={lr:.0e} | epochs={num_epochs} | seed={seed}",
         f" formulation={formulation} | loss={loss}",
+        f" source_profile={source_profile} | grid={grid_spec.n_rows}x{grid_spec.n_cols}"
+        f" @ {grid_spec.cell_m} m/cell | labels={gt_root.name}",
         f" train={len(train_ids)} | val={len(val_ids)}",
         f" class weights ({formulation_spec['weight_label']}) = {class_weights.tolist()}",
         f" photometric augment (train only) = {bool(augment)}",
@@ -232,8 +250,10 @@ def main(
         f" constant-map baseline iou_free = {constant_baseline:.3f}  <- compare against this",
     ])
 
-    train_ds = SynWoodScapeSimpleBEVDataset(train_ids, augment=augment)
-    val_ds = SynWoodScapeSimpleBEVDataset(val_ids)  # val은 항상 원본 -- 증강하면 비교가 흔들린다
+    train_ds = SynWoodScapeSimpleBEVDataset(
+        train_ids, occupancy_gt_root=gt_root, grid_spec=grid_spec, augment=augment)
+    val_ds = SynWoodScapeSimpleBEVDataset(
+        val_ids, occupancy_gt_root=gt_root, grid_spec=grid_spec)  # val은 항상 원본 -- 증강하면 비교가 흔들린다
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True
     )
@@ -241,15 +261,15 @@ def main(
 
     # 채택 기본값(`simplebev_vox.DEFAULT_HEIGHT_*`)을 따른다. pretrain은 §4에서 해롭다고
     # 판정돼 확정 경로가 아니지만, 돌아가는 상태는 유지한다.
-    Z, Y, X = vox_dims(GRID_SPEC)
+    Z, Y, X = vox_dims(grid_spec)
     if use_fisheye:
         cameras = [
             load_camera(DEFAULT_DATASET_ROOT / "calibration_data" / f"{name}.json")
             for name in CAMERA_NAMES
         ]
-        vox_util = build_fisheye_vox_util(GRID_SPEC, cameras, device=device)
+        vox_util = build_fisheye_vox_util(grid_spec, cameras, device=device)
     else:
-        vox_util = build_vox_util(GRID_SPEC, device=device)
+        vox_util = build_vox_util(grid_spec, device=device)
 
     # rand_flip=False로 고정한다: Simple-BEV의 forward/backward(Z축) flip 증강은 대칭 grid를
     # 전제하는데 SynWoodScape pretrain grid는 전후 비대칭이라 물리적으로 성립하지 않는다.
@@ -267,15 +287,15 @@ def main(
         pct_start=0.05, cycle_momentum=False, anneal_strategy="linear",
     )
     class_weights = class_weights.to(device)
-    rays = (build_ray_index(GRID_SPEC) if n_theta is None
-            else build_ray_index(GRID_SPEC, n_theta=n_theta))
-    ring_masks = build_ring_masks(GRID_SPEC, edges_m=PRETRAIN_RING_EDGES_M)
+    rays = (build_ray_index(grid_spec) if n_theta is None
+            else build_ray_index(grid_spec, n_theta=n_theta))
+    ring_masks = build_ring_masks(grid_spec, edges_m=ring_edges_m)
     # step 구성은 `tools/train_robot_bev.py`와 **같은 모양으로 유지한다** -- 두 스크립트가
     # 다른 경로로 같은 loss를 계산하기 시작하면 사전학습과 fine-tuning이 조용히 갈린다.
     if loss == "soft_boundary":
         # SynWoodScape에는 리그 고정 가림(`permanent_blind`)이 없으므로 0 마스크를 넘긴다.
-        blind_mask = torch.zeros(1, 1, GRID_SPEC.n_rows, GRID_SPEC.n_cols)
-        gather = (RayGather(rays, (GRID_SPEC.n_rows, GRID_SPEC.n_cols), device)
+        blind_mask = torch.zeros(1, 1, grid_spec.n_rows, grid_spec.n_cols)
+        gather = (RayGather(rays, (grid_spec.n_rows, grid_spec.n_cols), device)
                   if float(lambda_r) > 0.0 else None)
 
         def step(batch):
@@ -306,6 +326,39 @@ def main(
     log_path = Path(log_dir) / run_name
     writer = SummaryWriter(str(log_path))
     ckpt_path = Path(ckpt_dir) / run_name
+
+    # **이 런이 무엇이었는지 폴더만 보고 알 수 있어야 한다.** 예전에는 이 스크립트가
+    # config를 아무것도 남기지 않아서, 사전학습 팔이 둘 이상이 되는 순간 구분이 불가능했다
+    # (fine-tuning 쪽 `train_robot_bev.py`는 처음부터 남기고 있었다).
+    log_path.mkdir(parents=True, exist_ok=True)
+    (log_path / "config.json").write_text(json.dumps({
+        "run_name": run_name, "exp_name": exp_name, "seed": seed,
+        "source_profile": source_profile,
+        "grid": {"front_m": grid_spec.front_m, "rear_m": grid_spec.rear_m,
+                 "half_width_m": grid_spec.half_width_m, "cell_m": grid_spec.cell_m,
+                 "shape": [grid_spec.n_rows, grid_spec.n_cols]},
+        "occupancy_gt_root": str(gt_root),
+        "manual_refinement": profile["manual_refinement"],
+        "ring_edges_m": list(ring_edges_m),
+        "formulation": formulation, "loss": loss,
+        "delta_m": delta_m, "sigma_m": sigma_m, "lambda_b": lambda_b,
+        "lambda_r": lambda_r,
+        # 이 스크립트는 `range_loss_mode` 플래그를 노출하지 않는다 -- 보조항은 항상
+        # 저장소 기본형(`arc_huber`)이다. 값을 비워 두면 나중에 "몰라서 안 적었나"와
+        # 구분되지 않으므로 사실을 적는다.
+        "range_loss_mode": "arc_huber",
+        "range_loss_mode_note": "not exposed by this trainer; repo default",
+        "delta_r_m": delta_r_m, "huber_beta_m": huber_beta_m,
+        "soft_target": soft_target, "band_kappa": band_kappa, "label_eps": label_eps,
+        "encoder_type": encoder_type, "use_fisheye": use_fisheye, "augment": augment,
+        "num_epochs": num_epochs, "batch_size": batch_size, "lr": lr,
+        "weight_decay": weight_decay, "max_class_weight": max_class_weight,
+        "height_bins": Y, "height_min_m": DEFAULT_HEIGHT_MIN_M,
+        "height_max_m": DEFAULT_HEIGHT_MAX_M,
+        "camera_names": list(CAMERA_NAMES), "resize_wh": [RESIZE_WIDTH, RESIZE_HEIGHT],
+        "n_train": len(train_ids), "n_val": len(val_ids), "split_seed": split_seed,
+        "val_fraction": val_fraction,
+    }, indent=2, ensure_ascii=False) + "\n")
 
     # 이번 실행에 실제로 쓰인 train/val sample id를 파일로 남긴다 -- split은 폴더 구조가
     # 아니라 코드(synwoodscape_split.py)로 계산되므로, 이 파일이 없으면 어떤 이미지가
@@ -352,7 +405,7 @@ def main(
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
                 val = evaluate_split(step, val_loader, device, rays, ring_masks,
-                                     cell_m=GRID_SPEC.cell_m,
+                                     cell_m=grid_spec.cell_m,
                                      range_edges_m=PRETRAIN_RING_EDGES_M)
                 write_epoch_scalars(writer, "val", val, epoch)
 

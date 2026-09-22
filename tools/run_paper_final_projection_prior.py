@@ -129,7 +129,10 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str):
 def run_state(spec: RunSpec, num_epochs: int) -> str:
     """`_run_state`(`run_paper_final_overall.py`)와 같은 판정이다."""
     env = spec.environment
-    if spec.arm == "source_pretrain":
+    # 사전학습 셸은 `OUT_ROOT` 하나만 받고 그 아래 `logs/`·`ckpt/`를 스스로 만든다.
+    # 팔 **이름**으로 구분하면 새 사전학습 팔을 추가할 때마다 여기를 고쳐야 하므로
+    # 어떤 변수를 받았는지로 구분한다(`02b_native_source_prior`가 이 경로를 함께 쓴다).
+    if "OUT_ROOT" in env and "LOG_DIR" not in env:
         root = Path(env["OUT_ROOT"])
         log_dir, ckpt_dir = root / "logs" / spec.run_name, root / "ckpt" / spec.run_name
     else:
@@ -143,10 +146,15 @@ def run_state(spec: RunSpec, num_epochs: int) -> str:
 
 
 def _blockers(spec: RunSpec) -> list:
-    """실행 전에 반드시 존재해야 하는 입력. 없으면 이 런을 건드리지 않는다."""
-    if spec.arm != "source_prior":
+    """실행 전에 반드시 존재해야 하는 입력. 없으면 이 런을 건드리지 않는다.
+
+    팔 이름이 아니라 **`INIT_CHECKPOINT`가 실제 경로를 가리키는지**로 판단한다 -- 사전학습에서
+    시작하는 팔이 늘어나도 여기를 고치지 않는다.
+    """
+    init = spec.environment.get("INIT_CHECKPOINT", "none")
+    if str(init).strip().lower() in ("", "none", "no"):
         return []
-    checkpoint = Path(spec.environment["INIT_CHECKPOINT"])
+    checkpoint = Path(init)
     return [] if checkpoint.exists() else [f"source 체크포인트가 없다: {checkpoint}"]
 
 

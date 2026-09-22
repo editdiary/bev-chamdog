@@ -49,6 +49,28 @@ SYNWOODSCAPE_PRETRAIN_GRID_SPEC = OccupancyGridSpec(
     front_m=8.0, rear_m=4.0, half_width_m=6.0, cell_m=0.05
 )
 
+# SynWoodScape **원본 기하** 그리드. 전방15m/후방15m/좌우±15m(=30m×30m, 200×200, 0.15 m/cell).
+#
+# 왜 이것이 "원본"인가: SynWoodScape의 `_BEV.png`는 ego 위 z=15 m에 pitch=−90으로 달린
+# FOV 90° 핀홀이 찍은 1024×1024 이미지이고, 지면에서 **정확히 30.0 m × 30.0 m**를 덮는다
+# (`bev_crop.py`의 스케일 유도와 LiDAR 교차검증 참고). 즉 이 스펙은 **소스가 실제로 주는
+# 범위를 그대로** 쓰는 것이고, `SYNWOODSCAPE_PRETRAIN_GRID_SPEC`은 그것을 타깃 과제에 맞춰
+# 좁게 자른 것이다.
+#
+# 셀 0.15 m는 자율주행 BEV의 관행(Simple-BEV nuScenes 기본이 200×200)에 맞춘 값이고,
+# 타깃(0.05 m)보다 **3배 거칠다** -- 이 실험이 재려는 축이 바로 그 스케일 불일치다.
+#
+# ⚠ **200이어야 한다. 100×100(0.30 m/cell)은 동작하지 않는다.** BEV decoder가 /8로 줄였다가
+# skip으로 복원하므로 격자가 8로 나눠떨어져야 한다(100 → 26 대 25 불일치로 forward 실패).
+# 200/8 = 25, 120/8 = 15는 통과한다.
+#
+# 라벨은 `tools/build_synwoodscape_native_labels.py`가 만들고
+# `dataset/synwoodscape_native_roi_15_15_15_h08/`에 저장한다. **수동 보정본이 아니라
+# 시맨틱 라벨의 자동 크롭**이다 -- 보정본은 ROI 8/4/±6에만 존재한다.
+SYNWOODSCAPE_NATIVE_GRID_SPEC = OccupancyGridSpec(
+    front_m=15.0, rear_m=15.0, half_width_m=15.0, cell_m=0.15
+)
+
 
 def remap_semantic_to_occupancy(semantic_labels: np.ndarray, drivable_class_ids=DRIVABLE_CLASS_IDS) -> np.ndarray:
     """Map semantic class ids to binary occupancy (1=drivable, 0=non-drivable)."""
