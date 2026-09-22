@@ -32,9 +32,9 @@ $$
 확정 계수: $\lambda_B = 0.5$. **기본 `arc_huber`의 확정값은 $\lambda_R = 0.3$**이다.
 2026-09-21에 `cumulative_l1`을 $\lambda_R = 0.15$로 `runs/loss_effect` 사다리에 넣었고
 (`E_cumulative`, n=5), **논문에는 기본형 `arc_huber`(`D_range`)를 빼고 이쪽을 쓴다**
-(사용자 결정, [`loss_effect_results.md`](loss_effect_results.md) §16.6).
+(사용자 결정, [`loss_effect_results.md`](loss_effect_results.md) **§16.7**).
 **다만 저장소의 기본값은 아직 `arc_huber`이고 `runs/paper_final/`의 캠페인도 그것으로
-학습돼 있다** -- §16.6 말미의 미결 판단을 먼저 읽는다.
+학습돼 있다** -- 결과 문서 §16.7 말미의 미결 판단을 먼저 읽는다.
 
 구현: `projects/common/soft_boundary.py::compute_soft_boundary_loss`가 네 항을 한 자리에서
 합친다. $L_{\text{range}}$는 mode에 따라 `range_loss.py::{compute_range_loss,
@@ -400,9 +400,9 @@ $\Omega_N$ 셀의 6.3배다. 그래서 로그는 항의 기여 몫 `share_*`(정
 | `RANGE_LOSS_MODE` | 함수 | 상태 | 핵심 비교량 |
 |---|---|---|---|
 | `arc_huber` | `range_loss.py::compute_range_loss` | **기본·확정 config** | 광선 끝의 총 arc 오차에 dead zone + Huber |
-| `cumulative_l1` | `range_loss.py::compute_cumulative_range_loss` | **논문에 쓰는 형태**(결과 §16.6). 저장소 기본값은 아직 `arc_huber` | 모든 반경까지의 누적 soft-target arc profile에 L1 |
+| `cumulative_l1` | `range_loss.py::compute_cumulative_range_loss` | **논문에 쓰는 형태**(결과 문서 §16.7). 저장소 기본값은 아직 `arc_huber` | 모든 반경까지의 누적 soft-target arc profile에 L1 |
 
-아래 §8.3~§8.7은 기존 기본형 `arc_huber`를 정의한다. 새 누적형은 §8.8에서 별도로 정의한다.
+아래 §8.3~§8.7은 **저장소 기본형** `arc_huber`를 정의한다. **논문에 싣는 누적형은 §8.8**이다.
 둘은 광선 표본화와 `RAY_OK` 판정은 공유하지만, **목표·오차·강건화 방식은 다르므로 같은
 loss라고 간주하거나 절대값을 직접 비교하면 안 된다.**
 
@@ -569,7 +569,13 @@ $\theta \to 2\pi - \theta$, 즉 **순열**(`roll(flip(x), 1)`)이다. 여기서�
 텐서에서 매번 다시 뽑으므로 **$\theta$ 축이 저장되지 않고 그 함정이 아예 생기지 않는다.**
 비용은 고정 인덱스 gather 한 번(프레임당 720×200)이라 사실상 0이다.
 
-### 8.8 실험형 `cumulative_l1` — soft-target 누적 arc profile의 L1
+### 8.8 `cumulative_l1` — soft-target 누적 arc profile의 L1 (**논문에 싣는 형태**)
+
+> **지위.** 이 형태가 **논문에 싣는 $L_{range}$**이고(결과 문서 §16.7, 사용자 결정),
+> $\lambda_R = 0.15$다. **저장소의 기본값은 아직 §8.3~§8.7의 `arc_huber`**이며
+> `runs/paper_final/`의 캠페인도 그것으로 학습돼 있다 -- 결과 문서 §16.7 말미의 미결 판단을
+>먼저 읽는다. **바꾼 이유는 결과 문서 §15**에 있다(요약: $\delta_R$이 수직 band가 아니라
+> ray 방향 arc 오차에 걸리고, 광선 안에서 오차가 상쇄된다).
 
 기존형은 광선 전체를 한 번 합친 **종점 스칼라**만 비교한다. hard GT 표본을
 $t_{jk}=\mathrm{free}^{gt}_{jk}$라 하면, 앞부분의 과대예측과 뒷부분의 과소예측이 같은 크기일 때

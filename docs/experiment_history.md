@@ -36,7 +36,7 @@
 | **I** | (변경 없음) | Orin **512×288 fp16 20.2 FPS**, 32.7 W, throttling 없음 | 배포 장비 최초 측정. 흔들림 세 원천이 모델 오차보다 작다 (진단 §30·§32) |
 | **J** | **lifting 높이 `Y=1 → 4`** (**사전 선언**) | **`iou_free` 0.7950 → 0.8104**, `f1@10cm` 0.5437 → **0.6085** | **라벨이 지면 occupancy가 아니라 지상 0.87~1.67 m 기둥 질의였다.** 단일 변경 최대 개선, **채택** (compendium §12) |
 | **K** | (변경 없음) **사다리 5칸 대조 실험** | 되올림 `A_ce` 45.0 % / **`C_hard` 47.6 %** / `C_soft` 0.5 %. CE 오차 증가분의 **96.5 %가 경계 대역** | **단계 E의 "왜"가 밝혀졌다: 원인은 per-set 평균이 아니라 경계 대역의 hard 감독이다.** 그리고 **E가 주장했던 재현성 개선은 선택 epoch에서만 성립했다** -- 철회 ([`loss_effect_results.md`](loss_effect_results.md)) |
-| **L** | 실험형 **soft-target cumulative ray L1** | seed 0 고정 ep40: `iou_free` 0.81341, `f1@10cm` 0.60642, range MAE 0.2056 m | 기존 ray 종점 합의 입사각·상쇄 문제를 피하는 구현은 **반복할 가치가 있는 신호**를 냈다. n=1이므로 미채택, seed 1~4 대기 (`loss_effect_results.md` §15) |
+| **L** | `L_range`를 **soft-target 누적 arc L1**로 교체 (`E_cumulative`, $\lambda_R=0.15$) | n=5 고정 ep40: `iou_free` **0.81396 ± 0.00166**, range MAE **0.20828 m**. 짝지은 판정 통과는 `iou_free` **+0.0020**·`range_mae` **−0.0033 m**(대 `D_range`)뿐이고 `missed_obstacle`은 **+0.0010 나빠진다** | 기존 ray 종점 합의 **입사각 의존과 상쇄**를 없앤 식이 자유거리를 실제로 정확하게 만든다. **안전·재현성·되올림은 안 바뀌고**, 되올림이 안 바뀌는 것이 단계 K의 인과(원인 = 경계의 hard target)를 **보강한다.** **논문은 `D`를 빼고 `E`를 쓴다** ([`loss_effect_results.md`](loss_effect_results.md) §15·§16) |
 
 각 단계의 전환은 성능 향상이 아니라 **"무엇이 병목인지에 대한 판단 변경"**이 이유였다.
 그것이 이 프로젝트에서 가장 중요한 패턴이다.
@@ -505,7 +505,7 @@ $\lambda_R$이 0.3과 0.15로 다른 이유는 **두 식의 gradient 기여를 �
 **[2026-09-21 사용자 결정] 논문의 loss ablation 표에는 `E_cumulative`만 싣고 `D_range`는
 뺀다.** 사다리는 `A_ce → B_perset → C_hard → C_soft → E_cumulative`이고, 확정 표기는
 `RANGE_LOSS_MODE=cumulative_l1`, $\lambda_R = 0.15$다. $\delta_R$·$\beta$는 이 식에 없으므로
-표에 쓰지 않는다. 자세한 작성 규칙은 [`loss_effect_results.md`](loss_effect_results.md) §16.6이다.
+표에 쓰지 않는다. 자세한 작성 규칙은 [`loss_effect_results.md`](loss_effect_results.md) **§16.7**이다.
 
 > **⚠ 남은 판단.** `runs/paper_final/`의 **완료된 실험 1(40런)과 실행된 실험 2는 전부
 > `arc_huber`($\lambda_R=0.3$), 즉 `D` 설정으로 학습됐다.** 지금 상태로 쓰면 "방법은 `E`인데

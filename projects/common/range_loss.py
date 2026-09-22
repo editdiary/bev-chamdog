@@ -1,5 +1,12 @@
 """`L_range` -- 방위각별 자유거리에 걸리는 **보조** loss. 설계는 `docs/soft_boundary_loss_design.md` §13.
 
+**[2026-09-21] mode가 둘이다.** 아래 `compute_range_loss`(`arc_huber`)는 **저장소
+기본값**이고, `compute_cumulative_range_loss`(`cumulative_l1`)는 **논문에 싣는 형태**다
+(`docs/loss_effect_results.md` §16.7). 둘은 `C_soft`에서 갈라지는 **대체 팔**이고
+이어지는 계단이 아니다. 왜 바꿨는지는 결과 문서 §15, 수식은
+`docs/loss_function_spec.md` §8.8이다. 아래 `DEFAULT_DELTA_R_M`·`DEFAULT_HUBER_BETA_M`은
+**`arc_huber`에만 쓰인다** -- 누적형 식에는 그 둘이 등장하지 않는다.
+
 **왜 이 항이 필요한가.** 현행 loss(`soft_boundary.compute_soft_boundary_loss`)는 셀마다
 독립인 BCE의 합이라 **광선 방향으로 셀을 묶는 항이 하나도 없다.** 그래서 "이 방향으로
 free가 몇 m까지 이어진다고 예측했는가"를 어떤 항도 직접 묻지 않는다. 결과로 per-cell BCE가

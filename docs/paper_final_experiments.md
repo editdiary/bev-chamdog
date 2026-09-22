@@ -5,8 +5,11 @@
 개별 숫자의 기계 판독 원본은 각 실험의 `runs/paper_final/*/analysis/RESULTS.json`이고,
 이 문서는 그 출처를 링크하고 사람이 읽는 결론을 기록한다.
 
-> **상태 기준일:** 2026-09-18  
-> **작업 브랜치:** `exp/paper-final`  
+> **상태 기준일:** 2026-09-21  
+> **작업 브랜치:** `exp/cumulative-ray-loss`  
+> &nbsp;&nbsp;(2026-09-18~19의 `exp/paper-final` worktree는 **폐기했다** -- submodule 때문에
+> `git worktree move`/`remove`가 둘 다 거부되고 산출물을 못 찾는 사고가 났다. §4.6의 체크리스트는
+> 그 시점의 기록이다. **worktree를 쓰지 않는다** -- `AGENTS.md`의 같은 경고를 본다.)  
 > **실행 GPU:** `CUDA_VISIBLE_DEVICES=0`  
 > **정본 환경:** conda `bev-chamdog` · Python 3.11 · torch 2.7.0+cu128  
 > **대용량 산출물 루트:** `/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final`
@@ -17,7 +20,7 @@
 >
 > 같은 날 `runs/loss_effect`에 `E_cumulative`(`RANGE_LOSS_MODE=cumulative_l1`, `λ_R=0.15`)를
 > 넣었고, **사용자 결정으로 논문의 loss ablation 표에서는 `D_range`(`arc_huber`, `λ_R=0.3`)를
-> 빼고 `E`만 쓴다**([`loss_effect_results.md`](loss_effect_results.md) §16.6).
+> 빼고 `E`만 쓴다**([`loss_effect_results.md`](loss_effect_results.md) **§16.7**).
 >
 > **그런데 이 캠페인의 런은 전부 `arc_huber`, `λ_R=0.3`으로 학습돼 있다** — 완료된
 > `01_overall` 40런과 `02_projection_and_prior`가 모두 그렇다(각 런의 `config.json`에서 확인).
