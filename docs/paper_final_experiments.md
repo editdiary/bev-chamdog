@@ -1107,17 +1107,30 @@ APPLY=1 bash tools/run_paper_final_cumulative_packages.sh    # 검토 뒤 반영
 | `01_overall` | 새 루트로 재생성 → **CSV diff** → 바뀐 칸만 목록으로 |
 | `02_projection_and_prior` | 같음 (`--control`도 새 루트를 가리킨다) |
 | `02b_native_source_prior` | **신규 생성.** 표를 세 줄로 낸다 — scratch / 가공한 사전학습 / 원본 기하 |
-| `03_boundary_uncertainty` | **손대지 않는다** — `runs/loss_effect`는 재학습 대상이 아니고, `A_ce`~`C_soft`는 `λ_R=0`, `E_cumulative`는 이미 `cumulative_l1`이다 |
+| `03_boundary_uncertainty` | **손대지 않는다** — 아래 표로 실증했다 |
 
 **논문 문장은 바뀌지 않고 자릿수만 바뀐다**는 예상을 diff로 검증한다. 만약 결론이 뒤집히는
 칸이 나오면 **그것 자체가 보고 대상**이다 -- 조용히 숫자만 갈아끼우지 않는다.
 
-#### 검증 도구 둘 — 눈으로 훑지 않는다
+#### `03`을 건드리지 않는 근거 (30런 config.json 실측)
+
+| 칸 | `λ_R` | `range_loss_mode` | 보조항이 계산되나 |
+|---|---:|---|---|
+| `A_ce` · `B_perset` · `C_hard` · `C_soft` | 0.0 | (기록 없음) | **아니오 — 항 자체가 만들어지지 않는다** |
+| `D_range` | 0.3 | (기록 없음 = 당시 기본값 `arc_huber`) | 예 |
+| `E_cumulative` | 0.15 | `cumulative_l1` | 예 |
+
+논문 사다리는 `A_ce → B_perset → C_hard → C_soft → E_cumulative` 다섯 칸이고 `D_range`는
+빠진다. 그래서 **사다리의 어느 칸도 `arc_huber`로 학습되지 않았다.** 재학습이 불필요하다.
+(`D_range`가 `arc_huber`였다는 사실은 `03` 패키지 provenance에 이미 글자로 적혀 있다.)
+
+#### 검증 도구 셋 — 눈으로 훑지 않는다
 
 | 도구 | 무엇을 잡나 |
 |---|---|
 | `tools/diff_paper_package_csv.py` | CSV 칸 단위 대조. **판정 열**(`verdict`·`sign_agreement`·`better_direction`)이 바뀌면 따로 센다 |
 | `tools/audit_paper_prose_numbers.py` | **산문에 박힌 숫자.** 옛 CSV에는 있고 새 CSV에는 없는 값을 `stale`로 뽑는다 |
+| `tools/check_results_tree_purity.py` | **옛 결과 트리가 섞인 것.** 산출물의 경로 문자열을 훑는다. 만들자마자 `experiment_manifest.json`의 `control_arm`이 옛 경로를 박고 있는 것을 잡았다 |
 
 산문 감사가 필요한 이유는 규모다 -- `REPORT.md`·`README.md`에 소수 셋넷 자리 숫자가
 **416개** 박혀 있다(01 125 · 02 146 · 03 145). CSV만 갈고 산문을 두면 논문이 데이터와
