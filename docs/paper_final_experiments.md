@@ -248,6 +248,25 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 
 ## 5. 진행 기록
 
+### 2026-10-02 (6) — **손실 로그를 7개 곡선으로 줄임** (사용자 요청: "무엇을 봐야 하는지 모르겠다")
+
+(5)의 11개 항목을 둘로 나눴다. **곡선은 7개뿐이다**(정본 `metric_spec` 손실 절).
+
+| 묶음 | tag (`{train,val}/…_epoch`) | 언제 보나 |
+|---|---|---|
+| **모델이 실제로 받은 손실** | `loss_total`, `loss_free`, `loss_non_free`, `loss_boundary` | 학습이 되고 있는지. gradient가 나오는 바로 그 값이다. 손실 함수가 다르면 **크기는 비교하지 않는다** |
+| **논문에 싣는 값** | `bce_free`, `bce_non_free`, `bce_boundary` | 모든 모델의 예측을 **같은 함수**(가중치 없는 보통 BCE, 정답 0/1)로 잰 것. 손실과 무관하게 값끼리 비교된다 |
+
+학습 중 변하지 않는 값(영역 셀 비율 `frac_*`, soft target의 경계 하한 `loss_boundary_floor`)은 곡선에서
+빼고 **`config.json`의 `label_constants`에 첫 epoch에 한 번** 적는다(실측 val: 0.105 / 0.674 / 0.221,
+하한 0.265 -- 가중 BCE는 0). 총 손실 tag는 `loss_epoch` → **`loss_total`**, 영역 이름은 `not_free` →
+**`non_free`**(지표의 `iou_non_free`와 맞춤), 공통 눈금은 `ce_*` → **`bce_*`**, `ce_all`은 뺐다.
+
+확인: 테스트 524 통과. 2 epoch 스모크에서 두 런의 val 손실 곡선이 같은 7개, 상수로 다시 지은 항등식
+(가중 BCE `Σ frac·loss_r`, soft-BCE `½F + ½N + ½B`)이 train·val 모두 총 손실과 일치.
+
+---
+
 ### 2026-10-02 (5) — **손실 로그를 모든 실험에서 통일** (사용자 요청, 구현·스모크 확인)
 
 **요청.** "free / non-free / boundary 손실이 어떤 실험이든 같게 보여야 '가중 BCE는 경계 손실이

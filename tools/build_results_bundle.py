@@ -69,7 +69,7 @@ LADDER = ("A_ce", "B_perset", "C_hard", "C_soft")
 # (TensorBoard 태그, 짧은 이름, 높을수록 좋은가). 논문 지표는 `metric_spec`이 정본이다
 # (2026-10-02 개편: precision/recall/BF@τ, 전부 프레임 macro).
 METRICS = PAPER_METRICS + (
-    ("val/loss_epoch", "val_loss", False),
+    ("val/loss_total_epoch", "val_loss", False),
     ("train/iou_free_epoch", "train_iou_free", True),
 )
 # 되올림 regret을 재는 경계 지표(옛 `f1@10cm`).
@@ -291,9 +291,13 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
             config = configs.get(run, {})
             lambda_b = float(config.get("lambda_b", 0) or 0)
             selected = max(iou, key=iou.get)          # 체크포인트 선택 규칙과 같다
-            loss = series.get((cell, seed, "val/loss_epoch"), {})
-            # 경계 항의 하한(soft target의 엔트로피). 공통 손실 분해의 이름이다(2026-10-02).
-            entropy = series.get((cell, seed, "val/loss_boundary_floor_epoch"), {})
+            loss = series.get((cell, seed, "val/loss_total_epoch"), {})
+            # 경계 항의 하한(soft target의 엔트로피)은 라벨만의 상수라 곡선이 아니라
+            # `config.json`의 `label_constants`에 있다(2026-10-02). `_rebound`가 epoch별 dict를
+            # 받으므로 모든 epoch에 같은 값을 둔다.
+            floor = float(config.get("label_constants", {}).get("val", {})
+                          .get("loss_boundary_floor", 0.0))
+            entropy = {e: floor for e in loss}
             reb = _rebound(loss, entropy, lambda_b)
 
             at_sel, at_fixed = {}, {}
@@ -495,7 +499,8 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
     loc = {"_what": "val 오차 증가분이 경계 대역에 국소화되는가. `contribution`은 셀 수로"
                     " 가중한 기여분이고, `boundary_share`가 그 중 대역의 몫이다."
                     " 눈금은 loss 종류와 무관한 hard CE이고 대역은 Ω_B(`|d| <= 0.30 m`)다.",
-           "_source": "analysis/scalars.csv (val/ce_{boundary,free,not_free}_epoch, val/frac_*_epoch)",
+           "_source": "analysis/scalars.csv (val/bce_{boundary,free,non_free}_epoch) + "
+                      "configs.json (label_constants)",
            "band_m": 0.30, "cells": {}}
     for cell in cells:
         rows_c = [r for r in runs if r["cell"] == cell]
@@ -503,15 +508,16 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
             continue
         fracs, d_b, d_c, rel_b, rel_c = [], [], [], [], []
         for seed in seeds:
-            b = series.get((cell, seed, "val/ce_boundary_epoch"), {})
-            cf = series.get((cell, seed, "val/ce_free_epoch"), {})
-            cn = series.get((cell, seed, "val/ce_not_free_epoch"), {})
-            ff = series.get((cell, seed, "val/frac_free_epoch"), {})
-            fn = series.get((cell, seed, "val/frac_not_free_epoch"), {})
-            fr = series.get((cell, seed, "val/frac_boundary_epoch"), {})
+            b = series.get((cell, seed, "val/bce_boundary_epoch"), {})
+            cf = series.get((cell, seed, "val/bce_free_epoch"), {})
+            cn = series.get((cell, seed, "val/bce_non_free_epoch"), {})
+            # 영역 비율은 라벨만의 상수다(`config.json`의 `label_constants`).
+            const = configs.get(f"{cell}_s{seed}", {}).get("label_constants", {}).get("val", {})
+            ff, fn = const.get("frac_free", 0.0), const.get("frac_non_free", 0.0)
+            fr = {e: const["frac_boundary"] for e in b} if "frac_boundary" in const else {}
             # 대역 밖 = Ω_F와 Ω_N의 셀 수 가중평균.
-            f = {e: (ff[e] * cf[e] + fn[e] * cn[e]) / (ff[e] + fn[e])
-                 for e in cf if e in cn and e in ff and e in fn and ff[e] + fn[e] > 0}
+            f = {e: (ff * cf[e] + fn * cn[e]) / (ff + fn)
+                 for e in cf if e in cn and ff + fn > 0}
             if not b or not f:
                 continue
             last = max(b)

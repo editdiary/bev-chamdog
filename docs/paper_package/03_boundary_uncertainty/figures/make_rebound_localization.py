@@ -6,7 +6,7 @@
 
 **[2026-10-02] 세 영역으로 나눴다** -- 경계에서 먼 free(Ω_F) / 먼 non-free(Ω_N) / 경계 대역
 (Ω_B, `|d| <= 0.30 m`). 모든 실험이 같은 이름으로 기록하는 공통 손실 분해의 hard CE
-(`val/ce_{free,not_free,boundary}`, `projects/common/metric_spec.py`)다. 영역의 셀 비율과 x축
+(`val/bce_{free,non_free,boundary}`, `projects/common/metric_spec.py`)다. 영역의 셀 비율과 x축
 범위는 데이터에서 읽는다(예전에는 12.7 % / 87.3 %와 40 epoch이 박혀 있었다). 아래 서술은 옛
 결과다.
 
@@ -57,9 +57,9 @@ CELL_STYLE = {
 ORDER = ("A_ce", "C_hard", "C_soft")
 
 PANELS = (
-    ("ce_free", "free", "(a)  Free, away from the boundary   $d > 0.30$ m"),
-    ("ce_not_free", "not_free", "(b)  Non-free, away from the boundary   $d < -0.30$ m"),
-    ("ce_boundary", "boundary", "(c)  Boundary band   $|d| \\leq 0.30$ m"),
+    ("bce_free", "free", "(a)  Free, away from the boundary   $d > 0.30$ m"),
+    ("bce_non_free", "non_free", "(b)  Non-free, away from the boundary   $d < -0.30$ m"),
+    ("bce_boundary", "boundary", "(c)  Boundary band   $|d| \\leq 0.30$ m"),
 )
 
 
@@ -76,7 +76,7 @@ def load(path: Path = DATA) -> dict:
 
 def build(series: dict):
     fig, axes = plt.subplots(1, 3, figsize=(13.2, 3.9))
-    last_epoch = max(e for (_, m), pts in series.items() if m.startswith("ce_") for e in pts)
+    last_epoch = max(e for (_, m), pts in series.items() if m.startswith("bce_") for e in pts)
 
     for ax, (metric, region, title) in zip(axes, PANELS):
         frac = series.get((ORDER[0], f"frac_{region}"), {})

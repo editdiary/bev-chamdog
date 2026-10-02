@@ -78,7 +78,7 @@ def test_invalid_cells_contribute_no_gradient():
 def test_free_keeps_index_one_so_the_channel_convention_does_not_flip():
     """3-class와 같은 `FREE=1`을 쓴다 -- 시각화·재채점이 "1번 채널이 free"를 전제한다."""
     assert CLASS_ORDER == (NOT_FREE, FREE) == (0, 1)
-    assert LOSS_PART_NAMES == ("free", "not_free", "boundary")
+    assert LOSS_PART_NAMES == ("free", "non_free", "boundary")
 
     occ = torch.tensor([[[[1, 0], [0, 1]]]], dtype=torch.bool)
     vis = torch.tensor([[[[1, 1], [0, 1]]]], dtype=torch.bool)
@@ -212,30 +212,27 @@ def test_each_loss_decomposes_back_into_its_own_total():
     occ, vis, valid, d = _scene_with_distance()
     (ce_loss, ce, _), (soft_loss, soft, _) = _run_both(_random_logits(), occ, vis, valid, d)
 
-    assert sum(float(ce[f"frac_{r}"]) for r in ("free", "not_free", "boundary")) \
+    assert sum(float(ce[f"_frac_{r}"]) for r in ("free", "non_free", "boundary")) \
         == pytest.approx(1.0, abs=1e-5)
-    recombined = sum(float(ce[f"frac_{r}"]) * float(ce[f"loss_{r}"])
-                     for r in ("free", "not_free", "boundary"))
+    recombined = sum(float(ce[f"_frac_{r}"]) * float(ce[f"loss_{r}"])
+                     for r in ("free", "non_free", "boundary"))
     assert recombined == pytest.approx(float(ce_loss), rel=1e-4)
-    assert 0.5 * float(soft["loss_free"]) + 0.5 * float(soft["loss_not_free"]) \
+    assert 0.5 * float(soft["loss_free"]) + 0.5 * float(soft["loss_non_free"]) \
         + 0.5 * float(soft["loss_boundary"]) == pytest.approx(float(soft_loss), rel=1e-4)
 
 
 def test_the_common_ruler_is_identical_across_losses_and_the_floor_is_explicit():
-    """같은 예측이면 손실과 무관하게 `ce_*`·`frac_*`가 같아야 한다(공통 눈금). soft-BCE의
+    """같은 예측이면 손실과 무관하게 `bce_*`·영역 비율이 같아야 한다(공통 눈금). soft-BCE의
     경계 밖 두 항은 hard CE와 같고, 경계 항은 0이 아닌 하한(엔트로피)을 가진다. 가중 BCE는 하한이 0."""
     occ, vis, valid, d = _scene_with_distance()
     (_, ce, _), (_, soft, _) = _run_both(_random_logits(), occ, vis, valid, d)
-    for key in ("ce_free", "ce_not_free", "ce_boundary", "ce_all",
-                "frac_free", "frac_not_free", "frac_boundary"):
+    for key in ("bce_free", "bce_non_free", "bce_boundary",
+                "_frac_free", "_frac_non_free", "_frac_boundary"):
         assert float(ce[key]) == pytest.approx(float(soft[key]), rel=1e-6), key
-    assert float(soft["loss_free"]) == pytest.approx(float(soft["ce_free"]), rel=1e-5)
-    assert float(soft["loss_not_free"]) == pytest.approx(float(soft["ce_not_free"]), rel=1e-5)
-    assert float(soft["loss_boundary_floor"]) > 0.1
-    assert float(ce["loss_boundary_floor"]) == 0.0
-    # hard CE 전체는 세 영역의 셀 수 가중평균이다.
-    assert sum(float(ce[f"frac_{r}"]) * float(ce[f"ce_{r}"])
-               for r in ("free", "not_free", "boundary")) == pytest.approx(float(ce["ce_all"]), rel=1e-4)
+    assert float(soft["loss_free"]) == pytest.approx(float(soft["bce_free"]), rel=1e-5)
+    assert float(soft["loss_non_free"]) == pytest.approx(float(soft["bce_non_free"]), rel=1e-5)
+    assert float(soft["_floor_boundary"]) > 0.1
+    assert float(ce["_floor_boundary"]) == 0.0
 
 
 def test_run_batch_refuses_a_batch_without_a_distance_field():
@@ -324,7 +321,7 @@ def test_epoch_aggregation_weights_region_means_by_their_cell_counts():
     for key in COMMON_LOSS_PARTS:
         assert merged[key] == pytest.approx(float(whole[key]), rel=1e-4), key
     assert "_n_valid" not in merged
-    recombined = sum(merged[f"frac_{r}"] * merged[f"loss_{r}"] for r in ("free", "not_free", "boundary"))
+    recombined = sum(merged[f"_frac_{r}"] * merged[f"loss_{r}"] for r in ("free", "non_free", "boundary"))
     assert recombined == pytest.approx(float(joint_loss), rel=1e-4)
 
 
@@ -360,3 +357,34 @@ def test_epoch_loss_is_the_objective_on_the_whole_set_for_both_losses():
         assert value == pytest.approx(float(whole_loss), rel=1e-4), step.__name__
         for key in COMMON_LOSS_PARTS:
             assert merged[key] == pytest.approx(float(whole_parts[key]), rel=1e-4), key
+
+
+def test_label_constants_go_to_config_once_not_to_tensorboard(tmp_path):
+    """영역 비율·경계 하한은 라벨만의 함수라 곡선이 아니다. TensorBoard에는 7개 곡선만 나가고
+    상수는 `config.json`의 `label_constants`에 **한 번** 적힌다(사용자 요청: 볼 것만 남긴다)."""
+    import json
+    from projects.common.bev_occupancy_metrics import (
+        mean_loss_parts, record_label_constants, write_epoch_scalars)
+    from projects.common.metric_spec import LABEL_CONSTANTS, PAPER_LOSS_TERMS, TRAINING_LOSS_TERMS
+    occ, vis, valid, d = _scene_with_distance()
+    (_, _, _), (soft_loss, soft, _) = _run_both(_random_logits(), occ, vis, valid, d)
+    merged = mean_loss_parts([{k: float(v) for k, v in soft.items()}])
+
+    class _W:
+        tags = []
+
+        def add_scalar(self, tag, value, step):
+            self.tags.append(tag)
+
+    w = _W()
+    write_epoch_scalars(w, "val", {"loss": float(soft_loss), "loss_parts": merged}, 1)
+    assert w.tags == [f"val/{n}_epoch" for n in TRAINING_LOSS_TERMS + PAPER_LOSS_TERMS]
+
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({"seed": 0}))
+    assert record_label_constants(cfg, "val", merged) is True
+    assert record_label_constants(cfg, "val", merged) is False          # 한 번만
+    block = json.loads(cfg.read_text())["label_constants"]["val"]
+    assert tuple(block) == LABEL_CONSTANTS
+    assert block["loss_boundary_floor"] > 0.1
+    assert sum(block[f"frac_{r}"] for r in ("free", "non_free", "boundary")) == pytest.approx(1.0, abs=1e-4)

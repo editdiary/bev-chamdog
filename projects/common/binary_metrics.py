@@ -133,21 +133,12 @@ def compute_free_metrics(logits, seg_g, vis_g, valid_g, rays) -> dict:
 # -- 가중 BCE 런에는 δ가 없고, 손잡이가 다른 런끼리도 같은 셀 집합을 재야 한다. 논문 설정의
 # δ와 같으므로 soft-BCE 런에서는 손실의 세 항과 정확히 같은 영역이다. BF 최대 허용오차와도 같다.
 
-#: 모든 손실이 내는 손실 항 이름 -- TensorBoard tag가 `{split}/{이름}_epoch`이다. 두 학습 경로
-#: (`run_batch`, `run_batch_soft_boundary`)가 **정확히 이 집합**을 낸다(테스트로 고정).
-#:
-#:   loss_free / loss_not_free / loss_boundary   그 런이 **실제로 최적화한 손실**을 셀마다 낸 값의
-#:                                               영역 평균. 가중 BCE는 클래스 가중 hard CE, soft-BCE는
-#:                                               대역에서 soft target에 대한 CE다
-#:   loss_boundary_floor   loss_boundary의 줄일 수 없는 하한(target 엔트로피). hard target이면 0.
-#:                         soft-BCE의 loss_boundary는 0이 아니라 이 값으로 수렴한다
-#:   ce_free / ce_not_free / ce_boundary / ce_all   **모든 런에 같은 눈금**: 가중치 없는 hard 0/1
-#:                         CE. 손실 함수가 달라도 그대로 비교된다
-#:   frac_free / frac_not_free / frac_boundary   영역의 셀 비율(라벨만의 함수)
-_REGIONS = (("omega_f", "free"), ("omega_n", "not_free"), ("omega_b", "boundary"))
+#: 학습 스텝이 내는 손실 항은 `metric_spec.COMMON_LOSS_PARTS`다 -- 7개 곡선의 뜻과 왜 그 둘인지는
+#: `metric_spec`의 손실 절에 있다. 두 학습 경로가 **정확히 같은 키**를 낸다(테스트로 고정).
+_REGIONS = (("omega_f", "free"), ("omega_n", "non_free"), ("omega_b", "boundary"))
 
 # 콘솔 표의 손실 칸. 두 손실이 같은 칸을 쓴다.
-LOSS_PART_NAMES = ("free", "not_free", "boundary")
+LOSS_PART_NAMES = ("free", "non_free", "boundary")
 SOFT_BOUNDARY_LOSS_PART_NAMES = LOSS_PART_NAMES
 SOFT_BOUNDARY_RANGE_LOSS_PART_NAMES = LOSS_PART_NAMES + ("range",)   # legacy(보조항)
 
@@ -188,14 +179,15 @@ def decompose_loss(per_cell_loss, floor_per_cell, logits, gt_free, valid, d, per
             return (x * m).sum() / (m.sum() + 1e-6)
 
         out = {}
+        # 비율·하한은 라벨만의 함수라 곡선으로 내지 않는다 -- 밑줄 키로 넘겨 epoch 집계(셀 수 가중)와
+        # `config.json`의 `label_constants`에만 쓴다.
+        hidden = {"_n_valid": valid_f.sum()}
         for key, name in _REGIONS:
             m = regions[key].to(log_probs.dtype)
             out[f"loss_{name}"] = mean(per_cell, m)
-            out[f"ce_{name}"] = mean(hard, m)
-            out[f"frac_{name}"] = m.sum() / n_valid
-        out["loss_boundary_floor"] = mean(floor, regions["omega_b"].to(log_probs.dtype))
-        out["ce_all"] = mean(hard, valid_f)
-        hidden = {"_n_valid": valid_f.sum()}
+            out[f"bce_{name}"] = mean(hard, m)
+            hidden[f"_frac_{name}"] = m.sum() / n_valid
+        hidden["_floor_boundary"] = mean(floor, regions["omega_b"].to(log_probs.dtype))
         if set_coefficients is None:
             hidden["_objective_mode"] = 0.0                       # 셀 평균
         elif set_coefficients == "batch":

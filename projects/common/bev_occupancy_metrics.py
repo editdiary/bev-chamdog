@@ -153,13 +153,10 @@ def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None,
     fields.append(_field("loss_total↓", loss, ".4f"))
     parts = loss_parts or {}
     fields += [_field(f"loss_{name}↓", parts.get(f"loss_{name}"), ".4f") for name in part_names]
-    # 공통 분해(`binary_metrics.COMMON_LOSS_PARTS`)의 하한과 같은 눈금 CE. `loss_boundary`는
-    # soft target이면 하한(엔트로피)에 붙어 0으로 가지 않으므로 하한을 옆에 둔다. `ce_bnd`는
-    # 손실 종류와 무관한 hard CE라 두 손실의 화면 로그를 나란히 읽게 한다.
-    if "loss_boundary_floor" in parts:
-        if float(parts["loss_boundary_floor"]) > 0.0:
-            fields.append(_field("bnd_floor", parts["loss_boundary_floor"], ".4f"))
-        fields.append(_field("ce_bnd↓", parts.get("ce_boundary"), ".4f"))
+    # 논문용 공통 눈금(`metric_spec.PAPER_LOSS_TERMS`) 중 경계 하나만 화면에 둔다 -- 손실 종류와
+    # 무관한 BCE라 두 손실의 화면 로그를 나란히 읽게 한다.
+    if "bce_boundary" in parts:
+        fields.append(_field("bce_bnd↓", parts["bce_boundary"], ".4f"))
     # 2026-10-02 이전 로그 형식(soft-boundary 전용 항). 옛 dict를 다시 찍을 때만 걸린다.
     if "kl_boundary" in parts:
         fields.append(_field("kl_bnd↓", parts["kl_boundary"], ".4f"))
@@ -279,7 +276,9 @@ def write_epoch_scalars(writer, split, metrics, epoch) -> None:
     쓰는 tag (`{split}/..._epoch`): `metric_spec.FREE_METRICS` 넷, `bf_{τ}`와 그
     `_precision`/`_recall`, `ring_{링}_{FREE_METRICS}`.
     """
-    _add_scalar_if_finite(writer, f"{split}/loss_epoch", metrics.get("loss"), epoch)
+    # 총 손실은 `loss_total`이다(2026-10-02 이름 변경, 그 전에는 `loss_epoch`) -- 영역별 몫
+    # `loss_free`·`loss_non_free`·`loss_boundary`와 한 묶음으로 읽히게.
+    _add_scalar_if_finite(writer, f"{split}/loss_total_epoch", metrics.get("loss"), epoch)
     for key, value in (metrics.get("loss_parts") or {}).items():
         if key.startswith("_"):          # 집계용 내부 값(`decompose_loss`)은 로그에 안 낸다
             continue
@@ -426,20 +425,19 @@ def mean_loss_parts(parts_dicts) -> dict:
     if "_n_valid" in parts_dicts[0]:
         n = [float(d["_n_valid"]) for d in parts_dicts]
         total = sum(n) or 1.0
-        for region in ("free", "not_free", "boundary"):
-            w = [float(d[f"frac_{region}"]) * nv for d, nv in zip(parts_dicts, n)]
+        regions = ("free", "non_free", "boundary")
+        for region in regions:
+            w = [float(d[f"_frac_{region}"]) * nv for d, nv in zip(parts_dicts, n)]
             sw = sum(w) or 1.0
-            keys = [f"loss_{region}", f"ce_{region}"] + (
-                ["loss_boundary_floor"] if region == "boundary" else [])
+            keys = [f"loss_{region}", f"bce_{region}"] + (
+                ["_floor_boundary"] if region == "boundary" else [])
             for key in keys:
                 out[key] = sum(float(d[key]) * wi for d, wi in zip(parts_dicts, w)) / sw
-            out[f"frac_{region}"] = sum(w) / total
-        out["ce_all"] = sum(float(d["ce_all"]) * nv for d, nv in zip(parts_dicts, n)) / total
+            out[f"_frac_{region}"] = sum(w) / total
         # epoch 총 손실을 영역 평균으로 다시 짓는다(`epoch_loss`가 읽는다). 계수는 배치마다 같다.
         mode = float(parts_dicts[0].get("_objective_mode", -1.0))
-        regions = ("free", "not_free", "boundary")
         if mode == 0.0:
-            out["_objective_set"] = sum(out[f"frac_{r}"] * out[f"loss_{r}"] for r in regions)
+            out["_objective_set"] = sum(out[f"_frac_{r}"] * out[f"loss_{r}"] for r in regions)
         elif mode == 1.0:
             out["_objective_set"] = sum(float(parts_dicts[0][f"_objective_c_{r}"]) * out[f"loss_{r}"]
                                         for r in regions)
@@ -456,6 +454,40 @@ def epoch_loss(loss_and_frames, merged_parts) -> float:
     """
     value = (merged_parts or {}).get("_objective_set")
     return float(value) if value is not None else weighted_frame_mean(loss_and_frames)
+
+
+def label_constants(merged_parts) -> dict:
+    """epoch 집계에서 **라벨만의 함수인 값**을 꺼낸다 -- `metric_spec.LABEL_CONSTANTS`.
+
+    영역 셀 비율과 soft target의 경계 하한은 학습 중 변하지 않으므로 곡선으로 내지 않고
+    `config.json`에 한 번 적는다(`record_label_constants`). 분해가 없으면 빈 dict.
+    """
+    parts = merged_parts or {}
+    if "_frac_free" not in parts:
+        return {}
+    return {"frac_free": parts["_frac_free"], "frac_non_free": parts["_frac_non_free"],
+            "frac_boundary": parts["_frac_boundary"],
+            "loss_boundary_floor": parts.get("_floor_boundary", 0.0)}
+
+
+def record_label_constants(config_path, split, merged_parts) -> bool:
+    """`config.json`의 `label_constants.{split}`이 비어 있으면 채운다. 채웠으면 True.
+
+    **첫 epoch에 한 번만 쓴다** -- 이후 epoch의 값은 같다(라벨·영역이 고정). train은 증강이 있어도
+    영역 비율이 바뀌지 않는다(좌우 반전은 꺼져 있다, `FLIP_AUGMENT=False`).
+    """
+    import json
+    values = label_constants(merged_parts)
+    path = Path(config_path)
+    if not values or not path.exists():
+        return False
+    config = json.loads(path.read_text())
+    block = config.setdefault("label_constants", {})
+    if split in block:
+        return False
+    block[split] = {k: round(float(v), 6) for k, v in values.items()}
+    path.write_text(json.dumps(config, indent=2, ensure_ascii=False))
+    return True
 
 
 def append_free_metrics(metric_dicts, free_metrics) -> None:

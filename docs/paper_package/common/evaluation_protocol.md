@@ -248,11 +248,13 @@ IoU$_\text{non-free}$, Precision, Recall**을 같은 식으로 다시 잰다. **
 모든 런이 같은 세 영역으로 손실을 나눠 기록한다 — 경계에서 0.30 m보다 먼 free $\Omega_F$,
 먼 non-free $\Omega_N$, 경계 대역 $\Omega_B$($|d|\le0.30$ m, 유효 셀의 약 22 %).
 
-- `loss_{free,not_free,boundary}` — **그 런이 최적화한 손실**의 영역 평균. 같은 이름이지만 손실
-  함수가 다르므로 **값의 크기는 런끼리 비교하지 않고 모양(오르나·수렴하나)만 비교한다.**
-  soft-BCE의 경계 항은 0이 아니라 하한 `loss_boundary_floor`(target 엔트로피)로 수렴한다
-- `ce_{free,not_free,boundary}` — **모든 런에 같은 함수**(가중치 없는 hard CE). 값끼리 직접 비교한다.
-  "다른 함수라서 수렴해 보일 뿐"이라는 반론은 이쪽으로 막는다
+- `loss_total`, `loss_{free,non_free,boundary}` — **모델이 실제로 받은 손실**과 그 영역별 값. 같은
+  이름이지만 손실 함수가 다르므로 **값의 크기는 런끼리 비교하지 않고 모양(오르나·수렴하나)만
+  비교한다.** soft-BCE의 경계 항은 0이 아니라 하한(target 엔트로피, `config.json`의
+  `label_constants.loss_boundary_floor` ≈ 0.265)으로 수렴한다
+- **`bce_{free,non_free,boundary}` — 논문에 싣는 값.** 모든 런의 예측을 **같은 함수**(가중치 없는
+  BCE, 정답 0/1)로 잰 것이라 값끼리 직접 비교한다. "다른 함수라서 수렴해 보일 뿐"이라는 반론은
+  이쪽으로 막는다. 영역 셀 비율은 `label_constants.frac_*`(약 10 / 67 / 22 %)
 
 **집계:** 영역 평균은 epoch 안의 그 영역 모든 셀의 평균이고, 총 손실 `loss`는 그 epoch의 모든
 셀을 한 집합으로 본 목적함수다. 그래서 가중 BCE는 $\sum_r f_r\,L_r$, soft-BCE는

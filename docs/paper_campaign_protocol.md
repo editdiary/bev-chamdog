@@ -119,8 +119,9 @@ PY
    2026-10-02 결과: `01` 고정 split 5시드 `iou_free` **0.8146 ± 0.0007** — 공개된 패키지 값과
    같다(정의가 안 바뀐 지표는 그대로여야 한다). 무결성 38건 실패 0, 최대 차이 1.4e-4.
    옛 로그에 대고 돌리면 38건 중 30건 실패(통과 8건 = 정의가 안 바뀐 `iou_free`와 링 `iou_free`)
-5. **손실 로그도 같은 원칙이다**(2026-10-02) — 모든 손실이 `metric_spec.COMMON_LOSS_PARTS` 11개를
-   같은 이름으로 낸다. 바꿀 때는 `decompose_loss`만 고치고, 두 손실 스모크로 **epoch tag 집합이
+5. **손실 로그도 같은 원칙이다**(2026-10-02) — 모든 손실이 같은 7개 곡선을 낸다(모델이 받은 손실
+   `loss_total`·`loss_{free,non_free,boundary}`, 논문용 `bce_{free,non_free,boundary}`). 라벨만의 상수는
+   `config.json`의 `label_constants`에 한 번 적힌다. 바꿀 때는 `decompose_loss`만 고치고, 두 손실 스모크로 **epoch tag 집합이
    같은지**와 항등식(가중 BCE `Σ frac·loss_r = loss`, soft-BCE `½F+½N+λ_B·B = loss`)을 확인한다.
    **내부 집계 값도 텐서여야 한다** — 파이썬 float 하나가 첫 배치에서 학습을 죽였다
 6. **epoch 곡선이 필요한 분석은 재채점으로 안 된다** — 체크포인트가 런당 둘뿐이다. 03의
