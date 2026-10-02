@@ -85,6 +85,12 @@ CUDA_DEVICE="${CUDA_VISIBLE_DEVICES:-0}"
 # 일부 칸만 돌릴 때(공백 구분 칸 이름). 비우면 사다리 전체다. 칸의 설정은 아래 표에서만 온다 --
 # 이 변수는 **고르기만** 한다(예: `ONLY_CELLS="A_ce C_soft"`, 2026-10-02 epoch 길이 사전 실험).
 ONLY_CELLS="${ONLY_CELLS:-}"
+# **사전 실험 전용 높이 손잡이**(2026-10-02, 높이 범위 사전 실험 `configs/height_range_probe.sh`).
+# 이름이 `HEIGHT_*`가 아닌 이유: 호출 셸에 남은 옛 `HEIGHT_BINS`가 사다리를 조용히 오염시키지 못하게
+# 하는 계약(`test_inherited_environment_cannot_pollute_the_ladder`)을 지키려는 것이다. 비우면 확정값.
+PROBE_HEIGHT_BINS="${PROBE_HEIGHT_BINS:-4}"
+PROBE_HEIGHT_MIN_M="${PROBE_HEIGHT_MIN_M:--0.25}"
+PROBE_HEIGHT_MAX_M="${PROBE_HEIGHT_MAX_M:-1.75}"
 
 # name|LOSS|LAMBDA_B|LAMBDA_R|SIGMA_M|RANGE_LOSS_MODE
 # `SIGMA_M`은 `C_hard`를 위해 칸마다 준다 -- 0.001이 hard target 극한이다.
@@ -141,7 +147,8 @@ for seed in ${SEEDS}; do
         BAND_KAPPA=1.0 LABEL_EPS=0.0 \
         RANGE_LOSS_MODE="${range_mode}" \
         LAMBDA_R="${lambda_r}" DELTA_R_M=0.15 DELTA_R_OVER_M=None HUBER_BETA_M=0.15 \
-        HEIGHT_BINS=4 HEIGHT_MIN_M=-0.25 HEIGHT_MAX_M=1.75 \
+        HEIGHT_BINS="${PROBE_HEIGHT_BINS}" HEIGHT_MIN_M="${PROBE_HEIGHT_MIN_M}" \
+        HEIGHT_MAX_M="${PROBE_HEIGHT_MAX_M}" \
         FORMULATION=binary ENCODER_TYPE=res101 AUGMENT=True INIT_CHECKPOINT=none \
         LR=1e-4 WEIGHT_DECAY=1e-7 MAX_CLASS_WEIGHT=20 \
         LABEL_SMOOTHING=0.0 FLIP_AUGMENT=False FREEZE_ENCODER=False \
