@@ -30,9 +30,9 @@ from projects.common.metric_spec import (  # noqa: E402
 
 # 이름 -> (그림 범례, 색). 확정값을 파랑으로 둔다(다른 그림과 같은 뜻).
 RUNS = {
-    "y4_-0.25_1.75": ("Y=4, [-0.25, 1.75] m (frozen)", "#2a78d6"),
-    "y8_-2.00_2.00": ("Y=8, [-2, 2] m", "#eb6834"),
-    "y8_-1.00_3.00": ("Y=8, [-1, 3] m", "#a555c7"),
+    "y4_-0.25_1.75": ("Y=4, samples 0 ... 1.5 m (frozen)", "#2a78d6"),
+    "y9_-2.25_2.25": ("Y=9, samples -2.0 ... 2.0 m", "#eb6834"),
+    "y9_-1.25_3.25": ("Y=9, samples -1.0 ... 3.0 m", "#a555c7"),
 }
 PANELS = (("iou_free", "val IoU_free  ↑"), ("precision", "val precision  ↑"),
           ("recall", "val recall  ↑"), ("bf_10cm", "val BF@0.10 m  ↑"),
