@@ -254,3 +254,72 @@ def test_nothing_to_measure_is_nan():
 def test_an_epoch_without_validation_summarises_to_an_empty_dict():
     """`empty_epoch_metrics`가 이 계약에 의존한다 -- 로그 포매터가 빈 dict를 받아 `-`를 찍는다."""
     assert summarize_tolerance_f1([]) == {}
+
+
+# --- BF@τ (프레임 macro, 2026-10-02) ---------------------------------------------------------
+
+from projects.common.occupied_metrics import (  # noqa: E402
+    BF_TOLERANCES_M,
+    boundary_f_scores,
+    summarize_boundary_f,
+)
+
+
+def test_bf_tolerances_end_at_the_soft_boundary_half_width():
+    """사용자 결정(2026-10-02): 눈금 {0.10, 0.20, 0.30} m, 최댓값 = δ = 0.30 m."""
+    assert BF_TOLERANCES_M == (0.10, 0.20, 0.30)
+
+
+def test_bf_is_the_frame_mean_of_per_frame_f_not_pooled_counts():
+    """정답 1칸 / 오답 1칸 / 정답 4칸 세 프레임. macro = (1 + 0 + 1) / 3 = 2/3이고,
+    셀을 합치는 micro라면 5/6이 나온다 -- 두 집계가 확실히 갈린다."""
+    frames = [(_grid([(3, 3)]), _grid([(3, 3)])),
+              (_grid([(1, 1)]), _grid([(6, 6)])),
+              (_grid([(3, i) for i in range(1, 5)]), _grid([(3, i) for i in range(1, 5)]))]
+    pred = torch.cat([p for p, _ in frames])
+    gt = torch.cat([g for _, g in frames])
+    result = summarize_boundary_f(
+        [boundary_f_scores(pred, gt, torch.ones_like(gt), CELL_M, tolerances=(0.10,))])["10cm"]
+
+    assert result["bf"] == pytest.approx(2 / 3)
+    assert result["precision"] == pytest.approx(2 / 3)
+    assert result["recall"] == pytest.approx(2 / 3)
+    assert result["n_frames"] == 3
+
+
+def test_bf_does_not_depend_on_how_frames_are_batched():
+    """합과 프레임 수를 돌려주므로 batch를 어떻게 자르든 같은 값이어야 한다."""
+    frames = _four_samples()
+    one = summarize_boundary_f([boundary_f_scores(
+        torch.cat([p for p, _ in frames]), torch.cat([g for _, g in frames]),
+        torch.ones(len(frames), 1, 7, 7, dtype=torch.bool), CELL_M, tolerances=(0.10,))])
+    split = summarize_boundary_f([
+        boundary_f_scores(p, g, torch.ones_like(g), CELL_M, tolerances=(0.10,))
+        for p, g in frames])
+    assert one["10cm"]["bf"] == pytest.approx(split["10cm"]["bf"])
+    assert one["10cm"]["n_frames"] == split["10cm"]["n_frames"] == len(frames)
+
+
+def test_bf_scores_an_empty_prediction_zero_and_skips_frames_with_nothing_to_score():
+    """한쪽만 비면 0점(퇴행 해 벌점), 둘 다 비면 프레임을 뺀다."""
+    empty = _grid([])
+    frames = [(empty, _grid([(3, 3)])),       # 예측 경계 없음 -> P = R = F = 0
+              (_grid([(3, 3)]), _grid([(3, 3)])),   # 정답 -> 1
+              (empty, empty)]                       # 잴 것 없음 -> 제외
+    pred = torch.cat([p for p, _ in frames])
+    gt = torch.cat([g for _, g in frames])
+    result = summarize_boundary_f(
+        [boundary_f_scores(pred, gt, torch.ones_like(gt), CELL_M, tolerances=(0.10,))])["10cm"]
+
+    assert result["n_frames"] == 2
+    assert result["bf"] == pytest.approx(0.5)
+    assert summarize_boundary_f([]) == {}
+
+
+def test_bf_widens_with_the_tolerance():
+    """2셀 밀린 경계는 τ=0.10(2셀)에서 맞고, 3셀 밀리면 0.10에서는 틀리고 0.20에서 맞는다."""
+    pred, gt = _grid([(3, 0)]), _grid([(3, 3)])     # 3셀 = 0.15 m
+    result = summarize_boundary_f([boundary_f_scores(pred, gt, torch.ones_like(gt), CELL_M)])
+    assert result["10cm"]["bf"] == pytest.approx(0.0)
+    assert result["20cm"]["bf"] == pytest.approx(1.0)
+    assert result["30cm"]["bf"] == pytest.approx(1.0)

@@ -182,7 +182,9 @@ def main(
     sigma_m=0.10,
     lambda_b=0.5,
     soft_target="gaussian",
-    lambda_r=0.3,
+    # [2026-10-02] 기본값 0 = 보조항 없음(다음 캠페인은 soft-boundary BCE까지). 옛 사전학습은
+    # 0.3으로 돌았고, 그 config.json에 값이 그대로 남아 있다.
+    lambda_r=0.0,
     # 보조항의 형태. `arc_huber`는 endpoint arc + dead zone + Huber(기존 기본값),
     # `cumulative_l1`은 같은 soft target과의 누적 arc profile L1이다.
     # **미세조정 쪽(`tools/train_robot_bev.py`)과 같은 값이어야 한다** -- 사전학습과
@@ -426,8 +428,7 @@ def main(
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
                 val = evaluate_split(step, val_loader, device, rays, ring_masks,
-                                     cell_m=grid_spec.cell_m,
-                                     range_edges_m=PRETRAIN_RING_EDGES_M)
+                                     cell_m=grid_spec.cell_m)
                 write_epoch_scalars(writer, "val", val, epoch)
 
             epoch_time = time.time() - epoch_start
@@ -444,8 +445,7 @@ def main(
                 val_loss=val["loss"],
                 val_loss_parts=val["loss_parts"],
                 val_free_metrics=val["free"],
-                val_range_metrics=val["range"],
-                val_tolerance_metrics=val["tolerance"],
+                val_boundary_metrics=val["boundary"],
                 baseline_iou_free=constant_baseline,
                 val_score=val_score,
                 best_val_score=best_val_score,

@@ -136,9 +136,10 @@ def test_metrics_derive_occupied_from_the_predicted_free_boundary():
     )
 
     assert metrics["iou_free"] == pytest.approx(1.0)
-    assert metrics["fatal_rate"] == pytest.approx(0.0)
+    assert metrics["precision"] == pytest.approx(1.0)
+    assert metrics["recall"] == pytest.approx(1.0)
     assert metrics["partition_defects"] == 0
-    # 유도 결과가 지표 dict에 실려 나가야 val 루프의 `f1@τ`가 계산된다.
+    # 유도 결과가 지표 dict에 실려 나가야 val 루프의 `BF@τ`가 계산된다.
     assert metrics["pred_occupied"].any()
 
 

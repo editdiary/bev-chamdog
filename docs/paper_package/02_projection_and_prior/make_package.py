@@ -20,6 +20,7 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO_ROOT))
 
+from projects.common.metric_spec import EXPORTED_METRICS, PAPER_METRICS, require_tags  # noqa: E402
 from tools.summarize_repeats import read_run  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -44,20 +45,10 @@ ARM_DESIGN = {
                      "front_px_per_deg": 2.55, "edge_px_per_deg": 1.96},
 }
 
-METRICS = (
-    ("val/iou_free_epoch", "iou_free", True),
-    ("val/fatal_rate_epoch", "fatal_rate", False),
-    ("val/free_miss_rate_epoch", "free_miss_rate", False),
-    ("val/occupied_f1_10cm_epoch", "occupied_f1_10cm", True),
-    ("val/occupied_f1_20cm_epoch", "occupied_f1_20cm", True),
-    ("val/occupied_f1_40cm_epoch", "occupied_f1_40cm", True),
-    ("val/range_mae_epoch", "range_mae", False),
-    ("val/range_bias_epoch", "range_bias", None),
-    ("val/range_missed_obstacle_rate_epoch", "range_missed_obstacle_rate", False),
-)
-CURVE_TAGS = {"val/iou_free_epoch": "iou_free",
-              "val/fatal_rate_epoch": "fatal_rate",
-              "val/free_miss_rate_epoch": "free_miss_rate"}
+# 지표 정본은 `projects/common/metric_spec.py`(2026-10-02 개편, 전부 프레임 macro).
+# 시드별 원자료와 짝지은 차이는 보조 지표(BF의 P/R, 링별)까지 전부, 본문 Table 2는 일곱 개만.
+METRICS = EXPORTED_METRICS
+CURVE_TAGS = {tag: label for tag, label, _ in PAPER_METRICS}
 CURVE_EPOCHS = tuple(range(1, FIXED_EPOCH + 1))
 
 
@@ -103,6 +94,7 @@ def _load(log_dir_pattern):
         if not run_dir.exists():
             raise SystemExit(f"런 로그가 없다: {run_dir}")
         series = read_run(run_dir)["series"]
+        require_tags(series, run_dir.name, METRICS)
         out[seed] = {"_run": run_dir.name, "_series": series,
                      **{label: series.get(tag, {}).get(FIXED_EPOCH)
                         for tag, label, _ in METRICS}}
@@ -201,7 +193,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE, control=CONTROL_LOGS,
 
     # --- 4. 논문 Table 2: 축 B ------------------------------------------------------
     rows = []
-    for _, label, higher_is_better in METRICS:
+    for _, label, higher_is_better in PAPER_METRICS:
         diffs = [runs["source_prior"][s][label] - runs["control"][s][label] for s in SEEDS]
         mean, sd, n = _mean_sd(diffs)
         se = sd / math.sqrt(n)

@@ -3,8 +3,8 @@
 이 사다리는 "인접한 두 칸은 손잡이 하나만 다르다"가 전제다. 한 칸의 설정이 옆 칸으로 새면
 그 계단에서 관찰된 변화를 어디에도 귀속시킬 수 없는데, 산출물만 보면 정상으로 보인다.
 
-특히 `D_range`(`arc_huber`, λ_R=0.3)와 `E_cumulative`(`cumulative_l1`, λ_R=0.15)는 **같은
-계단의 대체 팔**이라 `RANGE_LOSS_MODE`가 섞이면 두 팔이 구별되지 않는다.
+**[2026-10-02] 광선 보조항을 뺐다** -- 사다리는 `A_ce -> B_perset -> C_hard -> C_soft` 넷이고
+어느 칸도 `λ_R > 0`을 받으면 안 된다(옛 `D_range`·`E_cumulative`는 주석으로만 남았다).
 """
 import os
 import subprocess
@@ -19,8 +19,6 @@ LADDER = {
     "B_perset": ("soft_boundary", "0.0", "0.0", "0.10", "arc_huber"),
     "C_hard": ("soft_boundary", "0.5", "0.0", "0.001", "arc_huber"),
     "C_soft": ("soft_boundary", "0.5", "0.0", "0.10", "arc_huber"),
-    "D_range": ("soft_boundary", "0.5", "0.3", "0.10", "arc_huber"),
-    "E_cumulative": ("soft_boundary", "0.5", "0.15", "0.10", "cumulative_l1"),
 }
 
 # 칸과 무관하게 항상 같아야 하는 값. 여기에 `FRAME_SPLIT_*`가 있는 이유는 그것이 새면
@@ -97,20 +95,13 @@ def test_every_cell_gets_its_own_loss_settings(tmp_path):
                                                               sigma_m, mode)
 
 
-def test_the_two_range_arms_differ_only_in_the_auxiliary_term(tmp_path):
-    """`D_range`와 `E_cumulative`는 `C_soft`에서 보조항 하나만 켠 **대체 팔**이다."""
+def test_no_rung_turns_the_ray_term_on(tmp_path):
+    """사용자 결정(2026-10-02): 목적함수는 soft-boundary BCE까지다. 칸이 하나라도 `λ_R > 0`을
+    받으면 trainer가 보조항을 만든다 -- 주석 처리한 옛 칸이 되살아나는 것을 여기서 막는다."""
     _, calls = _run_ladder(tmp_path, {})
-    by_name = {c["EXP_NAME"]: c for c in calls}
-    shared = [k for k in _CAPTURED if k not in
-              ("EXP_NAME", "RUN_NAME", "LAMBDA_R", "RANGE_LOSS_MODE")]
-    for name in ("D_range", "E_cumulative"):
-        for key in shared:
-            assert by_name[name][key] == by_name["C_soft"][key], (
-                f"{name}이 C_soft와 {key}에서 다르다 -- 한 계단에 손잡이 하나가 깨졌다")
-    assert (by_name["D_range"]["LAMBDA_R"], by_name["D_range"]["RANGE_LOSS_MODE"]) \
-        == ("0.3", "arc_huber")
-    assert (by_name["E_cumulative"]["LAMBDA_R"], by_name["E_cumulative"]["RANGE_LOSS_MODE"]) \
-        == ("0.15", "cumulative_l1")
+    assert calls, "사다리가 한 칸도 돌지 않았다"
+    for call in calls:
+        assert float(call["LAMBDA_R"]) == 0.0, call["EXP_NAME"]
 
 
 def test_inherited_environment_cannot_pollute_the_ladder(tmp_path):
@@ -133,11 +124,11 @@ def test_inherited_environment_cannot_pollute_the_ladder(tmp_path):
 
 
 def test_existing_runs_are_skipped_so_only_new_cells_train(tmp_path):
-    """이미 있는 칸은 건너뛴다 -- `E_cumulative`만 추가로 돌릴 수 있어야 한다."""
+    """이미 있는 칸은 건너뛴다 -- 빠진 칸만 추가로 돌릴 수 있어야 한다."""
     out_root = tmp_path / "runs"
-    for name in ("A_ce", "B_perset", "C_hard", "C_soft", "D_range"):
+    for name in ("A_ce", "B_perset", "C_hard"):
         run_dir = out_root / "logs" / f"{name}_s0"
         run_dir.mkdir(parents=True)
         (run_dir / "events.out.tfevents.1").write_text("x")
     _, calls = _run_ladder(tmp_path, {})
-    assert [c["EXP_NAME"] for c in calls] == ["E_cumulative"]
+    assert [c["EXP_NAME"] for c in calls] == ["C_soft"]

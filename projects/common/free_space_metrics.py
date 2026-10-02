@@ -1,4 +1,10 @@
-"""free-space 지표 -- M1 `iou_free`, M2 `fatal_rate`, M2b `free_miss_rate`.
+"""free-space 지표 -- `iou_free`, `iou_non_free`, `precision`, `recall` (전부 프레임 macro).
+
+**2026-10-02 지표 개편.** 이름·눈금·집계 규칙의 정본은 `projects/common/metric_spec.py`다.
+`fatal_rate`(= 1 − precision)와 `free_miss_rate`(= 1 − recall)는 **셀을 한 통에 부은 micro**
+였고 `iou_free`만 프레임 macro였다. 논문 표 안에서 집계가 섞이지 않도록 전부 macro로 바꾸고
+이름을 precision/recall로 적는다. 옛 두 함수와 M3(range) 함수는 옛 런 재채점용 legacy로
+남긴다 -- 학습 로그와 논문 패키지에는 더 이상 나가지 않는다.
 
 왜 `iou_drivable`/`iou_obstacle`을 대신하는가: 자체 로봇 데이터에서 평가 마스크
 (`vis & valid`) 안 drivable 비율이 93.5%라 "전부 drivable"이 `iou_drivable` 0.935를
@@ -13,6 +19,7 @@ import numpy as np
 import torch
 
 from projects.common.free_space import partition_defect_count
+from projects.common.metric_spec import RING_EDGES_M
 from projects.common.polar import RAY_CENSORED, RAY_NO_FREE, RAY_OK, first_free_range
 
 
@@ -51,6 +58,55 @@ def iou_free(free_pred, free_gt, valid):
     return iou_masked(free_pred, free_gt, valid)
 
 
+def iou_non_free(free_pred, free_gt, valid):
+    """non-free 클래스 IoU. `valid` 안에서 free가 아닌 셀 전부(occupied ∪ unknown)다.
+
+    **변별력이 낮다는 것을 알고 읽는다.** non-free가 `valid`의 약 83 %라서 "전부 non-free"라는
+    자명해가 이미 ≈ 0.83을 받는다. 논문 본문 지표가 아니라 보조 열이다(사용자 결정 2026-10-02).
+    """
+    valid_b = valid.bool()
+    return iou_masked(~free_pred.bool() & valid_b, ~free_gt.bool() & valid_b, valid_b)
+
+
+def _frame_confusion(free_pred, free_gt, valid):
+    """프레임마다 `(TP, FP, FN)` -- 셀 수, `(B,)` float."""
+    valid_b = valid.bool()
+    pred, gt = free_pred.bool() & valid_b, free_gt.bool() & valid_b
+    dims = list(range(1, pred.ndim))
+    return ((pred & gt).sum(dim=dims).float(), (pred & ~gt).sum(dim=dims).float(),
+            (~pred & gt).sum(dim=dims).float())
+
+
+def _macro_ratio(numerator, denominator, defined):
+    """프레임별 비율의 평균과 평균에 들어간 프레임 수.
+
+    분모가 0인 정의된 프레임은 0점이다 -- 예: GT free가 있는데 예측 free가 하나도 없으면
+    precision 0. 그 프레임을 빼면 "아무것도 주장하지 않는" 퇴행 해가 평균에서 빠져나간다.
+    """
+    count = int(defined.sum().item())
+    if count == 0:
+        return float("nan"), 0
+    ratio = torch.where(denominator > 0, numerator / denominator.clamp(min=1.0),
+                        torch.zeros_like(numerator))
+    return float(ratio[defined].mean().item()), count
+
+
+def free_precision(free_pred, free_gt, valid):
+    """free Precision = TP / (TP + FP), 프레임 macro. 옛 `fatal_rate`(micro)의 보수다.
+
+    **혼자 읽으면 속는다.** macro에서는 free를 몇 셀만 예측하고 맞힌 프레임이 1.0을 받아 큰
+    프레임과 같은 표를 행사한다. 반드시 `free_recall`과 같이 읽는다.
+    """
+    tp, fp, fn = _frame_confusion(free_pred, free_gt, valid)
+    return _macro_ratio(tp, tp + fp, (tp + fp + fn) > 0)
+
+
+def free_recall(free_pred, free_gt, valid):
+    """free Recall = TP / (TP + FN), 프레임 macro. 옛 `free_miss_rate`(micro)의 보수다."""
+    tp, fp, fn = _frame_confusion(free_pred, free_gt, valid)
+    return _macro_ratio(tp, tp + fn, (tp + fp + fn) > 0)
+
+
 def _rate(numerator_mask, denominator_mask):
     denominator = int(denominator_mask.sum().item())
     if denominator == 0:
@@ -59,7 +115,9 @@ def _rate(numerator_mask, denominator_mask):
 
 
 def fatal_rate(free_pred, free_gt, valid):
-    """M2. "갈 수 있다고 믿은 곳 중 틀린 비율" = 1 - precision(free).
+    """**legacy(micro)** -- 2026-10-02 이후 학습 로그에 쓰지 않는다. 옛 런 재채점용.
+
+    M2. "갈 수 있다고 믿은 곳 중 틀린 비율" = 1 - precision(free).
 
     분모를 `|free_pred|`로 잡는 이유: `|~free_gt|`로 잡으면 분모가 격자의 83%라 값이 항상
     작게 나와 변별력이 없다 (같은 체크포인트에서 0.0113 vs 0.0587). planner 관점에서도
@@ -71,7 +129,7 @@ def fatal_rate(free_pred, free_gt, valid):
 
 
 def free_miss_rate(free_pred, free_gt, valid):
-    """M2b. 보수성(정보 낭비). `fatal_rate`와 비용이 다르므로 절대 합치지 않는다."""
+    """**legacy(micro)** -- 옛 런 재채점용. M2b. 보수성(정보 낭비) = 1 - recall(free)."""
     valid_b = valid.bool()
     pred, gt = free_pred.bool() & valid_b, free_gt.bool() & valid_b
     return _rate(~pred & gt, gt)
@@ -83,8 +141,14 @@ def free_metrics_from_masks(pred_parts, gt_parts, valid) -> dict:
     집계를 호출부마다 복사해 두면 한쪽만 고쳐지는 순간 두 학습 스크립트의 숫자를 나란히
     읽을 수 없으므로 여기 한 벌만 둔다.
 
-    **여기서 재는 것은 셋뿐이다: `iou_free`(M1), `fatal_rate`(M2), `free_miss_rate`(M2b).**
-    2026-08-21에 세 항목을 지웠고, 되살리려는 유혹을 막기 위해 이유를 남긴다.
+    **여기서 재는 것은 넷이다: `iou_free`, `iou_non_free`, `precision`, `recall`** -- 전부
+    프레임 macro이고 `*_count`는 평균에 들어간 프레임 수다(batch 간 가중평균용).
+    2026-10-02에 `fatal_rate`/`free_miss_rate`(micro)를 precision/recall(macro)로 바꿨다.
+
+    `iou_non_free`는 아래 2026-08-21의 삭제 사유에 걸리지 않는다: 유도된 1셀 표면도 아니고
+    task 정의를 바꾸지도 않는다 -- binary head가 실제로 내는 둘째 클래스의 IoU다.
+
+    2026-08-21에 지운 세 항목과 그 이유(되살리려는 유혹을 막기 위해 남긴다):
 
     - `iou_occupied`/`iou_unknown`: binary 정식화에서 `occupied`는 head가 없고 예측 free의
       경계에서 **유도**되며 `unknown`은 그 나머지다. 즉 둘 다 `free`의 결정론적 함수라 독립
@@ -97,26 +161,32 @@ def free_metrics_from_masks(pred_parts, gt_parts, valid) -> dict:
       non-drivable이라고 선언한 셀의 78.5 %를 빼는 것이므로 다른 task를 재게 된다.
       실측 근거는 `docs/finetune_overfitting_diagnosis.md` §22.4/§23에 남아 있다.
 
-    마스크를 함께 실어 보내는 이유: M3(range)·F1@τ는 광선 루프와 거리변환이 CPU numpy라
-    학습 step마다 돌리면 병목이 된다. val 경로가 forward를 다시 하지 않고 이 마스크를
-    받아 따로 계산한다.
+    마스크를 함께 실어 보내는 이유: BF@τ는 광선 루프와 거리변환이 CPU numpy라 학습 step마다
+    돌리면 병목이 된다. val 경로가 forward를 다시 하지 않고 이 마스크를 받아 따로 계산한다.
     """
     pred_free, gt_free = pred_parts["free"], gt_parts["free"]
     pred_occupied, gt_occupied = pred_parts["occupied"], gt_parts["occupied"]
-
-    iou, iou_count = iou_free(pred_free, gt_free, valid)
-    fatal, fatal_denom = fatal_rate(pred_free, gt_free, valid)
-    miss, miss_denom = free_miss_rate(pred_free, gt_free, valid)
     return {
-        "iou_free": iou, "iou_free_count": iou_count,
-        "fatal_rate": fatal, "fatal_denom": fatal_denom,
-        "free_miss_rate": miss, "free_miss_denom": miss_denom,
+        **free_scores(pred_free, gt_free, valid),
         # 배선이 틀리면 조용히 이상한 숫자가 나오는 대신 여기서 0이 아니게 된다.
         "partition_defects": partition_defect_count(gt_parts, valid.bool()),
         "pred_free": pred_free, "gt_free": gt_free,
         "pred_occupied": pred_occupied, "gt_occupied": gt_occupied,
     }
 
+
+def free_scores(free_pred, free_gt, valid) -> dict:
+    """`{지표: 값, 지표_count: 프레임 수}` -- `metric_spec.FREE_METRICS` 넷. 링도 같은 함수를 탄다."""
+    out = {}
+    for name, fn in (("iou_free", iou_free), ("iou_non_free", iou_non_free),
+                     ("precision", free_precision), ("recall", free_recall)):
+        out[name], out[f"{name}_count"] = fn(free_pred, free_gt, valid)
+    return out
+
+
+# --- 이하 M3(range)는 **legacy**다 ---------------------------------------------------------
+# 2026-10-02 사용자 결정으로 학습 로그·논문 패키지에서 뺐다. 옛 런 재채점
+# (`tools/rescore_checkpoints.py`)과 옛 연구 도구가 쓰므로 계산 함수는 남긴다.
 
 _RANGE_STAT_KEYS = ("mae", "abs_p50", "abs_p90", "bias", "over_mean", "under_mean")
 _RANGE_COUNTS = ("n_paired_rays", "over_count", "under_count",
@@ -265,7 +335,7 @@ def summarize_range_error_by_gt_range(dicts, edges_m) -> dict:
     return result
 
 
-DEFAULT_RING_EDGES_M = (0.0, 1.5, 3.0, 4.0)
+DEFAULT_RING_EDGES_M = RING_EDGES_M
 
 
 def build_ring_masks(grid_spec, edges_m=DEFAULT_RING_EDGES_M):
@@ -282,15 +352,13 @@ def build_ring_masks(grid_spec, edges_m=DEFAULT_RING_EDGES_M):
 
 
 def metrics_per_ring(free_pred, free_gt, valid, ring_masks) -> dict:
-    """링마다 M1·M2를 다시 잰다. `valid`에 링 마스크를 곱해 같은 함수를 재사용한다."""
+    """링마다 `free_scores` 넷을 다시 잰다. `valid`에 링 마스크를 곱해 같은 함수를 재사용한다.
+
+    링 밖 셀은 그 링의 채점에서 빠지므로, 링 안에 예측·GT free가 둘 다 없는 프레임은 그 링의
+    평균에서 빠진다(`*_count`가 줄어든다).
+    """
     result = {}
     for name, mask in ring_masks:
         ring = torch.from_numpy(mask).to(valid.device).view(1, 1, *mask.shape)
-        ring_valid = valid.bool() & ring
-        iou, iou_count = iou_free(free_pred, free_gt, ring_valid)
-        rate, denom = fatal_rate(free_pred, free_gt, ring_valid)
-        result[name] = {
-            "iou_free": iou, "iou_free_count": iou_count,
-            "fatal_rate": rate, "fatal_denom": denom,
-        }
+        result[name] = free_scores(free_pred, free_gt, valid.bool() & ring)
     return result

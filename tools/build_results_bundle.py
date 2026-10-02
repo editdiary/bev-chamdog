@@ -58,25 +58,22 @@ from fire import Fire
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-# 사다리 순서. 표와 JSON의 키 순서가 이걸 따른다.
-# **`D_range`와 `E_cumulative`는 이어지는 계단이 아니라 `C_soft`에서 갈라지는 대체 팔**이다
-# (`configs/loss_effect.sh` 머리말). 논문에 싣는 것은 `E`다 --
-# `docs/loss_effect_results.md` §16.
-LADDER = ("A_ce", "B_perset", "C_hard", "C_soft", "D_range", "E_cumulative")
+from projects.common.metric_spec import PAPER_METRICS  # noqa: E402
 
-# (TensorBoard 태그, 짧은 이름, 높을수록 좋은가)
-METRICS = (
-    ("val/iou_free_epoch", "iou_free", True),
-    ("val/occupied_f1_10cm_epoch", "f1@10cm", True),
-    ("val/occupied_f1_20cm_epoch", "f1@20cm", True),
-    ("val/fatal_rate_epoch", "fatal_rate", False),
-    ("val/free_miss_rate_epoch", "free_miss_rate", False),
-    ("val/range_mae_epoch", "range_mae", False),
-    ("val/range_bias_epoch", "range_bias", None),
-    ("val/range_missed_obstacle_rate_epoch", "missed_obstacle", False),
+# 사다리 순서. 표와 JSON의 키 순서가 이걸 따른다.
+# **[2026-10-02 사용자 결정] 광선 보조항을 뺐다 -- 사다리는 soft-boundary BCE(`C_soft`)까지
+# 넷이다.** 옛 `D_range`·`E_cumulative`는 `C_soft`에서 갈라지는 대체 팔이었다
+# (`docs/loss_effect_results.md` §16). 옛 런을 다시 묶을 때는 `--cells`로 넘긴다.
+LADDER = ("A_ce", "B_perset", "C_hard", "C_soft")
+
+# (TensorBoard 태그, 짧은 이름, 높을수록 좋은가). 논문 지표는 `metric_spec`이 정본이다
+# (2026-10-02 개편: precision/recall/BF@τ, 전부 프레임 macro).
+METRICS = PAPER_METRICS + (
     ("val/loss_epoch", "val_loss", False),
     ("train/iou_free_epoch", "train_iou_free", True),
 )
+# 되올림 regret을 재는 경계 지표(옛 `f1@10cm`).
+REGRET_BOUNDARY_TAG, REGRET_BOUNDARY = "val/bf_10cm_epoch", "regret_bf_10cm"
 
 # plateau 구간 -- epoch 간 변동을 재는 자리. 초기 급강하를 뺀다.
 PLATEAU = (10, 40)
@@ -96,8 +93,6 @@ FILE_GUIDE = (
     ("predictions/", "**1차 원본.** val 확률맵(`p(free)`, τ 적용 전) + GT 라벨 + 부호 거리장. "
                      "체크포인트 없이 어떤 τ·영역·지표든 다시 계산할 수 있다"),
     ("verify_predictions.json", "확률맵이 학습 로그를 재현하는지 대조한 결과(무결성)"),
-    ("seed_jitter/", "광선별 예측 거리 `R̂`와 `RAY_OK` 캐시(런 × 프레임 × 720광선)"),
-    ("seed_jitter.json", "광선 산포 요약 -- 전역/광선별/잔차 σ와 상태 불일치"),
     ("decision_disagreement.json", "셀 단위 free↔non-free 뒤집힘(선택 체크포인트)"),
     ("decision_disagreement_last.json", "같은 것, 고정 epoch 체크포인트"),
     ("threshold_sweep_rows.csv", "**1차 원본.** 셀 × 시드 × τ 의 모든 지표"),
@@ -278,7 +273,8 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
     series = _read_scalars(analysis / "scalars.csv", missing)
     configs = _load_json(analysis / "configs.json", missing) or {}
     verify = _load_json(analysis / "verify_predictions.json", missing)
-    jitter = _load_json(analysis / "seed_jitter.json", missing)
+    # 광선 산포(`seed_jitter`)는 방위각 거리 지표라 2026-10-02에 파이프라인에서 뺐다.
+    jitter = None
     disagree = _load_json(analysis / "decision_disagreement.json", missing)
     disagree_last = _load_json(analysis / "decision_disagreement_last.json", missing)
     per_seq = _load_json(analysis / "per_sequence.json", missing)
@@ -305,7 +301,7 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
                 at_sel[name] = s.get(selected)
                 at_fixed[name] = s.get(int(fixed_epoch))
 
-            f1 = series.get((cell, seed, "val/occupied_f1_10cm_epoch"), {})
+            f1 = series.get((cell, seed, REGRET_BOUNDARY_TAG), {})
             entry = {
                 "run": run, "cell": cell, "seed": seed,
                 "selected_epoch": int(selected), "fixed_epoch": int(fixed_epoch),
@@ -314,8 +310,8 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
                 # "val loss로 골랐다면 얼마나 손해였나"
                 "regret_iou_free": (iou[selected] - iou[reb["min_epoch"]]
                                     if reb["min_epoch"] in iou else None),
-                "regret_f1@10cm": (f1[max(f1, key=f1.get)] - f1[reb["min_epoch"]]
-                                   if f1 and reb["min_epoch"] in f1 else None),
+                REGRET_BOUNDARY: (f1[max(f1, key=f1.get)] - f1[reb["min_epoch"]]
+                                  if f1 and reb["min_epoch"] in f1 else None),
                 "delta_epoch_loss_vs_iou": (abs(selected - reb["min_epoch"])
                                             if reb["min_epoch"] is not None else None),
                 "plateau_loss_fluctuation": (
@@ -334,7 +330,7 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
                 if value is not None:
                     csv_rows.append(("run", cell, seed, f"{name}@ep{fixed_epoch}", value,
                                      "scalars.csv@fixed"))
-            for key in ("rebound_excess_pct", "regret_iou_free", "regret_f1@10cm",
+            for key in ("rebound_excess_pct", "regret_iou_free", REGRET_BOUNDARY,
                         "delta_epoch_loss_vs_iou", "plateau_loss_fluctuation",
                         "selected_epoch", "val_loss_min_epoch"):
                 if entry[key] is not None:
@@ -352,7 +348,7 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
             block[f"{name}@ep{fixed_epoch}"] = _mean_sd(
                 [r["metrics_at_fixed_epoch"][name] for r in rows])
         for key in ("rebound_excess_pct", "rebound_raw_pct", "regret_iou_free",
-                    "regret_f1@10cm", "delta_epoch_loss_vs_iou",
+                    REGRET_BOUNDARY, "delta_epoch_loss_vs_iou",
                     "plateau_loss_fluctuation", "selected_epoch", "val_loss_min_epoch"):
             block[key] = _mean_sd([r[key] for r in rows if r[key] is not None])
         per_cell[cell] = block
@@ -374,7 +370,7 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
                                      for c in per_cell},
         "val_loss_min_epoch": {c: per_cell[c]["val_loss_min_epoch"] for c in per_cell},
         "regret_iou_free": {c: per_cell[c]["regret_iou_free"] for c in per_cell},
-        "regret_f1@10cm": {c: per_cell[c]["regret_f1@10cm"] for c in per_cell},
+        REGRET_BOUNDARY: {c: per_cell[c][REGRET_BOUNDARY] for c in per_cell},
     }
 
     axes["2_final_metric_reproducibility"] = {
@@ -451,32 +447,35 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
                                      "decision_disagreement.json"))
 
     if tau_rows:
-        # 모든 칸·시드가 덮는 free_miss 구간에서 목표 동작점을 잡는다.
+        # 모든 칸·시드가 덮는 recall 구간에서 목표 동작점을 잡는다. (2026-10-02 전에는 같은
+        # 일을 free_miss = 1 − recall(micro)로 했다. `_tau_at`이 x를 정렬하므로 recall이 τ에
+        # 대해 감소해도 그대로 맞다.)
         taus = sorted({t for v in tau_rows.values() for t in v})
-        lo = max(min(v[t]["free_miss"] for t in v) for v in tau_rows.values())
-        hi = min(max(v[t]["free_miss"] for t in v) for v in tau_rows.values())
+        lo = max(min(v[t]["recall"] for t in v) for v in tau_rows.values())
+        hi = min(max(v[t]["recall"] for t in v) for v in tau_rows.values())
         target = 0.5 * (lo + hi) if lo < hi else None
-        op = {"_what": "목표 free_miss를 맞추는 문턱 τ*의 시드 간 산포와, 그 동작점에서의"
-                       " fatal. 계획서 §6. **τ=0.5의 차이는 여기서 사라지면 동작점 이동이다.**",
+        op = {"_what": "목표 recall을 맞추는 문턱 τ*의 시드 간 산포와, 그 동작점에서의"
+                       " precision. 계획서 §6. **τ=0.5의 차이는 여기서 사라지면 동작점 이동이다.**",
               "_source": "analysis/threshold_sweep_rows.csv",
-              "common_free_miss_range": [lo, hi], "target_free_miss": target,
+              "common_recall_range": [lo, hi], "target_recall": target,
               "cells": {}}
         if target is not None:
             for cell in cells:
-                tau_star, fatal_star = [], []
+                tau_star, prec_star = [], []
                 for seed in seeds:
                     v = tau_rows.get((cell, seed))
                     if not v:
                         continue
-                    xs = [v[t]["free_miss"] for t in taus if t in v]
+                    xs = [v[t]["recall"] for t in taus if t in v]
                     t_hat = _tau_at(xs, [t for t in taus if t in v], target)
-                    f_hat = _tau_at(xs, [v[t]["fatal"] for t in taus if t in v], target)
+                    p_hat = _tau_at(xs, [v[t]["precision"] for t in taus if t in v], target)
                     if t_hat is not None:
                         tau_star.append(t_hat)
-                    if f_hat is not None:
-                        fatal_star.append(f_hat)
+                    if p_hat is not None:
+                        prec_star.append(p_hat)
                 op["cells"][cell] = {"tau_star": _mean_sd(tau_star),
-                                     "fatal_at_matched_operating_point": _mean_sd(fatal_star)}
+                                     "precision_at_matched_operating_point":
+                                         _mean_sd(prec_star)}
                 for key, stat in op["cells"][cell].items():
                     if stat["mean"] is not None:
                         csv_rows.append(("axis", cell, "", f"{key}_mean", stat["mean"],

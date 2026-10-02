@@ -1,4 +1,15 @@
-"""occupied 전용 지표 -- 거리 허용오차 F1 (`f1@τ`).
+"""경계 지표 -- **Boundary F-measure `BF@τ`** (2026-10-02까지 이름은 `f1@τ`/`occupied_f1_*`).
+
+**무엇을 재나 -- 전체 셀이 아니라 경계 셀만이다.** 아래 `O_pred`/`O_gt`는 ego 원점 광선이
+처음 멈춘 **두께 1셀 표면**(격자의 약 1.1 %)이다. 예측 쪽은 `derive_occupied`가 예측 free에서
+유도하고, GT 쪽은 라벨의 `occupied = ~occ & vis`(같은 ego raycast)다. 그래서 이름을 BF로
+바꿨다(사용자 지적, 2026-10-02). **DAVIS 계열 BF와 다른 점:** 그쪽은 분할 경계 전체(contour)를
+쓰지만 여기 경계는 **ego에서 보이는 free 공간의 첫 표면**이다 -- 물체 뒤편 윤곽은 경계
+집합에 없다. 논문에 이 정의를 한 줄로 적는다.
+
+**집계는 프레임 macro다**(`boundary_f_scores` -> `summarize_boundary_f`). 프레임마다 P·R·F를
+내고 프레임 평균한다. 예전 `tolerance_counts`/`summarize_tolerance_f1`(micro, τ 0.10/0.20/0.40)은
+옛 런 재채점용 legacy로 남는다.
 
 **왜 면적 IoU가 아닌가.** `occupied`는 광선이 멈춘 두께 1셀 표면이라 예측이 한 칸 옆으로
 밀리기만 해도 교집합이 0이 되어 IoU가 무너진다. 실측으로 `iou_obstacle` 0.312가 이미지를
@@ -29,20 +40,20 @@ import numpy as np
 import torch
 from scipy.ndimage import distance_transform_edt
 
+from projects.common.metric_spec import BF_TOLERANCES_M, tolerance_key  # noqa: F401
 from projects.common.npsafe import bool_not
 
 from projects.common.polar import first_free_range, frontier_cells
 
-# 격자 셀이 0.05 m이므로 2 / 4 / 8 셀에 해당한다. 셀 하나(0.05 m)는 라벨 자체의 이산화
-# 오차와 구별되지 않아 넣지 않았다.
-DEFAULT_TOLERANCES_M = (0.10, 0.20, 0.40)
+# 2 / 4 / 6셀(0.05 m 격자). 셀 하나(0.05 m)는 라벨 자체의 이산화 오차와 구별되지 않아 넣지
+# 않았다. 정본은 `metric_spec.BF_TOLERANCES_M`이다.
+DEFAULT_TOLERANCES_M = BF_TOLERANCES_M
+# 2026-10-02 이전 눈금. legacy `tolerance_counts`의 기본값으로만 남는다 -- 옛 도구가 옛 런을
+# 다시 읽을 때 숫자가 바뀌지 않게 하려는 것이다.
+LEGACY_TOLERANCES_M = (0.10, 0.20, 0.40)
 
 _COUNT_KEYS = ("hit_pred", "n_pred", "hit_gt", "n_gt")
-
-
-def tolerance_key(tolerance_m: float) -> str:
-    """`0.2 -> "20cm"`. 로그 tag와 dict 키에 float을 그대로 쓰면 표기가 갈린다."""
-    return f"{round(tolerance_m * 100)}cm"
+_BF_SUM_KEYS = ("bf_sum", "precision_sum", "recall_sum", "n_frames")
 
 
 def _distance_field_m(mask: np.ndarray, cell_m: float):
@@ -81,9 +92,66 @@ def derive_occupied(free_pred, valid, rays) -> torch.Tensor:
     return torch.from_numpy(derived).to(free_pred.device)
 
 
+def boundary_f_scores(occ_pred, occ_gt, valid, cell_m, tolerances=BF_TOLERANCES_M) -> dict:
+    """τ마다 **프레임별** BF·precision·recall의 합과 프레임 수. 비율은 `summarize_boundary_f`가 낸다.
+
+    합과 수를 돌려주는 이유: batch 간에 그대로 더하면 정확한 프레임 macro가 된다 -- batch를
+    어떻게 자르든 값이 같다(옛 micro가 피하려던 batch-size 의존은 프레임 단위로 나누는 순간
+    사라진다).
+
+    프레임 규칙(`metric_spec` 머리말과 같다):
+      - 예측·GT 경계가 둘 다 비면 그 프레임은 빠진다(잴 것이 없다).
+      - 한쪽만 비면 그쪽 비율을 0으로 본다 -- 예측 경계가 없으면 precision 0, F 0.
+      - F = 2PR/(P+R), P+R = 0이면 0.
+
+    **macro F는 macro P·R의 조화평균이 아니다** -- 프레임마다 F를 내고 평균한다(DAVIS와 같다).
+    """
+    pred_np = (occ_pred.bool() & valid.bool()).cpu().numpy()
+    gt_np = (occ_gt.bool() & valid.bool()).cpu().numpy()
+
+    sums = {tolerance_key(t): dict.fromkeys(_BF_SUM_KEYS, 0.0) for t in tolerances}
+    for i in range(gt_np.shape[0]):
+        pred, gt = pred_np[i, 0], gt_np[i, 0]
+        n_pred, n_gt = int(pred.sum()), int(gt.sum())
+        if n_pred == 0 and n_gt == 0:
+            continue
+        to_gt, to_pred = _distance_field_m(gt, cell_m), _distance_field_m(pred, cell_m)
+        for tolerance in tolerances:
+            hit_pred = int((pred & (to_gt <= tolerance)).sum()) if to_gt is not None else 0
+            hit_gt = int((gt & (to_pred <= tolerance)).sum()) if to_pred is not None else 0
+            precision = hit_pred / n_pred if n_pred else 0.0
+            recall = hit_gt / n_gt if n_gt else 0.0
+            total = precision + recall
+            bucket = sums[tolerance_key(tolerance)]
+            bucket["bf_sum"] += (2 * precision * recall / total) if total else 0.0
+            bucket["precision_sum"] += precision
+            bucket["recall_sum"] += recall
+            bucket["n_frames"] += 1
+    return sums
+
+
+def summarize_boundary_f(dicts) -> dict:
+    """batch별 합을 더해 프레임 macro로 나눈다 -- `{"10cm": {"bf", "precision", "recall", "n_frames"}}`."""
+    if not dicts:
+        return {}
+    result = {}
+    for key in dicts[0]:
+        summed = {name: sum(d[key][name] for d in dicts) for name in _BF_SUM_KEYS}
+        n = int(summed["n_frames"])
+        if n == 0:
+            result[key] = {"bf": float("nan"), "precision": float("nan"),
+                           "recall": float("nan"), "n_frames": 0}
+        else:
+            result[key] = {"bf": summed["bf_sum"] / n, "precision": summed["precision_sum"] / n,
+                           "recall": summed["recall_sum"] / n, "n_frames": n}
+    return result
+
+
 def tolerance_counts(occ_pred, occ_gt, valid, cell_m,
-                     tolerances=DEFAULT_TOLERANCES_M) -> dict:
-    """τ마다 precision/recall의 분자·분모를 센다. **비율이 아니라 카운트를 돌려준다.**
+                     tolerances=LEGACY_TOLERANCES_M) -> dict:
+    """**legacy(micro)** -- 옛 런 재채점용. 새 학습 로그는 `boundary_f_scores`를 쓴다.
+
+    τ마다 precision/recall의 분자·분모를 센다. **비율이 아니라 카운트를 돌려준다.**
 
     batch마다 F1을 내고 평균하면 batch 크기에 따라 값이 달라진다 -- 프레임당 occupied 셀 수가
     장면에 따라 수십 배 차이 나기 때문이다. 카운트를 모아 마지막에 한 번 나누면
@@ -114,7 +182,7 @@ def tolerance_counts(occ_pred, occ_gt, valid, cell_m,
 
 
 def summarize_tolerance_f1(dicts) -> dict:
-    """batch별 카운트를 합친 뒤 비율을 계산한다(micro-average).
+    """**legacy.** batch별 카운트를 합친 뒤 비율을 계산한다(micro-average).
 
     퇴행 해를 nan으로 빠져나가게 두지 않는다: 예측 occupied가 하나도 없으면 precision을 0으로
     본다("장애물을 아예 예측하지 않았다"는 실패이지 측정 불가가 아니다). 양쪽이 다 비었을

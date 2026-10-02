@@ -42,6 +42,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 
 from projects.bev_gt.grid import ROBOT_GRID_SPEC as GRID_SPEC  # noqa: E402
 from projects.common.baselines import as_batch, constant_free_map  # noqa: E402
+from projects.common.metric_spec import PAPER_METRICS  # noqa: E402
 from projects.common.free_space import decompose  # noqa: E402
 from projects.common.free_space_metrics import iou_free  # noqa: E402
 from projects.datasets.robot_simplebev import (  # noqa: E402
@@ -72,11 +73,10 @@ SIGMA_SEED_IOU = 0.0015
 #: E[min] 편향 계수 -- 표준정규 7개의 최솟값 기대값(≈ −1.35σ).
 MIN_BIAS_COEF = 1.35
 
-REPORTED = (
-    ("val/iou_free_epoch", "iou_free", True),
-    ("val/fatal_rate_epoch", "fatal_rate", False),
-    ("val/free_miss_rate_epoch", "free_miss_rate", False),
-)
+# 논문 지표 정본(`metric_spec.PAPER_METRICS`). 2026-10-02 개편 전에는 `iou_free`·
+# `fatal_rate`·`free_miss_rate` 셋이었다.
+REPORTED = PAPER_METRICS
+_LABELS = tuple(label for _, label, _ in REPORTED)
 
 
 def _mean_sd(values) -> tuple:
@@ -95,7 +95,7 @@ def _finite_or_none(value):
 def summarize_rows(rows: list[dict]) -> dict:
     """fold별 seed 집계를 다시 fold macro 통계로 요약한다."""
     result = {"n_folds": len(rows)}
-    for metric in ("iou_free", "fatal_rate", "free_miss_rate"):
+    for metric in _LABELS:
         values = [row[metric][0] for row in rows]
         within = [row[metric][1] for row in rows if math.isfinite(row[metric][1])]
         mean, sd, n = _mean_sd(values)
@@ -123,7 +123,7 @@ def build_report_payload(rows: list[dict], fixed_epoch: int, missing: list[str])
     for row in rows:
         sun, width = FACTORS[row["fold"]]
         metrics = {}
-        for metric in ("iou_free", "fatal_rate", "free_miss_rate"):
+        for metric in _LABELS:
             mean, sd, n = row[metric]
             metrics[metric] = {
                 "mean": _finite_or_none(mean),
@@ -246,34 +246,35 @@ def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=40,
     header = (f"{'fold':9}{'요인':12}{'프레임':>6}{'시드':>4}"
               f"{'기준선':>9}{'iou_free':>18}{'마진↑':>9}"
               + (f"{'fold SE':>9}" if legacy_sampling_diagnostics else "")
-              + f"{'fatal_rate':>17}")
+              + f"{'precision':>17}{'recall':>17}")
     print(header)
     print("-" * len(header))
     for r in rows:
         sun, width = FACTORS[r["fold"]]
         mark = " *외삽" if r["fold"] in EXTRAPOLATION_FOLDS else ""
         iou_m, iou_sd, _ = r["iou_free"]
-        fat_m, fat_sd, _ = r["fatal_rate"]
+        p_m, p_sd, _ = r["precision"]
+        r_m, r_sd, _ = r["recall"]
         print(f"{r['fold']:9}{sun + '/' + width:12}{r['n_val']:>6}{r['n_seed']:>4}"
               f"{r['baseline']:>9.3f}{iou_m:>11.4f}±{iou_sd:.4f}{r['margin']:>+9.3f}"
               + (f"{r['se']:>9.3f}" if legacy_sampling_diagnostics else "")
-              + f"{fat_m:>10.4f}±{fat_sd:.4f}{mark}")
+              + f"{p_m:>10.4f}±{p_sd:.4f}{r_m:>10.4f}±{r_sd:.4f}{mark}")
 
     # --- 요약 통계 -----------------------------------------------------------
     ious = [r["iou_free"][0] for r in rows]
     margins = [r["margin"] for r in rows]
-    fatals = [r["fatal_rate"][0] for r in rows]
+    precisions = [r["precision"][0] for r in rows]
     obs_sd = statistics.stdev(ious) if len(ious) > 1 else float("nan")
     worst = min(rows, key=lambda r: r["iou_free"][0])
     worst_margin = min(rows, key=lambda r: r["margin"])
-    worst_fatal = max(rows, key=lambda r: r["fatal_rate"][0])
+    worst_precision = min(rows, key=lambda r: r["precision"][0])
 
     print(f"\n--- 요약 (fold {len(rows)}개) ---")
     print(f"  `iou_free`   평균 {statistics.fmean(ious):.4f} | fold 간 관측 std {obs_sd:.4f}")
     print(f"  기준선 마진   평균 {statistics.fmean(margins):+.4f} | fold 간 std "
           f"{statistics.stdev(margins) if len(margins) > 1 else float('nan'):.4f}")
-    print(f"  `fatal_rate` 평균 {statistics.fmean(fatals):.4f} | fold 간 std "
-          f"{statistics.stdev(fatals) if len(fatals) > 1 else float('nan'):.4f}")
+    print(f"  `precision`  평균 {statistics.fmean(precisions):.4f} | fold 간 std "
+          f"{statistics.stdev(precisions) if len(precisions) > 1 else float('nan'):.4f}")
     if legacy_sampling_diagnostics:
         mean_se = statistics.fmean(r["se"] for r in rows)
         true_var = obs_sd ** 2 - mean_se ** 2
@@ -286,7 +287,8 @@ def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=40,
     print(f"\n  worst fold (`iou_free`)  {worst['fold']} {worst['iou_free'][0]:.4f}")
     print(f"  worst fold (마진)         {worst_margin['fold']} {worst_margin['margin']:+.4f}"
           "   <- **이쪽이 주 열이다**")
-    print(f"  worst fold (`fatal_rate`) {worst_fatal['fold']} {worst_fatal['fatal_rate'][0]:.4f}")
+    print(f"  worst fold (`precision`) {worst_precision['fold']} "
+          f"{worst_precision['precision'][0]:.4f}")
     if legacy_sampling_diagnostics:
         print(f"\n  ⚠ `min`은 아래로 편향된 통계다. 7개 fold가 모두 같은 참값이어도 `min`의")
         print(f"    기대값이 평균보다 약 {MIN_BIAS_COEF * mean_se:.4f} 낮다"

@@ -125,7 +125,7 @@ def test_compute_free_metrics_uses_the_shared_free_space_aggregator():
     metrics = compute_free_metrics(logits, seg_g, vis_g, valid_g)
 
     assert metrics["iou_free"] == pytest.approx(1.0)
-    assert metrics["fatal_rate"] == pytest.approx(0.0)
+    assert metrics["precision"] == pytest.approx(1.0)
     assert metrics["partition_defects"] == 0
     assert torch.equal(metrics["pred_free"], metrics["gt_free"])
 

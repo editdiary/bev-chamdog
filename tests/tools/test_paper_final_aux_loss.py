@@ -14,7 +14,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tools.paper_final_aux_loss import AUX_LOSS_ENV, aux_loss_env  # noqa: E402
+from tools.paper_final_aux_loss import AUX_LOSS_ENV, DEFAULT_AUX_LOSS, aux_loss_env  # noqa: E402
 from tools import run_paper_final_native_prior as native  # noqa: E402
 from tools import run_paper_final_overall as overall  # noqa: E402
 from tools import run_paper_final_projection_prior as projection  # noqa: E402
@@ -63,8 +63,16 @@ def test_the_two_pretrain_runs_are_covered_too():
     assert "source_pretrain_native" in native.ARMS
 
 
-def test_the_default_reproduces_the_pre_2026_09_22_campaign(tmp_path):
-    """기본값을 그냥 실행하면 기존 캠페인과 같은 값이 나온다."""
+def test_the_default_drops_the_ray_term_entirely(tmp_path):
+    """[2026-10-02 사용자 결정] 다음 캠페인은 soft-boundary BCE까지만 쓴다. 기본값으로 러너를
+    실행하면 **모든 런**(사전학습 포함)이 λ_R = 0을 받아 trainer가 항을 만들지도 않는다."""
+    assert DEFAULT_AUX_LOSS == "none"
+    for run_name, env in _all_envs(tmp_path, DEFAULT_AUX_LOSS).items():
+        assert float(env["LAMBDA_R"]) == 0.0, run_name
+
+
+def test_arc_huber_still_reproduces_the_pre_2026_09_22_campaign(tmp_path):
+    """옛 캠페인(`runs/paper_final/`) 재현값은 남아 있어야 한다."""
     envs = _all_envs(tmp_path, "arc_huber")
     for env in envs.values():
         assert env["LAMBDA_R"] == "0.3"
@@ -93,7 +101,7 @@ def test_the_pretrain_shells_forward_the_mode(shell):
     text = (REPO_ROOT / shell).read_text()
     assert "--range_loss_mode=" in text, f"{shell}이 range_loss_mode를 넘기지 않는다"
     assert '--lambda_r="${LAMBDA_R}"' in text, f"{shell}이 λ_R을 하드코딩하고 있다"
-    assert 'RANGE_LOSS_MODE:-arc_huber' in text, f"{shell}의 기본값이 과거와 다르다"
+    assert 'LAMBDA_R="${LAMBDA_R:-0.0}"' in text, f"{shell}의 기본값이 보조항을 켠다"
 
 
 def test_the_synwoodscape_trainer_accepts_the_flag():
