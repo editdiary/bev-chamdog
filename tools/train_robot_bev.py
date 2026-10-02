@@ -44,7 +44,6 @@ from projects.common.baselines import as_batch, constant_free_map  # noqa: E402
 from projects.common import binary_metrics, three_class_metrics  # noqa: E402
 from projects.common.free_space import decompose  # noqa: E402
 from projects.common.free_space_metrics import (  # noqa: E402
-    DEFAULT_RING_EDGES_M,
     build_ring_masks,
     iou_free,
 )
@@ -754,8 +753,7 @@ def main(
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
                 model.eval()
                 val = evaluate_split(step, val_loader, device, rays, ring_masks,
-                                     cell_m=GRID_SPEC.cell_m,
-                                     range_edges_m=DEFAULT_RING_EDGES_M)
+                                     cell_m=GRID_SPEC.cell_m)
                 write_epoch_scalars(writer, "val", val, epoch)
 
             val_score = select_checkpoint_score(val["free"])
@@ -766,7 +764,7 @@ def main(
                 train_free_metrics=train["free"],
                 val_loss=val["loss"], val_loss_parts=val["loss_parts"],
                 val_free_metrics=val["free"],
-                val_range_metrics=val["range"], val_tolerance_metrics=val["tolerance"],
+                val_boundary_metrics=val["boundary"],
                 baseline_iou_free=baseline_iou_free,
                 val_score=val_score, best_val_score=best_val_score, is_new_best=is_new_best,
                 loss_part_names=loss_part_names,

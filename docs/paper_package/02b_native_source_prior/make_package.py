@@ -38,6 +38,7 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO_ROOT))
 
+from projects.common.metric_spec import EXPORTED_METRICS, PAPER_METRICS, require_tags  # noqa: E402
 from tools.summarize_repeats import read_run  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -77,20 +78,12 @@ SOURCE_GEOMETRY = {
     },
 }
 
-METRICS = (
-    ("val/iou_free_epoch", "iou_free", True),
-    ("val/fatal_rate_epoch", "fatal_rate", False),
-    ("val/free_miss_rate_epoch", "free_miss_rate", False),
-    ("val/occupied_f1_10cm_epoch", "occupied_f1_10cm", True),
-    ("val/occupied_f1_20cm_epoch", "occupied_f1_20cm", True),
-    ("val/occupied_f1_40cm_epoch", "occupied_f1_40cm", True),
-    ("val/range_mae_epoch", "range_mae", False),
-    ("val/range_bias_epoch", "range_bias", None),
-    ("val/range_missed_obstacle_rate_epoch", "range_missed_obstacle_rate", False),
-)
-CURVE_TAGS = {"val/iou_free_epoch": "iou_free",
-              "val/fatal_rate_epoch": "fatal_rate",
-              "val/free_miss_rate_epoch": "free_miss_rate"}
+# 지표 정본은 `projects/common/metric_spec.py`(2026-10-02 개편, 전부 프레임 macro).
+# 로봇 도메인 런은 보조 지표(BF의 P/R, 링별)까지 전부 싣는다. **사전학습 런은 본문 일곱 개만**
+# 요구한다 -- SynWoodScape 격자는 링 경계가 달라(`train_synwoodscape.PRETRAIN_RING_EDGES_M`)
+# 링 tag 이름이 로봇과 다르고, native 격자(셀 0.15 m)에서는 BF@10cm가 같은 셀 일치만 센다.
+METRICS = EXPORTED_METRICS
+CURVE_TAGS = {tag: label for tag, label, _ in PAPER_METRICS}
 
 
 def _shown(path: Path):
@@ -129,7 +122,7 @@ def _mean_sd(values):
     return statistics.fmean(clean), statistics.stdev(clean), len(clean)
 
 
-def _load(pattern, required=True):
+def _load(pattern, required=True, metrics=METRICS):
     """`{seed: {metric: value at FIXED_EPOCH}}`. 없으면 `None`(보조 비교는 없어도 된다)."""
     out = {}
     for seed in SEEDS:
@@ -139,9 +132,10 @@ def _load(pattern, required=True):
                 raise SystemExit(f"런 로그가 없다: {run_dir}")
             return None
         series = read_run(run_dir)["series"]
+        require_tags(series, run_dir.name, metrics)
         out[seed] = {"_run": run_dir.name, "_series": series,
                      **{label: series.get(tag, {}).get(FIXED_EPOCH)
-                        for tag, label, _ in METRICS}}
+                        for tag, label, _ in metrics}}
     return out
 
 
@@ -261,7 +255,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE, control=DEFAULT_CONTROL,
 
     # --- 4. 전 지표 판정표 ----------------------------------------------------------
     rows = []
-    for _, label, hib in METRICS:
+    for _, label, hib in PAPER_METRICS:
         _, mean, sd, se, ratio, agree = _paired(runs, ARM, label)
         rows.append([label, "" if hib is None else ("higher" if hib else "lower"),
                      _round(_mean_sd([runs["control"][s][label] for s in SEEDS])[0]),
@@ -289,7 +283,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE, control=DEFAULT_CONTROL,
     # 사전학습이 실제로 수렴했는지 확인용. target 확률맵이 없으므로 scalar만 남는다.
     rows = []
     pretrain = _load(root / PRETRAIN_ARM / "logs" / "swscape_native_pretrain_s{seed}",
-                     required=False)
+                     required=False, metrics=PAPER_METRICS)
     if pretrain is None:
         print(f"  (사전학습 곡선 생략: {root / PRETRAIN_ARM} 에 5시드가 없다)")
     else:
@@ -311,7 +305,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE, control=DEFAULT_CONTROL,
          Path(str(adapted).replace("/source_prior/logs", "/source_pretrain/logs"))),
         (PRETRAIN_ARM, "swscape_native_pretrain_s{seed}", root / PRETRAIN_ARM / "logs"),
     ):
-        runs_here = _load(log_root / pat, required=False)
+        runs_here = _load(log_root / pat, required=False, metrics=PAPER_METRICS)
         if runs_here is None:
             print(f"  (source 최종 성능 생략: {log_root} 에 5시드가 없다)")
             continue

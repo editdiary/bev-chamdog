@@ -6,6 +6,18 @@
 > 서버 경로: `~/Desktop/bev-chamdog/docs/paper_package/`
 > 전체 크기: 2 MB 미만
 
+> ### ⚠ [2026-10-02] 다음 캠페인에서 이 폴더가 통째로 다시 만들어진다
+>
+> 사용자 결정 둘: **(1) 지표 개편** — Precision·Recall·BF@{0.10, 0.20, 0.30} m, 전부 프레임
+> macro, `range_*` 제거, IoU_non-free·거리 고리별 지표 추가
+> ([`common/metrics.md`](common/metrics.md) §1). **(2) 광선 보조항 `L_range` 제거** —
+> 목적함수는 soft-boundary BCE까지, 03 사다리는 `C_soft`까지 넷.
+>
+> **지금 있는 CSV·그림·REPORT는 옛 지표·옛 목적함수의 결과다.** 생성 스크립트(`make_package.py`,
+> `figures/make_*.py`)는 이미 새 지표로 바뀌어 있어서 **옛 런을 원천으로 주면 거부한다**
+> (`projects/common/metric_spec.require_tags`). 즉 아래 "재현 명령"은 다음 캠페인의 새 루트로만
+> 돈다.
+
 ---
 
 ## 어디부터 읽나

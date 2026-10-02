@@ -5,6 +5,10 @@
 입력은 `../data/table1_ladder_accuracy.csv`와 `../data/table5_threshold_dispersion.csv`,
 matplotlib 외 의존성이 없다.
 
+**[2026-10-02] 지표를 BF@τ(프레임 macro, τ = 10/20/30 cm)와 recall 축으로 바꿨다**(옛
+`F1@τ`는 micro, τ = 10/20/40 cm, 옛 x축은 free-miss = 1 − recall). 주석의 숫자는 데이터에서
+계산한다. 아래 서술의 수치는 옛 결과이고 다음 캠페인 결과로 다시 확인해야 한다.
+
 **왜 이 그림이 필요한가.** 이 절은 "경계의 불확실성을 모델링한다"고 주장하는데 **경계
 정밀도 지표 `F1@10cm`은 오히려 내려간다**(−0.012, 5/5 시드). 감추면 심사자가 먼저 찾는다.
 그래서 정면으로 싣고, 그것이 **설계가 의도한 그대로의 자국**임을 보인다.
@@ -51,7 +55,7 @@ CELL_STYLE = {
     "C_hard": ("Hard boundary target", "#a555c7", "-.", "^"),
 }
 ORDER = ("A_ce", "C_hard", "C_soft")
-TOLERANCES = ((10, "occupied_f1_10cm"), (20, "occupied_f1_20cm"), (40, "occupied_f1_40cm"))
+TOLERANCES = ((10, "bf_10cm"), (20, "bf_20cm"), (30, "bf_30cm"))
 
 
 def load():
@@ -70,9 +74,9 @@ def load():
             if row["cell"] not in CELL_STYLE:
                 continue
             anchored[row["cell"]].append((
-                float(row["free_miss_anchor"]),
-                float(row["f1_10cm_at_anchor_mean"]),
-                float(row["f1_10cm_at_anchor_sd"])))
+                float(row["recall_anchor"]),
+                float(row["bf_10cm_at_anchor_mean"]),
+                float(row["bf_10cm_at_anchor_sd"])))
     for cell in anchored:
         anchored[cell].sort()
     return at_tau50, anchored
@@ -101,10 +105,9 @@ def build(at_tau50, anchored):
     ax_tol.set_title("(a)  The cost shrinks as the tolerance widens",
                      fontsize=10, color=INK, pad=9, loc="left")
     ax_tol.set_xlabel("boundary tolerance  [cm]", fontsize=9.5, color=INK_MUTED)
-    ax_tol.set_ylabel("occupied-boundary $F1$  ↑\n(at $\\tau = 0.5$, ±1 SD over 5 seeds)",
+    ax_tol.set_ylabel("boundary F-measure  BF  ↑\n(at $\\tau = 0.5$, ±1 SD over 5 seeds)",
                       fontsize=9.5, color=INK_MUTED)
     ax_tol.set_xticks(xs)
-    ax_tol.set_ylim(0.56, 1.0)
 
     # --- (b) 같은 동작점에서도 남는다 = 동작점 이동이 아니다 -------------------------------
     for cell in ORDER:
@@ -117,13 +120,16 @@ def build(at_tau50, anchored):
                            capsize=4, capthick=1.4, elinewidth=1.6, zorder=3)
     ax_anchor.set_title("(b)  It survives matching the operating point",
                         fontsize=10, color=INK, pad=9, loc="left")
-    ax_anchor.set_xlabel("free-miss rate   (of truly free cells, fraction missed)",
+    ax_anchor.set_xlabel("recall   (of truly free cells, fraction found)",
                          fontsize=9.5, color=INK_MUTED)
-    ax_anchor.set_ylabel("occupied-boundary $F1_{10\\,\\mathrm{cm}}$  ↑",
+    ax_anchor.set_ylabel("boundary F-measure  $BF_{10\\,\\mathrm{cm}}$  ↑",
                          fontsize=9.5, color=INK_MUTED)
+    # 격차 범위는 데이터에서 계산한다(같은 앵커끼리 proposed − baseline).
+    gaps_at = [s[1] - a[1] for s, a in zip(anchored["C_soft"], anchored["A_ce"])]
     # 화살표를 쓰지 않는다 -- 어느 각도로 그어도 곡선을 가로지른다. 빈 오른쪽 아래에 둔다.
     ax_anchor.text(0.97, 0.06,
-                   "gap persists at every operating point:  −0.012 to −0.048",
+                   f"proposed − baseline at matched recall:  "
+                   f"{min(gaps_at):+.3f} to {max(gaps_at):+.3f}",
                    transform=ax_anchor.transAxes, ha="right", va="bottom",
                    fontsize=8.8, color=INK_MUTED)
 

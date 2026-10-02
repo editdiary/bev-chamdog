@@ -5,8 +5,8 @@ import torch.nn as nn
 
 from projects.common.free_space import FREE, OCCUPIED, UNKNOWN
 from projects.common.free_space_metrics import (
-    fatal_rate,
-    free_miss_rate,
+    free_precision,
+    free_recall,
     iou_free,
     weighted_mean,
 )
@@ -24,8 +24,7 @@ def test_markdown_table_puts_the_baseline_next_to_every_model_row():
     rows = [
         {"name": "threeclass_ab", "split": "rawos3", "iou_free": 0.774,
          "baseline_iou_free": 0.398, "all_free_iou_free": 0.17,
-         "fatal_rate": 0.135, "baseline_fatal_rate": 0.1678,
-         "free_miss_rate": 0.115},
+         "iou_non_free": 0.951, "precision": 0.865, "recall": 0.885},
     ]
 
     text = format_markdown_table(rows)
@@ -33,8 +32,8 @@ def test_markdown_table_puts_the_baseline_next_to_every_model_row():
     assert "iou_free" in text
     assert "baseline" in text
     assert "0.774" in text and "0.398" in text
-    # `fatal_rate`는 Phase 3에서 유일하게 후퇴한 지표라 표에서 빠지면 안 된다.
-    assert "0.135" in text
+    # 2026-10-02 지표 집합의 나머지 셋도 표에 있어야 한다.
+    assert "0.951" in text and "0.865" in text and "0.885" in text
     # 열 이름과 값의 순서가 어긋나면(예: iou_free/baseline_iou_free 값이 바뀌어도) 위 assert들은
     # 전부 통과한다 -- 두 값이 나란히 올바른 순서로 붙어 있는지 문자열 그대로 고정한다.
     assert "| 0.774 | 0.398 |" in text
@@ -204,21 +203,21 @@ def test_score_split_derives_free_from_argmax_and_applies_the_valid_mask():
         value, count = iou_free(pred_free, gt_free, valid)
         ious.append(value)
         iou_counts.append(count)
-        value, denom = fatal_rate(pred_free, gt_free, valid)
+        value, denom = free_precision(pred_free, gt_free, valid)
         fatals.append(value)
         fatal_denoms.append(denom)
-        value, denom = free_miss_rate(pred_free, gt_free, valid)
+        value, denom = free_recall(pred_free, gt_free, valid)
         misses.append(value)
         miss_denoms.append(denom)
 
     assert result["iou_free"] == pytest.approx(weighted_mean(ious, iou_counts), abs=1e-6)
-    assert result["fatal_rate"] == pytest.approx(weighted_mean(fatals, fatal_denoms), abs=1e-6)
-    assert result["free_miss_rate"] == pytest.approx(
+    assert result["precision"] == pytest.approx(weighted_mean(fatals, fatal_denoms), abs=1e-6)
+    assert result["recall"] == pytest.approx(
         weighted_mean(misses, miss_denoms), abs=1e-6
     )
     # 위 세 값이 서로 우연히 같아 배선 오류를 덮지 않도록, 실제 숫자가 자명하지 않은지 본다.
-    assert 0.0 < result["fatal_rate"] < 1.0
-    assert 0.0 < result["free_miss_rate"] < 1.0
+    assert 0.0 < result["precision"] < 1.0
+    assert 0.0 < result["recall"] <= 1.0
     assert 0.0 < result["iou_free"] < 1.0
 
 

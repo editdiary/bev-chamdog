@@ -5,7 +5,12 @@
 입력은 `../data/table5_threshold_dispersion.csv`와 `../data/table1_ladder_accuracy.csv`
 둘, matplotlib 외 의존성이 없다.
 
-**왼쪽(a).** 목표 안전 수준(free-miss)을 맞추려면 결정 문턱 $\\tau$를 얼마로 놔야 하는가,
+**[2026-10-02] 축을 recall/precision(프레임 macro)으로 바꿨다**(옛 free-miss = 1 − recall,
+fatal = 1 − precision, 둘 다 micro). 주석의 숫자와 위치는 **데이터에서 계산한다** -- 예전에는
+옛 데이터 기준으로 하드코딩돼 있었다. 아래 서술의 수치(±0.07~0.10 등)는 옛 결과이고 다음
+캠페인 결과로 다시 확인해야 한다.
+
+**왼쪽(a).** 목표 동작점(recall)을 맞추려면 결정 문턱 $\\tau$를 얼마로 놔야 하는가,
 그리고 그 값이 **재학습마다 얼마나 흔들리는가**. 세로 막대가 시드 5개의 ±1 표준편차다.
 기존 CE는 ±0.07~0.10으로 흔들려서 다시 학습할 때마다 문턱을 다시 잡아야 한다. soft target은
 ±0.006~0.011이다 -- 구간 전체에서 **6~16배 좁다.**
@@ -57,9 +62,9 @@ def load():
             if row["cell"] not in CELL_STYLE:
                 continue
             curves[row["cell"]].append((
-                float(row["free_miss_anchor"]), float(row["tau_star_at_anchor_mean"]),
-                float(row["tau_star_at_anchor_sd"]), float(row["fatal_at_anchor_mean"]),
-                float(row["fatal_at_anchor_sd"])))
+                float(row["recall_anchor"]), float(row["tau_star_at_anchor_mean"]),
+                float(row["tau_star_at_anchor_sd"]), float(row["precision_at_anchor_mean"]),
+                float(row["precision_at_anchor_sd"])))
     for cell in curves:
         curves[cell].sort()
 
@@ -68,8 +73,8 @@ def load():
         for row in csv.DictReader(fh):
             if row["cell"] not in CELL_STYLE:
                 continue
-            tau50[row["cell"]] = (float(row["free_miss_rate_mean"]),
-                                  float(row["fatal_rate_mean"]))
+            tau50[row["cell"]] = (float(row["recall_mean"]),
+                                  float(row["precision_mean"]))
     return curves, tau50
 
 
@@ -92,13 +97,14 @@ def build(curves, tau50):
                      fontsize=10, color=INK, pad=9, loc="left")
     ax_tau.set_ylabel("decision threshold  $\\tau^\\ast$\n(bars: ±1 SD over 5 seeds)",
                       fontsize=9.5, color=INK_MUTED)
-    # 흔들림 폭을 숫자로 한 번 못박는다 -- 막대만으로는 배수가 안 읽힌다.
-    ax_tau.annotate("±0.097", xy=(0.0771, 0.523), xytext=(0.0792, 0.30),
-                    fontsize=9, color="#eb6834",
-                    arrowprops=dict(arrowstyle="-", color="#eb6834", linewidth=1.1))
-    ax_tau.annotate("±0.007", xy=(0.0771, 0.471), xytext=(0.0600, 0.66),
-                    fontsize=9, color="#2a78d6",
-                    arrowprops=dict(arrowstyle="-", color="#2a78d6", linewidth=1.1))
+    # 흔들림 폭을 숫자로 한 번 못박는다 -- 막대만으로는 배수가 안 읽힌다. 가운데 앵커의
+    # 값을 데이터에서 읽고, 글자는 점에서 **화면 좌표로** 띄운다(축 범위가 바뀌어도 맞는다).
+    for cell, dy in (("A_ce", -34), ("C_soft", 30)):
+        x, y, sd = curves[cell][len(curves[cell]) // 2][:3]
+        color = CELL_STYLE[cell][1]
+        ax_tau.annotate(f"±{sd:.3f}", xy=(x, y), xytext=(14, dy),
+                        textcoords="offset points", fontsize=9, color=color,
+                        arrowprops=dict(arrowstyle="-", color=color, linewidth=1.1))
 
     # --- (b) 안전-효용 곡선 자체 -------------------------------------------------------
     for cell in ORDER:
@@ -115,18 +121,18 @@ def build(curves, tau50):
                       markeredgewidth=2.0, linestyle="none", zorder=4)
     ax_curve.set_title("(b)  The safety–utility curve itself",
                        fontsize=10, color=INK, pad=9, loc="left")
-    ax_curve.set_ylabel("fatal rate  ↓\n(of cells called free, fraction wrong)",
+    ax_curve.set_ylabel("precision  ↑\n(of cells called free, fraction right)",
                         fontsize=9.5, color=INK_MUTED)
-    # 빈 오른쪽 위에 둔다. 축 바깥으로 나가면 x축 라벨과 겹친다.
+    # 점에서 화면 좌표로 띄운다 -- 데이터 좌표로 적으면 지표·런이 바뀔 때마다 엉뚱한 데 간다.
     ax_curve.annotate("open marks: where $\\tau = 0.5$\nlands on the same curve",
                       xy=(tau50["A_ce"][0], tau50["A_ce"][1]),
-                      xytext=(0.0835, 0.1585), fontsize=8.8, color=INK_MUTED,
-                      ha="left", va="top",
+                      xytext=(18, 40), textcoords="offset points", fontsize=8.8,
+                      color=INK_MUTED, ha="left", va="top",
                       arrowprops=dict(arrowstyle="->", color=INK_MUTED, linewidth=1.0,
                                       connectionstyle="arc3,rad=0.25"))
 
     for ax in axes:
-        ax.set_xlabel("free-miss rate   (of truly free cells, fraction missed)",
+        ax.set_xlabel("recall   (of truly free cells, fraction found)",
                       fontsize=9.5, color=INK_MUTED)
         ax.grid(True, color=GRID, linewidth=0.7, alpha=0.9)
         ax.set_axisbelow(True)

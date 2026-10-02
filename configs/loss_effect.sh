@@ -63,8 +63,8 @@
 #
 # `batch_size`는 셸이 8로 고정한다 -- 노출된 손잡이가 아니라 여기서 줄 수 없다.
 #
-# ## 30런 x 약 6분 = 약 180분(GPU 1개) (RTX PRO 6000, 40 epoch, train 192 / val 75프레임)
-# **이미 있는 런은 건너뛰므로**, `E_cumulative`만 추가하려면 그대로 다시 돌리면 된다(5런).
+# ## 20런 x 약 6분 = 약 120분(GPU 1개) (RTX PRO 6000, 40 epoch, train 192 / val 75프레임)
+# **이미 있는 런은 건너뛴다.** 분석은 `configs/loss_effect_analysis.sh`.
 #
 # 실행:   CUDA_VISIBLE_DEVICES=0 bash configs/loss_effect.sh
 # 집계:   python tools/report_ablation.py --log_root=runs/loss_effect/logs
@@ -98,13 +98,20 @@ CUDA_DEVICE="${CUDA_VISIBLE_DEVICES:-0}"
 # `λ_R`이 다른 이유는 **두 식의 gradient 기여를 맞췄기** 때문이다 -- 숫자가 작은 것이 약한
 # 것이 아니다(명세 §9.1). 0.15는 거기서 나온 0.1526을 **측정 정밀도에 맞춰 반올림한 값**이다
 # (batch 간 σ가 0.58/0.78이라 유효숫자 4자리는 측정이 뒷받침하지 않는다).
+#
+# **[2026-10-02 사용자 결정] 광선 보조항을 뺀다 -- 사다리는 `C_soft`(soft-boundary BCE)까지
+# 넷이다.** 옛 두 팔은 재현용으로 아래에 주석으로 남긴다(`runs/loss_effect/`에 결과가 있다).
+#
+# **주의: 보조항이 빠지면 `C_soft`는 `01_overall` 고정 split 대조군과 같은 설정이 된다**
+# (같은 split·epoch·시드·δ/σ/λ_B). 캠페인에서 둘을 따로 돌릴지 재사용할지는 캠페인 설계 때
+# 정한다 -- 재사용하려면 env 전부가 같은지 먼저 대조한다(`docs/paper_campaign_protocol.md`).
 CELLS=(
     "A_ce|weighted_ce|0.0|0.0|0.10|arc_huber"
     "B_perset|soft_boundary|0.0|0.0|0.10|arc_huber"
     "C_hard|soft_boundary|0.5|0.0|0.001|arc_huber"
     "C_soft|soft_boundary|0.5|0.0|0.10|arc_huber"
-    "D_range|soft_boundary|0.5|0.3|0.10|arc_huber"
-    "E_cumulative|soft_boundary|0.5|0.15|0.10|cumulative_l1"
+    # "D_range|soft_boundary|0.5|0.3|0.10|arc_huber"            # 2026-09-02, 보조항(뺐다)
+    # "E_cumulative|soft_boundary|0.5|0.15|0.10|cumulative_l1"  # 2026-09-21, 보조항(뺐다)
 )
 
 mkdir -p "${OUT_ROOT}/logs" "${OUT_ROOT}/ckpt"

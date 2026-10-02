@@ -101,7 +101,7 @@ def test_empty_epoch_metrics_matches_the_evaluate_split_contract():
 
     empty = empty_epoch_metrics()
     real = evaluate_split(lambda batch: None, [], "cpu", rays=None, ring_masks=[],
-                          cell_m=0.05, range_edges_m=(0.0, 1.0))
+                          cell_m=0.05)
 
     assert set(empty) == set(real)
 

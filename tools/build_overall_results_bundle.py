@@ -15,18 +15,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from projects.common.metric_spec import EXPORTED_METRICS, PAPER_METRICS  # noqa: E402
 
-METRICS = {
-    "val/iou_free_epoch": "iou_free",
-    "val/fatal_rate_epoch": "fatal_rate",
-    "val/free_miss_rate_epoch": "free_miss_rate",
-    "val/occupied_f1_10cm_epoch": "occupied_f1_10cm",
-    "val/occupied_f1_20cm_epoch": "occupied_f1_20cm",
-    "val/occupied_f1_40cm_epoch": "occupied_f1_40cm",
-    "val/range_mae_epoch": "range_mae",
-    "val/range_bias_epoch": "range_bias",
-    "val/range_missed_obstacle_rate_epoch": "range_missed_obstacle_rate",
-}
+# 지표 정본은 `metric_spec`이다(2026-10-02 개편). 논문 지표·BF의 P/R·링별 지표 전부를 묶는다.
+METRICS = {tag: name for tag, name, _ in EXPORTED_METRICS}
 
 
 def _load_json(path: Path, missing: list[str], default):
@@ -200,10 +193,12 @@ def _fixed_bundle(root: Path, fixed_epoch: int, env, commit):
     structural = []
     if len(configs) != 5:
         structural.append(f"expected 5 runs, found {len(configs)}")
-    if aggregate["iou_free"]["n"] != 5:
-        structural.append(
-            f"iou_free: expected 5 fixed-epoch values, found {aggregate['iou_free']['n']}"
-        )
+    # 논문 지표가 **하나라도** 5개가 아니면 실패다 -- 옛 지표 정의로 기록된 런이 섞이면
+    # 그 열만 조용히 비는데, `iou_free`만 세면 그것을 놓친다.
+    for _, name, _ in PAPER_METRICS:
+        if aggregate[name]["n"] != 5:
+            structural.append(
+                f"{name}: expected 5 fixed-epoch values, found {aggregate[name]['n']}")
     integrity["structural_failures"] = structural
     integrity["passed"] = integrity["passed"] and not incomplete and not structural
     payload = {

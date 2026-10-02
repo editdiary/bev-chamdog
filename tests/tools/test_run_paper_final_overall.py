@@ -32,10 +32,9 @@ def test_training_environment_spells_out_the_frozen_configuration(tmp_path):
         "SIGMA_M": "0.10",
         "SIGMA_ALPHA": "None",
         "LAMBDA_B": "0.5",
-        "LAMBDA_R": "0.3",
-        "DELTA_R_M": "0.15",
+        # [2026-10-02] 보조항 없음이 기본값이다(`tools/paper_final_aux_loss.py`).
+        "LAMBDA_R": "0.0",
         "DELTA_R_OVER_M": "None",
-        "HUBER_BETA_M": "0.15",
         "HEIGHT_BINS": "4",
         "HEIGHT_MIN_M": "-0.25",
         "HEIGHT_MAX_M": "1.75",

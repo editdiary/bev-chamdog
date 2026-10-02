@@ -10,6 +10,23 @@
 >
 > 모든 정의는 소스 코드에서 확인했고, 인용한 수치는 실제 런에서 측정했다. 출처는 §12.
 
+> ### ⚠ [2026-10-02] 지표를 바꿨다 — **정의는 새것, 이 폴더의 CSV와 인용 수치는 아직 옛것**
+>
+> 사용자 확정(2026-10-02). **다음 캠페인부터** 학습 로그·패키지가 이 정의로 나온다.
+>
+> | 옛 (현재 CSV) | 새 (다음 캠페인) |
+> |---|---|
+> | `fatal_rate` (= 1 − precision, **micro**) | **Precision** (프레임 **macro**) |
+> | `free_miss_rate` (= 1 − recall, **micro**) | **Recall** (프레임 **macro**) |
+> | `occupied_f1_{10,20,40}cm` (**micro**) | **BF@{0.10, 0.20, 0.30} m** (프레임 **macro**) |
+> | `range_mae` · `range_bias` · `range_missed_obstacle_rate` | **뺐다** |
+> | — | **IoU$_\text{non-free}$** (보조), **거리 고리별** 네 지표 (보조) |
+>
+> **모든 지표가 프레임 macro로 통일됐다**(예전에는 IoU만 macro였다 — §5). 정의의 코드
+> 정본은 `projects/common/metric_spec.py`다. **§4·§5·§9·§10은 새 정의로 고쳤고, 그 밖에
+> 인용된 수치(§2·§3·§7·§8·§11)는 옛 캠페인 값이다** — 다음 캠페인 Phase 4에서 갱신한다.
+> 목적함수도 바뀌었다: **광선 보조항 `L_range`를 뺐다**(soft-boundary BCE까지).
+
 ---
 
 ## 0. Results 구성과의 대응
@@ -18,8 +35,8 @@
 
 | Results 절 | 근거 실험 | 프로토콜 | 주 지표 | 보조 |
 |---|---|---|---|---|
-| **1. Overall BEV Perception Performance** | `01_overall` | **고정 split**(대표) + **LOSO**(일반화) | IoU$_\text{free}$ + **margin** | 안전 쌍, $F1_\tau$, 자유거리 |
-| **2. 설계 선택 ablation** (§11 제목 제안) | `02_projection_and_prior` | 고정 split, **시드 짝지음** | 짝지은 $\Delta$IoU$_\text{free}$ | $F1_\tau$, missed-obstacle |
+| **1. Overall BEV Perception Performance** | `01_overall` | **고정 split**(대표) + **LOSO**(일반화) | IoU$_\text{free}$ + **margin** | Precision·Recall 쌍, BF$@\tau$ |
+| **2. 설계 선택 ablation** (§11 제목 제안) | `02_projection_and_prior` | 고정 split, **시드 짝지음** | 짝지은 $\Delta$IoU$_\text{free}$ | Precision·Recall, BF$@\tau$ |
 | **3. Effect of Boundary-Uncertainty-Aware Learning** | `03` (loss ladder) | 고정 split | 사다리별 IoU$_\text{free}$ + 재현성 | 동작점 안정성 |
 | **4. Edge Deployment** | `04` (Orin) | 지연·FPS·전력 | (정확도 지표 아님) | — |
 
@@ -53,8 +70,9 @@ $$\hat F_t=\{c: p_t(c)\ge\theta\}$$
 **$O_t$의 예측 대응물 $\hat O_t$는 별도 head가 아니라 $\hat F_t$의 경계에서 유도한다**
 (§4.3 참고). 모델의 출력은 2채널(free / not-free) 하나뿐이다.
 
-> ⚠️ **기호 충돌 주의.** 구현이 **동작점과 경계 허용오차를 둘 다 `τ`로 부른다.**
-> 논문에서는 반드시 갈라 쓸 것 — 이 문서는 **동작점 $\theta$**, **허용오차 $\tau$**로 쓴다.
+> ⚠️ **기호 충돌 주의.** 구현이 **동작점과 경계 허용오차를 둘 다 `τ`로 부른다**
+> (`report_threshold_sweep.py`의 `--taus`는 동작점이다). 논문에서는 반드시 갈라 쓸 것 —
+> 이 문서는 **동작점 $\theta$**, **BF 허용오차 $\tau$**(BF$@\tau$)로 쓴다.
 
 ---
 
@@ -132,30 +150,43 @@ $$
 모델을 이긴 전례가 있다(`iou_drivable`에서 "전부 drivable" 0.935 대 모델 0.891).
 mIoU도 not-free 쪽 IoU가 구조적으로 높아 평균이 부풀려진다. **보고하지 않는다.**
 
-### 4.2 안전과 보수성 — 반드시 한 쌍으로
+### 4.2 안전과 보수성 — Precision·Recall, 반드시 한 쌍으로
 
-**의도:** 같은 오분류라도 **비용이 다르다.** 막힌 곳을 뚫렸다고 하면 충돌이고, 뚫린 곳을
-막혔다고 하면 경로를 잃을 뿐이다. 두 방향을 따로 센다.
+**의도:** 같은 오분류라도 **비용이 다르다.** 막힌 곳을 뚫렸다고 하면 충돌이고(precision이
+떨어진다), 뚫린 곳을 막혔다고 하면 경로를 잃을 뿐이다(recall이 떨어진다). 두 방향을 따로 센다.
 
 $$
-\underbrace{\mathrm{FR}=\frac{\sum_t|\hat F_t\setminus F_t|}{\sum_t|\hat F_t|}}_{\text{fatal rate}=1-\text{precision}},
-\qquad
-\underbrace{\mathrm{FMR}=\frac{\sum_t|F_t\setminus\hat F_t|}{\sum_t|F_t|}}_{\text{free-miss rate}=1-\text{recall}}
+P_t=\frac{|\hat F_t\cap F_t|}{|\hat F_t|},\qquad
+R_t=\frac{|\hat F_t\cap F_t|}{|F_t|},\qquad
+\mathrm{Precision}=\frac{1}{|T'|}\sum_{t\in T'}P_t,\quad
+\mathrm{Recall}=\frac{1}{|T'|}\sum_{t\in T'}R_t
 $$
 
-**fatal rate의 분모가 $|\hat F_t|$인 이유:** "통행 가능하다고 **믿은** 곳 중 틀린 비율"이
-planner가 실제로 지는 위험량이다. 분모를 $|\neg F_t|$로 잡으면 격자의 대부분이 분모가 되어
-값이 항상 작고 변별력이 없다(같은 체크포인트에서 0.0113 대 0.0587).
+$T'$은 §4.1과 같다(예측·GT free가 **둘 다** 빈 프레임만 뺀다). **한쪽만 빈 프레임은 그 비율을
+0으로 센다** — 예: GT free가 있는데 예측 free가 하나도 없으면 $P_t=0$. 그 프레임을 빼면 "아무것도
+주장하지 않는" 퇴행 해가 평균에서 빠져나간다.
+
+**Precision이 planner가 실제로 지는 위험량이다** — "통행 가능하다고 **믿은** 곳 중 맞은 비율".
+(2026-10-02 이전의 `fatal_rate`는 $1-$Precision을 셀을 모아(micro) 잰 것이었다.)
 
 > ⚠️ **둘을 같은 동작점에서 한 쌍으로만 읽는다.** 문턱을 옮기면 서로 반대로 움직이므로,
 > 하나만 좋아진 것을 "안전 개선"이라 부르면 안 된다. **이 프로젝트에 같은 주장을
-> 동작점 이동으로 철회한 전례가 있다.**
+> 동작점 이동으로 철회한 전례가 있다.** macro에서는 free를 몇 셀만 예측하고 맞힌 프레임이
+> $P_t=1$을 받아 큰 프레임과 같은 표를 행사하므로, **Precision 단독은 더욱 속기 쉽다.**
 
-### 4.3 경계 정밀도 — 허용오차 F1
+### 4.3 경계 정밀도 — Boundary F-measure, BF$@\tau$
 
-**의도:** "장애물 경계를 몇 cm 안에서 맞췄나." 면적 IoU로는 잴 수 없다 — $O_t$는 광선이
-멈춘 **두께 1셀 표면**이라 한 칸만 밀려도 교집합이 무너진다(실측 `iou_obstacle` 0.312가
-이미지를 보지 않는 규칙 0.473에 졌다).
+**의도:** "장애물 경계를 몇 cm 안에서 맞췄나." **전체 셀이 아니라 경계 셀만 잰다** — 경계는
+격자의 약 1.1 %다. 면적 IoU로는 잴 수 없다 — $O_t$는 광선이 멈춘 **두께 1셀 표면**이라 한 칸만
+밀려도 교집합이 무너진다(실측 `iou_obstacle` 0.312가 이미지를 보지 않는 규칙 0.473에 졌다).
+
+**경계의 정의.** GT 경계 $O_t$는 라벨의 관측된 비통과 셀이고, 라벨의 관측 $v_t$가 **ego 원점
+raycast**이므로 $O_t$는 **ego에서 보이는 free 공간의 첫 표면**이다. 예측 경계 $\hat O_t$는
+별도 head 없이 $\hat F_t$에서 같은 규칙(방위각마다 광선이 처음 멈춘 셀)으로 유도한다.
+
+> ⚠️ **DAVIS 계열 BF와 다르다** — 그쪽은 분할 경계 **전체(contour)**를 쓰지만 여기 경계는
+> **ego-visible frontier**다. 물체 뒤편 윤곽은 경계 집합에 없다. 논문에 이 정의를 한 줄로
+> 적는다: *"BF@τ, where the boundary is the ego-visible free-space frontier."*
 
 **GT를 두껍게 만들지 않고 지표에 허용오차를 준다.** 라벨 두께는 센서의 물리적 정의가
 결정하게 두고, "몇 cm까지 맞은 것으로 볼지"를 $\tau$로 명시적으로 노출한다.
@@ -163,71 +194,72 @@ planner가 실제로 지는 위험량이다. 분모를 $|\neg F_t|$로 잡으면
 $$d(p,\mathcal{S})=\min_{g\in\mathcal{S}}\lVert p-g\rVert_2$$
 
 $$
-P_\tau=\frac{\sum_t\big|\{p\in\hat O_t: d(p,O_t)\le\tau\}\big|}{\sum_t|\hat O_t|},\qquad
-R_\tau=\frac{\sum_t\big|\{g\in O_t: d(g,\hat O_t)\le\tau\}\big|}{\sum_t|O_t|},\qquad
-F1_\tau=\frac{2P_\tau R_\tau}{P_\tau+R_\tau}
+P_{t,\tau}=\frac{\big|\{p\in\hat O_t: d(p,O_t)\le\tau\}\big|}{|\hat O_t|},\qquad
+R_{t,\tau}=\frac{\big|\{g\in O_t: d(g,\hat O_t)\le\tau\}\big|}{|O_t|},\qquad
+\mathrm{BF}@\tau=\frac{1}{|T_O|}\sum_{t\in T_O}\frac{2P_{t,\tau}R_{t,\tau}}{P_{t,\tau}+R_{t,\tau}}
 $$
 
-**$\tau\in\{0.10,\ 0.20,\ 0.40\}$ m** (= 2 / 4 / 8 셀). $\tau=0.05$(1셀)은 라벨 자체의
+$T_O$는 $\hat O_t$와 $O_t$가 **둘 다** 빈 프레임을 뺀 집합이다. 한쪽만 비면 그쪽 비율을 0으로
+본다($\hat O_t=\varnothing$이면 $P=0$, 따라서 BF$=0$). **프레임마다 F를 내고 평균한다** — macro
+P·R의 조화평균이 아니다(DAVIS와 같은 방식).
+
+**$\tau\in\{0.10,\ 0.20,\ 0.30\}$ m** (= 2 / 4 / 6 셀). **최댓값을 soft-boundary 대역 반폭
+$\delta=0.30$ m와 맞췄다**(2026-10-02, 옛 눈금은 0.10/0.20/0.40). $\tau=0.05$(1셀)는 라벨 자체의
 이산화 오차와 구별되지 않아 넣지 않았다.
 
+> ⚠️ **$\tau_\max=\delta$라서 생길 수 있는 지적.** "제안 손실의 대역폭과 같은 눈금에서 평가했다"는
+> 반론이 가능하다. 답은 둘이다 — 0.10·0.20 m는 $\delta$보다 좁고 거기서도 비교되며, CE 대조군도
+> 같은 $\tau$에서 채점된다.
+
 **여러 $\tau$를 나란히 두는 것이 핵심이다.** 하나만 고르면 그 값이 숨은 하이퍼파라미터가
-되고, 여러 개를 두면 **"얼마나 밀렸나"의 분포**가 읽힌다. 실제로 이것이 결론을 만든
-사례가 있다 — 합성 사전학습에서 $\tau=0.10$ −0.0169, $\tau=0.20$ −0.0155,
-$\tau=0.40$ 차이 없음. 허용오차를 넓힐수록 차이가 사라지는 것이 **"경계가 흐려졌다"의
-서명**이다.
+되고, 여러 개를 두면 **"얼마나 밀렸나"의 분포**가 읽힌다 — 허용오차를 넓힐수록 차이가
+사라지면 그것이 **"경계가 흐려졌다(끊긴 것이 아니라)"의 서명**이다.
+
+BF의 $P_\tau$·$R_\tau$도 CSV에 함께 남는다(`bf_{τ}_precision`/`_recall`) — 경계가 **어느
+쪽으로** 틀렸는지(과잉 예측 대 누락) 볼 곳이 여기다.
 
 > ⚠️ **"정확도"가 아니라 "일치도"다.** 라벨이 LiDAR + 사람의 육안 보정이라 **절대 경계
 > 오차는 측정 불가능**하다. "10 cm 이내로 정확하다"가 아니라 **"라벨 경계와 10 cm 이내에서
 > 일치한다"**로 쓴다.
 
-### 4.4 자유거리 — 광선 기반 (로봇 논문에 권장)
+### 4.4 보조 — IoU$_\text{non-free}$ (논문 본문에 쓰지 않는다)
 
-**의도:** planner가 실제로 소비하는 양은 면적이 아니라 **"이 방향으로 몇 m까지 갈 수 있나"**다.
-셀 지표가 좋아도 특정 방향의 거리가 틀리면 주행이 실패한다.
+$$\mathrm{IoU}_\text{non-free}=\frac{1}{|T''|}\sum_{t\in T''}\frac{|\neg\hat F_t\cap\neg F_t|}{|\neg\hat F_t\cup\neg F_t|}$$
 
-로봇 중심에서 **720개 방위각**으로 광선을 쏘고, 각 광선에서 free가 처음 끊기는 거리 $r$을 잰다.
+($m_t=1$ 안에서, $T''$은 합집합이 빈 프레임을 뺀 것). **변별력이 낮다** — not-free가 $m_t$
+안의 약 83 %라 **"전부 not-free"라는 자명해가 이미 ≈ 0.83을 받는다.** 모델은 0.945 안팎이다
+(2026-10-02 재채점, 옛 체크포인트). CSV에만 남긴다.
 
-$$\delta r = r_\text{pred}-r_\text{gt}$$
+> **방위각 자유거리 지표(`range_mae`·`range_bias`·`range_missed_obstacle_rate`)는 2026-10-02에
+> 뺐다**(사용자 결정). 계산 코드는 옛 런 재채점용으로 남아 있다.
 
-$$
-\mathrm{MAE}_r=\overline{|\delta r|},\qquad
-\mathrm{Bias}_r=\overline{\delta r},\qquad
-\mathrm{MOR}=\frac{\big|\{\text{GT에 장애물이 있으나 예측은 격자 끝까지 free인 광선}\}\big|}{\big|\{\text{GT에 장애물이 있는 광선}\}\big|}
-$$
-
-회귀 통계($\mathrm{MAE}_r$, $\mathrm{Bias}_r$)는 **GT와 예측이 둘 다 장애물을 만난 광선만**
-쓴다. 격자 끝까지 free인 광선을 $r_\max$로 대체해 섞으면 통계가 그 상수에 눌린다.
-
-> ⚠️ **부호 규약을 캡션에 한 줄 명시할 것.**
-> $$\delta r>0 \iff \text{장애물을 실제보다 멀다고 예측} \iff \text{자유공간 과대추정} \iff \textbf{위험한 쪽}$$
-> **다른 문헌은 같은 사건을 "장애물 거리의 과소추정"이라고 부른다.** over/under라는 단어만
-> 옮기면 부호가 뒤집혀 읽힌다.
->
-> ⚠️ **$\mathrm{MAE}_r$과 $\mathrm{MOR}$은 반드시 같이 읽는다.** 놓친 광선은 회귀 표본에서
-> 빠지므로 **많이 놓칠수록 $\mathrm{MAE}_r$이 오히려 좋아진다.**
-
-### 4.5 거리 구간별 IoU (선택 — 부록 권장)
+### 4.5 거리 고리별 성능 (보조 — 부록 권장)
 
 **의도:** 근거리(충돌이 일어나는 곳)와 원거리(경로 계획에 쓰는 곳)의 성능이 다른지.
 
-$\mathcal{G}$를 로봇 중심으로부터의 거리로 나눈 고리 $\mathcal{R}_k$에서 같은 IoU를 계산한다.
-**구현된 경계는 0 / 1.5 / 3 / 4 m다**(0–2 / 2–4가 아니다). 재학습 없이 바로 쓸 수 있다.
+$\mathcal{G}$를 로봇 중심으로부터의 거리로 나눈 고리 $\mathcal{R}_k$로 $m_t$를 좁혀 **IoU$_\text{free}$,
+IoU$_\text{non-free}$, Precision, Recall**을 같은 식으로 다시 잰다. **경계는 0 / 1.5 / 3 / 4 m다**
+(0–2 / 2–4가 아니다). 격자가 전방 4 / 후방 2 / 좌우 3 m라 **3–4 m 고리는 전방만 남은 부분
+고리**다. 고리 안에 예측·GT free가 둘 다 없는 프레임은 그 고리의 평균에서 빠진다.
 
 ---
 
-## 5. 집계 단위 — **지표마다 다르다**
-
-**논문에 "모든 지표를 셀 단위로 모아 계산했다"고 쓰면 IoU에 대해 틀린다.**
+## 5. 집계 단위 — **전부 프레임 macro다** (2026-10-02 통일)
 
 | 지표 | 집계 | 식 |
 |---|---|---|
-| **IoU$_\text{free}$** | **프레임마다 계산 → 프레임 평균** (macro) | §4.1 |
-| FR, FMR | **모든 프레임의 셀을 모아 한 번에** (micro) | §4.2 |
-| $F1_\tau$ | **모든 프레임의 카운트를 합친 뒤 비율** (micro) | §4.3 |
-| $\mathrm{MAE}_r$, $\mathrm{Bias}_r$, MOR | 모든 프레임의 광선을 모아 한 번에 | §4.4 |
+| **IoU$_\text{free}$**, IoU$_\text{non-free}$ | **프레임마다 계산 → 프레임 평균** (macro) | §4.1, §4.4 |
+| Precision, Recall | **프레임마다 계산 → 프레임 평균** (macro) | §4.2 |
+| BF$@\tau$ (와 그 $P_\tau$·$R_\tau$) | **프레임마다 계산 → 프레임 평균** (macro) | §4.3 |
+| 고리별 네 지표 | 고리마다, **프레임 macro** | §4.5 |
 
-**IoU만 macro이고 나머지는 전부 micro다.**
+**프레임을 평균에서 빼는 규칙은 하나다: 예측과 GT가 둘 다 빈 경우뿐.** 한쪽만 비면 0점이다.
+macro라서 **배치를 어떻게 자르든 같은 값**이 나온다(구현이 배치마다 "합과 프레임 수"를 넘긴다).
+
+> **2026-10-02 이전에는 IoU만 macro이고 나머지는 전부 micro였다**(셀·광선·경계 카운트를 모든
+> 프레임에서 모아 한 번에 나눴다). 현재 이 폴더의 CSV는 그 옛 집계다. 같은 체크포인트에서 두
+> 집계의 차이는 Precision −0.001, Recall +0.0001, BF@10cm·20cm +0.005 수준이었다(2026-10-02
+> 재채점, `01` 고정 split `final_s0`).
 
 ### 시드·fold 집계 순서
 
@@ -321,7 +353,8 @@ $$\boxed{\ |\bar\Delta|>\sigma_\text{seed}\quad\textbf{그리고}\quad |\bar\Del
 
 | | 싣는 것 |
 |---|---|
-| 주 표 (고정 split) | IoU$_\text{free}$ **+ baseline + margin**, FR·FMR 쌍, $F1_{0.10/0.20/0.40}$, $\mathrm{MAE}_r$·$\mathrm{Bias}_r$·MOR |
+| 주 표 (고정 split) | IoU$_\text{free}$ **+ baseline + margin**, Precision·Recall 쌍, BF$@\{0.10, 0.20, 0.30\}$ |
+| 보조 (부록·CSV) | IoU$_\text{non-free}$, 고리별 네 지표, BF의 $P_\tau$·$R_\tau$ |
 | 보조 표 (LOSO) | fold 7행 × (baseline, IoU, **margin**), macro mean ± SD, fold 간 SD |
 | 본문 단서 | fold 간 SD가 시드 SD의 10.3배 · fold는 독립 표본 아님 · 데이터 267프레임 |
 
@@ -334,7 +367,7 @@ $$\boxed{\ |\bar\Delta|>\sigma_\text{seed}\quad\textbf{그리고}\quad |\bar\Del
 |---|---|
 | 주 표 | 팔별 IoU$_\text{free}$ ± SD, **짝지은 $\bar\Delta$·$|\bar\Delta|/\mathrm{SE}$·부호 일치** |
 | 축 A 전용 열 | **BEV 커버리지 %**와 **정면 각해상도 px/deg** ← 없으면 결과가 이상해 보인다 |
-| 안전 | MOR을 본문에 남긴다("놓친 장애물 +32 %"가 IoU 0.013보다 설득력이 크다) |
+| 안전 | Precision·Recall 쌍과 BF$@\tau$ (옛 MOR은 2026-10-02에 지표와 함께 뺐다) |
 
 ### 절 3 — Effect of Boundary-Uncertainty-Aware Learning
 
@@ -342,14 +375,14 @@ $$\boxed{\ |\bar\Delta|>\sigma_\text{seed}\quad\textbf{그리고}\quad |\bar\Del
 
 | | 싣는 것 |
 |---|---|
-| 사다리 | **`A_ce → B_perset → C_hard → C_soft → E_cumulative` 다섯** ([2026-09-22] `D_range`(`arc_huber`)는 뺀다. 보조항을 아예 빼고 넷으로 갈지는 검토 중) |
+| 사다리 | **`A_ce → B_perset → C_hard → C_soft` 넷** ([2026-10-02 사용자 결정] 광선 보조항을 뺐다 — soft-boundary BCE까지) |
 | 주 비교쌍 | **`A_ce` 대 `C_soft`** |
 | 인과 귀속 | **`C_hard` ↔ `C_soft`** — 대역 target만 다르다. 이 쌍이 없으면 집계 방식과 구분되지 않는다 |
 | 주장 축 | **목적함수 수렴**(되올림 47.6 → 0.5 %) · **경계 국소화**(증가분의 96.5 %) · **목적함수-품질 정렬**(22.6 → 2.2 epoch) · **문턱 재현성**(구간 전체에서 4~16배) |
-| **반드시 함께 싣는 비용** | **`F1_{0.10}` −0.012** — 동작점을 맞춰도 남는다. 허용 오차 0.40 m에서는 사라지므로 **"경계가 번진다"로 쓴다** |
+| **반드시 함께 싣는 비용** | **BF$@0.10$의 손해**(옛 지표로 `F1_{0.10}` −0.012) — 동작점을 맞춰도 남았다. 허용 오차를 넓히면 사라졌으므로 **"경계가 번진다"로 쓴다**(다음 캠페인 값으로 재확인) |
 | **쓰면 안 되는 표현** | **"안전 개선"**(동작점 이동) · **"정확도 개선"**(동작점을 맞추면 `IoU_free` 차이가 사라지고 부호가 뒤집힌다) · **"재현성 개선"**(문턱 재현성만 예외) |
 
-**`FR` 개선을 단독으로 쓰지 않는다.** 쓰려면 같은 `FMR`에서의 표를 반드시 함께 싣는다.
+**Precision 개선을 단독으로 쓰지 않는다.** 쓰려면 **같은 Recall에서의** 표를 반드시 함께 싣는다.
 
 ### 절 4 — Edge Deployment
 
@@ -362,14 +395,14 @@ $$\boxed{\ |\bar\Delta|>\sigma_\text{seed}\quad\textbf{그리고}\quad |\bar\Del
 
 | 점검 | 올바른 표현 |
 |---|---|
-| 동작점과 허용오차 | **다른 기호로** — 동작점 $\theta=0.5$, 허용오차 $\tau\in\{0.10,0.20,0.40\}$ m |
+| 동작점과 허용오차 | **다른 기호로** — 동작점 $\theta=0.5$, BF 허용오차 $\tau\in\{0.10,0.20,0.30\}$ m |
 | IoU 단독 | 금지. **항상 baseline·margin과 함께** |
-| $F1_\tau$ | "정확하다" 아님 → **"라벨 경계와 $\tau$ 이내에서 일치한다"** |
-| $\mathrm{Bias}_r$ 부호 | **양수 = 위험한 쪽**. 정의를 캡션에 한 줄 |
-| FR·FMR | **항상 쌍으로**. 하나만 좋아진 것은 "안전 개선"이 아니다 |
+| BF$@\tau$ | "정확하다" 아님 → **"라벨 경계와 $\tau$ 이내에서 일치한다"**. 경계 = ego-visible frontier(DAVIS contour 아님) |
+| 집계 | **전부 프레임 macro**라고 쓴다(§5) |
+| Precision·Recall | **항상 쌍으로**. 하나만 좋아진 것은 "안전 개선"이 아니다 |
 | mIoU·accuracy | **보고하지 않는다**(§4.1) |
 | 사각지대 | "제외했다"가 아니라 **"not-free로 채점했다"**(§6) |
-| 보조 loss 항 | 시스템 결과는 **`arc_huber`, $\lambda_R=0.3$** ([`training_details.md`](training_details.md) §9.2) |
+| 보조 loss 항 | **없음**(2026-10-02 결정, 다음 캠페인부터). 현재 CSV는 `cumulative_l1` $\lambda_R=0.15$로 학습된 런이다 |
 
 ---
 
@@ -431,9 +464,9 @@ Discussion에서 쓸 수 있는 문장은 "사전학습이 도움이 안 된다"
 
 ### ⑶ 거리 구간별 IoU를 넣을까
 
-구현된 경계가 **0 / 1.5 / 3 / 4 m**이고 값은 이미 있다. 0–2 / 2–4로 다시 자르려면
-확률맵에서 재계산해야 하며 서버 작업 30분이면 된다. **부록 권장** — 단조 감소가
-예상대로라 본문 메시지를 늘리지 않는다.
+**[2026-10-02] 넣기로 했다(CSV, 부록 권장).** 다음 캠페인부터 고리마다 네 지표가 학습 로그와
+`fixed_split_ring_summary.csv`로 나온다. 경계는 **0 / 1.5 / 3 / 4 m**다. 0–2 / 2–4로 다시
+자르려면 `projects/common/metric_spec.py`의 `RING_EDGES_M`을 캠페인 **전에** 바꾼다.
 
 ---
 
@@ -441,10 +474,11 @@ Discussion에서 쓸 수 있는 문장은 "사전학습이 도움이 안 된다"
 
 | 무엇 | 어디 |
 |---|---|
-| IoU·FR·FMR 정의와 집계 | `projects/common/free_space_metrics.py` |
+| **지표 이름·눈금·tag 정본** | `projects/common/metric_spec.py` |
+| IoU·Precision·Recall 정의와 macro 집계 | `projects/common/free_space_metrics.py` |
 | 라벨 분할 $F/O/U$ | `projects/common/free_space.py` |
-| $F1_\tau$ 정의와 micro 집계 | `projects/common/occupied_metrics.py` |
-| 자유거리(M3) | `projects/common/free_space_metrics.py`, `projects/common/polar.py` |
+| BF$@\tau$ 정의와 macro 집계 | `projects/common/occupied_metrics.py` (`boundary_f_scores`) |
+| 경계 유도(광선) | `projects/common/polar.py` (`frontier_cells`) |
 | 평가 마스크 | `projects/datasets/robot_simplebev.py` (`build_bev_masks`) |
 | LOSO 집계 순서 | `tools/report_loso.py` |
 | 짝지은 판정 | `tools/report_paired_arms.py` |

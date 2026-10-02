@@ -84,16 +84,16 @@ def test_aggregate_reports_the_sample_sd_across_runs_for_both_epoch_choices():
 
 
 def test_aggregate_keeps_a_metric_that_only_some_runs_logged():
-    """지표 집합을 줄인 뒤(2026-08-21) 옛 런과 새 런을 한 표에 놓으면 일부 tag가 없다.
-    그때 전체가 n/a가 되면 안 되고, 있는 런만으로 집계하되 n이 줄어야 한다."""
+    """지표 집합을 바꾼 뒤(2026-08-21, 2026-10-02) 옛 런과 새 런을 한 표에 놓으면 일부 tag가
+    없다. 그때 전체가 n/a가 되면 안 되고, 있는 런만으로 집계하되 n이 줄어야 한다."""
     runs = [
-        _run("s0", {10: 0.7}, extra={"val/range_mae_epoch": {10: 0.25}}),
+        _run("s0", {10: 0.7}, extra={"val/bf_10cm_epoch": {10: 0.25}}),
         _run("s1", {10: 0.7}),
     ]
 
     summary = aggregate(runs, fixed_epoch=10)
 
-    assert summary["range_mae"]["fixed"][2] == 1
+    assert summary["bf_10cm"]["fixed"][2] == 1
     assert summary["iou_free"]["fixed"][2] == 2
 
 

@@ -11,28 +11,29 @@
 """
 import csv
 import json
+import sys
 from pathlib import Path
 
 import fire
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parents[2]))
+from projects.common.metric_spec import (  # noqa: E402
+    BF_DETAIL_METRICS, PAPER_METRICS, RING_METRICS, ring_names,
+)
+
 DEFAULT_ROOT = Path("/data/home/dhlee/Desktop/bev-chamdog/runs/paper_final/01_overall")
 
-#: 고정 split이 보고하는 지표 순서. 표와 CSV의 열 순서를 여기서 한 번만 정한다.
-FIXED_METRICS = (
-    "iou_free", "fatal_rate", "free_miss_rate",
-    "occupied_f1_10cm", "occupied_f1_20cm", "occupied_f1_40cm",
-    "range_mae", "range_bias", "range_missed_obstacle_rate",
-)
-#: LOSO는 fold별 집계에 이 셋만 담긴다.
-LOSO_METRICS = ("iou_free", "fatal_rate", "free_miss_rate")
+#: 고정 split이 보고하는 지표 순서 -- **정본은 `projects/common/metric_spec.py`다**(2026-10-02:
+#: IoU_free, IoU_non-free, Precision, Recall, BF@0.1/0.2/0.3, 전부 프레임 macro).
+FIXED_METRICS = tuple(name for _, name, _ in PAPER_METRICS)
+#: 본문 표에는 안 싣지만 CSV로 남기는 것: BF의 precision/recall, 링별 free 지표 넷.
+SUPPLEMENTARY_METRICS = tuple(name for _, name, _ in BF_DETAIL_METRICS + RING_METRICS)
+#: LOSO도 같은 일곱 개다(`tools/report_loso.py`가 `PAPER_METRICS`를 집계한다).
+LOSO_METRICS = FIXED_METRICS
 
 #: epoch 곡선으로 남길 TensorBoard 태그.
-CURVE_TAGS = {
-    "val/iou_free_epoch": "iou_free",
-    "val/fatal_rate_epoch": "fatal_rate",
-    "val/free_miss_rate_epoch": "free_miss_rate",
-}
+CURVE_TAGS = {tag: name for tag, name, _ in PAPER_METRICS}
 
 
 def _shown(path: Path):
@@ -71,6 +72,24 @@ def fixed_tables(fixed: dict, baseline: float, out: Path) -> None:
     summary = [{"metric": m, "mean": agg[m]["mean"], "sd": agg[m]["sd"], "n": agg[m]["n"]}
                for m in FIXED_METRICS]
     _write_csv(out / "fixed_split_summary.csv", ["metric", "mean", "sd", "n"], summary)
+
+    # 보조 지표(BF의 P/R, 링별) -- 긴 형식. 논문 본문에는 안 쓰지만 사용자가 "혹시 몰라서"
+    # 남겨 달라고 했다(2026-10-02).
+    supp = [{"run": run["run"], "seed": run["seed"], "epoch": run["fixed_epoch"],
+             "metric": m, "value": run["metrics"].get(m)}
+            for run in fixed["per_run"] for m in SUPPLEMENTARY_METRICS]
+    _write_csv(out / "fixed_split_supplementary_per_seed.csv",
+               ["run", "seed", "epoch", "metric", "value"], supp)
+
+    # 링별 요약 -- 링 하나가 한 행. 3-4 m 링은 전방만 남은 부분 고리다(격자 전방 4 / 후방 2 m).
+    rings = []
+    for ring in ring_names():
+        row = {"ring": ring, "n_seeds": agg[f"ring_{ring}_iou_free"]["n"]}
+        for m in ("iou_free", "iou_non_free", "precision", "recall"):
+            block = agg[f"ring_{ring}_{m}"]
+            row[m], row[f"{m}_sd"] = block["mean"], block["sd"]
+        rings.append(row)
+    _write_csv(out / "fixed_split_ring_summary.csv", list(rings[0]), rings)
 
     # 논문 Table 1 -- baseline 행을 모델 행 위에 둔다 (§1-6: baseline 없는 iou_free 금지).
     table1 = [
@@ -153,8 +172,7 @@ def loso_tables(loso: dict, out: Path) -> None:
             "iou_free": round(row["iou_free_mean"], 3),
             "iou_free_sd": round(row["iou_free_sd"], 4),
             "margin": round(row["margin_over_constant_map"], 3),
-            "fatal_rate": round(row["fatal_rate_mean"], 3),
-            "free_miss_rate": round(row["free_miss_rate_mean"], 3),
+            **{m: round(row[f"{m}_mean"], 3) for m in LOSO_METRICS[1:]},
         })
     table2.append({
         "fold": "macro (7 folds)", "lighting": "", "corridor_width": "",
@@ -163,8 +181,7 @@ def loso_tables(loso: dict, out: Path) -> None:
         "iou_free": round(macro["iou_free"]["mean"], 3),
         "iou_free_sd": round(macro["iou_free"]["sd_across_folds"], 4),
         "margin": round(macro["margin"]["mean"], 3),
-        "fatal_rate": round(macro["fatal_rate"]["mean"], 3),
-        "free_miss_rate": round(macro["free_miss_rate"]["mean"], 3),
+        **{m: round(macro[m]["mean"], 3) for m in LOSO_METRICS[1:]},
     })
     _write_csv(out / "table2_loso.csv", list(table2[0]), table2)
 

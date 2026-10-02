@@ -24,6 +24,11 @@
 
 `last`(마지막 epoch) 체크포인트도 같은 방식으로 확인한다 -- 그 epoch의 로그 값과 맞춘다.
 
+**2026-10-02 지표 개편 후 대조하는 것**(`projects/common/metric_spec.py`): free 지표 넷,
+링마다 그 넷, `BF@τ` 셋. 전부 프레임 macro라서 **배치를 어떻게 잘랐든** 학습 로그(배치 8)와
+여기(전 프레임 한 번에)가 정의상 같은 값을 내야 한다. 옛 지표 tag만 있는 런은 로그 값이
+NaN이 되어 전부 불일치로 걸린다 -- 옛 런을 새 지표로 검사했다는 착각이 생기지 않는다.
+
 실행:
 
     python tools/verify_val_predictions.py --root=runs/loss_effect
@@ -41,39 +46,36 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from projects.common.free_space_metrics import (  # noqa: E402
-    fatal_rate,
-    free_miss_rate,
+    build_ring_masks,
+    free_precision,
+    free_recall,
     iou_free,
-    range_error,
-    summarize_range_error,
+    iou_non_free,
+    metrics_per_ring,
 )
+from projects.common.metric_spec import BF_TOLERANCES_M, FREE_METRICS, bf_name, epoch_tag, tolerance_key  # noqa: E402
 from projects.common.occupied_metrics import (  # noqa: E402
+    boundary_f_scores,
     derive_occupied,
-    summarize_tolerance_f1,
-    tolerance_counts,
+    summarize_boundary_f,
 )
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.datasets.robot_simplebev import GRID_SPEC  # noqa: E402
 
-# **torch로만 계산되는 지표 셋.** numpy 임시 소거 결함(`projects/common/npsafe.py`)의
+# **torch로만 계산되는 지표 넷.** numpy 임시 소거 결함(`projects/common/npsafe.py`)의
 # 영향을 받지 않는 경로라 기준선으로 쓴다.
 TORCH_CHECKS = (
-    (iou_free, "val/iou_free_epoch", "iou_free"),
-    (fatal_rate, "val/fatal_rate_epoch", "fatal_rate"),
-    (free_miss_rate, "val/free_miss_rate_epoch", "free_miss_rate"),
+    (iou_free, epoch_tag("val", "iou_free"), "iou_free"),
+    (iou_non_free, epoch_tag("val", "iou_non_free"), "iou_non_free"),
+    (free_precision, epoch_tag("val", "precision"), "precision"),
+    (free_recall, epoch_tag("val", "recall"), "recall"),
 )
 
 # **numpy/scipy로 내려가는 지표들.** 광선 추적(`polar`)과 거리 변환(`occupied_metrics`)을
 # 지나므로 위 결함의 사정권이다. 학습 로그(학습 시점 계산)와 여기(수정된 코드로 재계산)가
 # 맞으면 학습 시점 값이 오염되지 않았다는 뜻이다 -- 서로 다른 프로세스·다른 시점이라
 # 같은 방식으로 동시에 틀릴 이유가 없다.
-NUMPY_CHECKS = (
-    ("range_mae", "val/range_mae_epoch"),
-    ("range_bias", "val/range_bias_epoch"),
-    ("missed_obstacle_rate", "val/range_missed_obstacle_rate_epoch"),
-    ("f1@10cm", "val/occupied_f1_10cm_epoch"),
-    ("f1@20cm", "val/occupied_f1_20cm_epoch"),
-)
+NUMPY_CHECKS = tuple((bf_name(t), epoch_tag("val", bf_name(t))) for t in BF_TOLERANCES_M)
 
 
 def epoch_of(checkpoint_name: str) -> int:
@@ -82,18 +84,22 @@ def epoch_of(checkpoint_name: str) -> int:
 
 
 def numpy_metrics(pred_free, gt_parts, valid, rays, cell_m) -> dict:
-    """학습 루프와 **같은 함수**로 numpy 계열 지표를 다시 낸다.
+    """학습 루프와 **같은 함수**로 numpy 계열 지표(`BF@τ`)를 다시 낸다.
 
-    프레임을 한 번에 넘긴다 -- `summarize_*`가 표본을 모아 통계를 내므로 배치 크기에
-    불변이고(설계상), 그래서 학습 때의 배치 8과 여기 75가 같은 값을 내야 한다.
+    프레임을 한 번에 넘긴다 -- 프레임 macro라 배치 크기에 불변이고(설계상), 그래서 학습 때의
+    배치 8과 여기 75가 같은 값을 내야 한다.
     """
     occ_pred = derive_occupied(pred_free, valid, rays) & valid.bool()
-    rng = summarize_range_error([range_error(pred_free, gt_parts["free"], valid, rays)])
-    tol_f1 = summarize_tolerance_f1(
-        [tolerance_counts(occ_pred, gt_parts["occupied"], valid, cell_m)])
-    return {"range_mae": rng["mae"], "range_bias": rng["bias"],
-            "missed_obstacle_rate": rng["missed_obstacle_rate"],
-            "f1@10cm": tol_f1["10cm"]["f1"], "f1@20cm": tol_f1["20cm"]["f1"]}
+    bf = summarize_boundary_f(
+        [boundary_f_scores(occ_pred, gt_parts["occupied"], valid, cell_m)])
+    return {bf_name(t): bf[tolerance_key(t)]["bf"] for t in BF_TOLERANCES_M}
+
+
+def ring_checks(pred_free, gt_free, valid, ring_masks):
+    """`(이름, tag, 값)` -- 링마다 free 지표 넷. 학습 루프와 같은 `metrics_per_ring`이다."""
+    per_ring = metrics_per_ring(pred_free, gt_free, valid, ring_masks)
+    return [(f"ring_{ring}_{m}", epoch_tag("val", f"ring_{ring}_{m}"), per_ring[ring][m])
+            for ring, _ in ring_masks for m in FREE_METRICS]
 
 
 def write_verification_report(payload, pred_dir, out_path=None) -> Path:
@@ -122,6 +128,7 @@ def main(root="runs/loss_effect", tau=0.5, tol=1e-3, numpy_tol=2e-3, pred_dir=No
     valid = torch.from_numpy(lab["valid"]).unsqueeze(1)
     gt_parts = {"free": gt, "occupied": torch.from_numpy(lab["occupied"]).unsqueeze(1)}
     rays = build_ray_index(GRID_SPEC)
+    ring_masks = build_ring_masks(GRID_SPEC)
     label_ids = list(lab["sample_ids"])
     print(f"라벨 {len(label_ids)}프레임, τ={tau}, 허용 오차 {tol}")
 
@@ -148,8 +155,8 @@ def main(root="runs/loss_effect", tau=0.5, tol=1e-3, numpy_tol=2e-3, pred_dir=No
         pred = (prob > tau) & valid
 
         line, bad = [], False
-        for fn, tag, name in TORCH_CHECKS:
-            got = fn(pred, gt, valid)[0]
+        torch_values = [(name, tag, fn(pred, gt, valid)[0]) for fn, tag, name in TORCH_CHECKS]
+        for name, tag, got in torch_values + ring_checks(pred, gt, valid, ring_masks):
             series = ({e.step: e.value for e in acc.Scalars(tag)}
                       if tag in acc.Tags()["scalars"] else {})
             want = series.get(epoch, float("nan"))
@@ -158,7 +165,8 @@ def main(root="runs/loss_effect", tau=0.5, tol=1e-3, numpy_tol=2e-3, pred_dir=No
                 bad = True
                 failures.append(f"{path.name}: {name} npz {got:.6f} != 로그 {want:.6f}"
                                 f" (Δ {delta:.2e})")
-            line.append(f"{name} Δ{delta:.1e}")
+            if not name.startswith("ring_"):      # 링 12칸은 줄이 넘쳐 요약만 찍는다
+                line.append(f"{name} Δ{delta:.1e}")
             rows.append({"file": path.name, "run": run, "which": kind, "epoch": epoch,
                          "metric": name, "from_npz": float(got), "from_log": float(want),
                          "abs_diff": float(delta), "ok": bool(delta <= tol)})

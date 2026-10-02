@@ -19,8 +19,8 @@
 **대조군을 다시 돌리지 않는다.** `01_overall`의 고정 split 5런이 공통 대조군이다.
 `source_prior_native` 시드 s는 `source_pretrain_native` 시드 s에서 시작한다.
 
-**보조항은 `--range_loss_mode`로 정한다.** 기본값 `arc_huber`(λ_R=0.3)가 기존 런을 재현하고,
-`cumulative_l1`(λ_R=0.15)이 논문에 싣는 형태다. 값은 `tools/paper_final_aux_loss.py`가
+**보조항은 `--range_loss_mode`로 정한다.** 기본값 `none`(보조항 없음, 2026-10-02 결정)이고
+`arc_huber`(λ_R=0.3)·`cumulative_l1`(λ_R=0.15)은 옛 두 캠페인 재현용이다. 값은 `tools/paper_final_aux_loss.py`가
 정본이며, **사전학습과 미세조정에 같은 값이 걸린다** -- 여기만 바꾸면 비교가 성립하지 않는다.
 
 큐 기계장치(manifest 병합·상태 판정·완료 런 건너뛰기)는

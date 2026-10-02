@@ -14,8 +14,9 @@ import tools.train_synwoodscape as synwoodscape_trainer
 
 _FREE_METRICS = {
     "iou_free": 0.20, "iou_free_count": 1,
-    "fatal_rate": 0.0, "fatal_denom": 1,
-    "free_miss_rate": 0.0, "free_miss_denom": 1,
+    "iou_non_free": 0.90, "iou_non_free_count": 1,
+    "precision": 1.0, "precision_count": 1,
+    "recall": 1.0, "recall_count": 1,
     "partition_defects": 0,
 }
 
@@ -73,10 +74,8 @@ def _install_common_cpu_doubles(monkeypatch, trainer, captured, selected, saved,
             "loss": 1.0,
             "loss_parts": {"loss_unknown": 0.4, "loss_free": 0.2, "loss_occupied": 0.3},
             "free": dict(_FREE_METRICS),
-            "range": None,
-            "range_bins": {},
             "rings": {},
-            "tolerance": {},
+            "boundary": {},
         },
     )
     monkeypatch.setattr(trainer, "write_epoch_scalars", lambda *args, **kwargs: None)

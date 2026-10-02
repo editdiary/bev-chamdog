@@ -13,6 +13,12 @@
         --checkpoint=runs/robot_bev/ckpt/<run>/model_best-000000030.pth \\
         --train_sequences=raws2,raws3,rawos1,rawos2,rawos4 --val_sequences=raws1,rawos3
 
+**지표는 학습 루프와 같은 2026-10-02 집합이다**(`projects/common/metric_spec.py`): free 지표
+넷(macro), 링별 넷, `BF@τ`. `--log_dir`과 `--epoch`을 주면 결과를 **학습 로그와 같은 tag로**
+TensorBoard에 쓴다 -- 그러면 `summarize_repeats`·`verify_val_predictions`·패키지 생성기가
+재채점 결과를 학습 로그처럼 읽는다(학습 없이 분석 파이프라인을 실데이터로 점검할 때 쓴다).
+**단, 그 로그에는 그 epoch 하나만 있다** -- epoch 곡선이 필요한 분석(되올림 등)은 재학습해야 한다.
+
 `--formulation=binary`로 (D) 정식화 체크포인트도 같은 지표로 채점한다. **정식화를 틀리면
 head 채널 수가 안 맞아 `load_checkpoint_state_dict`가 즉시 실패한다** -- 조용히 다른 숫자가
 나오는 일은 없다. `--val_sequences`에 시퀀스를 하나만 주면 시퀀스별 분해가 된다.
@@ -31,21 +37,23 @@ sys.path.insert(0, str(_REPO_ROOT / "third_party/models/simple_bev"))
 from projects.common.baselines import all_free_map, as_batch, constant_free_map  # noqa: E402
 from projects.common.binary_metrics import predicted_parts as binary_predicted_parts  # noqa: E402
 from projects.common.free_space import decompose, decompose_from_class_index  # noqa: E402
+from projects.common.bev_occupancy_metrics import (  # noqa: E402
+    append_free_metrics,
+    summarize_free_metrics,
+    summarize_ring_metrics,
+    write_epoch_scalars,
+)
 from projects.common.free_space_metrics import (  # noqa: E402
-    DEFAULT_RING_EDGES_M,
     build_ring_masks,
-    fatal_rate,
-    free_miss_rate,
+    free_scores,
     iou_free,
     metrics_per_ring,
-    range_error,
-    summarize_range_error,
-    summarize_range_error_by_gt_range,
     weighted_mean,
 )
+from projects.common.metric_spec import FREE_METRICS  # noqa: E402
 from projects.common.occupied_metrics import (  # noqa: E402
-    summarize_tolerance_f1,
-    tolerance_counts,
+    boundary_f_scores,
+    summarize_boundary_f,
 )
 from projects.common.polar import build_ray_index  # noqa: E402
 from projects.datasets.robot_simplebev import (  # noqa: E402
@@ -71,8 +79,7 @@ _COLUMNS = (
     ("name", "체크포인트"), ("split", "val"),
     ("iou_free", "iou_free↑"), ("baseline_iou_free", "baseline iou_free"),
     ("all_free_iou_free", "all-free iou_free"),
-    ("fatal_rate", "fatal↓"), ("baseline_fatal_rate", "baseline fatal"),
-    ("free_miss_rate", "free_miss↓"),
+    ("iou_non_free", "iou_non_free↑"), ("precision", "precision↑"), ("recall", "recall↑"),
 )
 
 
@@ -126,10 +133,8 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
         def decompose_pred(logits, valid):
             return decompose_from_class_index(logits.argmax(dim=1, keepdim=True), valid)
 
-    ious, iou_counts, fatals, fatal_denoms, misses, miss_denoms = [], [], [], [], [], []
-    base_ious, base_counts, base_fatals, base_denoms = [], [], [], []
-    allfree_ious, allfree_counts = [], []
-    range_dicts, ring_dicts, tolerance_dicts = [], [], []
+    free_dicts, base_ious, base_counts, allfree_ious, allfree_counts = [], [], [], [], []
+    ring_dicts, boundary_dicts = [], []
 
     with torch.no_grad():
         for batch in loader:
@@ -151,48 +156,28 @@ def score_split(model, loader, vox_util, rays, ring_masks, device, constant_map,
             base = as_batch(constant_map, batch_size, device)
             allfree = as_batch(all_free_map(constant_map.shape), batch_size, device)
 
-            for values, counts, fn, arg in (
-                (ious, iou_counts, iou_free, pred),
-                (base_ious, base_counts, iou_free, base),
-                (allfree_ious, allfree_counts, iou_free, allfree),
-            ):
-                value, count = fn(arg, gt, valid)
+            # 학습 루프와 **같은 함수**(`free_scores`, `metrics_per_ring`, `boundary_f_scores`)
+            # 와 같은 epoch 집계(`summarize_*`)를 탄다.
+            append_free_metrics(free_dicts, {**free_scores(pred, gt, valid),
+                                             "partition_defects": 0})
+            for values, counts, arg in ((base_ious, base_counts, base),
+                                        (allfree_ious, allfree_counts, allfree)):
+                value, count = iou_free(arg, gt, valid)
                 values.append(value)
                 counts.append(count)
-            for values, denoms, fn, arg in (
-                (fatals, fatal_denoms, fatal_rate, pred),
-                (base_fatals, base_denoms, fatal_rate, base),
-                (misses, miss_denoms, free_miss_rate, pred),
-            ):
-                value, denom = fn(arg, gt, valid)
-                values.append(value)
-                denoms.append(denom)
-
-            range_dicts.append(range_error(pred, gt, valid, rays))
             ring_dicts.append(metrics_per_ring(pred, gt, valid, ring_masks))
-            tolerance_dicts.append(tolerance_counts(
+            boundary_dicts.append(boundary_f_scores(
                 pred_parts["occupied"], gt_parts["occupied"], valid, cell_m
             ))
 
-    rings = {}
-    for name, _ in ring_masks:
-        rings[name] = {
-            "iou_free": weighted_mean([d[name]["iou_free"] for d in ring_dicts],
-                                      [d[name]["iou_free_count"] for d in ring_dicts]),
-            "fatal_rate": weighted_mean([d[name]["fatal_rate"] for d in ring_dicts],
-                                        [d[name]["fatal_denom"] for d in ring_dicts]),
-        }
+    free = summarize_free_metrics(free_dicts)
     return {
-        "iou_free": weighted_mean(ious, iou_counts),
+        **{key: free[key] for key in FREE_METRICS},
         "baseline_iou_free": weighted_mean(base_ious, base_counts),
         "all_free_iou_free": weighted_mean(allfree_ious, allfree_counts),
-        "fatal_rate": weighted_mean(fatals, fatal_denoms),
-        "baseline_fatal_rate": weighted_mean(base_fatals, base_denoms),
-        "free_miss_rate": weighted_mean(misses, miss_denoms),
-        "range": summarize_range_error(range_dicts),
-        "range_bins": summarize_range_error_by_gt_range(range_dicts, DEFAULT_RING_EDGES_M),
-        "rings": rings,
-        "tolerance": summarize_tolerance_f1(tolerance_dicts),
+        "free": free,
+        "rings": summarize_ring_metrics(ring_dicts, ring_masks),
+        "boundary": summarize_boundary_f(boundary_dicts),
     }
 
 
@@ -209,6 +194,9 @@ def main(
     num_workers=4,
     n_theta=None,
     device="cuda",
+    # 주면 결과를 학습 로그와 같은 tag로 `{log_dir}`에 쓴다(epoch 하나). 모듈 docstring 참고.
+    log_dir=None,
+    epoch=None,
 ):
     if formulation not in ("three_class", "binary"):
         raise ValueError(f"formulation은 three_class 또는 binary여야 한다: {formulation}")
@@ -270,27 +258,23 @@ def main(
            "split": ",".join(parse_sequence_names(val_sequences)), **scores}
     print(format_markdown_table([row]))
     print()
-    r = scores["range"]
-    print(f"range: mae {r['mae']:.3f} m | p50 {r['abs_p50']:.3f} m | p90 {r['abs_p90']:.3f} m"
-          f" | bias {r['bias']:+.3f} m | over {r['over_mean']:.3f} m"
-          f" | under {r['under_mean']:.3f} m")
-    # `missed`를 거리 통계 바로 옆에 찍는다 -- 놓친 광선은 위 통계의 표본에서 빠지므로
-    # mae만 혼자 읽으면 "장애물을 많이 놓칠수록 좋아 보이는" 방향으로 오독된다.
-    print(f"       missed_obstacle_rate {r['missed_obstacle_rate']:.3f}"
-          f" ({r['missed_obstacle']}/{r['ok_gt']} rays)"
-          f" | paired rays {r['n_paired_rays']}")
-    # 경계 정밀도. 면적 `iou_occupied`는 2026-08-21에 뺐다(§23) -- 두께 1셀 표면의 면적 IoU는
-    # 한 칸 밀리면 반토막 나서 품질 신호로 읽을 수 없다. binary에서는 head가 없어 "head 대
-    # derived" 대조 자체가 같은 숫자를 두 번 찍는 것이기도 했다.
-    # 예측 셀 수는 남긴다 -- "몇 셀을 칠했나"가 precision의 해석을 바꾼다(§9의 17배 과잉 예측).
-    for name, values in scores["tolerance"].items():
-        print(f"  f1@{name:5s} {values['f1']:.3f}"
-              f"  precision {values['precision']:.3f}  recall {values['recall']:.3f}"
-              f"  | pred {values['n_pred']} gt {values['n_gt']}")
+    for name, values in scores["boundary"].items():
+        print(f"  bf@{name:5s} {values['bf']:.4f}"
+              f"  precision {values['precision']:.4f}  recall {values['recall']:.4f}"
+              f"  | frames {values['n_frames']}")
     for name, values in scores["rings"].items():
-        print(f"  ring {name:10s} iou_free {values['iou_free']:.3f}"
-              f"  fatal {values['fatal_rate']:.3f}"
-              f"  range_mae {scores['range_bins'].get(name, {}).get('mae', float('nan')):.3f}")
+        print(f"  ring {name:10s} " + "  ".join(f"{m} {values[m]:.4f}" for m in FREE_METRICS))
+
+    if log_dir is not None:
+        if epoch is None:
+            raise SystemExit("--log_dir에는 --epoch이 필요하다(어느 epoch의 값인지)")
+        from torch.utils.tensorboard import SummaryWriter
+        writer = SummaryWriter(log_dir=str(log_dir))
+        write_epoch_scalars(writer, "val", {"loss": float("nan"), "loss_parts": {},
+                                            **{k: scores[k] for k in ("free", "rings", "boundary")}},
+                            int(epoch))
+        writer.close()
+        print(f"\nval scalar를 학습 로그와 같은 tag로 썼다: {log_dir} (epoch {epoch})")
 
 
 if __name__ == "__main__":

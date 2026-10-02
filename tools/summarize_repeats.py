@@ -31,22 +31,16 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-SELECTION_TAG = "val/iou_free_epoch"
+from projects.common.metric_spec import PAPER_METRICS, SELECTION_TAG  # noqa: E402
 
 # 표에 싣는 지표와 방향. **`iou_free`가 첫 줄이어야 한다** -- 체크포인트 선택 기준이고
-# 나머지는 그 선택 아래에서 읽히는 값이다.
-REPORTED = (
-    ("val/iou_free_epoch", "iou_free", True),
-    ("val/fatal_rate_epoch", "fatal_rate", False),
-    ("val/free_miss_rate_epoch", "free_miss_rate", False),
-    ("val/occupied_f1_10cm_epoch", "f1@10cm", True),
-    ("val/occupied_f1_20cm_epoch", "f1@20cm", True),
-    ("val/range_mae_epoch", "range_mae", False),
-    ("val/range_bias_epoch", "range_bias", None),
-    ("val/range_missed_obstacle_rate_epoch", "missed_obstacle", False),
+# 나머지는 그 선택 아래에서 읽히는 값이다. 논문 지표는 `metric_spec.PAPER_METRICS`가 정본이다
+# (2026-10-02 개편: precision/recall/BF@τ, 전부 프레임 macro).
+REPORTED = PAPER_METRICS + (
     ("val/loss_epoch", "val_loss", False),
     ("train/iou_free_epoch", "train_iou_free", True),
 )
+assert REPORTED[0][0] == SELECTION_TAG
 
 
 def read_run(run_dir) -> dict:
@@ -189,6 +183,11 @@ def main(log_root, fixed_epoch=None, group_by=None, pattern="*"):
     alive = [r for r in runs if r["series"].get(SELECTION_TAG)]
     if len(alive) != len(runs):
         print(f"[경고] scalar가 없는 런 {len(runs) - len(alive)}개를 건너뛴다")
+    legacy = [r["name"] for r in alive
+              if any(tag not in r["series"] for tag, _, _ in PAPER_METRICS)]
+    if legacy:
+        print(f"[경고] 논문 지표 tag가 빠진 런 {len(legacy)}개(예: {legacy[0]}) -- 2026-10-02 이전 "
+              "지표 정의로 기록된 런이다. 그 칸은 n/a로 나온다(projects/common/metric_spec.py)")
 
     for label, group in group_runs(alive, group_by).items():
         print(format_table(label, group, aggregate(group, fixed_epoch)))

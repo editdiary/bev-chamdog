@@ -4,8 +4,13 @@
 **이 스크립트가 그림의 정본이다.** 내보낸 PDF/PNG/SVG를 손으로 고치지 않는다.
 입력은 `../data/figure_early_epochs.csv` 하나, matplotlib 외 의존성이 없다.
 
-**무엇을 보이나.** 1에폭에서 사전학습 모델은 자유공간을 **덜 놓치면서**(free-miss 낮음)
-**더 자주 틀린다**(fatal 높음). 두 가지가 동시에 일어나는 방식은 하나뿐이다 -- 자유공간을
+**[2026-10-02] 지표를 precision/recall(프레임 macro)로 바꿨다.** 옛 그림은 `fatal_rate`
+(= 1 − precision)·`free_miss_rate`(= 1 − recall)의 micro 값이었다. 아래 서사와 주석 문구는
+옛 두 캠페인의 결과이고, **다음 캠페인 결과로 다시 확인해야 한다**(2026-09-23 재학습에서 이미
+기전 주장이 좁혀졌다 -- 원장 §5).
+
+**무엇을 보이나.** 1에폭에서 사전학습 모델은 자유공간을 **더 많이 찾으면서**(recall 높음)
+**더 자주 틀린다**(precision 낮음). 두 가지가 동시에 일어나는 방식은 하나뿐이다 -- 자유공간을
 더 넓게 선언하는 것이다. 그것이 라벨이 격자의 94 %를 덮는 도메인에서 온 prior이고,
 라벨이 28 %만 덮는 우리 도메인에서는 감독되지 않는 영역까지 확신하게 만든다.
 
@@ -41,8 +46,8 @@ GRID = "#d8d7d2"
 
 LAST_EPOCH = 10   # prior는 2~3에폭이면 풀린다. 40까지 그리면 그 구간이 안 보인다.
 PANELS = (
-    ("fatal_rate", "fatal rate  ↓\n(of cells called free, fraction wrong)"),
-    ("free_miss_rate", "free-miss rate  ↓\n(of truly free cells, fraction missed)"),
+    ("precision", "precision  ↑\n(of cells called free, fraction right)"),
+    ("recall", "recall  ↑\n(of truly free cells, fraction found)"),
 )
 ARM_STYLE = {
     "control": ("Target-only (frozen setting)", TARGET_ONLY_COLOR),
@@ -99,13 +104,13 @@ def main(formats="pdf,png,svg", dpi: int = 400, stem="fig2_source_prior_mechanis
 
     # 1에폭에 주석 하나. 두 패널이 **반대 방향**으로 벌어지는 것이 이 그림의 전부다.
     axes[0].annotate("pretrained model calls\nfar more cells free",
-                     xy=(1, series[("source_prior", "fatal_rate")][1][0]),
-                     xytext=(2.6, series[("source_prior", "fatal_rate")][1][0] + 0.02),
+                     xy=(1, series[("source_prior", "precision")][1][0]),
+                     xytext=(2.6, series[("source_prior", "precision")][1][0] - 0.02),
                      fontsize=8, color=INK, linespacing=1.35,
                      arrowprops=dict(arrowstyle="-", color=INK_MUTED, linewidth=0.9))
-    axes[1].annotate("… so it misses fewer,\nbut it is wrong more often",
-                     xy=(1, series[("source_prior", "free_miss_rate")][1][0]),
-                     xytext=(2.6, series[("source_prior", "free_miss_rate")][1][0] - 0.022),
+    axes[1].annotate("… so it finds more,\nbut it is wrong more often",
+                     xy=(1, series[("source_prior", "recall")][1][0]),
+                     xytext=(2.6, series[("source_prior", "recall")][1][0] + 0.022),
                      fontsize=8, color=INK, linespacing=1.35,
                      arrowprops=dict(arrowstyle="-", color=INK_MUTED, linewidth=0.9))
 

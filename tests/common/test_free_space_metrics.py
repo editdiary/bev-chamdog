@@ -92,32 +92,22 @@ def test_free_metrics_from_masks_is_the_shared_aggregator():
 
 
 def test_free_metrics_from_masks_wires_every_key_correctly():
-    """`free_metrics_from_masks`는 2-head/3-class A/B 비교가 흐르는 유일한 통로다.
+    """`free_metrics_from_masks`는 모든 학습·재채점 경로가 흐르는 유일한 통로다.
 
-    앞선 스모크 테스트는 완벽한 예측만 넣어서 `fatal_denom`/`free_miss_denom`이
-    통째로 빠지거나 두 지표가 뒤바뀌어도 통과했을 것이다. 여기서는 불완전한 예측을 써서
-    `fatal_rate != free_miss_rate`, `fatal_denom != free_miss_denom`이 되도록 만들어
-    뒤바뀜을 실제로 탐지할 수 있게 한다.
+    완벽한 예측만 넣으면 키가 뒤바뀌어도 통과한다. 그래서 **네 지표가 전부 다른 값**이 되는
+    불완전한 예측을 쓴다 -- 어느 둘이 뒤바뀌어도 반드시 깨진다.
 
-    격자 8칸, valid=1 vis=1 (unknown 없음) 이므로 free = occ, occupied = ~occ.
-        gt_free   = [T, T, T, T, F, F, F, F]   (4칸)
-        pred_free = [T, T, F, F, T, F, F, F]   (3칸)
+    격자 8칸, valid=1 vis=1 (unknown 없음) 이므로 free = occ, non-free = 나머지.
+        gt_free   = [T, T, T, T, F, F, F, F]   (0-3)
+        pred_free = [T, F, F, F, T, F, F, F]   (0, 4)
 
     손계산:
-        intersection (pred & gt)      = {0, 1}                -> 2
-        union        (pred | gt)      = {0, 1, 2, 3, 4}        -> 5
-        iou_free = 2 / 5 = 0.4, count = 1 (union > 0인 샘플 1개)
-
-        fatal:  pred & ~gt              = {4}                  -> 1
-                denom = |pred|          = {0, 1, 4}             -> 3
-                fatal_rate = 1 / 3
-
-        miss:   ~pred & gt               = {2, 3}               -> 2
-                denom = |gt|            = {0, 1, 2, 3}          -> 4
-                free_miss_rate = 2 / 4 = 0.5
-
-    fatal_rate(1/3) != free_miss_rate(0.5), fatal_denom(3) != free_miss_denom(4)이므로
-    두 지표/분모가 뒤바뀌면 이 테스트가 반드시 깨진다.
+        TP = {0} = 1, FP = {4} = 1, FN = {1, 2, 3} = 3
+        iou_free     = 1 / 5        = 0.2
+        precision    = 1 / 2        = 0.5
+        recall       = 1 / 4        = 0.25
+        iou_non_free = |{5,6,7}| / |{1,...,7}| = 3 / 7
+    프레임 하나라 count는 전부 1이다.
     """
     from projects.common.free_space import decompose
     from projects.common.free_space_metrics import free_metrics_from_masks
@@ -128,31 +118,78 @@ def test_free_metrics_from_masks_wires_every_key_correctly():
     gt_parts = decompose(occ, vis, valid)
 
     pred_free = torch.tensor(
-        [[[[True, True, False, False], [True, False, False, False]]]]
+        [[[[True, False, False, False], [True, False, False, False]]]]
     )
     # 나머지 칸은 occupied/unknown으로 채워 예측도 완전한 분할이 되게 한다.
-    #     pred_occupied = {5, 6, 7},  pred_unknown = {2, 3}
     pred_occupied = torch.tensor(
         [[[[False, False, False, False], [False, True, True, True]]]]
     )
     pred_unknown = torch.tensor(
-        [[[[False, False, True, True], [False, False, False, False]]]]
+        [[[[False, True, True, True], [False, False, False, False]]]]
     )
     pred_parts = {"free": pred_free, "occupied": pred_occupied, "unknown": pred_unknown}
 
     result = free_metrics_from_masks(pred_parts, gt_parts, valid)
 
-    assert result["iou_free"] == pytest.approx(0.4)
-    assert result["iou_free_count"] == 1
-    assert result["fatal_rate"] == pytest.approx(1 / 3)
-    assert result["fatal_denom"] == 3
-    assert result["free_miss_rate"] == pytest.approx(0.5)
-    assert result["free_miss_denom"] == 4
+    assert result["iou_free"] == pytest.approx(0.2)
+    assert result["iou_non_free"] == pytest.approx(3 / 7)
+    assert result["precision"] == pytest.approx(0.5)
+    assert result["recall"] == pytest.approx(0.25)
+    for name in ("iou_free", "iou_non_free", "precision", "recall"):
+        assert result[f"{name}_count"] == 1
+    # 옛 micro 지표는 이 통로에서 사라졌다 -- 되살아나면 집계가 다시 섞인다.
+    assert "fatal_rate" not in result and "free_miss_rate" not in result
     assert result["partition_defects"] == 0
     assert torch.equal(result["pred_free"], pred_free)
     assert torch.equal(result["gt_free"], gt_parts["free"])
     assert torch.equal(result["pred_occupied"], pred_occupied)
     assert torch.equal(result["gt_occupied"], gt_parts["occupied"])
+
+
+def test_precision_and_recall_are_frame_macro_not_pooled_cells():
+    """**사용자 요구(2026-10-02): 모든 지표를 프레임 macro로.** 크기가 매우 다른 두 프레임에서
+    macro와 micro가 확실히 갈리게 만든다.
+
+        frame 0: pred 100칸 중 GT free 90  -> precision 0.9
+        frame 1: pred 4칸   중 GT free 1   -> precision 0.25
+        macro = (0.9 + 0.25) / 2 = 0.575     micro = 91 / 104 = 0.875
+    """
+    from projects.common.free_space_metrics import free_precision, free_recall
+
+    pred = torch.zeros((2, 1, 1, 200), dtype=torch.bool)
+    gt = torch.zeros_like(pred)
+    pred[0, 0, 0, :100] = True
+    gt[0, 0, 0, :90] = True
+    pred[1, 0, 0, :4] = True
+    gt[1, 0, 0, :1] = True
+    valid = torch.ones_like(pred)
+
+    precision, count = free_precision(pred, gt, valid)
+    assert precision == pytest.approx(0.575)
+    assert count == 2
+    recall, _ = free_recall(pred, gt, valid)
+    assert recall == pytest.approx(1.0)          # GT free는 전부 예측 안에 있다
+
+
+def test_frame_with_nothing_to_score_is_dropped_but_an_empty_prediction_scores_zero():
+    """프레임 규칙. 예측·GT가 **둘 다** 비면 빼고, 한쪽만 비면 0점이다.
+
+        frame 0: 정답 (P = R = 1)
+        frame 1: GT free가 있는데 예측 free 없음 -> P = 0(퇴행 해 벌점), R = 0
+        frame 2: 예측·GT 둘 다 free 없음        -> 평균에서 뺀다
+    """
+    from projects.common.free_space_metrics import free_precision, free_recall, iou_free
+
+    pred = torch.zeros((3, 1, 1, 4), dtype=torch.bool)
+    gt = torch.zeros_like(pred)
+    pred[0, 0, 0, :2] = gt[0, 0, 0, :2] = True
+    gt[1, 0, 0, :2] = True
+    valid = torch.ones_like(pred)
+
+    assert free_precision(pred, gt, valid) == (pytest.approx(0.5), 2)
+    assert free_recall(pred, gt, valid) == (pytest.approx(0.5), 2)
+    # IoU도 같은 프레임을 뺀다 -- 네 지표의 count가 같아야 한 표에서 나란히 읽힌다.
+    assert iou_free(pred, gt, valid) == (pytest.approx(0.5), 2)
 
 
 def test_iou_free_counts_free_predicted_inside_gt_unknown_as_an_error():
@@ -381,43 +418,42 @@ def test_metrics_per_ring_isolates_far_field_failure():
     assert per_ring["0.5-1.0m"]["iou_free"] == pytest.approx(0.0)
 
 
-def test_metrics_per_ring_isolates_far_field_fatal_rate():
-    """`fatal_rate`는 모듈 docstring이 말하는 "직접적인 위험량"이다. 위 테스트는 `iou_free`
-    만 링별로 확인하므로, `metrics_per_ring`이 `fatal_rate` 호출에도 실제로 링 마스크를
-    곱하는지(전체 `valid`가 아니라 `ring_valid`를 넘기는지)는 검출하지 못한다. 안쪽 링은
-    pred==gt(위험 없음), 바깥 링은 pred가 전부 잘못 free라고 주장(전부 위험)하도록 만들어
-    두 값이 0.0/1.0으로 뚜렷이 갈리게 한다."""
+def test_metrics_per_ring_isolates_far_field_precision():
+    """`metrics_per_ring`이 precision 계산에도 링 마스크를 실제로 곱하는지(전체 `valid`가 아니라
+    `ring_valid`를 넘기는지). 안쪽 링은 pred==gt, 바깥 링은 GT free가 없는데 전부 free라고 주장한다."""
     rings = build_ring_masks(RANGE_SPEC, edges_m=(0.0, 0.5, 1.0))
-    inner_mask, _ = rings[0][1], rings[1][1]
+    inner_mask = rings[0][1]
 
     gt = torch.zeros((1, 1, RANGE_SPEC.n_rows, RANGE_SPEC.n_cols), dtype=torch.bool)
-    gt[0, 0][torch.from_numpy(inner_mask)] = True     # 안쪽 링만 실제 free, 바깥 링은 occupied
+    gt[0, 0][torch.from_numpy(inner_mask)] = True     # 안쪽 링만 실제 free
     pred = torch.ones_like(gt)                        # 예측은 어디서나 free라고 주장
     valid = torch.ones_like(gt)
 
     per_ring = metrics_per_ring(pred, gt, valid, rings)
 
-    assert per_ring["0.0-0.5m"]["fatal_rate"] == pytest.approx(0.0)   # 안쪽: pred==gt, 위험 없음
-    assert per_ring["0.5-1.0m"]["fatal_rate"] == pytest.approx(1.0)   # 바깥: 전부 오탐(occupied인데 free라 함)
+    assert per_ring["0.0-0.5m"]["precision"] == pytest.approx(1.0)
+    assert per_ring["0.5-1.0m"]["precision"] == pytest.approx(0.0)   # 전부 오탐
+    assert per_ring["0.0-0.5m"]["recall"] == pytest.approx(1.0)
+    assert set(per_ring["0.0-0.5m"]) >= {"iou_free", "iou_non_free", "precision", "recall"}
 
 
-def test_metrics_per_ring_reports_matching_count_and_denom_fields():
-    """`iou_free_count`/`fatal_denom`이 실제로 각자의 지표와 짝지어 나오는지 확인한다
-    (Task 2 리뷰가 잡아낸 것과 같은 부류의 배선 결함 -- 값이 그럴듯해서 아무도 눈치채지
-    못한다). 안쪽 링은 iou 평균에 배치 1개가 들어가 count=1이고, fatal 분모는 `|pred|`인
-    링 전체 칸 수라서 두 값이 (1 vs 수백) 크게 다르다 -- 뒤바뀌면 반드시 걸린다."""
-    gt = torch.ones((1, 1, RANGE_SPEC.n_rows, RANGE_SPEC.n_cols), dtype=torch.bool)
+def test_metrics_per_ring_counts_frames_per_ring():
+    """링마다 평균에 들어간 **프레임 수**가 따로 나와야 한다. 둘째 프레임은 바깥 링에 예측·GT
+    free가 둘 다 없으므로 바깥 링 free 지표에서만 빠진다(안쪽 링은 2, 바깥 링은 1)."""
     rings = build_ring_masks(RANGE_SPEC, edges_m=(0.0, 0.5, 1.0))
-    inner_mask, outer_mask = rings[0][1], rings[1][1]
-    outer = torch.from_numpy(outer_mask)
+    outer = torch.from_numpy(rings[1][1])
+    gt = torch.ones((2, 1, RANGE_SPEC.n_rows, RANGE_SPEC.n_cols), dtype=torch.bool)
+    gt[1, 0][outer] = False
     pred = gt.clone()
-    pred[0, 0][outer] = False
     valid = torch.ones_like(gt)
 
     per_ring = metrics_per_ring(pred, gt, valid, rings)
 
-    assert per_ring["0.0-0.5m"]["iou_free_count"] == 1
-    assert per_ring["0.0-0.5m"]["fatal_denom"] == int(inner_mask.sum())
+    assert per_ring["0.0-0.5m"]["iou_free_count"] == 2
+    assert per_ring["0.5-1.0m"]["iou_free_count"] == 1
+    assert per_ring["0.5-1.0m"]["precision_count"] == 1
+    # non-free는 둘째 프레임 바깥 링에 있으므로 그쪽은 1, 첫 프레임 바깥 링은 non-free가 없어 빠진다.
+    assert per_ring["0.5-1.0m"]["iou_non_free_count"] == 1
 
 
 ASYMMETRIC_SPEC = OccupancyGridSpec(front_m=3.0, rear_m=1.0, half_width_m=1.0, cell_m=0.5)

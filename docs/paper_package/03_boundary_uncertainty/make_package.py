@@ -6,6 +6,13 @@ CSV를 손으로 고치지 않는다 -- 다음 재생성 때 사라지고, 그 �
 (`01_overall`·`02_projection_and_prior`의 `make_package.py`와 같은 계약).
 
 **원자료는 `runs/loss_effect/`다**(30런 = 6조건 x 5시드, 2026-09-02와 2026-09-21).
+
+**[2026-10-02] 두 가지가 바뀌었다.** (1) 광선 보조항을 뺐다 -- 사다리는 `A_ce -> B_perset
+-> C_hard -> C_soft` 넷이고 보조항 부록 표(`appendix_aux_range_term.csv`)는 없어졌다.
+(2) 지표가 `projects/common/metric_spec.py`로 바뀌었다(precision/recall/BF@τ, 프레임 macro).
+동작점 분석은 "같은 free_miss에서 fatal" 대신 **"같은 recall에서 precision"**으로 읽는다.
+**옛 `runs/loss_effect/` 런은 새 지표 tag가 없어 이 스크립트가 거부한다** -- 다음 캠페인에서
+다시 학습한 루트를 `--root`로 넘긴다(되올림 분석이 epoch 곡선을 써서 재채점으로는 안 된다).
 해석 정본은 [`docs/loss_effect_results.md`](../../loss_effect_results.md)이고 여기는 숫자만 만든다.
 
 서버에서만 돈다:
@@ -23,6 +30,7 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO_ROOT))
 
+from projects.common.metric_spec import EXPORTED_METRICS, PAPER_METRICS, require_tags  # noqa: E402
 from tools.summarize_repeats import read_run  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -30,16 +38,11 @@ DEFAULT_ROOT = _REPO_ROOT / "runs/loss_effect"
 SEEDS = (0, 1, 2, 3, 4)
 FIXED_EPOCH = 40
 
-# 사다리. **`D_range`와 `E_cumulative`는 이어지는 계단이 아니라 `C_soft`에서 갈라지는
-# 대체 팔이다**(`loss_effect_results.md` §16 머리말).
-#
-# **[2026-09-22 사용자 계획] 논문 본문 사다리는 `A_ce -> B_perset -> C_hard -> C_soft ->
-# E_cumulative` 다섯이고 `D_range`(`arc_huber`)는 논문에서 뺀다.** 보조항을 아예 빼고 넷으로
-# 갈지는 지도교수 논의 후 정한다. **어느 쪽이든 이 스크립트는 여섯 칸을 다 낸다** -- 표를
-# 고르는 것은 논문 쪽 일이고, 데이터가 빠져 있으면 나중에 되돌릴 수 없다.
-PAPER_LADDER = ("A_ce", "B_perset", "C_hard", "C_soft", "E_cumulative")
-AUX_ARMS = ("D_range", "E_cumulative")
-CELLS = ("A_ce", "B_perset", "C_hard", "C_soft", "D_range", "E_cumulative")
+# 사다리. **[2026-10-02 사용자 결정] 광선 보조항을 아예 뺀다 -- soft-boundary BCE까지 넷이다.**
+# (2026-09-22에는 `E_cumulative`를 다섯째 칸으로 두는 안이었고, 옛 `D_range`·`E_cumulative`는
+# `C_soft`에서 갈라지는 대체 팔이었다 -- `loss_effect_results.md` §16.)
+PAPER_LADDER = ("A_ce", "B_perset", "C_hard", "C_soft")
+CELLS = PAPER_LADDER
 
 CELL_DESIGN = {
     "A_ce": {
@@ -74,35 +77,10 @@ CELL_DESIGN = {
         "lambda_b": 0.5, "sigma_m": 0.10, "lambda_r": 0.0,
         "step_from": "C_hard", "knob_changed": "band target hard -> soft",
     },
-    "D_range": {
-        "label": "+ auxiliary range term (arc_huber)",
-        "aggregation": "per-set mean",
-        "boundary_target": "soft (Gaussian, sigma=0.10 m)",
-        "aux_range_term": "arc_huber, lambda_R=0.3",
-        "lambda_b": 0.5, "sigma_m": 0.10, "lambda_r": 0.3,
-        "step_from": "C_soft", "knob_changed": "auxiliary ray term (endpoint arc)",
-    },
-    "E_cumulative": {
-        "label": "+ auxiliary range term (cumulative)",
-        "aggregation": "per-set mean",
-        "boundary_target": "soft (Gaussian, sigma=0.10 m)",
-        "aux_range_term": "cumulative_l1, lambda_R=0.15",
-        "lambda_b": 0.5, "sigma_m": 0.10, "lambda_r": 0.15,
-        "step_from": "C_soft", "knob_changed": "auxiliary ray term (cumulative profile)",
-    },
 }
 
-METRICS = (
-    ("val/iou_free_epoch", "iou_free", True),
-    ("val/fatal_rate_epoch", "fatal_rate", False),
-    ("val/free_miss_rate_epoch", "free_miss_rate", False),
-    ("val/occupied_f1_10cm_epoch", "occupied_f1_10cm", True),
-    ("val/occupied_f1_20cm_epoch", "occupied_f1_20cm", True),
-    ("val/occupied_f1_40cm_epoch", "occupied_f1_40cm", True),
-    ("val/range_mae_epoch", "range_mae", False),
-    ("val/range_bias_epoch", "range_bias", None),
-    ("val/range_missed_obstacle_rate_epoch", "range_missed_obstacle_rate", False),
-)
+# 지표 정본은 `metric_spec`. 시드별 원자료는 보조 지표(BF의 P/R, 링별)까지, 표는 일곱 개만.
+METRICS = PAPER_METRICS
 
 # 되올림·국소화 그림에 쓰는 곡선. **`val/loss_epoch`은 조건마다 다른 함수라 곡선으로 겹쳐
 # 그리면 안 된다** -- 아래 셋은 loss와 무관하게 같은 식으로 기록되는 진단 CE다.
@@ -110,9 +88,7 @@ CURVE_TAGS = {
     "val/ce_all_epoch": "ce_all",
     "val/ce_boundary_epoch": "ce_boundary",
     "val/ce_confident_epoch": "ce_confident",
-    "val/iou_free_epoch": "iou_free",
-    "val/fatal_rate_epoch": "fatal_rate",
-    "val/free_miss_rate_epoch": "free_miss_rate",
+    **{tag: label for tag, label, _ in PAPER_METRICS},
 }
 
 # 짝지은 비교. (팔, 대조군, 역할). **같은 시드끼리 짝지으므로 런 간 산포가 차이에서 상쇄된다.**
@@ -121,9 +97,6 @@ PAIRS = (
     ("C_soft", "C_hard", "mechanism: soft vs hard band target (only knob)"),
     ("C_hard", "A_ce", "mechanism: aggregation only (both hard)"),
     ("B_perset", "A_ce", "aggregation + band removal"),
-    ("D_range", "C_soft", "appendix: auxiliary ray term (arc_huber)"),
-    ("E_cumulative", "C_soft", "appendix: auxiliary ray term (cumulative)"),
-    ("E_cumulative", "D_range", "appendix: auxiliary term form"),
 )
 
 
@@ -171,11 +144,13 @@ def _load(root: Path):
                 raise SystemExit(f"런 로그가 없다: {run_dir}")
             run = read_run(run_dir)
             series = run["series"]
+            require_tags(series, run_dir.name, EXPORTED_METRICS)
             if FIXED_EPOCH not in series.get("val/iou_free_epoch", {}):
                 raise SystemExit(f"{run_dir.name}이 epoch {FIXED_EPOCH}에 도달하지 못했다")
             out[cell][seed] = {
                 "_run": run_dir.name, "_series": series, "_config": run["config"],
-                **{label: series.get(tag, {}).get(FIXED_EPOCH) for tag, label, _ in METRICS},
+                **{label: series.get(tag, {}).get(FIXED_EPOCH)
+                   for tag, label, _ in EXPORTED_METRICS},
             }
     return out
 
@@ -216,7 +191,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
     rows = []
     for cell in CELLS:
         for seed in SEEDS:
-            for _, label, _ in METRICS:
+            for _, label, _ in EXPORTED_METRICS:
                 rows.append([cell, CELL_DESIGN[cell]["label"], seed,
                              runs[cell][seed]["_run"], FIXED_EPOCH, label,
                              _round(runs[cell][seed][label])])
@@ -247,7 +222,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
         rebound = axis1["rebound_excess_pct"].get(cell, {})
         min_ep = axis1["val_loss_min_epoch"].get(cell, {})
         regret_iou = axis1["regret_iou_free"].get(cell, {})
-        regret_f1 = axis1["regret_f1@10cm"].get(cell, {})
+        regret_f1 = axis1["regret_bf_10cm"].get(cell, {})
         gap = bundle["per_cell"][cell].get("delta_epoch_loss_vs_iou", {})
         rows.append([
             cell, CELL_DESIGN[cell]["label"], CELL_DESIGN[cell]["boundary_target"],
@@ -263,7 +238,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
             "val_loss_min_epoch_mean", "val_loss_min_epoch_sd",
             "epoch_gap_loss_vs_iou_mean", "epoch_gap_loss_vs_iou_sd",
             "regret_iou_free_mean", "regret_iou_free_sd",
-            "regret_f1_10cm_mean", "regret_f1_10cm_sd"], rows)
+            "regret_bf_10cm_mean", "regret_bf_10cm_sd"], rows)
 
     # --- 4. 논문 Table 3: 되올림의 경계 국소화 (주장 ②) ------------------------------------
     # 눈금은 **loss와 무관한 진단 CE**다. 각 런의 `val/loss_epoch`은 조건마다 다른 함수라
@@ -290,31 +265,31 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
             "boundary_share_of_rise_pct"], rows)
 
     # --- 5. 논문 Table 4: 동작점 (주장 ④ + 안전 반증) ---------------------------------------
-    # `tau_star`는 **같은 목표 free_miss를 만드는 문턱**이고 그 시드 간 산포가 이 축의 주장이다.
-    # `fatal_at_matched_operating_point`는 그 자리에서의 fatal이고, **여기서 차이가 사라지면
-    # tau=0.5의 fatal 개선은 동작점 이동이다**(§6.2·§16.4).
+    # `tau_star`는 **같은 목표 recall을 만드는 문턱**이고 그 시드 간 산포가 이 축의 주장이다.
+    # `precision_at_matched_operating_point`는 그 자리에서의 precision이고, **여기서 차이가
+    # 사라지면 tau=0.5의 precision 차이는 동작점 이동이다**(§6.2·§16.4).
     axis5 = bundle["axes"]["5_operating_point"]
     rows = []
     for cell in CELLS:
         c = axis5["cells"].get(cell)
         if c is None:
             continue
-        tau, fat = c["tau_star"], c["fatal_at_matched_operating_point"]
-        fatal_tau50, fatal_tau50_sd, _ = _mean_sd([runs[cell][s]["fatal_rate"] for s in SEEDS])
+        tau, fat = c["tau_star"], c["precision_at_matched_operating_point"]
+        prec_tau50, prec_tau50_sd, _ = _mean_sd([runs[cell][s]["precision"] for s in SEEDS])
         rows.append([
             cell, CELL_DESIGN[cell]["label"],
-            _round(axis5["target_free_miss"], 6),
+            _round(axis5["target_recall"], 6),
             *[_round(v, 6) for v in _stat(tau)[:2]],
             *[_round(v, 6) for v in _stat(fat)[:2]],
-            _round(fatal_tau50), _round(fatal_tau50_sd),
+            _round(prec_tau50), _round(prec_tau50_sd),
         ])
     _write(data / "table4_operating_point.csv",
-           ["cell", "cell_label", "target_free_miss",
+           ["cell", "cell_label", "target_recall",
             "tau_star_mean", "tau_star_sd",
-            "fatal_at_matched_free_miss_mean", "fatal_at_matched_free_miss_sd",
-            "fatal_at_tau_0.5_mean", "fatal_at_tau_0.5_sd"], rows)
+            "precision_at_matched_recall_mean", "precision_at_matched_recall_sd",
+            "precision_at_tau_0.5_mean", "precision_at_tau_0.5_sd"], rows)
 
-    # --- 5b. 논문 Table 5: 여러 동작점에서의 문턱 산포와 같은 free_miss에서의 fatal ----------
+    # --- 5b. 논문 Table 5: 여러 동작점에서의 문턱 산포와 같은 recall에서의 precision --------
     # RESULTS.json의 축 5는 앵커가 하나다. 주장 ④(문턱 재현성)와 안전 반증은 **한 점이 아니라
     # 구간에서** 성립해야 하므로 여기서 다섯 앵커로 다시 만든다. 계산은 τ 스윕 원시 행만
     # 쓰므로 자족적이다 -- 다른 도구를 먼저 돌려야 하는 의존이 없다.
@@ -324,16 +299,17 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
         cell, seed = row["cell"], int(row["seed"])
         if cell not in CELLS:
             continue
+        # x축이 recall이다. 정렬하면 증가 순서가 된다(recall은 τ에 대해 감소한다).
         curves.setdefault((cell, seed), []).append(
-            (float(row["free_miss"]), float(row["tau"]), float(row["fatal"]),
-             float(row["missed_obs"]), float(row["f1@10cm"]), float(row["iou_free"])))
+            (float(row["recall"]), float(row["tau"]), float(row["precision"]),
+             float(row["bf_10cm"]), float(row["iou_free"])))
     for key in curves:
         curves[key].sort()
 
     covered = [(min(p[0] for p in pts), max(p[0] for p in pts)) for pts in curves.values()]
     lo, hi = max(c[0] for c in covered), min(c[1] for c in covered)
     if not lo < hi:
-        raise SystemExit(f"모든 런이 함께 덮는 free_miss 구간이 없다: [{lo}, {hi}]")
+        raise SystemExit(f"모든 런이 함께 덮는 recall 구간이 없다: [{lo}, {hi}]")
     anchors = [lo + (hi - lo) * i / 4 for i in range(5)]
 
     def _interp(points, target, column):
@@ -349,10 +325,9 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
                 return ys[i - 1] + w * (ys[i] - ys[i - 1])
         return ys[-1]
 
-    # **`f1@10cm`과 `iou_free`도 같은 앵커에서 낸다.** tau=0.5 표(Table 1)의 차이 중 어디까지가
+    # **`bf_10cm`과 `iou_free`도 같은 앵커에서 낸다.** tau=0.5 표(Table 1)의 차이 중 어디까지가
     # 동작점 이동이고 어디부터가 진짜인지, 이 열들이 없으면 가를 수 없다.
-    ANCHORED = ((1, "tau_star"), (2, "fatal"), (3, "missed_obstacle"),
-                (4, "f1_10cm"), (5, "iou_free"))
+    ANCHORED = ((1, "tau_star"), (2, "precision"), (3, "bf_10cm"), (4, "iou_free"))
     rows = []
     for cell in CELLS:
         for anchor in anchors:
@@ -364,7 +339,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
                 n_cov = max(n_cov, n)
                 row += [_round(mean), _round(sd)]
             rows.append(row[:3] + [n_cov] + row[3:])
-    header = ["cell", "cell_label", "free_miss_anchor", "n_seeds_covering"]
+    header = ["cell", "cell_label", "recall_anchor", "n_seeds_covering"]
     for _column, name in ANCHORED:
         header += [f"{name}_at_anchor_mean", f"{name}_at_anchor_sd"]
     _write(data / "table5_threshold_dispersion.csv", header, rows)
@@ -395,26 +370,6 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
             "paired_diff_mean", "paired_diff_sd", "paired_diff_se", "abs_mean_over_se",
             "sign_agreement", "verdict"] + [f"diff_seed{s}" for s in SEEDS], rows)
 
-    # --- 7. 부록 표: 보조항 두 형태 -----------------------------------------------------
-    # **`D`와 `E`는 이어지는 계단이 아니라 `C_soft`에서 갈라지는 대체 팔이다.**
-    rows = []
-    for _, label, higher_is_better in METRICS:
-        base_mean, base_sd, _ = _mean_sd([runs["C_soft"][s][label] for s in SEEDS])
-        row = [label,
-               "" if higher_is_better is None else ("higher" if higher_is_better else "lower"),
-               _round(base_mean), _round(base_sd)]
-        for arm in AUX_ARMS:
-            mean, sd, _ = _mean_sd([runs[arm][s][label] for s in SEEDS])
-            p = _paired(runs, arm, "C_soft", label)
-            row += [_round(mean), _round(sd), _round(p["mean"]),
-                    _round(p["ratio"], 3), p["agreement"]]
-        rows.append(row)
-    header = ["metric", "better_direction", "C_soft_mean", "C_soft_sd"]
-    for arm in AUX_ARMS:
-        header += [f"{arm}_mean", f"{arm}_sd", f"{arm}_minus_C_soft",
-                   f"{arm}_abs_mean_over_se", f"{arm}_sign_agreement"]
-    _write(data / "appendix_aux_range_term.csv", header, rows)
-
     # --- 8. Figure 1 입력: 되올림의 경계 국소화 ------------------------------------------
     rows = []
     for cell in CELLS:
@@ -439,11 +394,11 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
             continue
         for seed, value in zip(SEEDS, c["tau_star"]["values"]):
             rows.append([cell, CELL_DESIGN[cell]["label"], seed,
-                         _round(axis5["target_free_miss"], 6), _round(value)])
+                         _round(axis5["target_recall"], 6), _round(value)])
     _write(data / "figure_operating_point.csv",
-           ["cell", "cell_label", "seed", "target_free_miss", "tau_star"], rows)
+           ["cell", "cell_label", "seed", "target_recall", "tau_star"], rows)
 
-    # --- 10. Figure 3 입력: 같은 free_miss에서의 fatal (안전 반증) ---------------------------
+    # --- 10. Figure 3 입력: 같은 recall에서의 precision (안전 반증) -------------------------
     sweep = list(csv.DictReader((root / "analysis/threshold_sweep_rows.csv").open()))
     rows = []
     for row in sweep:
@@ -451,11 +406,11 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
             continue
         rows.append([row["cell"], CELL_DESIGN[row["cell"]]["label"], int(row["seed"]),
                      _round(float(row["tau"]), 4),
-                     _round(float(row["free_miss"])), _round(float(row["fatal"])),
-                     _round(float(row["iou_free"])), _round(float(row["missed_obs"]))])
+                     _round(float(row["recall"])), _round(float(row["precision"])),
+                     _round(float(row["iou_free"])), _round(float(row["bf_10cm"]))])
     _write(data / "figure_safety_utility_curve.csv",
-           ["cell", "cell_label", "seed", "tau", "free_miss", "fatal", "iou_free",
-            "missed_obstacle"], rows)
+           ["cell", "cell_label", "seed", "tau", "recall", "precision", "iou_free",
+            "bf_10cm"], rows)
 
     # --- 11. 전체 검증 곡선 (부록) ---------------------------------------------------------
     rows = []
@@ -497,17 +452,10 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
         },
         "cells": CELL_DESIGN,
         "paper_ladder": list(PAPER_LADDER),
-        "ladder_note": "D_range and E_cumulative are ALTERNATIVE arms branching from C_soft, "
-                       "not further rungs -- they differ only in the formula of the auxiliary "
-                       "ray term. [2026-09-22] The paper ladder is A_ce -> B_perset -> C_hard "
-                       "-> C_soft -> E_cumulative; D_range (arc_huber) is dropped from the "
-                       "paper. Whether to drop the auxiliary term entirely (leaving four rungs) "
-                       "is still open. All six cells are emitted regardless.",
-        "training_dates": {"A_ce..D_range": "2026-09-02", "E_cumulative": "2026-09-21"},
-        "code_state_note": "no git SHA is recorded per run. That the 2026-09-02 runs already "
-                           "carried the 2026-09-02 15:35 code is inferred from two independent "
-                           "fingerprints: they log val/ce_boundary_epoch (added in 7bb7aa3) and "
-                           "their config.json records delta_r_m = beta = 0.15 (set in 4424657).",
+        "ladder_note": "[2026-10-02] The auxiliary ray term is dropped from the paper; the "
+                       "ladder ends at the soft-boundary BCE (C_soft). Metrics are frame-macro "
+                       "IoU_free / IoU_non-free / Precision / Recall / BF@{0.1,0.2,0.3} m.",
+        "metric_definitions": "projects/common/metric_spec.py",
         "statistics": {
             "practical_floor": "|paired mean diff| > sigma_seed of the control at fixed epoch",
             "statistical_floor": "|paired mean diff| >= 2 * SE, SE = sd(diffs)/sqrt(5)",
@@ -515,6 +463,9 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
             "sigma_run": "0.0009 iou_free -- rerun noise floor from 18 matched pairs "
                          "(runs/archive/loss_effect_v1); cuDNN nondeterminism",
         },
+        # **이 목록은 2026-09-21까지의 옛 지표·옛 런에서 나온 결론이다.** 다음 캠페인 결과로
+        # 하나씩 다시 확인한 뒤 고친다 -- 데이터에서 자동으로 나오는 값이 아니다.
+        "claims_as_of": "2026-09-21 (runs/loss_effect, old metrics) -- re-verify after rerun",
         "claims": {
             "supported": ["objective convergence (rebound removed)",
                           "rebound is localized to the boundary band",

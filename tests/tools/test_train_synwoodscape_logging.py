@@ -156,24 +156,26 @@ def test_mean_loss_parts_of_an_empty_epoch_is_empty():
     assert mean_loss_parts([]) == {}
 
 
-def test_summarize_free_metrics_weights_iou_by_sample_count():
-    # `iou_free`는 union이 0인 샘플이 빠지므로 batch마다 count가 다르다. batch 수로
-    # 평균하면 (0.8 + 0.4)/2 = 0.60이 나오고 count 가중은 0.70이라 둘이 구별된다.
-    # `fatal`/`free_miss`는 분모가 서로 다르므로(100 대 10/90) 분모를 섞으면 깨진다.
+def test_summarize_free_metrics_weights_every_metric_by_its_own_frame_count():
+    """batch 값은 그 batch의 프레임 평균이다. epoch 값이 **정확한 프레임 macro**가 되려면 각
+    지표를 **자기** count(평균에 들어간 프레임 수)로 가중해야 한다. 지표마다 count를 다르게
+    줘서, 다른 지표의 count를 쓰거나 batch 수로 평균하면 깨지게 한다."""
     dicts = [
-        {"iou_free": 0.8, "iou_free_count": 3,
-         "fatal_rate": 0.1, "fatal_denom": 100,
-         "free_miss_rate": 0.2, "free_miss_denom": 10, "partition_defects": 0},
-        {"iou_free": 0.4, "iou_free_count": 1,
-         "fatal_rate": 0.5, "fatal_denom": 100,
-         "free_miss_rate": 0.6, "free_miss_denom": 90, "partition_defects": 0},
+        {"iou_free": 0.8, "iou_free_count": 3, "iou_non_free": 0.9, "iou_non_free_count": 1,
+         "precision": 0.1, "precision_count": 2, "recall": 0.2, "recall_count": 4,
+         "partition_defects": 0},
+        {"iou_free": 0.4, "iou_free_count": 1, "iou_non_free": 0.5, "iou_non_free_count": 3,
+         "precision": 0.5, "precision_count": 2, "recall": 0.6, "recall_count": 1,
+         "partition_defects": 0},
     ]
 
     merged = summarize_free_metrics(dicts)
 
     assert merged["iou_free"] == pytest.approx((0.8 * 3 + 0.4 * 1) / 4)
-    assert merged["fatal_rate"] == pytest.approx(0.3)
-    assert merged["free_miss_rate"] == pytest.approx((0.2 * 10 + 0.6 * 90) / 100)
+    assert merged["iou_non_free"] == pytest.approx((0.9 * 1 + 0.5 * 3) / 4)
+    assert merged["precision"] == pytest.approx(0.3)
+    assert merged["recall"] == pytest.approx((0.2 * 4 + 0.6 * 1) / 5)
+    assert "fatal_rate" not in merged and "free_miss_rate" not in merged
 
 
 def test_summarize_free_metrics_of_an_empty_epoch_is_nan():
@@ -189,8 +191,9 @@ def test_append_free_metrics_drops_batch_masks_before_epoch_accumulation():
 
     scalars = {
         "iou_free": 0.5, "iou_free_count": 1,
-        "fatal_rate": 0.25, "fatal_denom": 4,
-        "free_miss_rate": 0.75, "free_miss_denom": 2,
+        "iou_non_free": 0.9, "iou_non_free_count": 1,
+        "precision": 0.25, "precision_count": 1,
+        "recall": 0.75, "recall_count": 1,
         "partition_defects": 0,
     }
 
@@ -211,10 +214,10 @@ def test_epoch_log_shows_iou_free_with_the_baseline_delta():
         epoch=46, num_epochs=60, epoch_time=41.0,
         train_loss=0.03, train_loss_parts=_LOSS_PARTS,
         val_loss=0.27, val_loss_parts=_LOSS_PARTS,
-        train_free_metrics={"iou_free": 0.97, "fatal_rate": 0.01,
-                            "free_miss_rate": 0.02, "partition_defects": 0},
-        val_free_metrics={"iou_free": 0.850, "fatal_rate": 0.0587,
-                          "free_miss_rate": 0.0998, "partition_defects": 0},
+        train_free_metrics={"iou_free": 0.97, "iou_non_free": 0.9, "precision": 0.01,
+                            "recall": 0.02, "partition_defects": 0},
+        val_free_metrics={"iou_free": 0.850, "iou_non_free": 0.9, "precision": 0.0587,
+                          "recall": 0.0998, "partition_defects": 0},
         baseline_iou_free=0.673,
         val_score=0.850, best_val_score=0.840, is_new_best=True,
     )
@@ -222,7 +225,8 @@ def test_epoch_log_shows_iou_free_with_the_baseline_delta():
     assert "iou_free" in text
     assert "0.850" in text
     assert "+0.177" in text
-    assert "fatal" in text
+    assert "P↑" in text and "R↑" in text and "iou_nf↑" in text
+    assert "fatal" not in text and "free_miss" not in text
 
 
 def test_epoch_log_uses_free_iou_for_checkpoint_and_baseline_comparison():
@@ -231,10 +235,10 @@ def test_epoch_log_uses_free_iou_for_checkpoint_and_baseline_comparison():
         epoch=1, num_epochs=60, epoch_time=1.0,
         train_loss=0.1, train_loss_parts=_LOSS_PARTS,
         val_loss=0.1, val_loss_parts=_LOSS_PARTS,
-        train_free_metrics={"iou_free": 0.9, "fatal_rate": 0.1,
-                            "free_miss_rate": 0.1, "partition_defects": 0},
-        val_free_metrics={"iou_free": 0.850, "fatal_rate": 0.1,
-                          "free_miss_rate": 0.1, "partition_defects": 0},
+        train_free_metrics={"iou_free": 0.9, "iou_non_free": 0.9, "precision": 0.1,
+                            "recall": 0.1, "partition_defects": 0},
+        val_free_metrics={"iou_free": 0.850, "iou_non_free": 0.9, "precision": 0.1,
+                          "recall": 0.1, "partition_defects": 0},
         baseline_iou_free=0.673,
         val_score=0.600, best_val_score=0.500, is_new_best=True,
     )
@@ -250,10 +254,10 @@ def test_epoch_log_flags_a_broken_partition_loudly():
         epoch=1, num_epochs=60, epoch_time=1.0,
         train_loss=0.1, train_loss_parts=_LOSS_PARTS,
         val_loss=0.1, val_loss_parts=_LOSS_PARTS,
-        train_free_metrics={"iou_free": 0.1, "fatal_rate": 0.1,
-                            "free_miss_rate": 0.1, "partition_defects": 7},
-        val_free_metrics={"iou_free": 0.1, "fatal_rate": 0.1,
-                          "free_miss_rate": 0.1, "partition_defects": 0},
+        train_free_metrics={"iou_free": 0.1, "iou_non_free": 0.9, "precision": 0.1,
+                            "recall": 0.1, "partition_defects": 7},
+        val_free_metrics={"iou_free": 0.1, "iou_non_free": 0.9, "precision": 0.1,
+                          "recall": 0.1, "partition_defects": 0},
         val_score=0.1, best_val_score=0.0, is_new_best=True,
     )
 
@@ -311,25 +315,43 @@ def test_epoch_scalars_write_every_metric_family_for_a_validation_epoch():
     write_epoch_scalars(writer, "val", {
         "loss": 1.0,
         "loss_parts": {},
-        "free": {"iou_free": 0.8, "fatal_rate": 0.1, "free_miss_rate": 0.2},
-        "range": {"mae": 0.25, "abs_p50": 0.3, "abs_p90": 0.6, "bias": -0.05,
-                  "over_mean": 0.2, "under_mean": 0.1, "missed_obstacle_rate": 0.04},
-        "range_bins": {"0.0-1.5m": {"mae": 0.1}},
-        "rings": {"0.0-1.5m": {"iou_free": 0.9}},
-        "tolerance": {"20cm": {"f1": 0.5, "precision": 0.6, "recall": 0.4}},
+        "free": {"iou_free": 0.8, "iou_non_free": 0.95, "precision": 0.9, "recall": 0.85},
+        # 옛 키가 dict에 남아 있어도 tag로 나가면 안 된다(2026-10-02에 뺐다).
+        "range": {"mae": 0.25, "bias": -0.05, "missed_obstacle_rate": 0.04},
+        "rings": {"0.0-1.5m": {"iou_free": 0.9, "iou_non_free": 0.97,
+                               "precision": 0.93, "recall": 0.91}},
+        "boundary": {"20cm": {"bf": 0.5, "precision": 0.6, "recall": 0.4, "n_frames": 3}},
     }, epoch=4)
 
-    # 2026-08-21에 줄인 지표 집합(§23)을 **정확히** 고정한다. dict에는 `abs_p50`,
-    # `over_mean`, `under_mean`, `range_bins`, `precision`, `recall`이 전부 들어 있는데도
-    # tag가 나오지 않아야 한다 -- 계산은 남기고 로깅만 뺐다는 결정이 여기서 지켜진다.
+    # 2026-10-02 지표 집합을 **정확히** 고정한다(`projects/common/metric_spec.py`).
     assert _tags(writer) == [
         "val/loss_epoch",
-        "val/iou_free_epoch", "val/fatal_rate_epoch", "val/free_miss_rate_epoch",
-        "val/range_mae_epoch", "val/range_abs_p90_epoch", "val/range_bias_epoch",
-        "val/range_missed_obstacle_rate_epoch",
-        "val/ring_0.0-1.5m_iou_free_epoch",
-        "val/occupied_f1_20cm_epoch",
+        "val/iou_free_epoch", "val/iou_non_free_epoch", "val/precision_epoch",
+        "val/recall_epoch",
+        "val/ring_0.0-1.5m_iou_free_epoch", "val/ring_0.0-1.5m_iou_non_free_epoch",
+        "val/ring_0.0-1.5m_precision_epoch", "val/ring_0.0-1.5m_recall_epoch",
+        "val/bf_20cm_epoch", "val/bf_20cm_precision_epoch", "val/bf_20cm_recall_epoch",
     ]
+
+
+def test_a_full_validation_epoch_writes_exactly_the_tags_the_readers_expect():
+    """**쓰는 쪽과 읽는 쪽의 계약.** 실제 링·눈금으로 val epoch을 쓰면 나오는 tag 집합이
+    `metric_spec.EXPORTED_METRICS`와 정확히 같아야 한다. 한쪽만 바뀌면 패키지 생성기가 빈칸을
+    읽는다 -- 그것을 9시간 캠페인이 끝난 뒤가 아니라 여기서 잡는다."""
+    from projects.common.metric_spec import (
+        BF_TOLERANCES_M, EXPORTED_METRICS, FREE_METRICS, ring_names, tolerance_key)
+
+    free = {name: 0.5 for name in FREE_METRICS}
+    writer = _ScalarWriter()
+    write_epoch_scalars(writer, "val", {
+        "loss": 1.0, "loss_parts": {}, "free": free,
+        "rings": {ring: dict(free) for ring in ring_names()},
+        "boundary": {tolerance_key(t): {"bf": 0.5, "precision": 0.5, "recall": 0.5,
+                                        "n_frames": 1} for t in BF_TOLERANCES_M},
+    }, epoch=4)
+
+    written = set(_tags(writer)) - {"val/loss_epoch"}
+    assert written == {tag for tag, _, _ in EXPORTED_METRICS}
 
 
 def test_epoch_scalars_of_a_train_epoch_skip_the_val_only_families():
@@ -339,10 +361,11 @@ def test_epoch_scalars_of_a_train_epoch_skip_the_val_only_families():
 
     write_epoch_scalars(writer, "train", {
         "loss": 1.0, "loss_parts": {},
-        "free": {"iou_free": 0.8, "fatal_rate": 0.1, "free_miss_rate": 0.2},
+        "free": {"iou_free": 0.8, "iou_non_free": 0.95, "precision": 0.9, "recall": 0.85},
     }, epoch=4)
 
     assert _tags(writer) == [
         "train/loss_epoch",
-        "train/iou_free_epoch", "train/fatal_rate_epoch", "train/free_miss_rate_epoch",
+        "train/iou_free_epoch", "train/iou_non_free_epoch", "train/precision_epoch",
+        "train/recall_epoch",
     ]
