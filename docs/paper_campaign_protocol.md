@@ -8,6 +8,13 @@
 실패 0건, 8시간 43분. 아래는 그때 실제로 한 것과 **그때 물린 것**을 합친 것이다.
 다음에 설정을 바꿔 처음부터 다시 돌릴 때 이 문서만 보면 된다.
 
+> **[2026-10-02] 다음 캠페인에 이미 반영된 변경 둘**(구현·검증 완료, 학습은 안 돌림 —
+> 원장 §5 "2026-10-02 (2)"):
+> 1. **지표 개편** — Precision·Recall·BF@{0.10,0.20,0.30} m·IoU_non-free·거리 고리별, **전부
+>    프레임 macro**, `range_*` 제거. 정본 `projects/common/metric_spec.py` (§2.4)
+> 2. **광선 보조항 제거** — `tools/paper_final_aux_loss.py`의 기본값이 `none`(λ_R = 0).
+>    03 사다리는 `C_soft`까지 넷 (§10)
+
 ---
 
 ## 0. 불변식 — 이걸 어기면 나머지가 의미 없다
@@ -21,6 +28,7 @@
 | **`git stash`·`git checkout <다른 브랜치>`·`reset --hard` 금지** | 작업 트리를 다른 세션과 공유한다. 커밋은 `git add <경로>`로 **자기 파일만 명시**한다 |
 | **푸시는 사용자가 한다** | 권한 분류기가 막는다. 명령어만 알려 준다 |
 | **생성 스크립트가 정본이다** | CSV·SVG·PDF를 손으로 고치지 않는다. 다음 재생성에서 사라지고, 그 사이에 문서와 데이터가 갈린다 |
+| **지표 이름·눈금·tag는 `projects/common/metric_spec.py` 한 곳에서만 바꾼다** | 2026-10-02까지 tag 표가 열 벌 넘게 복사돼 있었다(학습 로거 1, 보고·검사 도구 5, 패키지 생성기 4 …). 일부만 고치면 나머지가 **없는 tag를 빈칸으로** 읽는다 |
 
 ---
 
@@ -88,6 +96,32 @@ PY
 `tests/tools/test_paper_final_aux_loss.py`가 본보기다. **사전학습 런을 포함해** 모든 런이
 같은 값을 받는지 고정하고, 런 이름 목록을 명시해 **러너가 하나 빠지면 걸리게** 한다.
 
+### 2.4 지표를 바꿀 때 (2026-10-02에 실제로 한 것)
+
+1. **`metric_spec.py`만 고친다.** 쓰는 쪽(`bev_occupancy_metrics.write_epoch_scalars`)과 읽는
+   쪽(`summarize_repeats`·`report_loso`·`build_*_bundle`·`verify_val_predictions`·패키지 생성기
+   넷)이 전부 여기서 tag를 가져온다
+2. **쓰는 쪽 = 읽는 쪽 계약 테스트**가 있다 —
+   `test_a_full_validation_epoch_writes_exactly_the_tags_the_readers_expect`
+   (`tests/tools/test_train_synwoodscape_logging.py`). 실제 링·눈금으로 val epoch을 쓰면 나오는
+   tag 집합이 `EXPORTED_METRICS`와 정확히 같아야 한다
+3. **옛 런은 거부된다** — 패키지 생성기가 `require_tags`로 멈추고, 집계 도구는 경고, 무결성
+   검사기는 불일치로 실패한다. 옛 런을 새 지표로 읽었다는 착각이 생기지 않는다
+4. **학습 없이 실데이터로 관통시키는 법** — 기존 체크포인트를 재채점해 학습 로그와 같은 tag로
+   쓴다. 그러면 Phase 2 도구 전부가 그 로그를 학습 로그처럼 읽는다:
+   ```bash
+   # 임시 트리: logs/<run>/{config.json,split_*.txt} 복사, ckpt/<run>/*.pth 심볼릭 링크
+   python tools/rescore_checkpoints.py --checkpoint=<ckpt> --formulation=binary \
+       --log_dir=<임시>/logs/<run> --epoch=<그 체크포인트의 epoch>
+   python tools/export_val_predictions.py --log_root=<임시> --cells=final --seeds=0 --which=best,last ...
+   python tools/verify_val_predictions.py --root=<임시> ...
+   ```
+   2026-10-02 결과: `01` 고정 split 5시드 `iou_free` **0.8146 ± 0.0007** — 공개된 패키지 값과
+   같다(정의가 안 바뀐 지표는 그대로여야 한다). 무결성 38건 실패 0, 최대 차이 1.4e-4.
+   옛 로그에 대고 돌리면 38건 중 30건 실패(통과 8건 = 정의가 안 바뀐 `iou_free`와 링 `iou_free`)
+5. **epoch 곡선이 필요한 분석은 재채점으로 안 된다** — 체크포인트가 런당 둘뿐이다. 03의
+   되올림·regret 분석이 그렇다. 그래서 지표를 바꾸면 03도 **재학습**한다
+
 ---
 
 ## 3. 리허설 — 8시간 태우기 전 10분
@@ -110,6 +144,10 @@ python tools/run_paper_final_native_prior.py --seeds=0 --num_epochs=1 ...
    (전이 로그의 "loaded N tensors, skipped 0")
 4. Phase 2가 rc=0으로 끝나는가. 무결성 **수치** 실패가 0인가
    (구조 검사 실패 "5런 기대, 1런 발견"은 1시드 리허설이라 정상이다)
+5. **[2026-10-02 추가] 패키지 생성기 넷과 그림 스크립트를 리허설 출력에 관통시킨다.** 지표
+   개편 때 생성기를 실데이터 없이 고쳤다 — 실데이터로 확인한 것은 `01`의 고정 split 표
+   (`fixed_tables`)와 그 앞 단계뿐이다. `02`·`02b`·`03`의 생성기와 `03` 그림 둘은 문법·단위
+   테스트까지만 확인됐다. 1시드라 통계 칸은 비지만 **열 이름·tag 거부·그림 생성**은 여기서 걸린다
 
 **끝나면 지운다.** 1 epoch × 7런이 7.4 GB다.
 
@@ -313,6 +351,9 @@ grep -rn "안전 개선\|안전성.*개선\|정확도.*개선\|재현성.*개선
 | **`pkill -f` 패턴** | 자기 셸을 죽인다 | 정확한 PID |
 | **GPU 점유** | 지연 측정이 4.6배 틀어진다 | 재기 전 `nvidia-smi` |
 | **`grep -c ... \|\| echo 0`** | `"0\n0"`이 되어 정수 비교가 깨진다 | `; true` 또는 `wc -l` |
+| **지표 tag 표가 여러 벌** (2026-10-02) | 일부만 고치면 나머지가 없는 tag를 **빈칸으로** 읽는다 | `metric_spec.py` 한 곳 + `require_tags` |
+| **그림에 데이터 좌표·숫자를 하드코딩** (2026-10-02) | 지표·런이 바뀌면 주석이 엉뚱한 곳에, 옛 숫자로 남는다(`03` 그림 둘에 `±0.097`, `xy=(0.0771, 0.523)`이 박혀 있었다) | 숫자는 데이터에서 계산, 위치는 `textcoords="offset points"` |
+| **산문 감사가 숫자만 본다** (2026-10-02 발견) | `training_details.md` §9.2가 2026-09-23 재학습 뒤에도 "모든 런은 `arc_huber`"로 남았다 | Phase 4에서 **설정 서술**(손실 형태·λ)도 grep한다 |
 
 ---
 
@@ -337,9 +378,12 @@ grep -rn "안전 개선\|안전성.*개선\|정확도.*개선\|재현성.*개선
 | `tools/check_results_tree_purity.py` | 옛 결과 트리 혼입 검사 |
 | `tools/report_paired_arms.py` | 짝지은 비교 (`--sigma_seed`·`--baseline_path`) |
 | `tools/build_overall_results_bundle.py` | `01`의 `RESULTS.json` |
-| `tools/export_val_predictions.py` · `verify_val_predictions.py` | 확률맵 내보내기 · 독립 재채점 |
+| `tools/export_val_predictions.py` · `verify_val_predictions.py` | 확률맵 내보내기 · 독립 재채점 (free 넷 + 링 12 + BF 셋) |
+| **`projects/common/metric_spec.py`** | **지표 이름·눈금·tag 정본** (2026-10-02) |
+| `tools/rescore_checkpoints.py` | 체크포인트 재채점. `--log_dir`·`--epoch`이면 학습 로그와 같은 tag로 쓴다 (§2.4) |
+| `configs/loss_effect.sh` · `configs/loss_effect_analysis.sh` | `03` 사다리 학습(4칸) · 분석(고정 epoch 집계 + τ 스윕만) |
 
-**테스트 503개.** 캠페인 관련은 `tests/tools/test_paper_final_*.py`,
+**테스트 514개**(2026-10-02). 캠페인 관련은 `tests/tools/test_paper_final_*.py`,
 `test_diff_paper_package_csv.py`, `test_check_results_tree_purity.py`,
 `test_audit_paper_prose_numbers.py`, `test_run_paper_final_*.py`.
 
@@ -352,10 +396,22 @@ grep -rn "안전 개선\|안전성.*개선\|정확도.*개선\|재현성.*개선
 1. **루트 이름을 정한다** — `runs/<새이름>/`. 세 드라이버의 `ROOT` 기본값
 2. **Phase 0** — 바뀌는 손잡이를 §2.1 다섯 단계로 노출. 값은 한 모듈에 모은다
 3. **기본값을 과거 재현으로 둔다** — 러너를 그냥 돌리면 옛 캠페인이 나와야 한다.
-   그래야 "이 매개변수화가 아무것도 바꾸지 않았다"를 manifest diff로 증명할 수 있다
+   그래야 "이 매개변수화가 아무것도 바꾸지 않았다"를 manifest diff로 증명할 수 있다.
+   **[2026-10-02 예외]** 보조항 기본값은 `none`으로 바꿨다 — 사용자가 보조항을 논문에서 뺐고,
+   지표 정의가 바뀌어 옛 캠페인을 그대로 재현하는 것이 어차피 불가능하다. 옛 두 형태는
+   `--range_loss_mode=arc_huber|cumulative_l1`로 남아 있다
 4. **σ_seed 사전 등록값을 정하고 적는다** — 캠페인 시작 **전에**. 끝나고 정하면
    데이터를 보고 눈금을 고른 것이 된다
 5. 리허설 → Phase 1~4
 
 **대조군 설계가 바뀌면**(split·시드 수·epoch 수) `02`·`02b`의 "대조군 재사용"이 깨진다.
 그 경우 세 실험을 전부 다시 돌려야 하고, `report_paired_arms.py`의 짝짓기도 확인한다.
+
+### 10.1 [2026-10-02] 다음 캠페인 설계 때 정할 것 — 지표·보조항 변경에서 따라 나온 것
+
+| # | 무엇 | 사실 |
+|---|---|---|
+| a | **`03`을 재학습한다** | 지표가 바뀌었고 되올림·regret이 epoch 곡선을 쓴다(§2.4-5). 사다리 4칸 × 5시드 = 20런, 약 2시간 |
+| b | **`03`의 `C_soft` = `01` 고정 split 대조군**인가 | 보조항이 빠지면 둘이 같은 설정이다. 옛 런으로 대조하면 `config.json` 차이는 `lambda_r`(0.0 대 0.15)과 `projection`(옛 코드가 기록 안 함) 둘뿐이었다. **재사용하면 5런을 아낀다** — 하려면 새 캠페인에서 두 큐 러너의 env 전부를 기계로 대조한 뒤 정한다 |
+| c | **σ_seed 사전 등록값** | 캠페인 **전에** 정한다. 근거로 쓸 수 있는 기존 값: 옛 고정 split 0.0018, 8군 묶음 0.0026, **보조항 없는 설정(`runs/loss_effect` `C_soft`) 5시드 0.0008**(평균 0.8125). 마지막 값도 5표본 sd라 §5.2의 이유로 그대로 눈금 삼기에는 작다 |
+| d | **링 경계** | `metric_spec.RING_EDGES_M` = 0 / 1.5 / 3 / 4 m. 바꾸려면 캠페인 **전에** |
