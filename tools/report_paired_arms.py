@@ -4,7 +4,11 @@
 재사용한다(원장 §6.0). 같은 시드끼리 빼면 초기화·데이터 순서에서 오는 런 간 산포
 (σ_seed ≈ 0.0018)가 차이에서 상쇄되므로, 평균만 비교할 때보다 훨씬 작은 효과를 볼 수 있다.
 
-**판정 규약**(원장 §6.4).
+**[2026-10-02] 판정 규칙이 바뀌었다** -- 짝지은 양측 t-검정의 **95 % 신뢰구간이 0을 포함하지
+않을 때만 유의**(`projects/common/paired_stats.py`). 아래의 옛 규칙(σ_seed + 2·SE, 약 88 %)은
+기록으로 남긴다. σ_seed는 이제 참고값으로만 출력한다.
+
+**옛 판정 규약**(원장 §6.4).
 
 - 주 지표는 `iou_free`와 constant-map baseline 대비 **margin**이다. 대조군과 팔이 같은
   val split을 보므로 baseline이 같고, margin의 차이는 `iou_free`의 차이와 정확히 같다 --
@@ -40,6 +44,7 @@ from fire import Fire
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
+from projects.common.paired_stats import paired_test, verdict  # noqa: E402
 from tools.summarize_repeats import REPORTED, pick_epochs, read_run  # noqa: E402
 
 # `01_overall`의 고정 split constant-map baseline. 같은 val split이므로 모든 팔이 공유한다.
@@ -110,8 +115,14 @@ def compare(control, arm):
         positive = sum(1 for d in clean if d > 0)
         # 짝지은 **평균**의 불확실성이다. σ_seed(한 런의 산포)와는 다른 양이다.
         se = sd / math.sqrt(n) if n > 1 and math.isfinite(sd) else float("nan")
+        test = paired_test(diffs)
         rows[label] = {
             "higher_is_better": higher_is_better,
+            # 판정(2026-10-02): 짝지은 양측 t-검정, 95 % 신뢰구간.
+            "t": test["t"], "df": test["df"], "p": test["p"],
+            "ci95_low": test["ci_low"], "ci95_high": test["ci_high"],
+            "significant": test["significant"],
+            "verdict": verdict(test, higher_is_better),
             "control": _stats([control[s][label] for s in seeds])[:2],
             "arm": _stats([arm[s][label] for s in seeds])[:2],
             "paired_diff_mean": mean,
@@ -137,28 +148,19 @@ def _fmt(value, width=8, places=4):
 def format_table(name, result, baseline=None, sigma_seed=SIGMA_SEED):
     lines = [f"\n=== {name}  (시드 {result['seeds']}, 짝지은 차이) ===",
              f"  {'지표':<16}{'대조군':>10}{'팔':>10}{'차이(팔−대조)':>15}"
-             f"{'차이 sd':>10}{'|Δ|/SE':>8}{'부호':>7}  판정"]
+             f"{'95% CI':>22}{'p':>8}{'부호':>7}  판정 (짝지은 t, 95 %)"]
     for label, row in result["metrics"].items():
         if label.startswith("_"):
             continue
         mean = row["paired_diff_mean"]
-        hib = row["higher_is_better"]
-        ratio = row.get("abs_mean_over_se", float("nan"))
-        if mean is None or not math.isfinite(mean):
-            verdict = "-"
-        elif abs(mean) < sigma_seed:
-            verdict = f"차이 없음 (|Δ| < σ_seed {sigma_seed})"
-        elif not (math.isfinite(ratio) and ratio >= MIN_SE_RATIO):
-            verdict = f"불확실 (|Δ|/SE {ratio:.1f} < {MIN_SE_RATIO})"
-        elif hib is None:
-            verdict = "방향 규약 없음"
-        else:
-            better = (mean > 0) == hib
-            verdict = "**팔이 낫다**" if better else "대조군이 낫다"
+        ci = (f"[{row['ci95_low']:+.4f}, {row['ci95_high']:+.4f}]"
+              if math.isfinite(row.get("ci95_low", float("nan"))) else "-")
+        p = f"{row['p']:.3f}" if math.isfinite(row.get("p", float("nan"))) else "-"
+        mark = " *" if row.get("significant") else ""
         lines.append(
             f"  {label:<16}{_fmt(row['control'][0], 10)}{_fmt(row['arm'][0], 10)}"
-            f"{_fmt(mean, 15)}{_fmt(row['paired_diff_sd'], 10)}"
-            f"{_fmt(ratio, 8, 1)}{row['sign_agreement']:>7}  {verdict}")
+            f"{_fmt(mean, 15)}{ci:>22}{p:>8}{row['sign_agreement']:>7}  "
+            f"{row.get('verdict', '-')}{mark}")
     if baseline is not None:
         ctl = result["metrics"]["iou_free"]["control"][0]
         arm = result["metrics"]["iou_free"]["arm"][0]
@@ -181,7 +183,7 @@ def main(control, arms, fixed_epoch: int = 100, json_out=None,
     print(f"대조군 {control}: 시드 {sorted(control_runs)}")
     if baseline is not None:
         print(f"constant-map baseline iou_free = {baseline:.4f}  (고정 split 공통)")
-    print(f"판정 눈금: σ_seed = {sigma_seed:.4f} | |Δ|/SE ≥ {MIN_SE_RATIO}")
+    print(f"판정: 짝지은 양측 t-검정 95 % 신뢰구간 (* = 유의) | 참고 σ_seed = {sigma_seed:.4f}")
 
     if isinstance(arms, str):
         arms = [a for a in arms.split(",") if a]

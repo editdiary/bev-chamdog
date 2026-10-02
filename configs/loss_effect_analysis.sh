@@ -117,7 +117,7 @@ step report_threshold_sweep \
 # `RESULTS.csv`(긴 형식 표) · `README.md`(폴더 안내)로 한 겹 얹는다.
 step build_results_bundle \
     python tools/build_results_bundle.py --root="${ROOT}" \
-        --cells="${CELLS}" --seeds="${SEEDS}"
+        --cells="${CELLS}" --seeds="${SEEDS}" --fixed_epoch="${FIXED_EPOCH:-100}"
 
 # ── 4. 목록 ─────────────────────────────────────────────────────────────────────
 echo ""

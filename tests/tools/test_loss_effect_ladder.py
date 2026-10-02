@@ -124,14 +124,19 @@ def test_inherited_environment_cannot_pollute_the_ladder(tmp_path):
 
 
 def test_existing_runs_are_skipped_so_only_new_cells_train(tmp_path):
-    """이미 있는 칸은 건너뛴다 -- 빠진 칸만 추가로 돌릴 수 있어야 한다."""
+    """완주한 칸(마지막 체크포인트가 있다)은 건너뛰고, **끊긴 칸(로그만 있다)은 다시 돌린다.**"""
     out_root = tmp_path / "runs"
     for name in ("A_ce", "B_perset", "C_hard"):
         run_dir = out_root / "logs" / f"{name}_s0"
         run_dir.mkdir(parents=True)
         (run_dir / "events.out.tfevents.1").write_text("x")
-    _, calls = _run_ladder(tmp_path, {})
-    assert [c["EXP_NAME"] for c in calls] == ["C_soft"]
+    for name in ("A_ce", "B_perset"):            # C_hard는 체크포인트가 없다 = 끊겼다
+        ckpt = out_root / "ckpt" / f"{name}_s0"
+        ckpt.mkdir(parents=True)
+        (ckpt / "model-000000100.pth").write_text("x")
+    proc, calls = _run_ladder(tmp_path, {"NUM_EPOCHS": "100"})
+    assert [c["EXP_NAME"] for c in calls] == ["C_hard", "C_soft"]
+    assert "C_hard_s0 불완전" in proc.stdout
 
 
 def test_only_cells_selects_rungs_without_changing_their_settings(tmp_path):

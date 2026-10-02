@@ -88,6 +88,9 @@ ONLY_CELLS="${ONLY_CELLS:-}"
 # **사전 실험 전용 높이 손잡이**(2026-10-02, 높이 범위 사전 실험 `configs/height_range_probe.sh`).
 # 이름이 `HEIGHT_*`가 아닌 이유: 호출 셸에 남은 옛 `HEIGHT_BINS`가 사다리를 조용히 오염시키지 못하게
 # 하는 계약(`test_inherited_environment_cannot_pollute_the_ladder`)을 지키려는 것이다. 비우면 확정값.
+# 런당 시간 상한 [초]. **학습이 멈추면 여기서 죽고 다음 런으로 넘어간다**(무한 대기 방지, 캠페인
+# v3 Phase 0). 100 epoch 실측 약 14분이라 1시간이면 4배 여유다.
+RUN_TIMEOUT_S="${RUN_TIMEOUT_S:-3600}"
 PROBE_HEIGHT_BINS="${PROBE_HEIGHT_BINS:-4}"
 PROBE_HEIGHT_MIN_M="${PROBE_HEIGHT_MIN_M:--0.25}"
 PROBE_HEIGHT_MAX_M="${PROBE_HEIGHT_MAX_M:-1.75}"
@@ -132,9 +135,16 @@ for seed in ${SEEDS}; do
             continue
         fi
         run="${name}_s${seed}"
+        final_ckpt="${OUT_ROOT}/ckpt/${run}/$(printf 'model-%09d.pth' "${NUM_EPOCHS}")"
         if [ -n "$(ls -A "${OUT_ROOT}/logs/${run}" 2>/dev/null)" ]; then
-            echo "=== ${run} 이미 있음 -- 건너뛴다 ==="
-            continue
+            if [ -f "${final_ckpt}" ]; then
+                echo "=== ${run} 이미 있음 -- 건너뛴다 ==="
+                continue
+            fi
+            # 로그는 있는데 마지막 체크포인트가 없다 = 중간에 끊긴 런이다. 지우고 처음부터 다시
+            # 돌린다 -- "이미 있음"으로 건너뛰면 끊긴 런이 완료로 집계된다.
+            echo "!!! ${run} 불완전(마지막 체크포인트 없음) -- 지우고 다시 돌린다 ($(date +%H:%M:%S)) !!!"
+            rm -rf "${OUT_ROOT}/logs/${run}" "${OUT_ROOT}/ckpt/${run}"
         fi
         echo "=== ${run} 시작 ($(date +%H:%M:%S)) ==="
         # **하이퍼파라미터를 전부 명시한다.** 기본값에 기대면 나중에 기본값이 바뀔 때
@@ -159,8 +169,10 @@ for seed in ${SEEDS}; do
         TRAIN_SEQUENCES="raws2,raws3,rawos1,rawos2,rawos4" \
         VAL_SEQUENCES="raws1,rawos3" \
         LOG_DIR="${OUT_ROOT}/logs" CKPT_DIR="${OUT_ROOT}/ckpt" \
-        bash configs/train_robot_bev_finetune.sh
-        if [ $? -ne 0 ]; then
+        timeout --kill-after=120 "${RUN_TIMEOUT_S}" bash configs/train_robot_bev_finetune.sh
+        rc=$?
+        [ "${rc}" -eq 124 ] && echo "!!! ${run} 시간 상한(${RUN_TIMEOUT_S}s) 초과 -- 강제 종료했다 !!!"
+        if [ "${rc}" -ne 0 ]; then
             # 실패한 런의 디렉터리를 지운다 -- 안 그러면 "이미 있음"으로 영원히 건너뛴다.
             echo "!!! ${run} 실패 -- 디렉터리를 지우고 다음으로 넘어간다 ($(date +%H:%M:%S)) !!!"
             rm -rf "${OUT_ROOT}/logs/${run}" "${OUT_ROOT}/ckpt/${run}"
