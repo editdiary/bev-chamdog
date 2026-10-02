@@ -132,3 +132,14 @@ def test_existing_runs_are_skipped_so_only_new_cells_train(tmp_path):
         (run_dir / "events.out.tfevents.1").write_text("x")
     _, calls = _run_ladder(tmp_path, {})
     assert [c["EXP_NAME"] for c in calls] == ["C_soft"]
+
+
+def test_only_cells_selects_rungs_without_changing_their_settings(tmp_path):
+    """`ONLY_CELLS`는 칸을 고르기만 하고 설정은 표에서 그대로 온다."""
+    _, calls = _run_ladder(tmp_path, {"ONLY_CELLS": "A_ce C_soft", "NUM_EPOCHS": "100"})
+    assert [c["EXP_NAME"] for c in calls] == ["A_ce", "C_soft"]
+    for call in calls:
+        loss, lambda_b, lambda_r, sigma_m, _ = LADDER[call["EXP_NAME"]]
+        assert (call["LOSS"], call["LAMBDA_B"], call["LAMBDA_R"], call["SIGMA_M"]) \
+            == (loss, lambda_b, lambda_r, sigma_m)
+        assert call["NUM_EPOCHS"] == "100"
