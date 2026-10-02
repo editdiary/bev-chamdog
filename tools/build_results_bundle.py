@@ -261,7 +261,7 @@ def _tau_at(curve_x, curve_y, target):
 
 
 def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
-         fixed_epoch=40, out_dir=None):
+         fixed_epoch=100, out_dir=None):
     root = Path(root)
     analysis = Path(out_dir) if out_dir else root / "analysis"
     cells = [str(c) for c in (cells if isinstance(cells, (list, tuple))

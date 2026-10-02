@@ -328,7 +328,8 @@ $$\boxed{\ |\bar\Delta|>\sigma_\text{seed}\quad\textbf{그리고}\quad |\bar\Del
 
 ### 고정 epoch
 
-**epoch 40 고정**이고 validation으로 고르지 않는다. validation으로 고르면 평가 대상에
+**epoch 40 고정**이고 validation으로 고르지 않는다. **[2026-10-02] 다음 캠페인부터 학습 길이와
+고정 epoch이 100이다**(사전 실험 근거는 원장 §5 "2026-10-02 (3)"). 아래 수치는 40 epoch 캠페인 값이다. validation으로 고르면 평가 대상에
 맞춰 고르는 선택 편향이 생기며, **LOSO에서는 held-out 시퀀스가 곧 평가 대상**이라 편향이
 직접 들어온다. 실측 차이는 작다 — best-epoch 0.8126 대 epoch-40 **0.8119**로 **+0.0007**
 이므로 각주 한 줄로 방어된다.

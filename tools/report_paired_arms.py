@@ -167,7 +167,7 @@ def format_table(name, result, baseline=None, sigma_seed=SIGMA_SEED):
     return "\n".join(lines)
 
 
-def main(control, arms, fixed_epoch: int = 40, json_out=None,
+def main(control, arms, fixed_epoch: int = 100, json_out=None,
          sigma_seed: float = SIGMA_SEED, baseline_path: str = _BASELINE_PATH):
     sigma_seed = float(sigma_seed)
     baseline = None

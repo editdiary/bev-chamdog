@@ -35,7 +35,7 @@ EXP_NAME="${EXP_NAME:-swscape_binary_pretrain}"
 RUN_NAME="${RUN_NAME:-${EXP_NAME}_s${SEED}}"
 
 # **확정 설정(원장 §3)과 같은 값이다.** 여기를 바꾸면 "데이터만 바꿔서 비교한다"가 깨진다.
-NUM_EPOCHS="${NUM_EPOCHS:-40}"
+NUM_EPOCHS="${NUM_EPOCHS:-100}"   # [2026-10-02] tools/paper_final_epochs.py의 DEFAULT_PRETRAIN_EPOCHS
 BATCH_SIZE="${BATCH_SIZE:-8}"
 LR="${LR:-1e-4}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-1e-7}"

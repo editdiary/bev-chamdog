@@ -213,7 +213,7 @@ def collect(log_root, fixed_epoch) -> dict:
     return folds
 
 
-def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=40,
+def main(log_root="runs/robot_bev_cv/loso/logs", fixed_epoch=100,
          dataset_root=DEFAULT_DATASET_ROOT, common_root=DEFAULT_COMMON_ROOT,
          json_out=None, legacy_sampling_diagnostics=False):
     device = "cuda" if torch.cuda.is_available() else "cpu"

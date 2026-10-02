@@ -45,6 +45,7 @@ from tools.run_paper_final_projection_prior import (  # noqa: E402
     RunSpec,
     run_queue,
 )
+from tools.paper_final_epochs import DEFAULT_NUM_EPOCHS, DEFAULT_PRETRAIN_EPOCHS  # noqa: E402
 from tools.paper_final_aux_loss import (  # noqa: E402
     DEFAULT_AUX_LOSS, add_aux_loss_argument, aux_loss_env,
 )
@@ -60,9 +61,13 @@ def _source_checkpoint(output_root: Path, seed: int, num_epochs: int) -> Path:
 
 
 def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
-                    range_loss_mode: str = DEFAULT_AUX_LOSS):
-    """요청된 팔의 런 사양 전부. 사전학습이 항상 앞에 온다 -- 뒤 팔이 그 산출물에 의존한다."""
+                    range_loss_mode: str = DEFAULT_AUX_LOSS, pretrain_epochs: int = None):
+    """요청된 팔의 런 사양 전부. 사전학습이 항상 앞에 온다 -- 뒤 팔이 그 산출물에 의존한다.
+
+    `pretrain_epochs`가 `None`이면 `num_epochs`와 같다(`run_paper_final_projection_prior`와 같은 계약).
+    """
     output_root = Path(output_root)
+    pretrain_epochs = int(num_epochs if pretrain_epochs is None else pretrain_epochs)
     # 사전학습과 미세조정에 **같은** 보조항을 건다(원장 §8 Phase 0).
     aux_env = aux_loss_env(range_loss_mode)
     specs = []
@@ -76,7 +81,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
                         "CUDA_VISIBLE_DEVICES": str(gpu),
                         "SEED": str(seed),
                         "RUN_NAME": f"swscape_native_pretrain_s{seed}",
-                        "NUM_EPOCHS": str(num_epochs),
+                        "NUM_EPOCHS": str(pretrain_epochs),
                         "OUT_ROOT": str(output_root / "source_pretrain_native"),
                         **aux_env,
                     },
@@ -117,7 +122,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
                     "LR": "1e-4",
                     "WEIGHT_DECAY": "1e-7",
                     "SAVE_FREQ_EPOCHS": str(num_epochs),
-                    "INIT_CHECKPOINT": str(_source_checkpoint(output_root, seed, num_epochs)),
+                    "INIT_CHECKPOINT": str(_source_checkpoint(output_root, seed, pretrain_epochs)),
                 },
             ))
     return specs
@@ -129,7 +134,9 @@ def main():
     parser.add_argument("--arms", default=",".join(ARMS))
     parser.add_argument("--seeds", default="0,1,2,3,4")
     parser.add_argument("--output_root", default=str(DEFAULT_OUTPUT_ROOT))
-    parser.add_argument("--num_epochs", type=int, default=40)
+    parser.add_argument("--num_epochs", type=int, default=DEFAULT_NUM_EPOCHS)
+    parser.add_argument("--pretrain_epochs", type=int, default=DEFAULT_PRETRAIN_EPOCHS,
+                        help="SynWoodScape 사전학습 길이 (tools/paper_final_epochs.py)")
     parser.add_argument("--gpu", default="0")
     parser.add_argument("--plan_only", action="store_true")
     add_aux_loss_argument(parser)
@@ -147,8 +154,9 @@ def main():
     seeds = [int(s) for s in args.seeds.split(",") if s.strip()]
 
     specs = build_run_specs(arms, seeds, args.output_root, args.num_epochs, args.gpu,
-                            args.range_loss_mode)
-    print(f"큐 {len(specs)}런  (arms={arms}, seeds={seeds}, epochs={args.num_epochs})\n")
+                            args.range_loss_mode, pretrain_epochs=args.pretrain_epochs)
+    print(f"큐 {len(specs)}런  (arms={arms}, seeds={seeds}, epochs={args.num_epochs}, "
+          f"pretrain_epochs={args.pretrain_epochs})\n")
     run_queue(specs, args.output_root, args.num_epochs, plan_only=args.plan_only)
 
 

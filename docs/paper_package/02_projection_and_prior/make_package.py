@@ -30,7 +30,7 @@ DEFAULT_BASELINE_PATH = (_REPO_ROOT / "runs/paper_final/01_overall/fixed_split/"
                         "analysis/constant_map_baseline.json")
 SEEDS = (0, 1, 2, 3, 4)
 ARMS = ("pinhole120", "pinhole150", "source_prior")
-FIXED_EPOCH = 40
+FIXED_EPOCH = 100   # [2026-10-02] 학습 길이와 같다 (tools/paper_final_epochs.py)
 
 # 팔마다 붙는 설계 수치. 커버리지와 각해상도는 `tools/measure_projection_tradeoff.py`가
 # 캘리브레이션만으로 계산한 값이다(학습과 무관하므로 여기 상수로 둔다).

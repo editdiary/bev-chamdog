@@ -36,7 +36,7 @@ from tools.summarize_repeats import read_run  # noqa: E402
 HERE = Path(__file__).resolve().parent
 DEFAULT_ROOT = _REPO_ROOT / "runs/loss_effect"
 SEEDS = (0, 1, 2, 3, 4)
-FIXED_EPOCH = 40
+FIXED_EPOCH = 100   # [2026-10-02] 학습 길이와 같다 (tools/paper_final_epochs.py)
 
 # 사다리. **[2026-10-02 사용자 결정] 광선 보조항을 아예 뺀다 -- soft-boundary BCE까지 넷이다.**
 # (2026-09-22에는 `E_cumulative`를 다섯째 칸으로 두는 안이었고, 옛 `D_range`·`E_cumulative`는

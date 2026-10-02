@@ -63,7 +63,7 @@
 #
 # `batch_size`는 셸이 8로 고정한다 -- 노출된 손잡이가 아니라 여기서 줄 수 없다.
 #
-# ## 20런 x 약 6분 = 약 120분(GPU 1개) (RTX PRO 6000, 40 epoch, train 192 / val 75프레임)
+# ## 20런 x 약 14분 = 약 4.7시간(GPU 1개) (RTX PRO 6000, 100 epoch = 8.2 s/epoch, train 192 / val 75프레임)
 # **이미 있는 런은 건너뛴다.** 분석은 `configs/loss_effect_analysis.sh`.
 #
 # 실행:   CUDA_VISIBLE_DEVICES=0 bash configs/loss_effect.sh
@@ -79,7 +79,7 @@ set -uo pipefail          # **`-e`를 뺀다** -- 런 하나가 OOM으로 죽어
 cd "$(dirname "$0")/.."
 
 OUT_ROOT="${OUT_ROOT:-runs/loss_effect}"
-NUM_EPOCHS="${NUM_EPOCHS:-40}"
+NUM_EPOCHS="${NUM_EPOCHS:-100}"   # [2026-10-02] 기본 100 (tools/paper_final_epochs.py)
 SEEDS="${SEEDS:-0 1 2 3 4}"
 CUDA_DEVICE="${CUDA_VISIBLE_DEVICES:-0}"
 # 일부 칸만 돌릴 때(공백 구분 칸 이름). 비우면 사다리 전체다. 칸의 설정은 아래 표에서만 온다 --

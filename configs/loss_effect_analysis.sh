@@ -97,7 +97,7 @@ step verify_val_predictions \
 # (2-1) 계획 §3.1: 고정 epoch과 best epoch을 나란히. **논문 주 숫자는 고정 epoch 쪽이다.**
 # `--group_by=exp_name`이 곧 셀별 묶음이다(`EXP_NAME`이 셀 이름으로 들어간다).
 step summarize_repeats_fixed40 \
-    python tools/summarize_repeats.py --log_root="${ROOT}/logs" --fixed_epoch=40 \
+    python tools/summarize_repeats.py --log_root="${ROOT}/logs" --fixed_epoch="${FIXED_EPOCH:-100}" \
         --group_by=exp_name
 
 # (2-2) 계획 §6: 같은 recall에서의 precision 비교 + 목표 동작점을 맞추는 τ의 시드 산포

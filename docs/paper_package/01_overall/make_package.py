@@ -251,7 +251,8 @@ def provenance(root: Path, fixed: dict, loso: dict, combined: dict,
             },
         },
         "frozen_configuration": common,
-        "primary_checkpoint": "fixed epoch 40 (validation-best is diagnostic only)",
+        "primary_checkpoint": f"fixed epoch {fixed['experiment']['fixed_epoch']} "
+                              "(validation-best is diagnostic only)",
     }
     (out / "environment_and_config.json").write_text(
         json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")

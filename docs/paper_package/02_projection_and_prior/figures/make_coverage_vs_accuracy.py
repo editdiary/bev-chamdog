@@ -97,7 +97,7 @@ def draw(ax, arms) -> None:
 
     ax.set_xlabel("BEV grid coverage  [% of 120×120 cells seen by some camera]",
                   fontsize=9, color=INK_MUTED, labelpad=7)
-    ax.set_ylabel("free-space IoU  (val, epoch 40, mean of 5 seeds)",
+    ax.set_ylabel("free-space IoU  (val, fixed final epoch, mean of 5 seeds)",
                   fontsize=9, color=INK_MUTED, labelpad=7)
     # 커버리지는 100 %를 넘을 수 없다 -- 축이 그 너머로 가면 눈금이 뜻을 잃는다.
     ax.set_xlim(91.5, 100.9)

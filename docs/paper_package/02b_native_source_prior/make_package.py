@@ -51,7 +51,7 @@ DEFAULT_BASELINE_PATH = (_REPO_ROOT / "runs/paper_final/01_overall/fixed_split/"
 SEEDS = (0, 1, 2, 3, 4)
 ARM = "source_prior_native"
 PRETRAIN_ARM = "source_pretrain_native"
-FIXED_EPOCH = 40
+FIXED_EPOCH = 100   # [2026-10-02] 학습 길이와 같다 (tools/paper_final_epochs.py)
 
 #: 두 source 구성의 기하. 학습과 무관하게 정해지는 값이라 상수로 둔다.
 #: 근거는 `projects/bev_gt/grid.py`의 `SYNWOODSCAPE_NATIVE_GRID_SPEC` 주석.

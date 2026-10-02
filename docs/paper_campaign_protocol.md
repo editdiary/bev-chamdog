@@ -178,6 +178,10 @@ nohup bash tools/run_paper_final_cumulative_campaign.sh > <루트>/training_driv
 
 ### 4.2 비용 (2026-09-23 실측, RTX PRO 6000 한 장)
 
+> **[2026-10-02] 다음 캠페인은 100 epoch이다**(`tools/paper_final_epochs.py`). 아래 실측은 40 epoch
+> 값이다. 100 epoch 추정은 미세조정 런당 약 14분, 사전학습 런당 약 45분, **캠페인 약 25시간**(원장 §5
+> "2026-10-02 (4)"). watchdog 총 상한 2시간은 그대로 충분하다.
+
 | 런 종류 | 1런 | 비고 |
 |---|---:|---|
 | 로봇 미세조정 (01 고정·LOSO, 02 세 팔, 02b) | **5.5분** | 40 epoch, 8초/epoch |
