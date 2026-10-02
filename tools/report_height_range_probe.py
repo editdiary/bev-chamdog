@@ -5,6 +5,9 @@
     curves.csv    런 x epoch x 지표 (긴 형식)
     summary.csv   런마다 마지막 epoch · 최근 10 epoch 평균 · best epoch · 논문용 BCE 되올림 · 학습 시간
     curves.png    여섯 칸: val iou_free / precision / recall / BF@0.10 / bce_boundary / loss_total
+    loss_comparison_y4.png   같은 Y=4 확정값에서 `A_ce`(가중 BCE) 대 `C_soft`(soft-BCE)의 손실 7개.
+                  윗줄 = 모델이 실제로 받은 손실(`loss_*`, 크기 비교 금지 -- 모양만), 아랫줄 =
+                  논문용 공통 BCE(`bce_*`, 값 비교 가능). soft-BCE 경계 항의 하한은 점선.
 
 **시드 하나다** -- 런 사이 차이를 우열로 읽지 않는다(사전 실험). 시드 간 sd 참고값(5시드, 옛 캠페인):
 iou_free 약 0.001, BF@0.10 약 0.006.
@@ -122,8 +125,59 @@ def main(root="runs/99_height_exp"):
     fig.tight_layout(rect=(0, 0.04, 1, 0.97))
     fig.savefig(out / "curves.png", dpi=160)
     plt.close(fig)
-    for p in ("curves.csv", "summary.csv", "curves.png"):
+    loss_comparison(root, out)
+    for p in ("curves.csv", "summary.csv", "curves.png", "loss_comparison_y4.png"):
         print(f"  {out / p}")
+
+
+def loss_comparison(root, out, folder="y4_-0.25_1.75"):
+    """같은 높이 설정에서 손실만 다른 두 런의 손실 곡선(2026-10-02 사용자 요청)."""
+    cells = {"A_ce": ("weighted BCE (A_ce)", "#eb6834"), "C_soft": ("soft-BCE (C_soft)", "#2a78d6")}
+    runs = {}
+    for cell in cells:
+        d = root / folder / "logs" / f"{cell}_s0"
+        if d.exists():
+            runs[cell] = (_load(d)[0], json.loads((d / "config.json").read_text()))
+    if len(runs) < 2:
+        print("  (손실 비교 생략: A_ce/C_soft 둘 다 있어야 한다)")
+        return
+    top = ("loss_total", "loss_free", "loss_non_free", "loss_boundary")
+    bottom = ("bce_free", "bce_non_free", "bce_boundary")
+    fig, axes = plt.subplots(2, 4, figsize=(17, 7.4))
+    for row, names in ((0, top), (1, bottom)):
+        for col in range(4):
+            ax = axes[row][col]
+            if col >= len(names):
+                ax.axis("off")
+                continue
+            name = names[col]
+            for cell, (s, cfg) in runs.items():
+                for split, dash in (("train", ":"), ("val", "-")):
+                    curve = s[f"{split}/{name}_epoch"]
+                    xs = sorted(curve)
+                    ax.plot(xs, [curve[x] for x in xs], color=cells[cell][1], linestyle=dash,
+                            linewidth=1.5 if split == "val" else 1.0,
+                            label=f"{cells[cell][0]}, {split}")
+                floor = cfg.get("label_constants", {}).get("val", {}).get("loss_boundary_floor", 0)
+                if name == "loss_boundary" and floor > 0:
+                    ax.axhline(floor, color=cells[cell][1], linestyle="--", linewidth=0.8)
+            kind = "own objective" if name.startswith("loss_") else "same BCE for every run"
+            ax.set_title(f"{name}  ↓\n({kind})", fontsize=10, loc="left", color="#0b0b0b")
+            ax.set_xlabel("epoch", fontsize=9, color="#52514e")
+            ax.grid(True, color="#d8d7d2", linewidth=0.7)
+            ax.set_axisbelow(True)
+            for sp in ("top", "right"):
+                ax.spines[sp].set_visible(False)
+            ax.tick_params(labelsize=8.5, colors="#52514e")
+    handles, labels = axes[0][0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False, fontsize=9,
+               bbox_to_anchor=(0.5, -0.01))
+    fig.suptitle("Loss curves at Y=4, [-0.25, 1.75] m (seed 0, 100 epochs) — top: what each model "
+                 "was trained on (shape only); bottom: the same BCE for both (comparable values); "
+                 "dashed = soft-target floor", fontsize=10, x=0.01, ha="left")
+    fig.tight_layout(rect=(0, 0.04, 1, 0.96))
+    fig.savefig(out / "loss_comparison_y4.png", dpi=150)
+    plt.close(fig)
 
 
 if __name__ == "__main__":
