@@ -143,3 +143,20 @@ def test_only_cells_selects_rungs_without_changing_their_settings(tmp_path):
         assert (call["LOSS"], call["LAMBDA_B"], call["LAMBDA_R"], call["SIGMA_M"]) \
             == (loss, lambda_b, lambda_r, sigma_m)
         assert call["NUM_EPOCHS"] == "100"
+
+
+def test_probe_height_knobs_change_only_the_height(tmp_path):
+    """높이 사전 실험 손잡이는 높이 셋만 바꾸고 칸 설정은 그대로 둔다. 기본값은 확정값이다."""
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    _, base = _run_ladder(tmp_path / "a", {"ONLY_CELLS": "C_soft"})
+    _, probe = _run_ladder(tmp_path / "b", {"ONLY_CELLS": "C_soft", "PROBE_HEIGHT_BINS": "8",
+                                            "PROBE_HEIGHT_MIN_M": "-2.0",
+                                            "PROBE_HEIGHT_MAX_M": "2.0"})
+    assert (base[0]["HEIGHT_BINS"], base[0]["HEIGHT_MIN_M"], base[0]["HEIGHT_MAX_M"]) \
+        == ("4", "-0.25", "1.75")
+    assert (probe[0]["HEIGHT_BINS"], probe[0]["HEIGHT_MIN_M"], probe[0]["HEIGHT_MAX_M"]) \
+        == ("8", "-2.0", "2.0")
+    for key in _CAPTURED:
+        if key not in ("HEIGHT_BINS", "HEIGHT_MIN_M", "HEIGHT_MAX_M"):
+            assert base[0][key] == probe[0][key], key
