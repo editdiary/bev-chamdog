@@ -248,6 +248,32 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 
 ## 5. 진행 기록
 
+### 2026-10-02 (8) — **캠페인 v3 본 실험 실행 중** (사용자 승인, 자율 실행)
+
+계획 `docs/paper_campaign_v3_plan.md`(결정 §6·§7). **결과 루트 `runs/99_full_campaign/`, 논문 패키지
+`docs/99_paper_results/`**(옛 `docs/paper_package/`는 그대로). 90런, 약 27 h, GPU 0 순차.
+
+**실행.** 2026-10-02 18:04:38 시작, 커밋 `a4ba10e`. 드라이버 `tools/run_full_campaign.sh`(분리 세션),
+로그 `runs/99_full_campaign/campaign.log`. 순서 01 고정 split → 01 LOSO → 01 분석 → 02 → 02 분석 →
+02b → 02b 분석 → 03 → 03 분석. 단계마다 `PHASE_DONE <이름> rc=<n>`이 찍힌다. 끝나면 `CAMPAIGN_V3_DONE`.
+
+**세션이 끊겼을 때 이어가는 법.** 학습은 분리 세션이라 계속 돈다. `grep PHASE_DONE campaign.log`로
+어디까지 왔는지 보고, 드라이버가 죽었으면 **같은 명령을 다시 실행**한다(완료 런은 건너뛰고 끊긴 런은
+`tools/clean_incomplete_runs.py`가 지운 뒤 다시 돈다). 학습이 끝나면 Phase 3
+`bash tools/run_full_campaign_packages.sh` → Phase 4 문서(REPORT 넷 새로 쓰기, 산문 숫자 감사).
+
+**Phase 0 (완료).** 판정 정본 `projects/common/paired_stats.py`(시드 짝지은 양측 t, 95 % CI) ·
+`report_paired_arms` 판정 교체 · 새 패키지 폴더와 생성기(입력 새 루트, `ci95`·`p`·`significant` 열,
+논문 표 `table_paper_*.csv` = mean ± SD + `*`, 03에 σ_run 표) · 03 사다리 런당 1 h 상한과 끊긴 런
+감지 · `clean_incomplete_runs.py` · 드라이버 둘. plan-only로 70런(01·02·02b) 전부 100 epoch·λ_R 0 확인.
+
+**리허설 (완료, 삭제함).** `runs/99_rehearsal`, 1 epoch · 시드 0 · LOSO 1 fold, 12런 완주, 무결성 수치
+실패 0, 트리 순수성 통과, 사전학습 → 미세조정 체크포인트 사슬 확인(668 tensors, skipped 0). 패키지
+리허설에서 결함 다섯을 잡아 고쳤다(01 `round(None)`, 03 `relative_to`, 경계 몫 None, 그림의 빈 sd 칸 넷,
+fold 하나의 SD 0 나누기) → 생성기 4·그림 6 전부 rc=0.
+
+---
+
 ### 2026-10-02 (7) — **사전 실험: 높이 범위** (C_soft 3런) **+ 같은 설정의 A_ce 1런** (시드 0, 100 epoch)
 
 결과 `runs/99_height_exp/`, 드라이버 `configs/height_range_probe.sh`, 그림·표
