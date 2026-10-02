@@ -248,6 +248,40 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 
 ## 5. 진행 기록
 
+### 2026-10-02 (5) — **손실 로그를 모든 실험에서 통일** (사용자 요청, 구현·스모크 확인)
+
+**요청.** "free / non-free / boundary 손실이 어떤 실험이든 같게 보여야 '가중 BCE는 경계 손실이
+처음부터 발산하고 soft-BCE는 수렴한다' 같은 주장을 할 수 있다."
+
+**구현.** 모든 손실이 같은 11개 항을 같은 이름으로 기록한다(정본 `metric_spec.COMMON_LOSS_PARTS`,
+계산 `binary_metrics.decompose_loss`). 영역은 soft-boundary의 Ω_F(경계에서 0.30 m보다 먼 free) /
+Ω_N(먼 non-free + 영구 사각지대) / Ω_B(경계 대역 |d| ≤ 0.30 m)로 **δ = 0.30 m 고정**이다.
+
+| tag | 뜻 |
+|---|---|
+| `loss_free` · `loss_not_free` · `loss_boundary` | 그 런이 **최적화한 손실**의 영역 평균(가중 BCE = 클래스 가중 hard CE, soft-BCE = 대역에서 soft target CE) |
+| `loss_boundary_floor` | 경계 항의 줄일 수 없는 하한. soft-BCE는 target 엔트로피(≈ 0.26), 가중 BCE는 0 |
+| `ce_free` · `ce_not_free` · `ce_boundary` · `ce_all` | **모든 런에 같은 눈금** -- 가중치 없는 hard CE |
+| `frac_free` · `frac_not_free` · `frac_boundary` | 영역 셀 비율(≈ 0.10 / 0.67 / 0.22) |
+| `loss` | **그 epoch의 모든 셀을 한 집합으로 본 목적함수** -- 가중 BCE `= Σ frac·loss_r`, soft-BCE `= ½F + ½N + λ_B·B` |
+
+옛 soft 전용 항(`share_*`·`kl_*`·`entropy_boundary`)과 옛 진단(`ce_confident`·`frac_ce_boundary`,
+대역 0.15 m)은 로그에서 빠졌다. 손실 함수 자체(`compute_soft_boundary_loss`)는 그대로다.
+
+**집계에서 고친 것 둘** (스모크에서 발견): (1) 영역 평균을 배치마다 같은 무게로 평균하면 가중 BCE의
+`Σ frac·loss_r = loss`가 epoch 단위로 5 % 어긋났다 → **영역 셀 수로 가중**. (2) 총 손실을 배치
+평균으로 내면 soft-BCE의 `½F+½N+½B = loss`가 val에서 6~7 % 어긋났다(배치마다 영역 크기가 달라서)
+→ **epoch 총 손실을 전체 셀 집합의 목적함수로 정의**. 둘 다 배치 크기와 무관해졌다.
+
+**확인.** 테스트 523 통과(두 손실의 tag 집합 동일, 배치 분해/합침 불변, 항등식). 실제 학습 2 epoch
+스모크(`A_ce`·`C_soft`): epoch tag 53개 **완전히 같음**, 두 항등식이 train·val 매 epoch 소수 넷째
+자리까지 일치. SynWoodScape 사전학습 1 epoch도 같은 11개 tag와 항등식 확인.
+
+**`runs/99_epoch_exp`는 옛 형식으로 기록돼 있다** -- 새 손실 곡선으로 보려면 다시 돌린다(44분).
+`tools/report_epoch_length_probe.py`는 새 형식만 읽는다.
+
+---
+
 ### 2026-10-02 (4) — **본 실험 기본 100 epoch** (사용자 결정, 구현됨)
 
 정본 `tools/paper_final_epochs.py`(`DEFAULT_NUM_EPOCHS = 100`). 세 큐 러너·03 사다리·분석 셸·결과

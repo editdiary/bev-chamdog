@@ -5,11 +5,13 @@
 
     curves.csv    런 x epoch x 지표 (긴 형식)
     summary.csv   런마다 마지막 epoch · 최근 10 epoch 평균 · best epoch · 진단 CE 되올림
-    curves.png    네 칸: val iou_free / val BF@10cm / 진단 hard CE(전체) / 진단 hard CE(경계 대역)
+    curves.png    여섯 칸: val iou_free / val BF@0.10 / 그 런이 최적화한 손실의 세 영역
+                  (경계에서 먼 free · 먼 non-free · 경계 대역) / 경계 대역의 공통 눈금 hard CE
 
-**진단 CE를 그리는 이유.** 각 런의 `val/loss_epoch`은 자기 손실 함수의 값이라 BCE 런과 soft 런을
-한 축에 놓을 수 없다. `val/ce_*`는 손실과 무관하게 hard 0/1 target에 대한 CE라 같은 눈금이다
-(`binary_metrics.region_ce_diagnostics`).
+**손실 로그는 모든 실험이 같은 이름이다**(2026-10-02, `metric_spec.COMMON_LOSS_PARTS`).
+`loss_*`는 그 런이 최적화한 손실의 영역 평균이라 런마다 함수가 다르고(soft-BCE의 경계 항은
+엔트로피 하한 `loss_boundary_floor`로 수렴한다 -- 점선), `ce_*`는 모든 런에 같은 눈금이다.
+2026-10-02 이전에 기록된 런에는 이 tag가 없다.
 
 **시드 하나다** -- 런 사이 차이를 우열로 읽지 않는다(사전 실험).
 
@@ -28,14 +30,16 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
-from projects.common.metric_spec import PAPER_METRICS  # noqa: E402
+from projects.common.metric_spec import COMMON_LOSS_PARTS, PAPER_METRICS  # noqa: E402
 
 CELLS = {"A_ce": ("BCE (weighted)", "#eb6834"), "C_soft": ("soft-BCE (proposed)", "#2a78d6")}
 EPOCHS = {40: "--", 100: "-"}
-DIAGNOSTIC = ("ce_all", "ce_boundary", "ce_confident")
+DIAGNOSTIC = ("ce_free", "ce_not_free", "ce_boundary", "ce_all")
 PANELS = (("iou_free", "val IoU_free  ↑"), ("bf_10cm", "val BF@0.10 m  ↑"),
-          ("ce_all", "val hard CE, all cells  ↓\n(loss-independent)"),
-          ("ce_boundary", "val hard CE, boundary band  ↓\n(|d| ≤ 0.15 m)"))
+          ("loss_free", "val loss_free  ↓\n(own objective, d > 0.30 m)"),
+          ("loss_not_free", "val loss_not_free  ↓\n(own objective, d < −0.30 m)"),
+          ("loss_boundary", "val loss_boundary  ↓\n(own objective, |d| ≤ 0.30 m; dotted = floor)"),
+          ("ce_boundary", "val ce_boundary  ↓\n(same hard CE for every run, |d| ≤ 0.30 m)"))
 
 
 def _load(path):
@@ -48,7 +52,7 @@ def main(root="runs/99_epoch_exp"):
     root = Path(root)
     out = root / "analysis"
     out.mkdir(parents=True, exist_ok=True)
-    names = [n for _, n, _ in PAPER_METRICS] + list(DIAGNOSTIC) + ["loss"]
+    names = [n for _, n, _ in PAPER_METRICS] + list(COMMON_LOSS_PARTS) + ["loss"]
     runs = {(c, e): _load(root / f"ep{e:03d}" / "logs" / f"{c}_s0") for e in EPOCHS for c in CELLS}
 
     with (out / "curves.csv").open("w", newline="") as fh:
@@ -82,13 +86,18 @@ def main(root="runs/99_epoch_exp"):
         w.writeheader()
         w.writerows(rows)
 
-    fig, axes = plt.subplots(2, 2, figsize=(10.5, 7.2))
+    fig, axes = plt.subplots(2, 3, figsize=(14.5, 7.4))
     for ax, (metric, label) in zip(axes.flat, PANELS):
         for (c, e), s in runs.items():
             curve = s[f"val/{metric}_epoch"]
             xs = sorted(curve)
             ax.plot(xs, [curve[x] for x in xs], color=CELLS[c][1], linestyle=EPOCHS[e],
                     linewidth=1.6, label=f"{CELLS[c][0]}, {e} ep")
+            if metric == "loss_boundary":
+                floor = s["val/loss_boundary_floor_epoch"]
+                if max(floor.values()) > 0:
+                    ax.plot(xs, [floor[x] for x in xs], color=CELLS[c][1], linestyle=":",
+                            linewidth=1.0)
         ax.set_title(label, fontsize=10, loc="left", color="#0b0b0b")
         ax.set_xlabel("epoch", fontsize=9, color="#52514e")
         ax.grid(True, color="#d8d7d2", linewidth=0.7)

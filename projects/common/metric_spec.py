@@ -40,6 +40,18 @@ FREE_METRICS = ("iou_free", "iou_non_free", "precision", "recall")
 
 SELECTION_TAG = "val/iou_free_epoch"
 
+# --- 손실 로그 (2026-10-02, 사용자 요청: 어떤 실험이든 같은 손실 항을 같은 이름으로) ----------
+# 정의는 `projects/common/binary_metrics.decompose_loss`. 세 영역은 soft-boundary의 Ω_F / Ω_N / Ω_B
+# (δ = 0.30 m 고정)이다. `loss_*`는 그 런이 최적화한 손실의 영역 평균이고, `ce_*`는 모든 런에
+# 같은 눈금(가중치 없는 hard CE)이다. `val/loss_epoch`은 그 런의 총 목적함수다.
+DECOMPOSITION_DELTA_M = 0.30
+LOSS_REGIONS = ("free", "not_free", "boundary")
+COMMON_LOSS_PARTS = (
+    "loss_free", "loss_not_free", "loss_boundary", "loss_boundary_floor",
+    "ce_free", "ce_not_free", "ce_boundary", "ce_all",
+    "frac_free", "frac_not_free", "frac_boundary",
+)
+
 
 def tolerance_key(tolerance_m: float) -> str:
     """`0.2 -> "20cm"`. 로그 tag와 dict 키에 float을 그대로 쓰면 표기가 갈린다."""

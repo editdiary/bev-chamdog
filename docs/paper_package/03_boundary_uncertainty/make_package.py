@@ -30,7 +30,8 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from projects.common.metric_spec import EXPORTED_METRICS, PAPER_METRICS, require_tags  # noqa: E402
+from projects.common.metric_spec import (  # noqa: E402
+    COMMON_LOSS_PARTS, EXPORTED_METRICS, PAPER_METRICS, require_tags)
 from tools.summarize_repeats import read_run  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -85,9 +86,8 @@ METRICS = PAPER_METRICS
 # 되올림·국소화 그림에 쓰는 곡선. **`val/loss_epoch`은 조건마다 다른 함수라 곡선으로 겹쳐
 # 그리면 안 된다** -- 아래 셋은 loss와 무관하게 같은 식으로 기록되는 진단 CE다.
 CURVE_TAGS = {
-    "val/ce_all_epoch": "ce_all",
-    "val/ce_boundary_epoch": "ce_boundary",
-    "val/ce_confident_epoch": "ce_confident",
+    # 공통 손실 분해(2026-10-02): 어떤 손실로 학습했든 같은 이름이다(`metric_spec.COMMON_LOSS_PARTS`).
+    **{f"val/{name}_epoch": name for name in COMMON_LOSS_PARTS},
     **{tag: label for tag, label, _ in PAPER_METRICS},
 }
 
@@ -374,7 +374,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
     rows = []
     for cell in CELLS:
         for tag, label in CURVE_TAGS.items():
-            if label not in ("ce_all", "ce_boundary", "ce_confident"):
+            if not label.startswith(("ce_", "frac_")):
                 continue
             for epoch in range(1, FIXED_EPOCH + 1):
                 mean, sd, n = _mean_sd(

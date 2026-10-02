@@ -153,9 +153,14 @@ def _format_metric_row(tag, tag_color, loss, loss_parts, free_metrics=None,
     fields.append(_field("loss_total↓", loss, ".4f"))
     parts = loss_parts or {}
     fields += [_field(f"loss_{name}↓", parts.get(f"loss_{name}"), ".4f") for name in part_names]
-    # 경계 항의 **진짜 진행도**. `loss_boundary`는 target 엔트로피가 하한이라 0으로 가지
-    # 않으므로, 그것만 보면 하한에 붙어 평평한 것을 "수렴 실패"로 오독한다
-    # (`docs/soft_boundary_loss_design.md` §5.4). soft-boundary loss일 때만 존재한다.
+    # 공통 분해(`binary_metrics.COMMON_LOSS_PARTS`)의 하한과 같은 눈금 CE. `loss_boundary`는
+    # soft target이면 하한(엔트로피)에 붙어 0으로 가지 않으므로 하한을 옆에 둔다. `ce_bnd`는
+    # 손실 종류와 무관한 hard CE라 두 손실의 화면 로그를 나란히 읽게 한다.
+    if "loss_boundary_floor" in parts:
+        if float(parts["loss_boundary_floor"]) > 0.0:
+            fields.append(_field("bnd_floor", parts["loss_boundary_floor"], ".4f"))
+        fields.append(_field("ce_bnd↓", parts.get("ce_boundary"), ".4f"))
+    # 2026-10-02 이전 로그 형식(soft-boundary 전용 항). 옛 dict를 다시 찍을 때만 걸린다.
     if "kl_boundary" in parts:
         fields.append(_field("kl_bnd↓", parts["kl_boundary"], ".4f"))
         # 엔트로피 하한을 뺀 **축소 가능한** loss 중 경계 항의 몫. `share b`는 상수인 하한을
@@ -276,6 +281,8 @@ def write_epoch_scalars(writer, split, metrics, epoch) -> None:
     """
     _add_scalar_if_finite(writer, f"{split}/loss_epoch", metrics.get("loss"), epoch)
     for key, value in (metrics.get("loss_parts") or {}).items():
+        if key.startswith("_"):          # 집계용 내부 값(`decompose_loss`)은 로그에 안 낸다
+            continue
         _add_scalar_if_finite(writer, f"{split}/{key}_epoch", value, epoch)
 
     free_metrics = metrics.get("free") or {}
@@ -355,7 +362,9 @@ def evaluate_split(step, loader, device, rays, ring_masks, *, cell_m) -> dict:
     with torch.no_grad():
         for batch in loader:
             loss, parts, free_metrics = step(batch)
-            losses.append(loss.item())
+            # 프레임 수로 가중한다 -- 마지막 배치가 작아도(val 75 = 9 x 8 + 3) 같은 무게를 받지
+            # 않게. 유효 셀 마스크가 프레임마다 같으므로 이것이 곧 epoch 전체의 셀 평균이다.
+            losses.append((loss.item(), int(batch["valid_bev_g"].shape[0])))
             parts_dicts.append({k: v.item() for k, v in parts.items()})
             valid = batch["valid_bev_g"].to(device)
             ring_dicts.append(metrics_per_ring(
@@ -365,13 +374,26 @@ def evaluate_split(step, loader, device, rays, ring_masks, *, cell_m) -> dict:
                 free_metrics["pred_occupied"], free_metrics["gt_occupied"], valid, cell_m
             ))
             append_free_metrics(free_dicts, free_metrics)
+    merged = mean_loss_parts(parts_dicts)
     return {
-        "loss": (sum(losses) / len(losses)) if losses else float("nan"),
-        "loss_parts": mean_loss_parts(parts_dicts),
+        "loss": epoch_loss(losses, merged),
+        "loss_parts": merged,
         "free": summarize_free_metrics(free_dicts),
         "rings": summarize_ring_metrics(ring_dicts, ring_masks),
         "boundary": summarize_boundary_f(boundary_dicts),
     }
+
+
+def weighted_frame_mean(loss_and_frames) -> float:
+    """`[(배치 손실, 프레임 수), ...]` -> 프레임 수로 가중한 epoch 손실. 비면 NaN.
+
+    배치마다 같은 무게로 평균하면 작은 마지막 배치가 과대 대표된다. 2026-10-02 스모크에서 그
+    때문에 가중 BCE의 val `loss`가 공통 손실 분해(`Σ frac·loss_r`)와 4 % 어긋났다.
+    """
+    total = sum(n for _, n in loss_and_frames)
+    if not total:
+        return float("nan")
+    return sum(v * n for v, n in loss_and_frames) / total
 
 
 def empty_epoch_metrics() -> dict:
@@ -394,10 +416,46 @@ def mean_loss_parts(parts_dicts) -> dict:
     """
     if not parts_dicts:
         return {}
-    return {
+    out = {
         key: float(sum(float(d[key]) for d in parts_dicts) / len(parts_dicts))
-        for key in parts_dicts[0]
+        for key in parts_dicts[0] if not key.startswith("_")
     }
+    # **공통 손실 분해는 셀 수로 가중해 모은다**(`binary_metrics.decompose_loss`). 영역 평균은
+    # 그 영역의 셀 수로, `ce_all`은 유효 셀 수로 가중하면 epoch 전체에서 그 집합 모든 셀의
+    # 평균이 된다 -- 배치를 어떻게 자르든 같은 값이다. 영역 비율도 셀 총수의 비로 다시 낸다.
+    if "_n_valid" in parts_dicts[0]:
+        n = [float(d["_n_valid"]) for d in parts_dicts]
+        total = sum(n) or 1.0
+        for region in ("free", "not_free", "boundary"):
+            w = [float(d[f"frac_{region}"]) * nv for d, nv in zip(parts_dicts, n)]
+            sw = sum(w) or 1.0
+            keys = [f"loss_{region}", f"ce_{region}"] + (
+                ["loss_boundary_floor"] if region == "boundary" else [])
+            for key in keys:
+                out[key] = sum(float(d[key]) * wi for d, wi in zip(parts_dicts, w)) / sw
+            out[f"frac_{region}"] = sum(w) / total
+        out["ce_all"] = sum(float(d["ce_all"]) * nv for d, nv in zip(parts_dicts, n)) / total
+        # epoch 총 손실을 영역 평균으로 다시 짓는다(`epoch_loss`가 읽는다). 계수는 배치마다 같다.
+        mode = float(parts_dicts[0].get("_objective_mode", -1.0))
+        regions = ("free", "not_free", "boundary")
+        if mode == 0.0:
+            out["_objective_set"] = sum(out[f"frac_{r}"] * out[f"loss_{r}"] for r in regions)
+        elif mode == 1.0:
+            out["_objective_set"] = sum(float(parts_dicts[0][f"_objective_c_{r}"]) * out[f"loss_{r}"]
+                                        for r in regions)
+    return out
+
+
+def epoch_loss(loss_and_frames, merged_parts) -> float:
+    """epoch 총 손실 = **그 epoch의 모든 셀을 한 집합으로 본 목적함수**(공통 손실 분해가 있으면).
+
+    가중 BCE는 셀 평균이고 soft-BCE는 영역별 평균의 가중합이라, 배치 값을 평균하면 soft-BCE에서
+    `½·F + ½·N + λ_B·B`가 epoch 단위로 6~7 % 어긋났다(배치마다 영역 크기가 달라서, 2026-10-02
+    스모크). 집합 전체로 정의하면 두 손실 모두 분해가 정확히 맞고 배치 크기와 무관하다.
+    분해가 없으면(옛 경로·보조항) 프레임 가중 평균으로 돌아간다.
+    """
+    value = (merged_parts or {}).get("_objective_set")
+    return float(value) if value is not None else weighted_frame_mean(loss_and_frames)
 
 
 def append_free_metrics(metric_dicts, free_metrics) -> None:

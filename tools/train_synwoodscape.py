@@ -74,6 +74,8 @@ from projects.common.bev_occupancy_metrics import (  # noqa: E402
     mean_loss_parts,
     select_checkpoint_score,
     summarize_free_metrics,
+    epoch_loss,
+    weighted_frame_mean,
     weighted_mean,
     write_epoch_scalars,
 )
@@ -410,16 +412,17 @@ def main(
                 optimizer.step()
                 scheduler.step()
 
-                train_losses.append(loss.item())
+                train_losses.append((loss.item(), int(batch["valid_bev_g"].shape[0])))
                 train_parts_dicts.append({k: v.item() for k, v in loss_parts.items()})
                 append_free_metrics(train_free_metric_dicts, free_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
                 global_step += 1
 
+            train_parts = mean_loss_parts(train_parts_dicts)
             train = {
-                "loss": float(np.mean(train_losses)) if train_losses else float("nan"),
-                "loss_parts": mean_loss_parts(train_parts_dicts),
+                "loss": epoch_loss(train_losses, train_parts),
+                "loss_parts": train_parts,
                 "free": summarize_free_metrics(train_free_metric_dicts),
             }
             write_epoch_scalars(writer, "train", train, epoch)
@@ -450,6 +453,8 @@ def main(
                 val_score=val_score,
                 best_val_score=best_val_score,
                 is_new_best=is_new_best,
+                **({"loss_part_names": binary_metrics.LOSS_PART_NAMES}
+                   if formulation == "binary" else {}),
             ))
 
             if epoch % save_freq_epochs == 0 or epoch == num_epochs:

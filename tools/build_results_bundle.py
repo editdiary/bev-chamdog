@@ -292,7 +292,8 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
             lambda_b = float(config.get("lambda_b", 0) or 0)
             selected = max(iou, key=iou.get)          # 체크포인트 선택 규칙과 같다
             loss = series.get((cell, seed, "val/loss_epoch"), {})
-            entropy = series.get((cell, seed, "val/entropy_boundary_epoch"), {})
+            # 경계 항의 하한(soft target의 엔트로피). 공통 손실 분해의 이름이다(2026-10-02).
+            entropy = series.get((cell, seed, "val/loss_boundary_floor_epoch"), {})
             reb = _rebound(loss, entropy, lambda_b)
 
             at_sel, at_fixed = {}, {}
@@ -488,14 +489,14 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
     # === 되올림이 경계에서 오는가 (계획 검토서 Priority 3) =============================
     #
     # 각 런의 `val/loss_epoch`은 **자기 loss의 값**이라 CE 런과 soft 런을 나란히 놓을 수
-    # 없다. 그래서 학습 때 loss와 무관한 공통 눈금(hard CE)을 대역 안/밖으로 나눠 기록해
-    # 뒀다(`binary_metrics.region_ce_diagnostics`). 여기서는 그 궤적의 **최저점 -> 마지막
-    # epoch 변화**를 셀 수로 가중해 "증가분의 몇 %가 대역에서 오나"를 낸다.
+    # 없다. 그래서 모든 런이 같은 눈금(가중치 없는 hard CE)을 세 영역으로 나눠 기록한다
+    # (`binary_metrics.decompose_loss`). 대역 밖은 Ω_F·Ω_N을 셀 수로 합친 것이다. 여기서는
+    # 궤적의 **최저점 -> 마지막 epoch 변화**를 셀 수로 가중해 "증가분의 몇 %가 대역에서 오나"를 낸다.
     loc = {"_what": "val 오차 증가분이 경계 대역에 국소화되는가. `contribution`은 셀 수로"
                     " 가중한 기여분이고, `boundary_share`가 그 중 대역의 몫이다."
-                    " 눈금은 loss 종류와 무관한 hard CE이고 대역은 `|d| <= 0.15 m`로 고정이다.",
-           "_source": "analysis/scalars.csv (val/ce_boundary_epoch, val/ce_confident_epoch)",
-           "band_m": 0.15, "cells": {}}
+                    " 눈금은 loss 종류와 무관한 hard CE이고 대역은 Ω_B(`|d| <= 0.30 m`)다.",
+           "_source": "analysis/scalars.csv (val/ce_{boundary,free,not_free}_epoch, val/frac_*_epoch)",
+           "band_m": 0.30, "cells": {}}
     for cell in cells:
         rows_c = [r for r in runs if r["cell"] == cell]
         if not rows_c:
@@ -503,8 +504,14 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
         fracs, d_b, d_c, rel_b, rel_c = [], [], [], [], []
         for seed in seeds:
             b = series.get((cell, seed, "val/ce_boundary_epoch"), {})
-            f = series.get((cell, seed, "val/ce_confident_epoch"), {})
-            fr = series.get((cell, seed, "val/frac_ce_boundary_epoch"), {})
+            cf = series.get((cell, seed, "val/ce_free_epoch"), {})
+            cn = series.get((cell, seed, "val/ce_not_free_epoch"), {})
+            ff = series.get((cell, seed, "val/frac_free_epoch"), {})
+            fn = series.get((cell, seed, "val/frac_not_free_epoch"), {})
+            fr = series.get((cell, seed, "val/frac_boundary_epoch"), {})
+            # 대역 밖 = Ω_F와 Ω_N의 셀 수 가중평균.
+            f = {e: (ff[e] * cf[e] + fn[e] * cn[e]) / (ff[e] + fn[e])
+                 for e in cf if e in cn and e in ff and e in fn and ff[e] + fn[e] > 0}
             if not b or not f:
                 continue
             last = max(b)

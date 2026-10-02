@@ -4,8 +4,14 @@
 **이 스크립트가 그림의 정본이다.** 내보낸 PDF/PNG/SVG를 손으로 고치지 않는다.
 입력은 `../data/figure_rebound_localization.csv` 하나, matplotlib 외 의존성이 없다.
 
-**무엇을 보이나.** 왼쪽은 경계 대역(`|d| <= 0.15 m`, 유효 셀의 12.7 %)의 validation CE,
-오른쪽은 그 바깥이다. 기존 CE(`A_ce`)와 hard 대역 감독(`C_hard`)은 왼쪽에서 최저점 뒤로
+**[2026-10-02] 세 영역으로 나눴다** -- 경계에서 먼 free(Ω_F) / 먼 non-free(Ω_N) / 경계 대역
+(Ω_B, `|d| <= 0.30 m`). 모든 실험이 같은 이름으로 기록하는 공통 손실 분해의 hard CE
+(`val/ce_{free,not_free,boundary}`, `projects/common/metric_spec.py`)다. 영역의 셀 비율과 x축
+범위는 데이터에서 읽는다(예전에는 12.7 % / 87.3 %와 40 epoch이 박혀 있었다). 아래 서술은 옛
+결과다.
+
+**무엇을 보이나.** 옛 그림은 경계 대역(`|d| <= 0.15 m`, 유효 셀의 12.7 %)의 validation CE와
+그 바깥이었다. 기존 CE(`A_ce`)와 hard 대역 감독(`C_hard`)은 왼쪽에서 최저점 뒤로
 크게 되올라가는데 오른쪽은 거의 평평하다 -- **오차 증가가 경계에 몰려 있다.** 대역 target을
 soft로 바꾸면(`C_soft`) 왼쪽의 되올림이 사라진다.
 
@@ -51,8 +57,9 @@ CELL_STYLE = {
 ORDER = ("A_ce", "C_hard", "C_soft")
 
 PANELS = (
-    ("ce_boundary", "(a)  Boundary band   $|d| \\leq 0.15$ m\n12.7 % of valid cells"),
-    ("ce_confident", "(b)  Outside the band\n87.3 % of valid cells"),
+    ("ce_free", "free", "(a)  Free, away from the boundary   $d > 0.30$ m"),
+    ("ce_not_free", "not_free", "(b)  Non-free, away from the boundary   $d < -0.30$ m"),
+    ("ce_boundary", "boundary", "(c)  Boundary band   $|d| \\leq 0.30$ m"),
 )
 
 
@@ -68,9 +75,13 @@ def load(path: Path = DATA) -> dict:
 
 
 def build(series: dict):
-    fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.9))
+    fig, axes = plt.subplots(1, 3, figsize=(13.2, 3.9))
+    last_epoch = max(e for (_, m), pts in series.items() if m.startswith("ce_") for e in pts)
 
-    for ax, (metric, title) in zip(axes, PANELS):
+    for ax, (metric, region, title) in zip(axes, PANELS):
+        frac = series.get((ORDER[0], f"frac_{region}"), {})
+        if frac:
+            title += f"\n{100 * frac[max(frac)][0]:.1f} % of valid cells"
         for cell in ORDER:
             points = series.get((cell, metric))
             if not points:
@@ -91,7 +102,7 @@ def build(series: dict):
 
         ax.set_title(title, fontsize=10, color=INK, pad=9, loc="left")
         ax.set_xlabel("epoch", fontsize=9.5, color=INK_MUTED)
-        ax.set_xlim(1, 40)
+        ax.set_xlim(1, last_epoch)
         ax.grid(True, color=GRID, linewidth=0.7, alpha=0.9)
         ax.set_axisbelow(True)
         for spine in ("top", "right"):
@@ -102,7 +113,8 @@ def build(series: dict):
 
     axes[0].set_ylabel("validation cross-entropy  ↓\n(diagnostic, not the training loss)",
                        fontsize=9.5, color=INK_MUTED)
-    axes[1].set_ylabel("validation cross-entropy  ↓", fontsize=9.5, color=INK_MUTED)
+    for ax in axes[1:]:
+        ax.set_ylabel("validation cross-entropy  ↓", fontsize=9.5, color=INK_MUTED)
 
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=3, frameon=False,

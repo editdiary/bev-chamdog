@@ -60,6 +60,8 @@ from projects.common.bev_occupancy_metrics import (  # noqa: E402
     mean_loss_parts,
     select_checkpoint_score,
     summarize_free_metrics,
+    epoch_loss,
+    weighted_frame_mean,
     weighted_mean,
     write_epoch_scalars,
 )
@@ -685,7 +687,8 @@ def main(
                 model, batch, vox, class_weights, device, label_smoothing))
             if formulation == "three_class" else
             (lambda batch, vox=vox_util: binary_metrics.run_batch(  # noqa: E731
-                model, batch, vox, class_weights, device, rays, label_smoothing))
+                model, batch, vox, class_weights, device, rays, label_smoothing,
+                permanent_blind=blind_mask))
         )
         loss_part_names = spec["module"].LOSS_PART_NAMES
 
@@ -735,16 +738,17 @@ def main(
                 optimizer.step()
                 scheduler.step()
 
-                losses.append(loss.item())
+                losses.append((loss.item(), int(batch["valid_bev_g"].shape[0])))
                 parts_dicts.append({k: v.item() for k, v in parts.items()})
                 append_free_metrics(free_dicts, free_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
                 global_step += 1
 
+            train_parts = mean_loss_parts(parts_dicts)
             train = {
-                "loss": float(np.mean(losses)) if losses else float("nan"),
-                "loss_parts": mean_loss_parts(parts_dicts),
+                "loss": epoch_loss(losses, train_parts),
+                "loss_parts": train_parts,
                 "free": summarize_free_metrics(free_dicts),
             }
             write_epoch_scalars(writer, "train", train, epoch)
