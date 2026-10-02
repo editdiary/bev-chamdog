@@ -287,7 +287,7 @@ def test_epoch_scalars_write_each_class_loss_term():
     }, epoch=4)
 
     assert writer.scalars == [
-        ("train/loss_epoch", 1.0, 4),
+        ("train/loss_total_epoch", 1.0, 4),
         ("train/loss_unknown_epoch", 0.4, 4),
         ("train/loss_free_epoch", 0.2, 4),
         ("train/loss_occupied_epoch", 0.3, 4),
@@ -325,7 +325,7 @@ def test_epoch_scalars_write_every_metric_family_for_a_validation_epoch():
 
     # 2026-10-02 지표 집합을 **정확히** 고정한다(`projects/common/metric_spec.py`).
     assert _tags(writer) == [
-        "val/loss_epoch",
+        "val/loss_total_epoch",
         "val/iou_free_epoch", "val/iou_non_free_epoch", "val/precision_epoch",
         "val/recall_epoch",
         "val/ring_0.0-1.5m_iou_free_epoch", "val/ring_0.0-1.5m_iou_non_free_epoch",
@@ -350,7 +350,7 @@ def test_a_full_validation_epoch_writes_exactly_the_tags_the_readers_expect():
                                         "n_frames": 1} for t in BF_TOLERANCES_M},
     }, epoch=4)
 
-    written = set(_tags(writer)) - {"val/loss_epoch"}
+    written = set(_tags(writer)) - {"val/loss_total_epoch"}
     assert written == {tag for tag, _, _ in EXPORTED_METRICS}
 
 
@@ -365,7 +365,7 @@ def test_epoch_scalars_of_a_train_epoch_skip_the_val_only_families():
     }, epoch=4)
 
     assert _tags(writer) == [
-        "train/loss_epoch",
+        "train/loss_total_epoch",
         "train/iou_free_epoch", "train/iou_non_free_epoch", "train/precision_epoch",
         "train/recall_epoch",
     ]

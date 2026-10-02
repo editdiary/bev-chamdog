@@ -30,13 +30,14 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from projects.common.metric_spec import EXPORTED_METRICS, PAPER_METRICS, require_tags  # noqa: E402
+from projects.common.metric_spec import (  # noqa: E402
+    EXPORTED_METRICS, PAPER_LOSS_TERMS, PAPER_METRICS, TRAINING_LOSS_TERMS, require_tags)
 from tools.summarize_repeats import read_run  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_ROOT = _REPO_ROOT / "runs/loss_effect"
 SEEDS = (0, 1, 2, 3, 4)
-FIXED_EPOCH = 40
+FIXED_EPOCH = 100   # [2026-10-02] 학습 길이와 같다 (tools/paper_final_epochs.py)
 
 # 사다리. **[2026-10-02 사용자 결정] 광선 보조항을 아예 뺀다 -- soft-boundary BCE까지 넷이다.**
 # (2026-09-22에는 `E_cumulative`를 다섯째 칸으로 두는 안이었고, 옛 `D_range`·`E_cumulative`는
@@ -85,9 +86,9 @@ METRICS = PAPER_METRICS
 # 되올림·국소화 그림에 쓰는 곡선. **`val/loss_epoch`은 조건마다 다른 함수라 곡선으로 겹쳐
 # 그리면 안 된다** -- 아래 셋은 loss와 무관하게 같은 식으로 기록되는 진단 CE다.
 CURVE_TAGS = {
-    "val/ce_all_epoch": "ce_all",
-    "val/ce_boundary_epoch": "ce_boundary",
-    "val/ce_confident_epoch": "ce_confident",
+    # 손실 로그(2026-10-02): 어떤 손실로 학습했든 같은 7개다 -- 모델이 받은 손실 넷과 논문용
+    # 공통 BCE 셋(`metric_spec.TRAINING_LOSS_TERMS`·`PAPER_LOSS_TERMS`).
+    **{f"val/{name}_epoch": name for name in TRAINING_LOSS_TERMS + PAPER_LOSS_TERMS},
     **{tag: label for tag, label, _ in PAPER_METRICS},
 }
 
@@ -374,7 +375,7 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
     rows = []
     for cell in CELLS:
         for tag, label in CURVE_TAGS.items():
-            if label not in ("ce_all", "ce_boundary", "ce_confident"):
+            if not label.startswith("bce_"):
                 continue
             for epoch in range(1, FIXED_EPOCH + 1):
                 mean, sd, n = _mean_sd(
@@ -382,6 +383,14 @@ def main(root=DEFAULT_ROOT, out_dir=HERE):
                 if n == 0:
                     continue
                 rows.append([cell, CELL_DESIGN[cell]["label"], label, epoch,
+                             _round(mean), _round(sd), n])
+        # 영역 셀 비율(라벨만의 상수, `config.json`의 `label_constants`) -- 그림 제목이 읽는다.
+        # 곡선이 아니라 상수라 마지막 epoch 한 점으로 둔다.
+        for region in ("free", "non_free", "boundary"):
+            mean, sd, n = _mean_sd([runs[cell][s]["_config"].get("label_constants", {})
+                                    .get("val", {}).get(f"frac_{region}") for s in SEEDS])
+            if n:
+                rows.append([cell, CELL_DESIGN[cell]["label"], f"frac_{region}", FIXED_EPOCH,
                              _round(mean), _round(sd), n])
     _write(data / "figure_rebound_localization.csv",
            ["cell", "cell_label", "metric", "epoch", "mean", "sd", "n"], rows)

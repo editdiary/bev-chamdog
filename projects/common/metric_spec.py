@@ -40,6 +40,29 @@ FREE_METRICS = ("iou_free", "iou_non_free", "precision", "recall")
 
 SELECTION_TAG = "val/iou_free_epoch"
 
+# --- 손실 로그 (2026-10-02 사용자 요청: 어떤 실험이든 같은 항을, 볼 것만) -----------------------
+# 정의는 `projects/common/binary_metrics.decompose_loss`. 세 영역은 soft-boundary의 Ω_F / Ω_N / Ω_B
+# (δ = 0.30 m 고정): 경계에서 0.30 m보다 먼 free / 먼 non-free(+ 영구 사각지대) / 경계 대역.
+#
+# **두 묶음, 7개 곡선이 전부다.**
+#   loss_total, loss_free, loss_non_free, loss_boundary
+#       **모델이 실제로 받은 손실** -- gradient가 나오는 바로 그 값과 그 영역별 몫. 학습이
+#       제대로 되는지 볼 때 쓴다. 손실 함수가 다르면 값의 크기는 런끼리 비교하지 않는다
+#   bce_free, bce_non_free, bce_boundary
+#       **논문에 싣는 값** -- 모든 런의 예측을 같은 함수(클래스 가중 없는 hard 0/1 BCE)로 잰 것.
+#       손실 종류와 무관하게 값끼리 비교된다
+#
+# 학습 중 변하지 않는 값(라벨만의 함수)은 곡선이 아니라 `config.json`의 `label_constants`에 한 번
+# 적는다: 영역 셀 비율 `frac_*`, soft target의 경계 하한 `loss_boundary_floor`.
+DECOMPOSITION_DELTA_M = 0.30
+LOSS_REGIONS = ("free", "non_free", "boundary")
+TRAINING_LOSS_TERMS = ("loss_total",) + tuple(f"loss_{r}" for r in LOSS_REGIONS)
+PAPER_LOSS_TERMS = tuple(f"bce_{r}" for r in LOSS_REGIONS)
+#: 학습 스텝이 돌려주는 손실 항 dict의 공개 키(총 손실 `loss_total`은 따로 집계된다).
+COMMON_LOSS_PARTS = TRAINING_LOSS_TERMS[1:] + PAPER_LOSS_TERMS
+#: `config.json`의 `label_constants.{train,val}`에 한 번 적히는 값.
+LABEL_CONSTANTS = tuple(f"frac_{r}" for r in LOSS_REGIONS) + ("loss_boundary_floor",)
+
 
 def tolerance_key(tolerance_m: float) -> str:
     """`0.2 -> "20cm"`. 로그 tag와 dict 키에 float을 그대로 쓰면 표기가 갈린다."""

@@ -17,6 +17,7 @@ import torch
 
 from projects.common.free_space import FREE, decompose
 from projects.common.free_space_metrics import free_metrics_from_masks
+from projects.common.metric_spec import COMMON_LOSS_PARTS, DECOMPOSITION_DELTA_M  # noqa: F401
 from projects.common.occupied_metrics import derive_occupied
 from projects.common.segmentation_loss import (
     DEFAULT_MAX_CLASS_WEIGHT,
@@ -37,6 +38,8 @@ from projects.common.soft_boundary import (
     TARGET_LINEAR,
     build_soft_boundary_target,
     compute_soft_boundary_loss,
+    region_masks,
+    target_entropy,
 )
 
 # `FREE`는 3-class와 같은 인덱스 1을 쓴다 -- 두 정식화의 logits를 같은 시각화·재채점 코드가
@@ -44,11 +47,7 @@ from projects.common.soft_boundary import (
 NOT_FREE = 0
 CLASS_ORDER = (NOT_FREE, FREE)
 _PART_BY_CLASS = {NOT_FREE: "not_free", FREE: "free"}
-LOSS_PART_NAMES = ("not_free", "free")
-# soft-boundary loss의 항. 경계가 셋째 항으로 붙는다 -- 이름 순서가 콘솔 표의 칸 순서다.
-SOFT_BOUNDARY_LOSS_PART_NAMES = ("not_free", "free", "boundary")
-# 방위각 자유거리 보조항까지 켠 경우(`--lambda_r > 0`).
-SOFT_BOUNDARY_RANGE_LOSS_PART_NAMES = SOFT_BOUNDARY_LOSS_PART_NAMES + ("range",)
+# 콘솔 표의 손실 칸 이름(`LOSS_PART_NAMES` 등)은 아래 "공통 손실 분해" 절에 있다.
 
 # 3-class와 같은 기본 상한을 쓰지만 **실제로는 걸리지 않는다** -- 로봇 train split에서
 # 순수 역빈도가 free 3.94 / not_free 1.00이다. 상한이 loss 균형을 결정하던 3-class의
@@ -122,52 +121,95 @@ def compute_free_metrics(logits, seg_g, vis_g, valid_g, rays) -> dict:
     )
 
 
-# 영역별 CE 진단의 대역 반폭 [m]. **loss의 `δ`와 무관한 상수로 고정한다** -- 그래야 어떤
-# loss로 학습한 런이든 **같은 셀 집합**에서 잰 값이 되어 나란히 읽힌다. `δ`를 쓰면 δ가 다른
-# config끼리 다른 집합을 재게 되고, 그건 설계 문서 §20.1이 `kl_boundary`에서 겪은 함정이다.
-# 0.15 m = 3셀이고 주 지표 `f1@10cm`의 허용 오차(2셀)보다 한 셀 넓다.
-DIAGNOSTIC_BAND_M = 0.15
+# === 공통 손실 분해 (2026-10-02) =========================================================
+#
+# **어떤 손실로 학습하든 같은 이름·같은 영역으로 손실을 기록한다** -- 그래야 "가중 BCE는 경계
+# 손실이 처음부터 오르고 soft-BCE는 수렴한다" 같은 진술을 두 곡선으로 할 수 있다(사용자 요청).
+#
+# 영역은 soft-boundary 손실의 세 집합 그대로다(`soft_boundary.region_masks`):
+#     Ω_F  경계에서 δ보다 먼 free        Ω_N  경계에서 δ보다 먼 non-free (+ 영구 사각지대)
+#     Ω_B  경계 대역 |d| ≤ δ
+# 셋은 겹치지 않고 `valid`를 정확히 덮는다. **δ는 런의 손실 설정과 무관한 상수 0.30 m로 고정한다**
+# -- 가중 BCE 런에는 δ가 없고, 손잡이가 다른 런끼리도 같은 셀 집합을 재야 한다. 논문 설정의
+# δ와 같으므로 soft-BCE 런에서는 손실의 세 항과 정확히 같은 영역이다. BF 최대 허용오차와도 같다.
+
+#: 학습 스텝이 내는 손실 항은 `metric_spec.COMMON_LOSS_PARTS`다 -- 7개 곡선의 뜻과 왜 그 둘인지는
+#: `metric_spec`의 손실 절에 있다. 두 학습 경로가 **정확히 같은 키**를 낸다(테스트로 고정).
+_REGIONS = (("omega_f", "free"), ("omega_n", "non_free"), ("omega_b", "boundary"))
+
+# 콘솔 표의 손실 칸. 두 손실이 같은 칸을 쓴다.
+LOSS_PART_NAMES = ("free", "non_free", "boundary")
+SOFT_BOUNDARY_LOSS_PART_NAMES = LOSS_PART_NAMES
+SOFT_BOUNDARY_RANGE_LOSS_PART_NAMES = LOSS_PART_NAMES + ("range",)   # legacy(보조항)
 
 
-def region_ce_diagnostics(logits, seg_g, vis_g, valid_g, d, band_m=DIAGNOSTIC_BAND_M) -> dict:
-    """**loss 종류를 넘어 비교 가능한** hard CE를 경계 대역과 그 밖으로 나눈다.
+def decompose_loss(per_cell_loss, floor_per_cell, logits, gt_free, valid, d, permanent_blind,
+                   delta=DECOMPOSITION_DELTA_M, set_coefficients=None) -> dict:
+    """`COMMON_LOSS_PARTS` dict + `_n_valid`. **기록 전용**이라 gradient를 흘리지 않는다.
 
-    ## 무엇을 묻는가
+    `per_cell_loss`는 그 런이 최적화한 손실의 셀별 값 `(B, 1, H, W)`, `floor_per_cell`은 그
+    셀의 줄일 수 없는 하한(hard target이면 `None` = 0)이다.
 
-    "CE의 val loss 되올림은 경계에서 오는가?" -- 이 프로젝트의 출발 질문이고
-    (`docs/finetune_overfitting_diagnosis.md` §26), loss를 재설계한 이유 그 자체다.
-    그런데 각 런의 `val/loss_epoch`은 **자기 loss의 값**이라 CE 런과 soft-boundary 런을
-    나란히 놓을 수 없다. 그래서 loss와 무관하게 **hard 0/1 target에 대한 CE**를 따로 재고,
-    그것을 고정 대역으로 둘로 나눈다.
+    `_n_valid`(배치의 유효 셀 수)는 epoch 집계용이다 -- `bev_occupancy_metrics.mean_loss_parts`가
+    영역 평균을 **그 영역의 셀 수로 가중해** 모아 "epoch 전체에서 그 영역 모든 셀의 평균"을 만든다.
+    배치마다 같은 무게로 평균하면 영역 셀 수가 배치마다 달라 가중 BCE에서 `Σ frac·loss_r =
+    loss`가 epoch 단위로 5 % 어긋났다(2026-10-02 스모크). 밑줄로 시작하는 키는 로그에 안 나간다.
 
-        ce_boundary   |d| <= band 인 valid 셀의 CE 평균
-        ce_confident  그 밖 valid 셀의 CE 평균
-        ce_all        valid 전체 (두 값의 셀 수 가중평균과 같다)
-
-    **학습에 쓰이지 않는다** -- gradient가 흐르지 않는 순수 관측값이고, 어떤 loss로 학습하든
-    같은 식으로 계산된다. train/val 양쪽에 기록되므로 "train에서는 계속 내려가는데 val의
-    경계 성분만 오르는가"를 곡선으로 볼 수 있다.
-
-    `frac_ce_boundary`는 대역이 valid 셀의 몇 %인가다. 라벨만의 함수라 epoch에 따라 안
-    변하지만, 두 평균에서 **기여도**를 복원하려면 필요하다
-    (`기여 = frac * ce_boundary`).
+    `set_coefficients`는 **epoch 총 손실을 영역 평균으로 다시 짓는 법**이다(`_objective_*` 키).
+    `None`이면 셀 평균 목적함수(가중 BCE: `Σ frac_r · loss_r`), `(c_F, c_N, c_B)`면 영역별 평균의
+    합(soft-BCE: `½·F + ½·N + λ_B·B`), `"batch"`면 짓지 않는다(보조항을 켠 옛 설정). epoch 총 손실을
+    "그 epoch의 모든 셀을 한 집합으로 본 목적함수"로 정의하면 두 손실 모두 분해가 정확히 맞고
+    배치 크기와 무관해진다(`bev_occupancy_metrics.epoch_loss`).
     """
     with torch.no_grad():
         log_probs = torch.log_softmax(logits, dim=1)
-        gt_free = decompose(seg_g, vis_g, valid_g)["free"].to(log_probs.dtype)
-        # hard CE. 목표는 라벨이 정한 0/1이고 어떤 loss도 이 식을 바꾸지 않는다.
-        ce = -(gt_free * log_probs[:, 1:2] + (1.0 - gt_free) * log_probs[:, 0:1])
-        valid_f = valid_g.to(log_probs.dtype)
-        near = (d.abs() <= float(band_m)).to(log_probs.dtype) * valid_f
-        far = valid_f - near
-        mean = lambda mask: (ce * mask).sum() / (mask.sum() + 1e-6)   # noqa: E731
-        return {"ce_boundary": mean(near), "ce_confident": mean(far),
-                "ce_all": mean(valid_f),
-                "frac_ce_boundary": near.sum() / (valid_f.sum() + 1e-6)}
+        gt = gt_free.to(log_probs.dtype)
+        # hard CE. 목표는 라벨이 정한 0/1이고 어떤 손실도 이 식을 바꾸지 않는다.
+        hard = -(gt * log_probs[:, 1:2] + (1.0 - gt) * log_probs[:, 0:1])
+        valid_f = valid.to(log_probs.dtype)
+        n_valid = valid_f.sum() + 1e-6
+        blind = permanent_blind.to(valid.device) if permanent_blind is not None \
+            else torch.zeros_like(valid)
+        regions = region_masks(d, valid, blind, delta)
+        per_cell = per_cell_loss.detach().to(log_probs.dtype)
+        floor = (torch.zeros_like(per_cell) if floor_per_cell is None
+                 else floor_per_cell.detach().to(log_probs.dtype))
+
+        def mean(x, m):
+            return (x * m).sum() / (m.sum() + 1e-6)
+
+        out = {}
+        # 비율·하한은 라벨만의 함수라 곡선으로 내지 않는다 -- 밑줄 키로 넘겨 epoch 집계(셀 수 가중)와
+        # `config.json`의 `label_constants`에만 쓴다.
+        hidden = {"_n_valid": valid_f.sum()}
+        for key, name in _REGIONS:
+            m = regions[key].to(log_probs.dtype)
+            out[f"loss_{name}"] = mean(per_cell, m)
+            out[f"bce_{name}"] = mean(hard, m)
+            hidden[f"_frac_{name}"] = m.sum() / n_valid
+        hidden["_floor_boundary"] = mean(floor, regions["omega_b"].to(log_probs.dtype))
+        if set_coefficients is None:
+            hidden["_objective_mode"] = 0.0                       # 셀 평균
+        elif set_coefficients == "batch":
+            hidden["_objective_mode"] = -1.0                      # 짓지 않는다
+        else:
+            hidden["_objective_mode"] = 1.0                       # 영역별 평균의 가중합
+            for (_, name), c in zip(_REGIONS, set_coefficients):
+                hidden[f"_objective_c_{name}"] = float(c)
+        # 학습 루프가 모든 항에 `.item()`을 부르므로 **전부 텐서로** 낸다(파이썬 float을 넣었다가
+        # 첫 배치에서 죽었다 -- 2026-10-02 스모크).
+        hidden = {k: torch.as_tensor(v, dtype=log_probs.dtype, device=log_probs.device)
+                  for k, v in hidden.items()}
+        return {**{k: out[k] for k in COMMON_LOSS_PARTS}, **hidden}
 
 
-def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothing=0.0):
-    """Run one binary train/eval batch."""
+def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothing=0.0,
+              permanent_blind=None):
+    """가중 BCE 한 배치. 손실 로그는 `decompose_loss`의 공통 항이다(soft-BCE와 같은 이름).
+
+    `permanent_blind`는 영역 분할에만 쓴다(사각지대를 `Ω_N`에 넣는다). 없으면 0 마스크다 --
+    SynWoodScape에는 리그 고정 가림이 없다.
+    """
     rgb_camXs = batch["rgb_camXs"].to(device) - 0.5
     pix_T_cams = batch["pix_T_cams"].to(device)
     cam0_T_camXs = batch["cam0_T_camXs"].to(device)
@@ -177,17 +219,21 @@ def run_batch(model, batch, vox_util, class_weights, device, rays, label_smoothi
 
     _, _, logits, _, _ = model(rgb_camXs, pix_T_cams, cam0_T_camXs, vox_util)
     class_index = to_class_index(decompose(seg_bev_g, vis_bev_g, valid_bev_g))
-    loss, loss_parts = compute_binary_loss(
+    loss, _ = compute_binary_loss(
         logits, class_index, valid_bev_g, class_weights, label_smoothing
     )
-    # **loss와 무관한 공통 진단.** CE 런에도 soft-boundary 런에도 같은 식으로 붙어서
-    # "되올림이 경계에서 오는가"를 두 곡선으로 비교할 수 있게 한다.
-    #
-    # **`d_bev_g`가 없으면 건너뛴다** -- pretrain 데이터셋(SynWoodScape)은 거리장을 만들지
-    # 않는다(`projects/datasets/synwoodscape_simplebev.py`). 없다고 학습이 막히면 안 된다.
-    if "d_bev_g" in batch:
-        loss_parts.update(region_ce_diagnostics(
-            logits, seg_bev_g, vis_bev_g, valid_bev_g, batch["d_bev_g"].to(device)))
+    # 최적화한 손실의 **셀별 값** -- `masked_weighted_ce`와 같은 식(클래스 가중 + smoothing).
+    # 영역 평균을 내면 `loss = Σ frac_r · loss_r`이 정확히 성립한다(세 영역이 valid를 덮는다).
+    per_cell = torch.nn.functional.cross_entropy(
+        logits, class_index.squeeze(1), weight=class_weights.to(logits.device),
+        reduction="none", label_smoothing=label_smoothing).unsqueeze(1)
+    # hard target이라 하한은 0이다. (label smoothing > 0이면 하한이 0이 아니지만 캠페인은 0이다.)
+    if "d_bev_g" not in batch:
+        raise KeyError("공통 손실 분해에 `d_bev_g`(경계까지의 부호 거리)가 필요하다 -- "
+                       "로봇·SynWoodScape 데이터셋은 둘 다 만든다")
+    loss_parts = decompose_loss(
+        per_cell, None, logits, decompose(seg_bev_g, vis_bev_g, valid_bev_g)["free"],
+        valid_bev_g, batch["d_bev_g"].to(device), permanent_blind)
     return loss, loss_parts, compute_free_metrics(
         logits, seg_bev_g, vis_bev_g, valid_bev_g, rays
     )
@@ -247,14 +293,26 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
             range_term = compute_cumulative_range_loss(
                 prob_free, target_free, free_gt, valid_bev_g, gather)
 
-    loss, loss_parts = compute_soft_boundary_loss(
+    loss, own_parts = compute_soft_boundary_loss(
         logits, d_bev_g, valid_bev_g, blind,
         delta=delta, lambda_b=lambda_b, kind=target, sigma=sigma, alpha=alpha,
         range_term=range_term, lambda_r=lambda_r, kappa=kappa, eps=eps,
     )
-    # CE 경로와 **같은 진단**을 붙인다 -- 그래야 두 loss의 곡선을 한 축에서 비교할 수 있다.
-    loss_parts.update(region_ce_diagnostics(
-        logits, seg_bev_g, vis_bev_g, valid_bev_g, d_bev_g))
+    # 최적화한 손실의 셀별 값: 모든 영역에서 target y에 대한 CE(`Ω_F`/`Ω_N`에서 y = 1/0이면
+    # hard CE와 같다). 하한은 y의 엔트로피다. **가중 BCE 경로와 같은 분해를 탄다.**
+    with torch.no_grad():
+        y = build_soft_boundary_target(d_bev_g, valid_bev_g, blind, delta=delta, kind=target,
+                                       sigma=sigma, alpha=alpha, kappa=kappa, eps=eps)
+        log_probs = torch.log_softmax(logits, dim=1)
+        per_cell = -(y * log_probs[:, 1:2] + (1.0 - y) * log_probs[:, 0:1])
+    loss_parts = decompose_loss(
+        per_cell, target_entropy(y), logits,
+        decompose(seg_bev_g, vis_bev_g, valid_bev_g)["free"], valid_bev_g, d_bev_g, blind,
+        delta=DECOMPOSITION_DELTA_M,
+        set_coefficients=("batch" if range_term is not None or float(delta) != DECOMPOSITION_DELTA_M
+                          else (0.5, 0.5, float(lambda_b))))
+    if range_term is not None:      # legacy: 보조항을 켠 옛 설정만 그 항을 더 낸다
+        loss_parts.update({k: v for k, v in own_parts.items() if "range" in k})
     return loss, loss_parts, compute_free_metrics(
         logits, seg_bev_g, vis_bev_g, valid_bev_g, rays
     )

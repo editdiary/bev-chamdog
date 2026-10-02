@@ -23,7 +23,7 @@ PRETRAIN_ARM="${PRETRAIN_ARM:-source_pretrain}"
 LABEL="${LABEL:-02 projection & prior}"
 DONE_TAG="${DONE_TAG:-PAPER_FINAL_02_ANALYSIS_DONE}"
 SEEDS="${SEEDS:-0,1,2,3,4}"
-FIXED_EPOCH="${FIXED_EPOCH:-40}"
+FIXED_EPOCH="${FIXED_EPOCH:-100}"   # 학습 길이와 같다 (tools/paper_final_epochs.py)
 # 판정 눈금. **대조군을 다시 학습했으면 그쪽에서 다시 잰 값을 넘겨야 한다** --
 # 비워 두면 도구의 기본값(2026-09-18 캠페인 실측 0.0018)을 쓴다.
 SIGMA_SEED="${SIGMA_SEED:-}"

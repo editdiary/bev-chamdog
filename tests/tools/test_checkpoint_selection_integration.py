@@ -188,7 +188,8 @@ def test_binary_formulation_switches_head_width_loss_module_and_log_terms(monkey
     )
 
     assert _Model.last_kwargs["num_classes"] == 2
-    assert captured[0]["loss_part_names"] == ("not_free", "free")
+    # [2026-10-02] 두 손실이 같은 칸(공통 손실 분해)을 쓴다.
+    assert captured[0]["loss_part_names"] == ("free", "non_free", "boundary")
     assert len(calls) == 1
 
 

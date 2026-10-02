@@ -74,6 +74,10 @@ from projects.common.bev_occupancy_metrics import (  # noqa: E402
     mean_loss_parts,
     select_checkpoint_score,
     summarize_free_metrics,
+    epoch_loss,
+    label_constants,
+    record_label_constants,
+    weighted_frame_mean,
     weighted_mean,
     write_epoch_scalars,
 )
@@ -410,19 +414,24 @@ def main(
                 optimizer.step()
                 scheduler.step()
 
-                train_losses.append(loss.item())
+                train_losses.append((loss.item(), int(batch["valid_bev_g"].shape[0])))
                 train_parts_dicts.append({k: v.item() for k, v in loss_parts.items()})
                 append_free_metrics(train_free_metric_dicts, free_metrics)
                 writer.add_scalar("train/loss_step", loss.item(), global_step)
                 writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
                 global_step += 1
 
+            train_parts = mean_loss_parts(train_parts_dicts)
             train = {
-                "loss": float(np.mean(train_losses)) if train_losses else float("nan"),
-                "loss_parts": mean_loss_parts(train_parts_dicts),
+                "loss": epoch_loss(train_losses, train_parts),
+                "loss_parts": train_parts,
                 "free": summarize_free_metrics(train_free_metric_dicts),
             }
             write_epoch_scalars(writer, "train", train, epoch)
+            if record_label_constants(log_path / "config.json", "train", train["loss_parts"]):
+                print(f"  [label constants] train: " + " ".join(
+                    f"{k}={v:.4f}" for k, v in label_constants(train["loss_parts"]).items())
+                    + "  (학습 중 변하지 않아 config.json에 한 번 적는다)")
 
             val = empty_epoch_metrics()
             if epoch % val_freq_epochs == 0 and len(val_loader) > 0:
@@ -430,6 +439,10 @@ def main(
                 val = evaluate_split(step, val_loader, device, rays, ring_masks,
                                      cell_m=grid_spec.cell_m)
                 write_epoch_scalars(writer, "val", val, epoch)
+                if record_label_constants(log_path / "config.json", "val", val["loss_parts"]):
+                    print(f"  [label constants] val: " + " ".join(
+                        f"{k}={v:.4f}" for k, v in label_constants(val["loss_parts"]).items())
+                        + "  (학습 중 변하지 않아 config.json에 한 번 적는다)")
 
             epoch_time = time.time() - epoch_start
             val_score = select_checkpoint_score(val["free"])
@@ -450,6 +463,8 @@ def main(
                 val_score=val_score,
                 best_val_score=best_val_score,
                 is_new_best=is_new_best,
+                **({"loss_part_names": binary_metrics.LOSS_PART_NAMES}
+                   if formulation == "binary" else {}),
             ))
 
             if epoch % save_freq_epochs == 0 or epoch == num_epochs:

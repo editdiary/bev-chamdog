@@ -33,6 +33,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from tools.paper_final_run_command import make_command_runner  # noqa: E402
+from tools.paper_final_epochs import DEFAULT_NUM_EPOCHS  # noqa: E402
 from tools.paper_final_aux_loss import (  # noqa: E402
     DEFAULT_AUX_LOSS, add_aux_loss_argument, aux_loss_env,
 )
@@ -222,7 +223,7 @@ def main(argv=None):
     parser.add_argument("--protocol", choices=("fixed", "loso", "all"), default="all")
     parser.add_argument("--seeds", default="0,1,2,3,4")
     parser.add_argument("--folds", default=",".join(ALL_SEQUENCES))
-    parser.add_argument("--num_epochs", type=int, default=40)
+    parser.add_argument("--num_epochs", type=int, default=DEFAULT_NUM_EPOCHS)
     parser.add_argument("--gpu", default="0")
     parser.add_argument("--output_root", default="runs/paper_final/01_overall")
     parser.add_argument("--plan_only", action="store_true")

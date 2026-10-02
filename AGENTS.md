@@ -114,7 +114,8 @@
 > 정본 `projects/common/metric_spec.py`. **광선 보조항 제거** — 목적함수는 soft-boundary BCE까지
 > (`tools/paper_final_aux_loss.py` 기본값 `none`), 03 사다리는 `C_soft`까지 넷. **지금 패키지의
 > CSV는 옛 지표·옛 목적함수 결과**이고, 생성기는 이미 새 지표라 옛 런을 거부한다. 원장 §5
-> "2026-10-02 (2)", 다음 캠페인 설계 항목은 프로토콜 §10.1.
+> "2026-10-02 (2)", 다음 캠페인 설계 항목은 프로토콜 §10.1. **본 실험은 100 epoch이 기본이다**
+> (`tools/paper_final_epochs.py`, 사전학습은 `--pretrain_epochs`로 분리, 캠페인 약 25시간 추정).
 >
 > **[2026-09-23 02:13] 재학습 전 Phase 완료.** 70런을 `cumulative_l1`로 새 루트
 > `runs/paper_final_cumulative/`에 돌렸다(70/70 정상, watchdog 0회, 무결성 다섯 팔 전부

@@ -307,7 +307,7 @@ def _loso_bundle(root: Path, fixed_epoch: int, env, commit):
     return payload, csv_rows
 
 
-def build_bundles(root, fixed_epoch=40):
+def build_bundles(root, fixed_epoch=100):
     root = Path(root).resolve()
     output = root / "analysis"
     output.mkdir(parents=True, exist_ok=True)
@@ -346,7 +346,7 @@ def build_bundles(root, fixed_epoch=40):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default="runs/paper_final/01_overall")
-    parser.add_argument("--fixed_epoch", type=int, default=40)
+    parser.add_argument("--fixed_epoch", type=int, default=100)   # tools/paper_final_epochs.py
     args = parser.parse_args(argv)
     bundles = build_bundles(args.root, args.fixed_epoch)
     if not bundles["combined"]["integrity"]["passed"]:

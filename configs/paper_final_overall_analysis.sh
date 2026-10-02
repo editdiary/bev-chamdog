@@ -15,7 +15,7 @@ LOSO_OUT="${LOSO}/analysis"
 SEEDS="${SEEDS:-0,1,2,3,4}"
 # LOSO fold 목록. 부분 재실행(한 fold만 다시 채점)과 리허설을 위해 밖에서 바꿀 수 있다.
 FOLDS="${FOLDS:-raws1 raws2 raws3 rawos1 rawos2 rawos3 rawos4}"
-FIXED_EPOCH="${FIXED_EPOCH:-40}"
+FIXED_EPOCH="${FIXED_EPOCH:-100}"   # 학습 길이와 같다 (tools/paper_final_epochs.py)
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 mkdir -p "${FIXED_OUT}" "${LOSO_OUT}/predictions" "${ROOT}/analysis"

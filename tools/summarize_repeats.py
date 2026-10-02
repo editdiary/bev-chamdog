@@ -37,7 +37,7 @@ from projects.common.metric_spec import PAPER_METRICS, SELECTION_TAG  # noqa: E4
 # 나머지는 그 선택 아래에서 읽히는 값이다. 논문 지표는 `metric_spec.PAPER_METRICS`가 정본이다
 # (2026-10-02 개편: precision/recall/BF@τ, 전부 프레임 macro).
 REPORTED = PAPER_METRICS + (
-    ("val/loss_epoch", "val_loss", False),
+    ("val/loss_total_epoch", "val_loss", False),
     ("train/iou_free_epoch", "train_iou_free", True),
 )
 assert REPORTED[0][0] == SELECTION_TAG

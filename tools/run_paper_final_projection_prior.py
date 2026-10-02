@@ -61,15 +61,21 @@ def _source_checkpoint(output_root: Path, seed: int, num_epochs: int) -> Path:
 
 
 from tools.paper_final_run_command import make_command_runner  # noqa: E402
+from tools.paper_final_epochs import DEFAULT_NUM_EPOCHS, DEFAULT_PRETRAIN_EPOCHS  # noqa: E402
 from tools.paper_final_aux_loss import (  # noqa: E402
     DEFAULT_AUX_LOSS, add_aux_loss_argument, aux_loss_env,
 )
 
 
 def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
-                    range_loss_mode: str = DEFAULT_AUX_LOSS):
-    """요청된 팔의 런 사양 전부. `source_pretrain`이 항상 앞에 온다 -- 뒤 팔이 그 산출물에 의존한다."""
+                    range_loss_mode: str = DEFAULT_AUX_LOSS, pretrain_epochs: int = None):
+    """요청된 팔의 런 사양 전부. `source_pretrain`이 항상 앞에 온다 -- 뒤 팔이 그 산출물에 의존한다.
+
+    `pretrain_epochs`가 `None`이면 `num_epochs`와 같다. 미세조정 팔은 **그 길이의 사전학습
+    체크포인트**(`model-{pretrain_epochs}.pth`)에서 시작한다.
+    """
     output_root = Path(output_root)
+    pretrain_epochs = int(num_epochs if pretrain_epochs is None else pretrain_epochs)
     # **사전학습에도 같은 보조항을 건다.** 예전에는 사전학습 셸이 값을 하드코딩하고 있어
     # 미세조정만 형태를 바꾸면 절반만 적용됐다(원장 §8 Phase 0).
     aux_env = aux_loss_env(range_loss_mode)
@@ -85,7 +91,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
                         "CUDA_VISIBLE_DEVICES": str(gpu),
                         "SEED": str(seed),
                         "RUN_NAME": f"swscape_binary_pretrain_s{seed}",
-                        "NUM_EPOCHS": str(num_epochs),
+                        "NUM_EPOCHS": str(pretrain_epochs),
                         "OUT_ROOT": str(root),
                         **aux_env,
                     },
@@ -128,7 +134,7 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
                 "INIT_CHECKPOINT": "none",
             }
             if arm == "source_prior":
-                env["INIT_CHECKPOINT"] = str(_source_checkpoint(output_root, seed, num_epochs))
+                env["INIT_CHECKPOINT"] = str(_source_checkpoint(output_root, seed, pretrain_epochs))
             else:
                 env["PROJECTION"] = "pinhole"
                 env["PINHOLE_HFOV_DEG"] = f"{PINHOLE_HFOV[arm]:.1f}"
@@ -138,8 +144,13 @@ def build_run_specs(arms, seeds, output_root, num_epochs: int, gpu: str,
 
 
 def run_state(spec: RunSpec, num_epochs: int) -> str:
-    """`_run_state`(`run_paper_final_overall.py`)와 같은 판정이다."""
+    """`_run_state`(`run_paper_final_overall.py`)와 같은 판정이다.
+
+    완주 판정은 **그 런 자신의 길이**(`environment["NUM_EPOCHS"]`)로 한다 -- 사전학습과
+    미세조정의 길이가 다를 수 있다. `num_epochs`는 env에 값이 없을 때만 쓴다.
+    """
     env = spec.environment
+    num_epochs = int(env.get("NUM_EPOCHS", num_epochs))
     # 사전학습 셸은 `OUT_ROOT` 하나만 받고 그 아래 `logs/`·`ckpt/`를 스스로 만든다.
     # 팔 **이름**으로 구분하면 새 사전학습 팔을 추가할 때마다 여기를 고쳐야 하므로
     # 어떤 변수를 받았는지로 구분한다(`02b_native_source_prior`가 이 경로를 함께 쓴다).
@@ -290,7 +301,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arms", default="all")
     parser.add_argument("--seeds", default="0,1,2,3,4")
-    parser.add_argument("--num_epochs", type=int, default=40)
+    parser.add_argument("--num_epochs", type=int, default=DEFAULT_NUM_EPOCHS)
+    parser.add_argument("--pretrain_epochs", type=int, default=DEFAULT_PRETRAIN_EPOCHS,
+                        help="SynWoodScape 사전학습 길이 (tools/paper_final_epochs.py)")
     parser.add_argument("--gpu", default=os.environ.get("CUDA_VISIBLE_DEVICES", "0"))
     parser.add_argument("--output_root", default="runs/paper_final/02_projection_and_prior")
     parser.add_argument("--plan_only", action="store_true")
@@ -303,8 +316,9 @@ def main():
         raise SystemExit(f"모르는 arm: {unknown}. 가능한 값: {list(ARMS)}")
     seeds = [int(s) for s in str(args.seeds).split(",")]
     specs = build_run_specs(arms, seeds, args.output_root, args.num_epochs, args.gpu,
-                            args.range_loss_mode)
-    print(f"arms={list(arms)} seeds={seeds} epochs={args.num_epochs} gpu={args.gpu}")
+                            args.range_loss_mode, pretrain_epochs=args.pretrain_epochs)
+    print(f"arms={list(arms)} seeds={seeds} epochs={args.num_epochs} "
+          f"pretrain_epochs={args.pretrain_epochs} gpu={args.gpu}")
     print(f"런 {len(specs)}개\n")
     run_queue(specs, args.output_root, args.num_epochs, plan_only=args.plan_only)
 
