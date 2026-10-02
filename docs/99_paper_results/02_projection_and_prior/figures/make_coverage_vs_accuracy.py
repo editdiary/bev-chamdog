@@ -47,7 +47,7 @@ def load_arms(path: Path = ARMS_CSV) -> list:
     for row in rows:
         row["coverage"] = float(row["bev_coverage_pct"])
         row["iou"] = float(row["iou_free_mean"])
-        row["sd"] = float(row["iou_free_sd"])
+        row["sd"] = float(row["iou_free_sd"] or 0.0)   # 1시드 리허설에서는 빈 칸
         row["ppd"] = float(row["front_px_per_deg"])
         row["is_fisheye"] = row["arm"] == "control"
     return sorted(rows, key=lambda r: r["coverage"])

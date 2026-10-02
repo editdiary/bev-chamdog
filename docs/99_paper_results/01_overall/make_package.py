@@ -37,6 +37,16 @@ LOSO_METRICS = FIXED_METRICS
 CURVE_TAGS = {tag: name for tag, name, _ in PAPER_METRICS}
 
 
+def _r(value, places):
+    """결측(None/NaN)이면 빈 칸 -- 1시드 리허설에서 sd가 없다. 그 밖에는 `round`와 같다."""
+    if value is None:
+        return ""
+    try:
+        return "" if value != value else round(value, places)
+    except TypeError:
+        return ""
+
+
 def _shown(path: Path):
     """패키지 밖(diff용 임시 폴더)에 쓸 때도 죽지 않게."""
     try:
@@ -95,17 +105,17 @@ def fixed_tables(fixed: dict, baseline: float, out: Path) -> None:
     # 논문 Table 1 -- baseline 행을 모델 행 위에 둔다 (§1-6: baseline 없는 iou_free 금지).
     table1 = [
         {"method": "Constant-map baseline", "n_seeds": "",
-         "iou_free": round(baseline, 4), "iou_free_sd": "", "margin_vs_constant_map": ""},
-        {"method": "Ours (Simple-BEV, ResNet-101, soft-boundary)", "n_seeds": 5,
-         "iou_free": round(agg["iou_free"]["mean"], 4),
-         "iou_free_sd": round(agg["iou_free"]["sd"], 4),
-         "margin_vs_constant_map": round(agg["iou_free"]["mean"] - baseline, 4)},
+         "iou_free": _r(baseline, 4), "iou_free_sd": "", "margin_vs_constant_map": ""},
+        {"method": "Ours (Simple-BEV, ResNet-101, soft-boundary)", "n_seeds": agg["iou_free"]["n"],
+         "iou_free": _r(agg["iou_free"]["mean"], 4),
+         "iou_free_sd": _r(agg["iou_free"]["sd"], 4),
+         "margin_vs_constant_map": _r(agg["iou_free"]["mean"] - baseline, 4)},
     ]
     for m in FIXED_METRICS[1:]:
         table1[0][m] = ""
         table1[0][f"{m}_sd"] = ""
-        table1[1][m] = round(agg[m]["mean"], 4)
-        table1[1][f"{m}_sd"] = round(agg[m]["sd"], 4)
+        table1[1][m] = _r(agg[m]["mean"], 4)
+        table1[1][f"{m}_sd"] = _r(agg[m]["sd"], 4)
     fields = (["method", "n_seeds", "iou_free", "iou_free_sd", "margin_vs_constant_map"]
               + [c for m in FIXED_METRICS[1:] for c in (m, f"{m}_sd")])
     _write_csv(out / "table1_fixed_split.csv", fields, table1)
@@ -169,20 +179,20 @@ def loso_tables(loso: dict, out: Path) -> None:
             "corridor_width": row["corridor_width"],
             "extrapolation": "yes" if row["extrapolation"] else "",
             "n_val_frames": row["n_val_frames"],
-            "constant_map_baseline": round(row["constant_map_baseline"], 3),
-            "iou_free": round(row["iou_free_mean"], 3),
-            "iou_free_sd": round(row["iou_free_sd"], 4),
-            "margin": round(row["margin_over_constant_map"], 3),
-            **{m: round(row[f"{m}_mean"], 3) for m in LOSO_METRICS[1:]},
+            "constant_map_baseline": _r(row["constant_map_baseline"], 3),
+            "iou_free": _r(row["iou_free_mean"], 3),
+            "iou_free_sd": _r(row["iou_free_sd"], 4),
+            "margin": _r(row["margin_over_constant_map"], 3),
+            **{m: _r(row[f"{m}_mean"], 3) for m in LOSO_METRICS[1:]},
         })
     table2.append({
         "fold": "macro (7 folds)", "lighting": "", "corridor_width": "",
         "extrapolation": "", "n_val_frames": sum(r["n_val_frames"] for r in fold_rows),
-        "constant_map_baseline": round(macro["baseline"]["mean"], 3),
-        "iou_free": round(macro["iou_free"]["mean"], 3),
-        "iou_free_sd": round(macro["iou_free"]["sd_across_folds"], 4),
-        "margin": round(macro["margin"]["mean"], 3),
-        **{m: round(macro[m]["mean"], 3) for m in LOSO_METRICS[1:]},
+        "constant_map_baseline": _r(macro["baseline"]["mean"], 3),
+        "iou_free": _r(macro["iou_free"]["mean"], 3),
+        "iou_free_sd": _r(macro["iou_free"]["sd_across_folds"], 4),
+        "margin": _r(macro["margin"]["mean"], 3),
+        **{m: _r(macro[m]["mean"], 3) for m in LOSO_METRICS[1:]},
     })
     _write_csv(out / "table2_loso.csv", list(table2[0]), table2)
 

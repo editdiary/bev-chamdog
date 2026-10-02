@@ -115,7 +115,11 @@ def _write(path: Path, header, rows):
         writer = csv.writer(handle)
         writer.writerow(header)
         writer.writerows(rows)
-    print(f"  {path.relative_to(HERE)}  ({len(rows)}행)")
+    try:                                   # 패키지 밖(리허설용 임시 폴더)에 쓸 때도 죽지 않게
+        shown = path.relative_to(HERE)
+    except ValueError:
+        shown = path
+    print(f"  {shown}  ({len(rows)}행)")
 
 
 def _round(value, places=6):
@@ -272,7 +276,8 @@ def main(root=DEFAULT_ROOT, out_dir=HERE, rerun_twin=DEFAULT_RERUN_TWIN, seeds=N
             *[_round(v, 3) for v in _stat(c["boundary_ce_rise_pct"])[:2]],
             *[_round(v, 3) for v in _stat(c["confident_ce_rise_pct"])[:2]],
             _round(c["contribution_boundary"], 6), _round(c["contribution_confident"], 6),
-            _round(100 * c["boundary_share"], 3),
+            # 되올림이 없으면(증가분 합 0) 몫이 정의되지 않아 None이다 -- 빈 칸으로 둔다.
+            _round(100 * c["boundary_share"], 3) if c["boundary_share"] is not None else "",
         ])
     _write(data / "table3_boundary_localization.csv",
            ["cell", "cell_label", "boundary_target", "boundary_cells_pct",

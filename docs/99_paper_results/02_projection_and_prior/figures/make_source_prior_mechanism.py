@@ -63,7 +63,7 @@ def load(path: Path = DATA) -> dict:
             if epoch > LAST_EPOCH:
                 continue
             series[(row["arm"], row["metric"])][epoch] = (
-                float(row["mean"]), float(row["sd"]))
+                float(row["mean"]), float(row["sd"] or 0.0))   # 1시드 리허설에서는 빈 칸
     return series
 
 

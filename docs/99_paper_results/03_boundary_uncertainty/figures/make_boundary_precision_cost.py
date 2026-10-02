@@ -65,7 +65,7 @@ def load():
             if row["cell"] not in CELL_STYLE:
                 continue
             at_tau50[row["cell"]] = {
-                tol: (float(row[f"{col}_mean"]), float(row[f"{col}_sd"]))
+                tol: (float(row[f"{col}_mean"]), float(row[f"{col}_sd"] or 0.0))   # 1시드면 빈 칸
                 for tol, col in TOLERANCES}
 
     anchored = defaultdict(list)
@@ -76,7 +76,7 @@ def load():
             anchored[row["cell"]].append((
                 float(row["recall_anchor"]),
                 float(row["bf_10cm_at_anchor_mean"]),
-                float(row["bf_10cm_at_anchor_sd"])))
+                float(row["bf_10cm_at_anchor_sd"] or 0.0)))
     for cell in anchored:
         anchored[cell].sort()
     return at_tau50, anchored

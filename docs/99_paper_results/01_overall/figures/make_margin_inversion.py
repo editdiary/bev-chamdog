@@ -145,10 +145,12 @@ def main(formats: str = "pdf,png,svg", dpi: int = 400, out_dir: str = str(HERE))
     base = [r["baseline"] for r in rows]
     model = [r["model"] for r in rows]
     def sd(xs):
+        if len(xs) < 2:                       # 1 fold 리허설
+            return float("nan")
         m = sum(xs) / len(xs)
         return (sum((x - m) ** 2 for x in xs) / (len(xs) - 1)) ** 0.5
-    print(f"\n  기준선 fold 간 SD {sd(base):.4f} / 모델 {sd(model):.4f} "
-          f"= {sd(base)/sd(model):.1f}배")
+    ratio = sd(base) / sd(model) if sd(model) and sd(model) == sd(model) else float("nan")
+    print(f"\n  기준선 fold 간 SD {sd(base):.4f} / 모델 {sd(model):.4f} = {ratio:.1f}배")
     top_iou = max(rows, key=lambda r: r["model"])
     top_margin = max(rows, key=lambda r: r["margin"])
     print(f"  iou 1위 {top_iou['fold']} (margin {top_iou['margin']:+.3f}) / "

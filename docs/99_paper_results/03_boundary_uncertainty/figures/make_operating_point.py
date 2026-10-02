@@ -63,8 +63,8 @@ def load():
                 continue
             curves[row["cell"]].append((
                 float(row["recall_anchor"]), float(row["tau_star_at_anchor_mean"]),
-                float(row["tau_star_at_anchor_sd"]), float(row["precision_at_anchor_mean"]),
-                float(row["precision_at_anchor_sd"])))
+                float(row["tau_star_at_anchor_sd"] or 0.0), float(row["precision_at_anchor_mean"]),
+                float(row["precision_at_anchor_sd"] or 0.0)))
     for cell in curves:
         curves[cell].sort()
 
