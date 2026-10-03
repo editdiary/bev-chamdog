@@ -269,6 +269,8 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 | 01 고정 split 5런 | 10-02 19:15 | rc=0, 재시도 없음. `iou_free` 0.8158 ± 0.0004, constant-map 0.518 대비 margin +0.298 |
 | 01 LOSO 35런 | 10-03 03:54 | rc=0, 재시도 없음. macro 0.8303(fold 간 sd 0.026, fold 안 시드 sd 0.0027), margin +0.294 |
 | 01 분석 | 10-03 03:58 | 무결성 확률맵 80개 실패 0(최대 차이 7.1e-4), 구조 검사 통과 |
+| 02 학습 20런(사전학습 5 + 미세조정 15) | 10-03 11:44 | rc=0, 재시도 없음. source_prior 체인 확인(668 텐서 적재, 건너뜀 0) |
+| 02 분석 | 10-03 11:46 | 무결성 확률맵 30개 실패 0. 대조군(01 고정 split) 대비 `iou_free` Δ: source_prior −0.0060*, pinhole120 −0.0128*, pinhole150 −0.0074*(셋 다 5/5 시드 같은 부호). BF@0.1 Δ −0.035*/−0.043*/−0.025*. 유의하지 않은 칸: source_prior precision, pinhole150 recall |
 
 **Phase 0 (완료).** 판정 정본 `projects/common/paired_stats.py`(시드 짝지은 양측 t, 95 % CI) ·
 `report_paired_arms` 판정 교체 · 새 패키지 폴더와 생성기(입력 새 루트, `ci95`·`p`·`significant` 열,
