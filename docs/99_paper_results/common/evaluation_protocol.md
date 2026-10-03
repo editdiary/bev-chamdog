@@ -449,8 +449,7 @@ $\bar\Delta$·CI·p값·부호 일치 시드 수는 전부 CSV(`paired_differenc
 밀도 차이로 측정돼 있다: source 라벨은 격자의 93.8 %를 관측하고 target 라벨은 27.8 %만
 관측한다(`domain_prior.csv`). 1 epoch 때 사전학습 모델은 precision 0.392(대조군 0.695),
 recall 0.952(대조군 0.922)로 **free를 넓게 선언한다**. 이 초반 차이는 3 epoch이면 거의
-닫히지만 **epoch 100까지 남는 손해가 있다** — 옛 캠페인(40 epoch)의 "곧 씻겨 나간다"는
-해석은 v3에서 성립하지 않는다.
+닫히지만 **epoch 100까지 남는 손해가 있다.**
 
 **쓸 수 있는 문장:** "합성 어안 데이터(SynWoodScape)로 BEV를 사전학습하면 target 성능이
 오히려 낮아지며, 손해는 경계 정밀도에 집중된다. source를 target 기하에 맞추든(5 cm, 8 m)
