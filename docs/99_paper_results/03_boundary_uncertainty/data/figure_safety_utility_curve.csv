@@ -1,0 +1,221 @@
+cell,cell_label,seed,tau,recall,precision,iou_free,bf_10cm
+A_ce,Weighted CE (baseline),0,0.1,0.938052,0.845807,0.799815,0.604806
+A_ce,Weighted CE (baseline),1,0.1,0.94686,0.832218,0.794054,0.591185
+A_ce,Weighted CE (baseline),2,0.1,0.947526,0.834571,0.796611,0.585063
+A_ce,Weighted CE (baseline),3,0.1,0.961705,0.797539,0.771575,0.521632
+A_ce,Weighted CE (baseline),4,0.1,0.960563,0.79722,0.770928,0.521016
+A_ce,Weighted CE (baseline),0,0.2,0.929664,0.858938,0.8052,0.614851
+A_ce,Weighted CE (baseline),1,0.2,0.937078,0.850316,0.803221,0.610505
+A_ce,Weighted CE (baseline),2,0.2,0.938232,0.851459,0.805027,0.605477
+A_ce,Weighted CE (baseline),3,0.2,0.947522,0.831461,0.793403,0.58849
+A_ce,Weighted CE (baseline),4,0.2,0.948073,0.829115,0.791773,0.576602
+A_ce,Weighted CE (baseline),0,0.3,0.924005,0.866877,0.80784,0.617388
+A_ce,Weighted CE (baseline),1,0.3,0.931436,0.859511,0.80711,0.616615
+A_ce,Weighted CE (baseline),2,0.3,0.932138,0.860344,0.808365,0.612615
+A_ce,Weighted CE (baseline),3,0.3,0.939045,0.84709,0.801464,0.602123
+A_ce,Weighted CE (baseline),4,0.3,0.940479,0.844509,0.800126,0.590287
+A_ce,Weighted CE (baseline),0,0.4,0.919177,0.872757,0.809189,0.618165
+A_ce,Weighted CE (baseline),1,0.4,0.926763,0.866279,0.809475,0.619995
+A_ce,Weighted CE (baseline),2,0.4,0.92708,0.866963,0.810343,0.620058
+A_ce,Weighted CE (baseline),3,0.4,0.932226,0.858455,0.80645,0.610235
+A_ce,Weighted CE (baseline),4,0.4,0.934547,0.855248,0.805328,0.60156
+A_ce,Weighted CE (baseline),0,0.45,0.917035,0.87558,0.809929,0.620219
+A_ce,Weighted CE (baseline),1,0.45,0.92475,0.869367,0.810631,0.620898
+A_ce,Weighted CE (baseline),2,0.45,0.924643,0.869752,0.810877,0.621957
+A_ce,Weighted CE (baseline),3,0.45,0.928964,0.863414,0.808347,0.613339
+A_ce,Weighted CE (baseline),4,0.45,0.931671,0.859894,0.807243,0.604613
+A_ce,Weighted CE (baseline),0,0.5,0.914915,0.878149,0.810447,0.623964
+A_ce,Weighted CE (baseline),1,0.5,0.922597,0.872135,0.81137,0.621361
+A_ce,Weighted CE (baseline),2,0.5,0.922314,0.872373,0.811348,0.623005
+A_ce,Weighted CE (baseline),3,0.5,0.925947,0.867866,0.809948,0.61591
+A_ce,Weighted CE (baseline),4,0.5,0.928566,0.864008,0.808448,0.607284
+A_ce,Weighted CE (baseline),0,0.55,0.91246,0.880399,0.810416,0.624314
+A_ce,Weighted CE (baseline),1,0.55,0.920389,0.874721,0.811887,0.624587
+A_ce,Weighted CE (baseline),2,0.55,0.919843,0.874993,0.811699,0.624542
+A_ce,Weighted CE (baseline),3,0.55,0.922752,0.871909,0.810993,0.617464
+A_ce,Weighted CE (baseline),4,0.55,0.925459,0.868093,0.809579,0.609122
+A_ce,Weighted CE (baseline),0,0.6,0.910073,0.882787,0.810539,0.623019
+A_ce,Weighted CE (baseline),1,0.6,0.917959,0.877266,0.812107,0.62404
+A_ce,Weighted CE (baseline),2,0.6,0.91739,0.877504,0.811949,0.624552
+A_ce,Weighted CE (baseline),3,0.6,0.919128,0.875752,0.811518,0.61587
+A_ce,Weighted CE (baseline),4,0.6,0.922333,0.872119,0.810643,0.608627
+A_ce,Weighted CE (baseline),0,0.7,0.904589,0.888003,0.810571,0.622507
+A_ce,Weighted CE (baseline),1,0.7,0.913099,0.883351,0.81346,0.626879
+A_ce,Weighted CE (baseline),2,0.7,0.911749,0.882921,0.81211,0.627005
+A_ce,Weighted CE (baseline),3,0.7,0.911335,0.884199,0.812604,0.617834
+A_ce,Weighted CE (baseline),4,0.7,0.915201,0.880637,0.812352,0.607584
+A_ce,Weighted CE (baseline),0,0.8,0.897658,0.893719,0.809708,0.621431
+A_ce,Weighted CE (baseline),1,0.8,0.907097,0.890045,0.814254,0.628339
+A_ce,Weighted CE (baseline),2,0.8,0.904436,0.889759,0.812121,0.630044
+A_ce,Weighted CE (baseline),3,0.8,0.901299,0.893633,0.812452,0.613666
+A_ce,Weighted CE (baseline),4,0.8,0.905876,0.890865,0.813571,0.612054
+A_ce,Weighted CE (baseline),0,0.9,0.886192,0.902372,0.807224,0.619175
+A_ce,Weighted CE (baseline),1,0.9,0.896595,0.899194,0.813201,0.62756
+A_ce,Weighted CE (baseline),2,0.9,0.892778,0.89905,0.810272,0.626533
+A_ce,Weighted CE (baseline),3,0.9,0.88457,0.907321,0.809705,0.607947
+A_ce,Weighted CE (baseline),4,0.9,0.890057,0.905216,0.812446,0.615138
+B_perset,Per-set mean (no boundary term),0,0.1,0.989591,0.588404,0.583429,0.100564
+B_perset,Per-set mean (no boundary term),1,0.1,0.998388,0.311636,0.31105,0.020994
+B_perset,Per-set mean (no boundary term),2,0.1,0.978439,0.655999,0.645805,0.174583
+B_perset,Per-set mean (no boundary term),3,0.1,0.989477,0.639591,0.634739,0.133064
+B_perset,Per-set mean (no boundary term),4,0.1,0.996934,0.438262,0.436699,0.046753
+B_perset,Per-set mean (no boundary term),0,0.2,0.979043,0.656322,0.644865,0.176291
+B_perset,Per-set mean (no boundary term),1,0.2,0.9931,0.516626,0.513724,0.076486
+B_perset,Per-set mean (no boundary term),2,0.2,0.969107,0.693238,0.677176,0.234209
+B_perset,Per-set mean (no boundary term),3,0.2,0.982494,0.682877,0.673792,0.206346
+B_perset,Per-set mean (no boundary term),4,0.2,0.989656,0.590099,0.584705,0.095407
+B_perset,Per-set mean (no boundary term),0,0.3,0.969039,0.694396,0.676161,0.228518
+B_perset,Per-set mean (no boundary term),1,0.3,0.983549,0.596417,0.588464,0.107713
+B_perset,Per-set mean (no boundary term),2,0.3,0.961784,0.717098,0.696018,0.275768
+B_perset,Per-set mean (no boundary term),3,0.3,0.97635,0.707621,0.694519,0.249479
+B_perset,Per-set mean (no boundary term),4,0.3,0.980957,0.648051,0.637368,0.152093
+B_perset,Per-set mean (no boundary term),0,0.4,0.959676,0.722524,0.697451,0.26313
+B_perset,Per-set mean (no boundary term),1,0.4,0.970187,0.647351,0.631278,0.147664
+B_perset,Per-set mean (no boundary term),2,0.4,0.955215,0.735792,0.709947,0.30893
+B_perset,Per-set mean (no boundary term),3,0.4,0.970971,0.726779,0.709941,0.288196
+B_perset,Per-set mean (no boundary term),4,0.4,0.972265,0.688383,0.671834,0.197842
+B_perset,Per-set mean (no boundary term),0,0.45,0.955387,0.734763,0.706356,0.283167
+B_perset,Per-set mean (no boundary term),1,0.45,0.962441,0.671862,0.650473,0.171437
+B_perset,Per-set mean (no boundary term),2,0.45,0.951677,0.744283,0.715809,0.320893
+B_perset,Per-set mean (no boundary term),3,0.45,0.968267,0.735379,0.716606,0.306757
+B_perset,Per-set mean (no boundary term),4,0.45,0.967733,0.704572,0.684814,0.216393
+B_perset,Per-set mean (no boundary term),0,0.5,0.951196,0.746317,0.714573,0.300849
+B_perset,Per-set mean (no boundary term),1,0.5,0.955261,0.69532,0.66846,0.192184
+B_perset,Per-set mean (no boundary term),2,0.5,0.948268,0.752746,0.721655,0.336112
+B_perset,Per-set mean (no boundary term),3,0.5,0.965468,0.743408,0.722598,0.322249
+B_perset,Per-set mean (no boundary term),4,0.5,0.963115,0.719175,0.69605,0.236826
+B_perset,Per-set mean (no boundary term),0,0.55,0.946544,0.757075,0.721537,0.317635
+B_perset,Per-set mean (no boundary term),1,0.55,0.947896,0.716456,0.683791,0.214904
+B_perset,Per-set mean (no boundary term),2,0.55,0.944765,0.76096,0.727122,0.347849
+B_perset,Per-set mean (no boundary term),3,0.55,0.962645,0.751034,0.728099,0.334803
+B_perset,Per-set mean (no boundary term),4,0.55,0.958324,0.732691,0.705977,0.253468
+B_perset,Per-set mean (no boundary term),0,0.6,0.941748,0.767327,0.727819,0.329192
+B_perset,Per-set mean (no boundary term),1,0.6,0.941062,0.735205,0.696895,0.237545
+B_perset,Per-set mean (no boundary term),2,0.6,0.94096,0.769479,0.732568,0.361118
+B_perset,Per-set mean (no boundary term),3,0.6,0.959685,0.758514,0.733357,0.346752
+B_perset,Per-set mean (no boundary term),4,0.6,0.953182,0.745169,0.714461,0.268287
+B_perset,Per-set mean (no boundary term),0,0.7,0.930596,0.787527,0.738642,0.355237
+B_perset,Per-set mean (no boundary term),1,0.7,0.926613,0.766899,0.716409,0.276862
+B_perset,Per-set mean (no boundary term),2,0.7,0.932555,0.786791,0.74289,0.384947
+B_perset,Per-set mean (no boundary term),3,0.7,0.953432,0.773363,0.743331,0.373521
+B_perset,Per-set mean (no boundary term),4,0.7,0.940926,0.768685,0.728231,0.305072
+B_perset,Per-set mean (no boundary term),0,0.8,0.915262,0.811367,0.749058,0.384761
+B_perset,Per-set mean (no boundary term),1,0.8,0.908158,0.79745,0.730847,0.321695
+B_perset,Per-set mean (no boundary term),2,0.8,0.921794,0.806776,0.753571,0.417914
+B_perset,Per-set mean (no boundary term),3,0.8,0.944527,0.790579,0.75335,0.400326
+B_perset,Per-set mean (no boundary term),4,0.8,0.922406,0.794431,0.738698,0.336943
+B_perset,Per-set mean (no boundary term),0,0.9,0.887163,0.84586,0.757343,0.422838
+B_perset,Per-set mean (no boundary term),1,0.9,0.876987,0.833472,0.738691,0.357838
+B_perset,Per-set mean (no boundary term),2,0.9,0.902896,0.834244,0.764069,0.448879
+B_perset,Per-set mean (no boundary term),3,0.9,0.926802,0.815034,0.763158,0.425315
+B_perset,Per-set mean (no boundary term),4,0.9,0.890101,0.828709,0.744653,0.382329
+C_hard,"+ boundary term, hard target",0,0.1,0.939145,0.842016,0.797336,0.593629
+C_hard,"+ boundary term, hard target",1,0.1,0.938037,0.834466,0.789991,0.589122
+C_hard,"+ boundary term, hard target",2,0.1,0.949617,0.806427,0.772474,0.53395
+C_hard,"+ boundary term, hard target",3,0.1,0.947189,0.788158,0.754647,0.471359
+C_hard,"+ boundary term, hard target",4,0.1,0.937864,0.838363,0.79303,0.582723
+C_hard,"+ boundary term, hard target",0,0.2,0.930972,0.856008,0.803809,0.605462
+C_hard,"+ boundary term, hard target",1,0.2,0.929162,0.854214,0.800921,0.617374
+C_hard,"+ boundary term, hard target",2,0.2,0.935491,0.848132,0.799999,0.604095
+C_hard,"+ boundary term, hard target",3,0.2,0.931238,0.850498,0.799431,0.595582
+C_hard,"+ boundary term, hard target",4,0.2,0.927919,0.858684,0.803713,0.603399
+C_hard,"+ boundary term, hard target",0,0.3,0.925408,0.863921,0.806603,0.611052
+C_hard,"+ boundary term, hard target",1,0.3,0.92349,0.863422,0.804677,0.61985
+C_hard,"+ boundary term, hard target",2,0.3,0.926371,0.863726,0.80691,0.611764
+C_hard,"+ boundary term, hard target",3,0.3,0.920832,0.868366,0.807168,0.609277
+C_hard,"+ boundary term, hard target",4,0.3,0.92132,0.868427,0.807143,0.611531
+C_hard,"+ boundary term, hard target",0,0.4,0.920967,0.869778,0.80837,0.614649
+C_hard,"+ boundary term, hard target",1,0.4,0.918721,0.870124,0.806831,0.620581
+C_hard,"+ boundary term, hard target",2,0.4,0.918132,0.874019,0.809624,0.617489
+C_hard,"+ boundary term, hard target",3,0.4,0.911908,0.879575,0.809786,0.60893
+C_hard,"+ boundary term, hard target",4,0.4,0.915438,0.875438,0.808688,0.613194
+C_hard,"+ boundary term, hard target",0,0.45,0.91895,0.872237,0.808931,0.616655
+C_hard,"+ boundary term, hard target",1,0.45,0.916544,0.872916,0.807504,0.621985
+C_hard,"+ boundary term, hard target",2,0.45,0.914233,0.878473,0.810429,0.618071
+C_hard,"+ boundary term, hard target",3,0.45,0.907936,0.884437,0.810701,0.609898
+C_hard,"+ boundary term, hard target",4,0.45,0.912951,0.878248,0.809189,0.613381
+C_hard,"+ boundary term, hard target",0,0.5,0.916793,0.87461,0.809279,0.61771
+C_hard,"+ boundary term, hard target",1,0.5,0.914395,0.875578,0.808087,0.622899
+C_hard,"+ boundary term, hard target",2,0.5,0.910553,0.88286,0.811297,0.617635
+C_hard,"+ boundary term, hard target",3,0.5,0.90423,0.888914,0.811482,0.610753
+C_hard,"+ boundary term, hard target",4,0.5,0.910383,0.881226,0.809745,0.613794
+C_hard,"+ boundary term, hard target",0,0.55,0.914559,0.876934,0.809521,0.618822
+C_hard,"+ boundary term, hard target",1,0.55,0.912041,0.878236,0.808475,0.623541
+C_hard,"+ boundary term, hard target",2,0.55,0.906649,0.88686,0.811553,0.618493
+C_hard,"+ boundary term, hard target",3,0.55,0.900344,0.893077,0.811784,0.610242
+C_hard,"+ boundary term, hard target",4,0.55,0.907846,0.884091,0.810206,0.612679
+C_hard,"+ boundary term, hard target",0,0.6,0.912344,0.879537,0.809994,0.620008
+C_hard,"+ boundary term, hard target",1,0.6,0.909555,0.880863,0.80872,0.623104
+C_hard,"+ boundary term, hard target",2,0.6,0.902836,0.890872,0.811845,0.619468
+C_hard,"+ boundary term, hard target",3,0.6,0.896074,0.897112,0.811575,0.608441
+C_hard,"+ boundary term, hard target",4,0.6,0.905015,0.886653,0.810097,0.613175
+C_hard,"+ boundary term, hard target",0,0.7,0.906955,0.884321,0.809773,0.621729
+C_hard,"+ boundary term, hard target",1,0.7,0.90438,0.886023,0.808908,0.622843
+C_hard,"+ boundary term, hard target",2,0.7,0.894147,0.89862,0.811196,0.618097
+C_hard,"+ boundary term, hard target",3,0.7,0.887006,0.905977,0.81124,0.607306
+C_hard,"+ boundary term, hard target",4,0.7,0.898847,0.892485,0.810016,0.610229
+C_hard,"+ boundary term, hard target",0,0.8,0.900478,0.89054,0.809738,0.623901
+C_hard,"+ boundary term, hard target",1,0.8,0.898117,0.892286,0.809,0.620359
+C_hard,"+ boundary term, hard target",2,0.8,0.883235,0.907167,0.809075,0.611428
+C_hard,"+ boundary term, hard target",3,0.8,0.874121,0.915717,0.808151,0.6026
+C_hard,"+ boundary term, hard target",4,0.8,0.890957,0.899362,0.809192,0.605855
+C_hard,"+ boundary term, hard target",0,0.9,0.889708,0.899372,0.808166,0.623459
+C_hard,"+ boundary term, hard target",1,0.9,0.887246,0.901042,0.807126,0.616447
+C_hard,"+ boundary term, hard target",2,0.9,0.86307,0.919679,0.80179,0.597492
+C_hard,"+ boundary term, hard target",3,0.9,0.852998,0.928332,0.799609,0.580271
+C_hard,"+ boundary term, hard target",4,0.9,0.878262,0.909149,0.806473,0.601678
+C_soft,+ soft boundary target (proposed),0,0.1,0.978736,0.742421,0.729829,0.320741
+C_soft,+ soft boundary target (proposed),1,0.1,0.97746,0.739782,0.72651,0.322559
+C_soft,+ soft boundary target (proposed),2,0.1,0.977873,0.741892,0.728769,0.327352
+C_soft,+ soft boundary target (proposed),3,0.1,0.978992,0.740776,0.72821,0.335183
+C_soft,+ soft boundary target (proposed),4,0.1,0.97738,0.74249,0.729128,0.327643
+C_soft,+ soft boundary target (proposed),0,0.2,0.960935,0.801096,0.774734,0.459319
+C_soft,+ soft boundary target (proposed),1,0.2,0.960423,0.799823,0.773211,0.456864
+C_soft,+ soft boundary target (proposed),2,0.2,0.960486,0.799577,0.773061,0.454983
+C_soft,+ soft boundary target (proposed),3,0.2,0.961325,0.801546,0.775384,0.466966
+C_soft,+ soft boundary target (proposed),4,0.2,0.960242,0.801312,0.774506,0.455484
+C_soft,+ soft boundary target (proposed),0,0.3,0.944734,0.836732,0.796387,0.532244
+C_soft,+ soft boundary target (proposed),1,0.3,0.94594,0.837649,0.798172,0.536608
+C_soft,+ soft boundary target (proposed),2,0.3,0.944383,0.837792,0.797283,0.533601
+C_soft,+ soft boundary target (proposed),3,0.3,0.944242,0.840279,0.799373,0.538619
+C_soft,+ soft boundary target (proposed),4,0.3,0.944339,0.839112,0.798339,0.535112
+C_soft,+ soft boundary target (proposed),0,0.4,0.930657,0.864416,0.810732,0.593459
+C_soft,+ soft boundary target (proposed),1,0.4,0.932343,0.863798,0.811471,0.596669
+C_soft,+ soft boundary target (proposed),2,0.4,0.930169,0.864194,0.810457,0.596911
+C_soft,+ soft boundary target (proposed),3,0.4,0.928533,0.868807,0.813179,0.599691
+C_soft,+ soft boundary target (proposed),4,0.4,0.929843,0.866181,0.811682,0.59148
+C_soft,+ soft boundary target (proposed),0,0.45,0.923351,0.874397,0.813864,0.611544
+C_soft,+ soft boundary target (proposed),1,0.45,0.925863,0.873425,0.81493,0.60606
+C_soft,+ soft boundary target (proposed),2,0.45,0.922883,0.873523,0.81301,0.609955
+C_soft,+ soft boundary target (proposed),3,0.45,0.921258,0.878516,0.815954,0.610931
+C_soft,+ soft boundary target (proposed),4,0.45,0.922584,0.876377,0.814911,0.601125
+C_soft,+ soft boundary target (proposed),0,0.5,0.915891,0.882865,0.815257,0.618625
+C_soft,+ soft boundary target (proposed),1,0.5,0.919119,0.881872,0.816944,0.609914
+C_soft,+ soft boundary target (proposed),2,0.5,0.915285,0.88212,0.814422,0.612749
+C_soft,+ soft boundary target (proposed),3,0.5,0.913366,0.886733,0.81669,0.615019
+C_soft,+ soft boundary target (proposed),4,0.5,0.915083,0.885,0.816364,0.60461
+C_soft,+ soft boundary target (proposed),0,0.55,0.907878,0.890789,0.815525,0.623495
+C_soft,+ soft boundary target (proposed),1,0.55,0.911984,0.889724,0.817909,0.615266
+C_soft,+ soft boundary target (proposed),2,0.55,0.907238,0.890178,0.814819,0.619115
+C_soft,+ soft boundary target (proposed),3,0.55,0.905372,0.894075,0.816409,0.618031
+C_soft,+ soft boundary target (proposed),4,0.55,0.906726,0.893231,0.816644,0.608433
+C_soft,+ soft boundary target (proposed),0,0.6,0.899579,0.898361,0.815055,0.626135
+C_soft,+ soft boundary target (proposed),1,0.6,0.904379,0.897165,0.818018,0.619468
+C_soft,+ soft boundary target (proposed),2,0.6,0.898494,0.898246,0.814424,0.621914
+C_soft,+ soft boundary target (proposed),3,0.6,0.896282,0.901928,0.815432,0.616588
+C_soft,+ soft boundary target (proposed),4,0.6,0.897758,0.90136,0.816015,0.610808
+C_soft,+ soft boundary target (proposed),0,0.7,0.878306,0.914115,0.809966,0.616305
+C_soft,+ soft boundary target (proposed),1,0.7,0.884095,0.913858,0.814629,0.61508
+C_soft,+ soft boundary target (proposed),2,0.7,0.876668,0.915178,0.809751,0.61629
+C_soft,+ soft boundary target (proposed),3,0.7,0.87387,0.919226,0.810301,0.608419
+C_soft,+ soft boundary target (proposed),4,0.7,0.876048,0.917473,0.810639,0.606146
+C_soft,+ soft boundary target (proposed),0,0.8,0.845273,0.933538,0.79597,0.590808
+C_soft,+ soft boundary target (proposed),1,0.8,0.847697,0.935396,0.79932,0.582374
+C_soft,+ soft boundary target (proposed),2,0.8,0.840977,0.934337,0.793027,0.576865
+C_soft,+ soft boundary target (proposed),3,0.8,0.836853,0.93723,0.791229,0.561447
+C_soft,+ soft boundary target (proposed),4,0.8,0.840553,0.937877,0.794879,0.572351
+C_soft,+ soft boundary target (proposed),0,0.9,0.78106,0.956934,0.753433,0.487319
+C_soft,+ soft boundary target (proposed),1,0.9,0.779066,0.959348,0.753091,0.46561
+C_soft,+ soft boundary target (proposed),2,0.9,0.775099,0.956709,0.747918,0.461013
+C_soft,+ soft boundary target (proposed),3,0.9,0.769611,0.960156,0.744794,0.445661
+C_soft,+ soft boundary target (proposed),4,0.9,0.774161,0.960322,0.74915,0.46262

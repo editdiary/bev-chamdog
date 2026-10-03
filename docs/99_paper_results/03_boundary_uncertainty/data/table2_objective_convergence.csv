@@ -1,0 +1,5 @@
+cell,cell_label,boundary_target,rebound_excess_pct_mean,rebound_excess_pct_sd,val_loss_min_epoch_mean,val_loss_min_epoch_sd,epoch_gap_loss_vs_iou_mean,epoch_gap_loss_vs_iou_sd,regret_iou_free_mean,regret_iou_free_sd,regret_bf_10cm_mean,regret_bf_10cm_sd
+A_ce,Weighted CE (baseline),hard (all cells),113.1269,19.9186,8.4,1.342,23.0,11.811,0.013711,0.004934,0.060023,0.016513
+B_perset,Per-set mean (no boundary term),none (band unsupervised),2.1244,2.4083,79.6,18.929,60.2,38.454,0.026749,0.009548,0.069734,0.027067
+C_hard,"+ boundary term, hard target",hard 0/1,111.4968,11.9399,7.6,1.673,21.6,10.431,0.009234,0.005741,0.041455,0.019569
+C_soft,+ soft boundary target (proposed),"soft (Gaussian, sigma=0.10 m)",2.3842,0.8816,50.0,19.442,27.4,21.904,0.000809,0.000795,0.004161,0.002484

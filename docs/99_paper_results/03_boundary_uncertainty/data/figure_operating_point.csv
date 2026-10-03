@@ -1,0 +1,21 @@
+cell,cell_label,seed,target_recall,tau_star
+A_ce,Weighted CE (baseline),0,0.932333,0.168188
+A_ce,Weighted CE (baseline),1,0.932333,0.284112
+A_ce,Weighted CE (baseline),2,0.932333,0.296806
+A_ce,Weighted CE (baseline),3,0.932333,0.398433
+A_ce,Weighted CE (baseline),4,0.932333,0.438493
+B_perset,Per-set mean (no boundary term),0,0.932333,0.684427
+B_perset,Per-set mean (no boundary term),1,0.932333,0.660414
+B_perset,Per-set mean (no boundary term),2,0.932333,0.702063
+B_perset,Per-set mean (no boundary term),3,0.932333,0.868797
+B_perset,Per-set mean (no boundary term),4,0.932333,0.746401
+C_hard,"+ boundary term, hard target",0,0.932333,0.183349
+C_hard,"+ boundary term, hard target",1,0.932333,0.164276
+C_hard,"+ boundary term, hard target",2,0.932333,0.234631
+C_hard,"+ boundary term, hard target",3,0.932333,0.193138
+C_hard,"+ boundary term, hard target",4,0.932333,0.155615
+C_soft,+ soft boundary target (proposed),0,0.932333,0.388097
+C_soft,+ soft boundary target (proposed),1,0.932333,0.400082
+C_soft,+ soft boundary target (proposed),2,0.932333,0.384777
+C_soft,+ soft boundary target (proposed),3,0.932333,0.375812
+C_soft,+ soft boundary target (proposed),4,0.932333,0.382826

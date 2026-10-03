@@ -1,0 +1,501 @@
+cell,cell_label,seed,run_name,epoch,metric,value
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,iou_free,0.808311
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,iou_non_free,0.942245
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,precision,0.876372
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,recall,0.913265
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_10cm,0.621609
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_20cm,0.842245
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_30cm,0.89974
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_10cm_precision,0.594938
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_10cm_recall,0.663179
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_20cm_precision,0.798146
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_20cm_recall,0.90661
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_30cm_precision,0.858565
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,bf_30cm_recall,0.959237
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_0.0-1.5m_iou_free,0.836997
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_0.0-1.5m_iou_non_free,0.915734
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_0.0-1.5m_precision,0.884165
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_0.0-1.5m_recall,0.942579
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_1.5-3.0m_iou_free,0.804027
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_1.5-3.0m_iou_non_free,0.94041
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_1.5-3.0m_precision,0.876061
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_1.5-3.0m_recall,0.909139
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_3.0-4.0m_iou_free,0.784655
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_3.0-4.0m_iou_non_free,0.948352
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_3.0-4.0m_precision,0.861209
+A_ce,Weighted CE (baseline),0,A_ce_s0,100,ring_3.0-4.0m_recall,0.894443
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,iou_free,0.808576
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,iou_non_free,0.942102
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,precision,0.873099
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,recall,0.917683
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_10cm,0.622819
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_20cm,0.838746
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_30cm,0.899516
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_10cm_precision,0.596055
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_10cm_recall,0.664583
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_20cm_precision,0.791505
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_20cm_recall,0.907926
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_30cm_precision,0.855535
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,bf_30cm_recall,0.962498
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_0.0-1.5m_iou_free,0.841496
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_0.0-1.5m_iou_non_free,0.918991
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_0.0-1.5m_precision,0.884234
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_0.0-1.5m_recall,0.947914
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_1.5-3.0m_iou_free,0.80339
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_1.5-3.0m_iou_non_free,0.939908
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_1.5-3.0m_precision,0.87073
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_1.5-3.0m_recall,0.914352
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_3.0-4.0m_iou_free,0.783565
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_3.0-4.0m_iou_non_free,0.947304
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_3.0-4.0m_precision,0.856723
+A_ce,Weighted CE (baseline),1,A_ce_s1,100,ring_3.0-4.0m_recall,0.897369
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,iou_free,0.806055
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,iou_non_free,0.940966
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,precision,0.872864
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,recall,0.914706
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_10cm,0.617771
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_20cm,0.833374
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_30cm,0.894995
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_10cm_precision,0.588225
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_10cm_recall,0.662831
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_20cm_precision,0.784079
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_20cm_recall,0.902378
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_30cm_precision,0.847221
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,bf_30cm_recall,0.961739
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_0.0-1.5m_iou_free,0.839503
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_0.0-1.5m_iou_non_free,0.917309
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_0.0-1.5m_precision,0.884801
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_0.0-1.5m_recall,0.94492
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_1.5-3.0m_iou_free,0.800924
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_1.5-3.0m_iou_non_free,0.938289
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_1.5-3.0m_precision,0.86838
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_1.5-3.0m_recall,0.914646
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_3.0-4.0m_iou_free,0.779801
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_3.0-4.0m_iou_non_free,0.947158
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_3.0-4.0m_precision,0.861766
+A_ce,Weighted CE (baseline),2,A_ce_s2,100,ring_3.0-4.0m_recall,0.886166
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,iou_free,0.805421
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,iou_non_free,0.941122
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,precision,0.872253
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,recall,0.914805
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_10cm,0.614643
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_20cm,0.838645
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_30cm,0.894416
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_10cm_precision,0.585656
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_10cm_recall,0.659112
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_20cm_precision,0.790713
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_20cm_recall,0.907396
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_30cm_precision,0.848055
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,bf_30cm_recall,0.960146
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_0.0-1.5m_iou_free,0.837254
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_0.0-1.5m_iou_non_free,0.917242
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_0.0-1.5m_precision,0.882958
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_0.0-1.5m_recall,0.944466
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_1.5-3.0m_iou_free,0.798325
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_1.5-3.0m_iou_non_free,0.937692
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_1.5-3.0m_precision,0.867649
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_1.5-3.0m_recall,0.911369
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_3.0-4.0m_iou_free,0.784008
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_3.0-4.0m_iou_non_free,0.948163
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_3.0-4.0m_precision,0.863539
+A_ce,Weighted CE (baseline),3,A_ce_s3,100,ring_3.0-4.0m_recall,0.893484
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,iou_free,0.806397
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,iou_non_free,0.941645
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,precision,0.874884
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,recall,0.91274
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_10cm,0.611458
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_20cm,0.832724
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_30cm,0.894019
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_10cm_precision,0.583532
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_10cm_recall,0.652554
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_20cm_precision,0.787268
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_20cm_recall,0.895794
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_30cm_precision,0.850354
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,bf_30cm_recall,0.954553
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_0.0-1.5m_iou_free,0.839376
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_0.0-1.5m_iou_non_free,0.918588
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_0.0-1.5m_precision,0.883998
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_0.0-1.5m_recall,0.945418
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_1.5-3.0m_iou_free,0.798038
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_1.5-3.0m_iou_non_free,0.937655
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_1.5-3.0m_precision,0.872591
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_1.5-3.0m_recall,0.905428
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_3.0-4.0m_iou_free,0.78524
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_3.0-4.0m_iou_non_free,0.949503
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_3.0-4.0m_precision,0.858654
+A_ce,Weighted CE (baseline),4,A_ce_s4,100,ring_3.0-4.0m_recall,0.896079
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,iou_free,0.680874
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,iou_non_free,0.897413
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,precision,0.70321
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,recall,0.964252
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_10cm,0.225258
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_20cm,0.501084
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_30cm,0.691753
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_10cm_precision,0.192407
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_10cm_recall,0.282139
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_20cm_precision,0.426999
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_20cm_recall,0.626019
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_30cm_precision,0.599775
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,bf_30cm_recall,0.836061
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_0.0-1.5m_iou_free,0.630463
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_0.0-1.5m_iou_non_free,0.785225
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_0.0-1.5m_precision,0.641291
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_0.0-1.5m_recall,0.980508
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_1.5-3.0m_iou_free,0.708102
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_1.5-3.0m_iou_non_free,0.906443
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_1.5-3.0m_precision,0.732362
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_1.5-3.0m_recall,0.962574
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_3.0-4.0m_iou_free,0.703882
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_3.0-4.0m_iou_non_free,0.922112
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_3.0-4.0m_precision,0.73471
+B_perset,Per-set mean (no boundary term),0,B_perset_s0,100,ring_3.0-4.0m_recall,0.942937
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,iou_free,0.649779
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,iou_non_free,0.879875
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,precision,0.661688
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,recall,0.978675
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_10cm,0.141711
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_20cm,0.386092
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_30cm,0.595179
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_10cm_precision,0.120088
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_10cm_recall,0.180282
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_20cm_precision,0.327176
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_20cm_recall,0.486447
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_30cm_precision,0.509741
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,bf_30cm_recall,0.73323
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_0.0-1.5m_iou_free,0.599474
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_0.0-1.5m_iou_non_free,0.748499
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_0.0-1.5m_precision,0.603603
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_0.0-1.5m_recall,0.991536
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_1.5-3.0m_iou_free,0.677528
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_1.5-3.0m_iou_non_free,0.891569
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_1.5-3.0m_precision,0.689766
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_1.5-3.0m_recall,0.978864
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_3.0-4.0m_iou_free,0.676621
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_3.0-4.0m_iou_non_free,0.907348
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_3.0-4.0m_precision,0.694358
+B_perset,Per-set mean (no boundary term),1,B_perset_s1,100,ring_3.0-4.0m_recall,0.963839
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,iou_free,0.688626
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,iou_non_free,0.899225
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,precision,0.708033
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,recall,0.966424
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_10cm,0.23298
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_20cm,0.513605
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_30cm,0.69685
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_10cm_precision,0.199677
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_10cm_recall,0.28954
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_20cm_precision,0.43852
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_20cm_recall,0.637936
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_30cm_precision,0.605278
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,bf_30cm_recall,0.83923
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_0.0-1.5m_iou_free,0.638896
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_0.0-1.5m_iou_non_free,0.790586
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_0.0-1.5m_precision,0.645845
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_0.0-1.5m_recall,0.986892
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_1.5-3.0m_iou_free,0.720948
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_1.5-3.0m_iou_non_free,0.909722
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_1.5-3.0m_precision,0.74237
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_1.5-3.0m_recall,0.965243
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_3.0-4.0m_iou_free,0.703054
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_3.0-4.0m_iou_non_free,0.919648
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_3.0-4.0m_precision,0.733831
+B_perset,Per-set mean (no boundary term),2,B_perset_s2,100,ring_3.0-4.0m_recall,0.936895
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,iou_free,0.676901
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,iou_non_free,0.894484
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,precision,0.693888
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,recall,0.970985
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_10cm,0.191792
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_20cm,0.470376
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_30cm,0.666778
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_10cm_precision,0.164437
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_10cm_recall,0.24039
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_20cm_precision,0.400929
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_20cm_recall,0.589923
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_30cm_precision,0.575556
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,bf_30cm_recall,0.814523
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_0.0-1.5m_iou_free,0.62468
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_0.0-1.5m_iou_non_free,0.777663
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_0.0-1.5m_precision,0.630914
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_0.0-1.5m_recall,0.987869
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_1.5-3.0m_iou_free,0.70373
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_1.5-3.0m_iou_non_free,0.904083
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_1.5-3.0m_precision,0.722901
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_1.5-3.0m_recall,0.968519
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_3.0-4.0m_iou_free,0.709991
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_3.0-4.0m_iou_non_free,0.921326
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_3.0-4.0m_precision,0.735334
+B_perset,Per-set mean (no boundary term),3,B_perset_s3,100,ring_3.0-4.0m_recall,0.957974
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,iou_free,0.67331
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,iou_non_free,0.893107
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,precision,0.692529
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,recall,0.968922
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_10cm,0.193697
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_20cm,0.459069
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_30cm,0.661593
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_10cm_precision,0.166982
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_10cm_recall,0.240942
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_20cm_precision,0.39162
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_20cm_recall,0.57312
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_30cm_precision,0.572667
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,bf_30cm_recall,0.804185
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_0.0-1.5m_iou_free,0.625684
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_0.0-1.5m_iou_non_free,0.778852
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_0.0-1.5m_precision,0.631809
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_0.0-1.5m_recall,0.98815
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_1.5-3.0m_iou_free,0.699578
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_1.5-3.0m_iou_non_free,0.902304
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_1.5-3.0m_precision,0.719813
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_1.5-3.0m_recall,0.968664
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_3.0-4.0m_iou_free,0.698876
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_3.0-4.0m_iou_non_free,0.918882
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_3.0-4.0m_precision,0.728323
+B_perset,Per-set mean (no boundary term),4,B_perset_s4,100,ring_3.0-4.0m_recall,0.950528
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,iou_free,0.80413
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,iou_non_free,0.940693
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,precision,0.875533
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,recall,0.909355
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_10cm,0.615145
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_20cm,0.838154
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_30cm,0.896579
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_10cm_precision,0.588672
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_10cm_recall,0.65704
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_20cm_precision,0.793847
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_20cm_recall,0.902249
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_30cm_precision,0.85393
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,bf_30cm_recall,0.957381
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_0.0-1.5m_iou_free,0.836693
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_0.0-1.5m_iou_non_free,0.916444
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_0.0-1.5m_precision,0.885177
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_0.0-1.5m_recall,0.94072
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_1.5-3.0m_iou_free,0.799858
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_1.5-3.0m_iou_non_free,0.938568
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_1.5-3.0m_precision,0.874262
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_1.5-3.0m_recall,0.90597
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_3.0-4.0m_iou_free,0.775727
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_3.0-4.0m_iou_non_free,0.946269
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_3.0-4.0m_precision,0.858026
+C_hard,"+ boundary term, hard target",0,C_hard_s0,100,ring_3.0-4.0m_recall,0.884208
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,iou_free,0.806363
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,iou_non_free,0.942269
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,precision,0.874359
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,recall,0.913254
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_10cm,0.615415
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_20cm,0.835601
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_30cm,0.89618
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_10cm_precision,0.587613
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_10cm_recall,0.657644
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_20cm_precision,0.789413
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_20cm_recall,0.900776
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_30cm_precision,0.852261
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,bf_30cm_recall,0.957566
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_0.0-1.5m_iou_free,0.83717
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_0.0-1.5m_iou_non_free,0.916318
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_0.0-1.5m_precision,0.883461
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_0.0-1.5m_recall,0.943241
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_1.5-3.0m_iou_free,0.801301
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_1.5-3.0m_iou_non_free,0.940648
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_1.5-3.0m_precision,0.8723
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_1.5-3.0m_recall,0.910056
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_3.0-4.0m_iou_free,0.782006
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_3.0-4.0m_iou_non_free,0.948047
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_3.0-4.0m_precision,0.859984
+C_hard,"+ boundary term, hard target",1,C_hard_s1,100,ring_3.0-4.0m_recall,0.887836
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,iou_free,0.805046
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,iou_non_free,0.940738
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,precision,0.87678
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,recall,0.909225
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_10cm,0.617359
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_20cm,0.833698
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_30cm,0.894432
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_10cm_precision,0.589844
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_10cm_recall,0.660704
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_20cm_precision,0.787645
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_20cm_recall,0.900097
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_30cm_precision,0.850341
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,bf_30cm_recall,0.957833
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_0.0-1.5m_iou_free,0.836757
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_0.0-1.5m_iou_non_free,0.915696
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_0.0-1.5m_precision,0.888184
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_0.0-1.5m_recall,0.937974
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_1.5-3.0m_iou_free,0.800338
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_1.5-3.0m_iou_non_free,0.938048
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_1.5-3.0m_precision,0.873454
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_1.5-3.0m_recall,0.907535
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_3.0-4.0m_iou_free,0.779945
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_3.0-4.0m_iou_non_free,0.947331
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_3.0-4.0m_precision,0.862143
+C_hard,"+ boundary term, hard target",2,C_hard_s2,100,ring_3.0-4.0m_recall,0.884444
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,iou_free,0.807254
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,iou_non_free,0.942322
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,precision,0.87691
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,recall,0.911731
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_10cm,0.623363
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_20cm,0.839609
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_30cm,0.896447
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_10cm_precision,0.594326
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_10cm_recall,0.667176
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_20cm_precision,0.792731
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_20cm_recall,0.905242
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_30cm_precision,0.85106
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,bf_30cm_recall,0.958662
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_0.0-1.5m_iou_free,0.834345
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_0.0-1.5m_iou_non_free,0.915376
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_0.0-1.5m_precision,0.881148
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_0.0-1.5m_recall,0.942675
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_1.5-3.0m_iou_free,0.801873
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_1.5-3.0m_iou_non_free,0.939639
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_1.5-3.0m_precision,0.873891
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_1.5-3.0m_recall,0.908875
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_3.0-4.0m_iou_free,0.784792
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_3.0-4.0m_iou_non_free,0.950351
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_3.0-4.0m_precision,0.874725
+C_hard,"+ boundary term, hard target",3,C_hard_s3,100,ring_3.0-4.0m_recall,0.878016
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,iou_free,0.805986
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,iou_non_free,0.941155
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,precision,0.877446
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,recall,0.909467
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_10cm,0.609159
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_20cm,0.831544
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_30cm,0.892939
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_10cm_precision,0.580484
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_10cm_recall,0.651237
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_20cm_precision,0.784066
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_20cm_recall,0.898395
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_30cm_precision,0.847053
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,bf_30cm_recall,0.956464
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_0.0-1.5m_iou_free,0.838357
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_0.0-1.5m_iou_non_free,0.917048
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_0.0-1.5m_precision,0.885776
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_0.0-1.5m_recall,0.942232
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_1.5-3.0m_iou_free,0.797964
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_1.5-3.0m_iou_non_free,0.937101
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_1.5-3.0m_precision,0.874073
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_1.5-3.0m_recall,0.904211
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_3.0-4.0m_iou_free,0.786624
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_3.0-4.0m_iou_non_free,0.949348
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_3.0-4.0m_precision,0.866519
+C_hard,"+ boundary term, hard target",4,C_hard_s4,100,ring_3.0-4.0m_recall,0.888666
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,iou_free,0.814749
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,iou_non_free,0.944814
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,precision,0.881372
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,recall,0.916801
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_10cm,0.616444
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_20cm,0.842069
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_30cm,0.905063
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_10cm_precision,0.58587
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_10cm_recall,0.659201
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_20cm_precision,0.797208
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_20cm_recall,0.903525
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_30cm_precision,0.863583
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,bf_30cm_recall,0.960335
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_0.0-1.5m_iou_free,0.842831
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_0.0-1.5m_iou_non_free,0.92111
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_0.0-1.5m_precision,0.887122
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_0.0-1.5m_recall,0.945977
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_1.5-3.0m_iou_free,0.810237
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_1.5-3.0m_iou_non_free,0.942697
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_1.5-3.0m_precision,0.880136
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_1.5-3.0m_recall,0.912888
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_3.0-4.0m_iou_free,0.788976
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_3.0-4.0m_iou_non_free,0.951013
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_3.0-4.0m_precision,0.867064
+C_soft,+ soft boundary target (proposed),0,C_soft_s0,100,ring_3.0-4.0m_recall,0.894221
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,iou_free,0.816114
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,iou_non_free,0.946072
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,precision,0.881318
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,recall,0.918696
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_10cm,0.610455
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_20cm,0.842615
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_30cm,0.906079
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_10cm_precision,0.581636
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_10cm_recall,0.650899
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_20cm_precision,0.79832
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_20cm_recall,0.9023
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_30cm_precision,0.865866
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,bf_30cm_recall,0.958906
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_0.0-1.5m_iou_free,0.843536
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_0.0-1.5m_iou_non_free,0.921459
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_0.0-1.5m_precision,0.887627
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_0.0-1.5m_recall,0.946638
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_1.5-3.0m_iou_free,0.810654
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_1.5-3.0m_iou_non_free,0.943686
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_1.5-3.0m_precision,0.877096
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_1.5-3.0m_recall,0.916983
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_3.0-4.0m_iou_free,0.795499
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_3.0-4.0m_iou_non_free,0.953469
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_3.0-4.0m_precision,0.87563
+C_soft,+ soft boundary target (proposed),1,C_soft_s1,100,ring_3.0-4.0m_recall,0.895077
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,iou_free,0.813069
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,iou_non_free,0.944088
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,precision,0.879453
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,recall,0.916507
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_10cm,0.610666
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_20cm,0.83327
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_30cm,0.901104
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_10cm_precision,0.584432
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_10cm_recall,0.648488
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_20cm_precision,0.79108
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_20cm_recall,0.890345
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_30cm_precision,0.862063
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,bf_30cm_recall,0.953699
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_0.0-1.5m_iou_free,0.845643
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_0.0-1.5m_iou_non_free,0.921983
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_0.0-1.5m_precision,0.89078
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_0.0-1.5m_recall,0.945415
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_1.5-3.0m_iou_free,0.806645
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_1.5-3.0m_iou_non_free,0.94064
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_1.5-3.0m_precision,0.874382
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_1.5-3.0m_recall,0.914816
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_3.0-4.0m_iou_free,0.787544
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_3.0-4.0m_iou_non_free,0.950785
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_3.0-4.0m_precision,0.868603
+C_soft,+ soft boundary target (proposed),2,C_soft_s2,100,ring_3.0-4.0m_recall,0.890188
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,iou_free,0.81605
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,iou_non_free,0.945311
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,precision,0.884907
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,recall,0.914532
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_10cm,0.614683
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_20cm,0.839063
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_30cm,0.900963
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_10cm_precision,0.587123
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_10cm_recall,0.653637
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_20cm_precision,0.794551
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_20cm_recall,0.898548
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_30cm_precision,0.860095
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,bf_30cm_recall,0.954791
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_0.0-1.5m_iou_free,0.845672
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_0.0-1.5m_iou_non_free,0.92256
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_0.0-1.5m_precision,0.891031
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_0.0-1.5m_recall,0.945065
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_1.5-3.0m_iou_free,0.808654
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_1.5-3.0m_iou_non_free,0.941641
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_1.5-3.0m_precision,0.88218
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_1.5-3.0m_recall,0.908777
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_3.0-4.0m_iou_free,0.794967
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_3.0-4.0m_iou_non_free,0.952729
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_3.0-4.0m_precision,0.876494
+C_soft,+ soft boundary target (proposed),3,C_soft_s3,100,ring_3.0-4.0m_recall,0.89692
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,iou_free,0.816081
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,iou_non_free,0.945252
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,precision,0.882646
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,recall,0.917242
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_10cm,0.604085
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_20cm,0.826707
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_30cm,0.896374
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_10cm_precision,0.575486
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_10cm_recall,0.644978
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_20cm_precision,0.782517
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_20cm_recall,0.886751
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_30cm_precision,0.855563
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,bf_30cm_recall,0.950502
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_0.0-1.5m_iou_free,0.844049
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_0.0-1.5m_iou_non_free,0.92246
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_0.0-1.5m_precision,0.888871
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_0.0-1.5m_recall,0.945871
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_1.5-3.0m_iou_free,0.810811
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_1.5-3.0m_iou_non_free,0.942122
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_1.5-3.0m_precision,0.880236
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_1.5-3.0m_recall,0.913593
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_3.0-4.0m_iou_free,0.793416
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_3.0-4.0m_iou_non_free,0.951908
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_3.0-4.0m_precision,0.873214
+C_soft,+ soft boundary target (proposed),4,C_soft_s4,100,ring_3.0-4.0m_recall,0.897697

@@ -1,0 +1,91 @@
+{
+  "experiment": "03_boundary_uncertainty",
+  "git_commit": "d6751cd15595fc1b94bc61ff1fa6be37f8715c45",
+  "runtime_of_analysis": {
+    "python": "3.11.15",
+    "conda_env": "bev-chamdog"
+  },
+  "runtime_of_training": {
+    "python": "3.11.15",
+    "conda_env": "bev-chamdog",
+    "torch": "2.7.0+cu128",
+    "cuda": "12.8",
+    "numpy": "1.26.4",
+    "device": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+    "numpy_elision_broken": false
+  },
+  "protocol": {
+    "split": "fixed (train raws2,raws3,rawos1,rawos2,rawos4 = 192 frames; val raws1,rawos3 = 75 frames)",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "epoch": 100,
+    "epoch_note": "pre-declared fixed epoch, not the argmax checkpoint -- the argmax is itself a random variable and inflates the seed spread",
+    "checkpoint_selection_rule_for_reference": "val/iou_free 최고점 (select_checkpoint_score)"
+  },
+  "cells": {
+    "A_ce": {
+      "label": "Weighted CE (baseline)",
+      "aggregation": "inverse-frequency class weights",
+      "boundary_target": "hard (all cells)",
+      "aux_range_term": "none",
+      "lambda_b": 0.0,
+      "sigma_m": 0.1,
+      "lambda_r": 0.0,
+      "step_from": "",
+      "knob_changed": ""
+    },
+    "B_perset": {
+      "label": "Per-set mean (no boundary term)",
+      "aggregation": "per-set mean",
+      "boundary_target": "none (band unsupervised)",
+      "aux_range_term": "none",
+      "lambda_b": 0.0,
+      "sigma_m": 0.1,
+      "lambda_r": 0.0,
+      "step_from": "A_ce",
+      "knob_changed": "aggregation + band supervision removed"
+    },
+    "C_hard": {
+      "label": "+ boundary term, hard target",
+      "aggregation": "per-set mean",
+      "boundary_target": "hard 0/1",
+      "aux_range_term": "none",
+      "lambda_b": 0.5,
+      "sigma_m": 0.001,
+      "lambda_r": 0.0,
+      "step_from": "B_perset",
+      "knob_changed": "band supervision on (hard)"
+    },
+    "C_soft": {
+      "label": "+ soft boundary target (proposed)",
+      "aggregation": "per-set mean",
+      "boundary_target": "soft (Gaussian, sigma=0.10 m)",
+      "aux_range_term": "none",
+      "lambda_b": 0.5,
+      "sigma_m": 0.1,
+      "lambda_r": 0.0,
+      "step_from": "C_hard",
+      "knob_changed": "band target hard -> soft"
+    }
+  },
+  "paper_ladder": [
+    "A_ce",
+    "B_perset",
+    "C_hard",
+    "C_soft"
+  ],
+  "ladder_note": "[2026-10-02] The auxiliary ray term is dropped from the paper; the ladder ends at the soft-boundary BCE (C_soft). Metrics are frame-macro IoU_free / IoU_non-free / Precision / Recall / BF@{0.1,0.2,0.3} m.",
+  "metric_definitions": "projects/common/metric_spec.py",
+  "statistics": {
+    "rule": "two-sided paired t-test over seeds (df = n-1); significant iff the 95% confidence interval of the mean paired difference excludes 0",
+    "definition": "projects/common/paired_stats.py",
+    "multiple_comparisons": "each metric tested separately, no correction",
+    "sigma_run": "data/rerun_noise_c_soft_vs_overall_control.csv -- C_soft and the 01_overall fixed-split control share every setting and seed; sigma_run = sd(diff)/sqrt(2)"
+  },
+  "claims": "see REPORT.md (written from this campaign's data)"
+}

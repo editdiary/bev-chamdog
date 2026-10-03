@@ -1,0 +1,11 @@
+arm,run_name,seed,script,range_loss_mode,lambda_r,init_checkpoint,num_epochs
+source_pretrain_native,swscape_native_pretrain_s0,0,configs/train_synwoodscape_native_pretrain.sh,,0.0,,100
+source_prior_native,source_prior_native_s0,0,configs/train_robot_bev_finetune.sh,,0.0,runs/99_full_campaign/02b_native_source_prior/source_pretrain_native/ckpt/swscape_native_pretrain_s0/model-000000100.pth,100
+source_pretrain_native,swscape_native_pretrain_s1,1,configs/train_synwoodscape_native_pretrain.sh,,0.0,,100
+source_prior_native,source_prior_native_s1,1,configs/train_robot_bev_finetune.sh,,0.0,runs/99_full_campaign/02b_native_source_prior/source_pretrain_native/ckpt/swscape_native_pretrain_s1/model-000000100.pth,100
+source_pretrain_native,swscape_native_pretrain_s2,2,configs/train_synwoodscape_native_pretrain.sh,,0.0,,100
+source_prior_native,source_prior_native_s2,2,configs/train_robot_bev_finetune.sh,,0.0,runs/99_full_campaign/02b_native_source_prior/source_pretrain_native/ckpt/swscape_native_pretrain_s2/model-000000100.pth,100
+source_pretrain_native,swscape_native_pretrain_s3,3,configs/train_synwoodscape_native_pretrain.sh,,0.0,,100
+source_prior_native,source_prior_native_s3,3,configs/train_robot_bev_finetune.sh,,0.0,runs/99_full_campaign/02b_native_source_prior/source_pretrain_native/ckpt/swscape_native_pretrain_s3/model-000000100.pth,100
+source_pretrain_native,swscape_native_pretrain_s4,4,configs/train_synwoodscape_native_pretrain.sh,,0.0,,100
+source_prior_native,source_prior_native_s4,4,configs/train_robot_bev_finetune.sh,,0.0,runs/99_full_campaign/02b_native_source_prior/source_pretrain_native/ckpt/swscape_native_pretrain_s4/model-000000100.pth,100

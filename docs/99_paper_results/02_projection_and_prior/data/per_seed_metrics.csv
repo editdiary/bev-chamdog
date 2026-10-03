@@ -1,0 +1,501 @@
+arm,arm_label,seed,run_name,epoch,metric,value
+control,DS-native (frozen),0,final_s0,100,iou_free,0.815366
+control,DS-native (frozen),0,final_s0,100,iou_non_free,0.945391
+control,DS-native (frozen),0,final_s0,100,precision,0.882185
+control,DS-native (frozen),0,final_s0,100,recall,0.916605
+control,DS-native (frozen),0,final_s0,100,bf_10cm,0.619596
+control,DS-native (frozen),0,final_s0,100,bf_20cm,0.843439
+control,DS-native (frozen),0,final_s0,100,bf_30cm,0.90523
+control,DS-native (frozen),0,final_s0,100,bf_10cm_precision,0.590098
+control,DS-native (frozen),0,final_s0,100,bf_10cm_recall,0.661337
+control,DS-native (frozen),0,final_s0,100,bf_20cm_precision,0.79926
+control,DS-native (frozen),0,final_s0,100,bf_20cm_recall,0.903434
+control,DS-native (frozen),0,final_s0,100,bf_30cm_precision,0.864624
+control,DS-native (frozen),0,final_s0,100,bf_30cm_recall,0.959035
+control,DS-native (frozen),0,final_s0,100,ring_0.0-1.5m_iou_free,0.845433
+control,DS-native (frozen),0,final_s0,100,ring_0.0-1.5m_iou_non_free,0.923664
+control,DS-native (frozen),0,final_s0,100,ring_0.0-1.5m_precision,0.888962
+control,DS-native (frozen),0,final_s0,100,ring_0.0-1.5m_recall,0.94718
+control,DS-native (frozen),0,final_s0,100,ring_1.5-3.0m_iou_free,0.810452
+control,DS-native (frozen),0,final_s0,100,ring_1.5-3.0m_iou_non_free,0.943086
+control,DS-native (frozen),0,final_s0,100,ring_1.5-3.0m_precision,0.879988
+control,DS-native (frozen),0,final_s0,100,ring_1.5-3.0m_recall,0.913171
+control,DS-native (frozen),0,final_s0,100,ring_3.0-4.0m_iou_free,0.788115
+control,DS-native (frozen),0,final_s0,100,ring_3.0-4.0m_iou_non_free,0.950978
+control,DS-native (frozen),0,final_s0,100,ring_3.0-4.0m_precision,0.868955
+control,DS-native (frozen),0,final_s0,100,ring_3.0-4.0m_recall,0.891913
+control,DS-native (frozen),1,final_s1,100,iou_free,0.815971
+control,DS-native (frozen),1,final_s1,100,iou_non_free,0.946079
+control,DS-native (frozen),1,final_s1,100,precision,0.88199
+control,DS-native (frozen),1,final_s1,100,recall,0.917835
+control,DS-native (frozen),1,final_s1,100,bf_10cm,0.615201
+control,DS-native (frozen),1,final_s1,100,bf_20cm,0.839649
+control,DS-native (frozen),1,final_s1,100,bf_30cm,0.905304
+control,DS-native (frozen),1,final_s1,100,bf_10cm_precision,0.589607
+control,DS-native (frozen),1,final_s1,100,bf_10cm_recall,0.651927
+control,DS-native (frozen),1,final_s1,100,bf_20cm_precision,0.79882
+control,DS-native (frozen),1,final_s1,100,bf_20cm_recall,0.894879
+control,DS-native (frozen),1,final_s1,100,bf_30cm_precision,0.868263
+control,DS-native (frozen),1,final_s1,100,bf_30cm_recall,0.954534
+control,DS-native (frozen),1,final_s1,100,ring_0.0-1.5m_iou_free,0.84465
+control,DS-native (frozen),1,final_s1,100,ring_0.0-1.5m_iou_non_free,0.922137
+control,DS-native (frozen),1,final_s1,100,ring_0.0-1.5m_precision,0.888811
+control,DS-native (frozen),1,final_s1,100,ring_0.0-1.5m_recall,0.946534
+control,DS-native (frozen),1,final_s1,100,ring_1.5-3.0m_iou_free,0.810993
+control,DS-native (frozen),1,final_s1,100,ring_1.5-3.0m_iou_non_free,0.944098
+control,DS-native (frozen),1,final_s1,100,ring_1.5-3.0m_precision,0.878475
+control,DS-native (frozen),1,final_s1,100,ring_1.5-3.0m_recall,0.915799
+control,DS-native (frozen),1,final_s1,100,ring_3.0-4.0m_iou_free,0.791978
+control,DS-native (frozen),1,final_s1,100,ring_3.0-4.0m_iou_non_free,0.952396
+control,DS-native (frozen),1,final_s1,100,ring_3.0-4.0m_precision,0.873208
+control,DS-native (frozen),1,final_s1,100,ring_3.0-4.0m_recall,0.893152
+control,DS-native (frozen),2,final_s2,100,iou_free,0.815422
+control,DS-native (frozen),2,final_s2,100,iou_non_free,0.944735
+control,DS-native (frozen),2,final_s2,100,precision,0.882687
+control,DS-native (frozen),2,final_s2,100,recall,0.9163
+control,DS-native (frozen),2,final_s2,100,bf_10cm,0.615628
+control,DS-native (frozen),2,final_s2,100,bf_20cm,0.839404
+control,DS-native (frozen),2,final_s2,100,bf_30cm,0.905419
+control,DS-native (frozen),2,final_s2,100,bf_10cm_precision,0.588881
+control,DS-native (frozen),2,final_s2,100,bf_10cm_recall,0.653432
+control,DS-native (frozen),2,final_s2,100,bf_20cm_precision,0.798404
+control,DS-native (frozen),2,final_s2,100,bf_20cm_recall,0.894705
+control,DS-native (frozen),2,final_s2,100,bf_30cm_precision,0.8674
+control,DS-native (frozen),2,final_s2,100,bf_30cm_recall,0.955669
+control,DS-native (frozen),2,final_s2,100,ring_0.0-1.5m_iou_free,0.845892
+control,DS-native (frozen),2,final_s2,100,ring_0.0-1.5m_iou_non_free,0.92175
+control,DS-native (frozen),2,final_s2,100,ring_0.0-1.5m_precision,0.89178
+control,DS-native (frozen),2,final_s2,100,ring_0.0-1.5m_recall,0.94482
+control,DS-native (frozen),2,final_s2,100,ring_1.5-3.0m_iou_free,0.809233
+control,DS-native (frozen),2,final_s2,100,ring_1.5-3.0m_iou_non_free,0.941494
+control,DS-native (frozen),2,final_s2,100,ring_1.5-3.0m_precision,0.879358
+control,DS-native (frozen),2,final_s2,100,ring_1.5-3.0m_recall,0.912508
+control,DS-native (frozen),2,final_s2,100,ring_3.0-4.0m_iou_free,0.792758
+control,DS-native (frozen),2,final_s2,100,ring_3.0-4.0m_iou_non_free,0.951614
+control,DS-native (frozen),2,final_s2,100,ring_3.0-4.0m_precision,0.872349
+control,DS-native (frozen),2,final_s2,100,ring_3.0-4.0m_recall,0.893148
+control,DS-native (frozen),3,final_s3,100,iou_free,0.815884
+control,DS-native (frozen),3,final_s3,100,iou_non_free,0.945592
+control,DS-native (frozen),3,final_s3,100,precision,0.883223
+control,DS-native (frozen),3,final_s3,100,recall,0.916148
+control,DS-native (frozen),3,final_s3,100,bf_10cm,0.611546
+control,DS-native (frozen),3,final_s3,100,bf_20cm,0.841239
+control,DS-native (frozen),3,final_s3,100,bf_30cm,0.903957
+control,DS-native (frozen),3,final_s3,100,bf_10cm_precision,0.583885
+control,DS-native (frozen),3,final_s3,100,bf_10cm_recall,0.650177
+control,DS-native (frozen),3,final_s3,100,bf_20cm_precision,0.797013
+control,DS-native (frozen),3,final_s3,100,bf_20cm_recall,0.900055
+control,DS-native (frozen),3,final_s3,100,bf_30cm_precision,0.863549
+control,DS-native (frozen),3,final_s3,100,bf_30cm_recall,0.956833
+control,DS-native (frozen),3,final_s3,100,ring_0.0-1.5m_iou_free,0.844245
+control,DS-native (frozen),3,final_s3,100,ring_0.0-1.5m_iou_non_free,0.922464
+control,DS-native (frozen),3,final_s3,100,ring_0.0-1.5m_precision,0.887729
+control,DS-native (frozen),3,final_s3,100,ring_0.0-1.5m_recall,0.947206
+control,DS-native (frozen),3,final_s3,100,ring_1.5-3.0m_iou_free,0.80869
+control,DS-native (frozen),3,final_s3,100,ring_1.5-3.0m_iou_non_free,0.942107
+control,DS-native (frozen),3,final_s3,100,ring_1.5-3.0m_precision,0.880775
+control,DS-native (frozen),3,final_s3,100,ring_1.5-3.0m_recall,0.910576
+control,DS-native (frozen),3,final_s3,100,ring_3.0-4.0m_iou_free,0.796162
+control,DS-native (frozen),3,final_s3,100,ring_3.0-4.0m_iou_non_free,0.953153
+control,DS-native (frozen),3,final_s3,100,ring_3.0-4.0m_precision,0.878634
+control,DS-native (frozen),3,final_s3,100,ring_3.0-4.0m_recall,0.895219
+control,DS-native (frozen),4,final_s4,100,iou_free,0.81625
+control,DS-native (frozen),4,final_s4,100,iou_non_free,0.945361
+control,DS-native (frozen),4,final_s4,100,precision,0.882667
+control,DS-native (frozen),4,final_s4,100,recall,0.917124
+control,DS-native (frozen),4,final_s4,100,bf_10cm,0.608674
+control,DS-native (frozen),4,final_s4,100,bf_20cm,0.833096
+control,DS-native (frozen),4,final_s4,100,bf_30cm,0.898428
+control,DS-native (frozen),4,final_s4,100,bf_10cm_precision,0.576945
+control,DS-native (frozen),4,final_s4,100,bf_10cm_recall,0.652339
+control,DS-native (frozen),4,final_s4,100,bf_20cm_precision,0.786502
+control,DS-native (frozen),4,final_s4,100,bf_20cm_recall,0.894841
+control,DS-native (frozen),4,final_s4,100,bf_30cm_precision,0.856003
+control,DS-native (frozen),4,final_s4,100,bf_30cm_recall,0.953458
+control,DS-native (frozen),4,final_s4,100,ring_0.0-1.5m_iou_free,0.844666
+control,DS-native (frozen),4,final_s4,100,ring_0.0-1.5m_iou_non_free,0.922627
+control,DS-native (frozen),4,final_s4,100,ring_0.0-1.5m_precision,0.890031
+control,DS-native (frozen),4,final_s4,100,ring_0.0-1.5m_recall,0.945066
+control,DS-native (frozen),4,final_s4,100,ring_1.5-3.0m_iou_free,0.81103
+control,DS-native (frozen),4,final_s4,100,ring_1.5-3.0m_iou_non_free,0.942204
+control,DS-native (frozen),4,final_s4,100,ring_1.5-3.0m_precision,0.879803
+control,DS-native (frozen),4,final_s4,100,ring_1.5-3.0m_recall,0.914432
+control,DS-native (frozen),4,final_s4,100,ring_3.0-4.0m_iou_free,0.791865
+control,DS-native (frozen),4,final_s4,100,ring_3.0-4.0m_iou_non_free,0.951954
+control,DS-native (frozen),4,final_s4,100,ring_3.0-4.0m_precision,0.87352
+control,DS-native (frozen),4,final_s4,100,ring_3.0-4.0m_recall,0.896211
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,iou_free,0.799157
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,iou_non_free,0.938928
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,precision,0.865725
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,recall,0.913285
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_10cm,0.567524
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_20cm,0.799851
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_30cm,0.877779
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_10cm_precision,0.53306
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_10cm_recall,0.616844
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_20cm_precision,0.747529
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_20cm_recall,0.873373
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_30cm_precision,0.829234
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,bf_30cm_recall,0.944787
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_0.0-1.5m_iou_free,0.83321
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_0.0-1.5m_iou_non_free,0.914477
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_0.0-1.5m_precision,0.871812
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_0.0-1.5m_recall,0.951959
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_1.5-3.0m_iou_free,0.788002
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_1.5-3.0m_iou_non_free,0.933524
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_1.5-3.0m_precision,0.861733
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_1.5-3.0m_recall,0.902805
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_3.0-4.0m_iou_free,0.783967
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_3.0-4.0m_iou_non_free,0.948534
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_3.0-4.0m_precision,0.858676
+pinhole120,Undistort + pinhole 120deg,0,pinhole120_s0,100,ring_3.0-4.0m_recall,0.902005
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,iou_free,0.804873
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,iou_non_free,0.941549
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,precision,0.87393
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,recall,0.91161
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_10cm,0.57658
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_20cm,0.820333
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_30cm,0.895344
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_10cm_precision,0.546032
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_10cm_recall,0.618863
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_20cm_precision,0.773106
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_20cm_recall,0.885358
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_30cm_precision,0.852685
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,bf_30cm_recall,0.952773
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_0.0-1.5m_iou_free,0.833936
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_0.0-1.5m_iou_non_free,0.916399
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_0.0-1.5m_precision,0.876834
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_0.0-1.5m_recall,0.946645
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_1.5-3.0m_iou_free,0.794846
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_1.5-3.0m_iou_non_free,0.937106
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_1.5-3.0m_precision,0.870811
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_1.5-3.0m_recall,0.902122
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_3.0-4.0m_iou_free,0.791952
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_3.0-4.0m_iou_non_free,0.951503
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_3.0-4.0m_precision,0.868971
+pinhole120,Undistort + pinhole 120deg,1,pinhole120_s1,100,ring_3.0-4.0m_recall,0.901642
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,iou_free,0.802998
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,iou_non_free,0.940961
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,precision,0.872195
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,recall,0.910898
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_10cm,0.57367
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_20cm,0.804407
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_30cm,0.882805
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_10cm_precision,0.544621
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_10cm_recall,0.613254
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_20cm_precision,0.759606
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_20cm_recall,0.865462
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_30cm_precision,0.840417
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,bf_30cm_recall,0.939273
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_0.0-1.5m_iou_free,0.835654
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_0.0-1.5m_iou_non_free,0.915879
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_0.0-1.5m_precision,0.878876
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_0.0-1.5m_recall,0.946796
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_1.5-3.0m_iou_free,0.790262
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_1.5-3.0m_iou_non_free,0.936286
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_1.5-3.0m_precision,0.867282
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_1.5-3.0m_recall,0.900605
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_3.0-4.0m_iou_free,0.789872
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_3.0-4.0m_iou_non_free,0.950956
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_3.0-4.0m_precision,0.866275
+pinhole120,Undistort + pinhole 120deg,2,pinhole120_s2,100,ring_3.0-4.0m_recall,0.900902
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,iou_free,0.804445
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,iou_non_free,0.941047
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,precision,0.872448
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,recall,0.912926
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_10cm,0.57035
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_20cm,0.808997
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_30cm,0.88575
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_10cm_precision,0.542168
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_10cm_recall,0.609848
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_20cm_precision,0.762573
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_20cm_recall,0.871848
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_30cm_precision,0.842801
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,bf_30cm_recall,0.942623
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_0.0-1.5m_iou_free,0.830964
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_0.0-1.5m_iou_non_free,0.913452
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_0.0-1.5m_precision,0.87538
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_0.0-1.5m_recall,0.945107
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_1.5-3.0m_iou_free,0.793512
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_1.5-3.0m_iou_non_free,0.936107
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_1.5-3.0m_precision,0.867399
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_1.5-3.0m_recall,0.904561
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_3.0-4.0m_iou_free,0.797137
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_3.0-4.0m_iou_non_free,0.953393
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_3.0-4.0m_precision,0.87347
+pinhole120,Undistort + pinhole 120deg,3,pinhole120_s3,100,ring_3.0-4.0m_recall,0.905205
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,iou_free,0.803205
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,iou_non_free,0.940183
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,precision,0.869014
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,recall,0.915695
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_10cm,0.570154
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_20cm,0.807655
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_30cm,0.880004
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_10cm_precision,0.543081
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_10cm_recall,0.610074
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_20cm_precision,0.762098
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_20cm_recall,0.871863
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_30cm_precision,0.839693
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,bf_30cm_recall,0.935621
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_0.0-1.5m_iou_free,0.832342
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_0.0-1.5m_iou_non_free,0.912959
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_0.0-1.5m_precision,0.873344
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_0.0-1.5m_recall,0.949503
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_1.5-3.0m_iou_free,0.791579
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_1.5-3.0m_iou_non_free,0.93598
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_1.5-3.0m_precision,0.86407
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_1.5-3.0m_recall,0.905454
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_3.0-4.0m_iou_free,0.79175
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_3.0-4.0m_iou_non_free,0.95124
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_3.0-4.0m_precision,0.865159
+pinhole120,Undistort + pinhole 120deg,4,pinhole120_s4,100,ring_3.0-4.0m_recall,0.906043
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,iou_free,0.808163
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,iou_non_free,0.941849
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,precision,0.875167
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,recall,0.915929
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_10cm,0.584624
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_20cm,0.817963
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_30cm,0.892376
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_10cm_precision,0.556944
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_10cm_recall,0.625177
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_20cm_precision,0.771513
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_20cm_recall,0.882614
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_30cm_precision,0.848227
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,bf_30cm_recall,0.951921
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_0.0-1.5m_iou_free,0.844703
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_0.0-1.5m_iou_non_free,0.919094
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_0.0-1.5m_precision,0.887736
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_0.0-1.5m_recall,0.948377
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_1.5-3.0m_iou_free,0.80056
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_1.5-3.0m_iou_non_free,0.938128
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_1.5-3.0m_precision,0.872281
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_1.5-3.0m_recall,0.909127
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_3.0-4.0m_iou_free,0.785101
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_3.0-4.0m_iou_non_free,0.947946
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_3.0-4.0m_precision,0.860554
+pinhole150,Undistort + pinhole 150deg,0,pinhole150_s0,100,ring_3.0-4.0m_recall,0.905342
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,iou_free,0.808536
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,iou_non_free,0.941392
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,precision,0.878736
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,recall,0.912288
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_10cm,0.589117
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_20cm,0.810635
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_30cm,0.885846
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_10cm_precision,0.563771
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_10cm_recall,0.627005
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_20cm_precision,0.76784
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_20cm_recall,0.869728
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_30cm_precision,0.845675
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,bf_30cm_recall,0.940478
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_0.0-1.5m_iou_free,0.848017
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_0.0-1.5m_iou_non_free,0.923288
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_0.0-1.5m_precision,0.895173
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_0.0-1.5m_recall,0.943636
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_1.5-3.0m_iou_free,0.799339
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_1.5-3.0m_iou_non_free,0.935827
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_1.5-3.0m_precision,0.874695
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_1.5-3.0m_recall,0.904326
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_3.0-4.0m_iou_free,0.787535
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_3.0-4.0m_iou_non_free,0.948612
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_3.0-4.0m_precision,0.862174
+pinhole150,Undistort + pinhole 150deg,1,pinhole150_s1,100,ring_3.0-4.0m_recall,0.907141
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,iou_free,0.808158
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,iou_non_free,0.940281
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,precision,0.872204
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,recall,0.919281
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_10cm,0.594098
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_20cm,0.824664
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_30cm,0.898309
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_10cm_precision,0.566546
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_10cm_recall,0.633129
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_20cm_precision,0.781899
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_20cm_recall,0.882503
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_30cm_precision,0.857873
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,bf_30cm_recall,0.952534
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_0.0-1.5m_iou_free,0.846379
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_0.0-1.5m_iou_non_free,0.921426
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_0.0-1.5m_precision,0.889794
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_0.0-1.5m_recall,0.947583
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_1.5-3.0m_iou_free,0.798143
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_1.5-3.0m_iou_non_free,0.934374
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_1.5-3.0m_precision,0.869239
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_1.5-3.0m_recall,0.909582
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_3.0-4.0m_iou_free,0.788523
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_3.0-4.0m_iou_non_free,0.94739
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_3.0-4.0m_precision,0.852648
+pinhole150,Undistort + pinhole 150deg,2,pinhole150_s2,100,ring_3.0-4.0m_recall,0.917158
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,iou_free,0.809772
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,iou_non_free,0.941831
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,precision,0.87682
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,recall,0.916076
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_10cm,0.586508
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_20cm,0.819375
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_30cm,0.891942
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_10cm_precision,0.561761
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_10cm_recall,0.622721
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_20cm_precision,0.777533
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_20cm_recall,0.876102
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_30cm_precision,0.852824
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,bf_30cm_recall,0.944027
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_0.0-1.5m_iou_free,0.851292
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_0.0-1.5m_iou_non_free,0.925452
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_0.0-1.5m_precision,0.896087
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_0.0-1.5m_recall,0.946361
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_1.5-3.0m_iou_free,0.798063
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_1.5-3.0m_iou_non_free,0.935667
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_1.5-3.0m_precision,0.870998
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_1.5-3.0m_recall,0.906906
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_3.0-4.0m_iou_free,0.789572
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_3.0-4.0m_iou_non_free,0.94862
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_3.0-4.0m_precision,0.85961
+pinhole150,Undistort + pinhole 150deg,3,pinhole150_s3,100,ring_3.0-4.0m_recall,0.912724
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,iou_free,0.80735
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,iou_non_free,0.940563
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,precision,0.878151
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,recall,0.911228
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_10cm,0.590278
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_20cm,0.818963
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_30cm,0.896599
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_10cm_precision,0.566637
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_10cm_recall,0.625354
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_20cm_precision,0.781643
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_20cm_recall,0.870388
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_30cm_precision,0.860413
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,bf_30cm_recall,0.94532
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_0.0-1.5m_iou_free,0.847676
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_0.0-1.5m_iou_non_free,0.923221
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_0.0-1.5m_precision,0.896964
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_0.0-1.5m_recall,0.94142
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_1.5-3.0m_iou_free,0.798071
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_1.5-3.0m_iou_non_free,0.93494
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_1.5-3.0m_precision,0.873157
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_1.5-3.0m_recall,0.904186
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_3.0-4.0m_iou_free,0.783683
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_3.0-4.0m_iou_non_free,0.946706
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_3.0-4.0m_precision,0.861114
+pinhole150,Undistort + pinhole 150deg,4,pinhole150_s4,100,ring_3.0-4.0m_recall,0.901798
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,iou_free,0.811295
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,iou_non_free,0.94397
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,precision,0.885238
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,recall,0.907926
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_10cm,0.583316
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_20cm,0.816206
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_30cm,0.885591
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_10cm_precision,0.555363
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_10cm_recall,0.623122
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_20cm_precision,0.771967
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_20cm_recall,0.876764
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_30cm_precision,0.84363
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,bf_30cm_recall,0.942704
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_0.0-1.5m_iou_free,0.841909
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_0.0-1.5m_iou_non_free,0.92114
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_0.0-1.5m_precision,0.894208
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_0.0-1.5m_recall,0.936953
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_1.5-3.0m_iou_free,0.80485
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_1.5-3.0m_iou_non_free,0.939935
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_1.5-3.0m_precision,0.880287
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_1.5-3.0m_recall,0.90542
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_3.0-4.0m_iou_free,0.78697
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_3.0-4.0m_iou_non_free,0.951406
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_3.0-4.0m_precision,0.878565
+source_prior,SynWoodScape pretrain,0,source_prior_s0,100,ring_3.0-4.0m_recall,0.882475
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,iou_free,0.808763
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,iou_non_free,0.942831
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,precision,0.884022
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,recall,0.906354
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_10cm,0.566774
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_20cm,0.802653
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_30cm,0.879416
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_10cm_precision,0.541972
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_10cm_recall,0.604214
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_20cm_precision,0.76325
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_20cm_recall,0.857008
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_30cm_precision,0.842242
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,bf_30cm_recall,0.930045
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_0.0-1.5m_iou_free,0.842438
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_0.0-1.5m_iou_non_free,0.922047
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_0.0-1.5m_precision,0.899171
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_0.0-1.5m_recall,0.931923
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_1.5-3.0m_iou_free,0.802441
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_1.5-3.0m_iou_non_free,0.939272
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_1.5-3.0m_precision,0.877091
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_1.5-3.0m_recall,0.905916
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_3.0-4.0m_iou_free,0.785075
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_3.0-4.0m_iou_non_free,0.948848
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_3.0-4.0m_precision,0.872116
+source_prior,SynWoodScape pretrain,1,source_prior_s1,100,ring_3.0-4.0m_recall,0.889631
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,iou_free,0.808519
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,iou_non_free,0.943228
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,precision,0.881948
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,recall,0.907765
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_10cm,0.573084
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_20cm,0.812626
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_30cm,0.886316
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_10cm_precision,0.548844
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_10cm_recall,0.60741
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_20cm_precision,0.770106
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_20cm_recall,0.867743
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_30cm_precision,0.845613
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,bf_30cm_recall,0.938423
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_0.0-1.5m_iou_free,0.842757
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_0.0-1.5m_iou_non_free,0.923674
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_0.0-1.5m_precision,0.899215
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_0.0-1.5m_recall,0.932895
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_1.5-3.0m_iou_free,0.80104
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_1.5-3.0m_iou_non_free,0.938936
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_1.5-3.0m_precision,0.873636
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_1.5-3.0m_recall,0.907216
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_3.0-4.0m_iou_free,0.78181
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_3.0-4.0m_iou_non_free,0.949624
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_3.0-4.0m_precision,0.869968
+source_prior,SynWoodScape pretrain,2,source_prior_s2,100,ring_3.0-4.0m_recall,0.881822
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,iou_free,0.810461
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,iou_non_free,0.943543
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,precision,0.880316
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,recall,0.912377
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_10cm,0.584612
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_20cm,0.813374
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_30cm,0.88218
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_10cm_precision,0.556778
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_10cm_recall,0.623881
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_20cm_precision,0.768635
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_20cm_recall,0.872949
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_30cm_precision,0.840286
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,bf_30cm_recall,0.93796
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_0.0-1.5m_iou_free,0.840586
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_0.0-1.5m_iou_non_free,0.921954
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_0.0-1.5m_precision,0.891836
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_0.0-1.5m_recall,0.937682
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_1.5-3.0m_iou_free,0.80453
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_1.5-3.0m_iou_non_free,0.939655
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_1.5-3.0m_precision,0.876886
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_1.5-3.0m_recall,0.908363
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_3.0-4.0m_iou_free,0.787096
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_3.0-4.0m_iou_non_free,0.950782
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_3.0-4.0m_precision,0.866391
+source_prior,SynWoodScape pretrain,3,source_prior_s3,100,ring_3.0-4.0m_recall,0.896831
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,iou_free,0.809858
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,iou_non_free,0.943002
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,precision,0.876597
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,recall,0.914845
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_10cm,0.586207
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_20cm,0.819947
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_30cm,0.893733
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_10cm_precision,0.557645
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_10cm_recall,0.627285
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_20cm_precision,0.774256
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_20cm_recall,0.883189
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_30cm_precision,0.849838
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,bf_30cm_recall,0.95301
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_0.0-1.5m_iou_free,0.842368
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_0.0-1.5m_iou_non_free,0.922983
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_0.0-1.5m_precision,0.890132
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_0.0-1.5m_recall,0.942071
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_1.5-3.0m_iou_free,0.801931
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_1.5-3.0m_iou_non_free,0.938237
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_1.5-3.0m_precision,0.869788
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_1.5-3.0m_recall,0.912781
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_3.0-4.0m_iou_free,0.786378
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_3.0-4.0m_iou_non_free,0.950141
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_3.0-4.0m_precision,0.868536
+source_prior,SynWoodScape pretrain,4,source_prior_s4,100,ring_3.0-4.0m_recall,0.894222
