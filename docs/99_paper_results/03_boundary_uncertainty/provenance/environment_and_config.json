@@ -1,6 +1,6 @@
 {
   "experiment": "03_boundary_uncertainty",
-  "git_commit": "d6751cd15595fc1b94bc61ff1fa6be37f8715c45",
+  "git_commit": "4a24a1177dee6b5d964a020e52a1c337b5a93306",
   "runtime_of_analysis": {
     "python": "3.11.15",
     "conda_env": "bev-chamdog"

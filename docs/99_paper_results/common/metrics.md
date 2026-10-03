@@ -6,9 +6,9 @@
 
 ## 1. 지표 정의
 
-> **[2026-10-02] 지표를 바꿨다(사용자 확정).** 아래가 **다음 캠페인부터의 정의**다. 지금 이
-> 폴더의 CSV는 아직 옛 지표(`fatal_rate`·`free_miss_rate`·`occupied_f1_{10,20,40}cm`·
-> `range_*`, IoU 말고는 micro)로 나와 있고 다음 캠페인에서 재생성된다. 수식·집계 규칙은
+> **[2026-10-02] 지표를 바꿨다(사용자 확정).** 이 폴더(`docs/99_paper_results/`)의 CSV는 전부
+> 이 정의로 나왔다(캠페인 v3, 2026-10-03). 옛 패키지 `docs/paper_package/`는 옛 지표
+> (`fatal_rate`·`free_miss_rate`·`occupied_f1_{10,20,40}cm`·`range_*`)라 숫자를 섞지 않는다. 수식·집계 규칙은
 > [`evaluation_protocol.md`](evaluation_protocol.md) §4~§5, 코드 정본은
 > `projects/common/metric_spec.py`.
 
@@ -59,7 +59,8 @@
 | BF@τ는 "라벨과의 일치도"라고 명시 | 라벨이 LiDAR + 사람 보정이다 ([`setup.md`](setup.md) §3) |
 | **SD를 쓰고 SE를 쓰지 않는다** | 특히 LOSO fold는 학습 데이터를 6/7씩 공유해 독립 표본이 아니다. `SD/√7`은 표준오차가 아니다 |
 | 소수 3자리, SD도 같은 자리 | 시드 SD가 0.002 수준이라 4자리는 표만 지저분해진다 |
-| epoch 40 고정을 프로토콜로 선언, best-epoch은 각주 | 둘 차이가 실측 0.0007이라 각주 한 줄로 방어된다 |
+| **마지막 epoch(100) 고정**을 프로토콜로 선언, best-epoch은 각주 | 고정 split에서 둘 차이가 `iou_free` 0.0005다(`01_overall`). 단 실험 03의 CE 칸은 다르다 — 그 REPORT 참조 |
+| **유의성은 `*`로만 표시** | 시드로 짝지은 양측 t-검정의 95 % 신뢰구간이 0을 빼면 그 칸에 `*`. 지표마다 따로 검정하고 다중비교 보정은 하지 않는다. CI·p값은 `paired_differences.csv` 등에만 둔다 (`evaluation_protocol.md`) |
 | 시드 산포는 SD와 **n을 함께** | n=5임을 표 각주에 |
 
 ## 5. 본문에 꼭 넣을 단서

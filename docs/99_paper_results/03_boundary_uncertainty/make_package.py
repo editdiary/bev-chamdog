@@ -366,9 +366,34 @@ def main(root=DEFAULT_ROOT, out_dir=HERE, rerun_twin=DEFAULT_RERUN_TWIN, seeds=N
         header += [f"{name}_at_anchor_mean", f"{name}_at_anchor_sd"]
     _write(data / "table5_threshold_dispersion.csv", header, rows)
 
+    # --- 5c. 같은 recall에서의 짝지은 차이 -----------------------------------------------------
+    # tau=0.5의 차이(paired_differences.csv) 중 동작점 이동이 아닌 몫을 가르는 표다. 앵커마다
+    # 시드별로 보간한 값을 짝지어 같은 t-검정을 건다(판정 규약은 6.과 같다).
+    rows = []
+    for arm, control, role in PAIRS:
+        for anchor in anchors:
+            for column, name in ANCHORED[1:]:
+                diffs = []
+                for s in SEEDS:
+                    a_val = _interp(curves[(arm, s)], anchor, column)
+                    c_val = _interp(curves[(control, s)], anchor, column)
+                    diffs.append(None if a_val is None or c_val is None else a_val - c_val)
+                test = paired_test(diffs)
+                agree = sum(1 for d in diffs if d is not None and d * test["mean"] > 0)
+                rows.append([arm, control, role, _round(anchor), name, test["n"],
+                             _round(test["mean"]), _round(test["sd"]),
+                             _round(test["ci_low"]), _round(test["ci_high"]),
+                             _round(test["p"], 5), test["significant"],
+                             f"{agree}/{test['n']}", verdict(test, True)]
+                            + [_round(d) for d in diffs])
+    _write(data / "matched_recall_paired.csv",
+           ["arm", "control", "role", "recall_anchor", "metric", "n", "paired_diff_mean",
+            "paired_diff_sd", "ci95_low", "ci95_high", "p_value", "significant",
+            "sign_agreement", "verdict"] + [f"diff_seed{s}" for s in SEEDS], rows)
+
     # --- 6. 짝지은 차이 (주 통계) ---------------------------------------------------------
-    # 판정 규약(캠페인 공통): **|평균 Δ| > sigma_seed(대조군)** 이고 동시에 **|평균 Δ| >= 2*SE**.
-    # n=5에서 p값은 만들지 않는다.
+    # 판정 규약(2026-10-02 사용자 확정): 시드로 짝지은 양측 t-검정의 95 % 신뢰구간이 0을
+    # 포함하지 않으면 유의. 옛 두-문턱 규칙(sigma_seed · 2 SE)은 쓰지 않는다.
     rows = []
     for arm, control, role in PAIRS:
         for _, label, higher_is_better in METRICS:

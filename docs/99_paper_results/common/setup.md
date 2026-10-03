@@ -44,7 +44,7 @@ space**, 즉 위에서 내려다본 격자에서 "지금 갈 수 있는 칸"을 
 라벨은 **LiDAR/LIO-SLAM으로 만든 뒤 사람이 수동 보정**한 것이다. 보정 기준은 저장소에
 기록돼 있지 않다.
 
-따라서 **절대적인 경계 오차는 측정할 수 없다.** `f1@10/20/40cm` 같은 경계 지표는 전부
+따라서 **절대적인 경계 오차는 측정할 수 없다.** BF@{0.10, 0.20, 0.30} m 같은 경계 지표는 전부
 "라벨과의 일치도"이지 물리적 정확도가 아니다. 논문에서 그렇게 쓴다.
 
 같은 이유로 **시퀀스별 라벨 품질 차이를 분리할 수 없다.** fold 간 성능 차이를 해석할 때
@@ -52,7 +52,7 @@ space**, 즉 위에서 내려다본 격자에서 "지금 갈 수 있는 칸"을 
 
 ## 4. 동결 모델 설정
 
-`paper_final`의 모든 실험이 이 설정을 공유한다. 실험이 바꾸는 축만 각 `REPORT.md`에 적는다.
+캠페인 v3(`runs/99_full_campaign`)의 모든 실험이 이 설정을 공유한다(실험 03은 loss 축만 바꾼다). 실험이 바꾸는 축만 각 `REPORT.md`에 적는다.
 
 | 축 | 값 |
 |---|---|
@@ -62,16 +62,16 @@ space**, 즉 위에서 내려다본 격자에서 "지금 갈 수 있는 칸"을 
 | 특징 표본 | `pixel_center`, offset 0 |
 | loss | soft-boundary, gaussian target |
 | boundary | `δ=0.30`, `σ=0.10`, `λ_B=0.5`, `κ=1.0`, `label_eps=0.0` |
-| range 보조항 | **`arc_huber` 형태**, `λ_R=0.3`, `δ_R=0.15`(대칭), Huber `β=0.15` — **논문에 형태를 명시할 것**, 이유는 [`training_details.md`](training_details.md) §9.2 |
-| 최적화 | AdamW, lr 1e-4, weight decay 1e-7, batch 8, **40 epochs** |
+| range 보조항 | **없음** (`λ_R=0`, 2026-10-02 사용자 결정). `config.json`에 남은 `range_loss_mode`는 쓰이지 않는다 |
+| 최적화 | AdamW, lr 1e-4, weight decay 1e-7, batch 8, **100 epochs** (사전학습도 100) |
 | 증강 | photometric on, flip off |
-| 주 체크포인트 | **고정 epoch 40** (validation-best는 진단용으로만 병기) |
+| 주 체크포인트 | **고정 epoch 100 = 마지막** (validation-best는 진단용으로만 병기) |
 | 학습 시드 | 0, 1, 2, 3, 4 |
 
 **용어 주의.** 논문에서 이 설정을 `scratch`로 줄여 부를 경우, 실제 의미는 완전 무작위
 초기화가 아니라 **target-only training without BEV pretraining**이다. 그렇게 명시한다.
 
-**고정 epoch 40을 쓰는 이유.** validation으로 epoch을 고르면 평가 대상에 맞춰 고르는
+**고정 epoch을 쓰는 이유.** validation으로 epoch을 고르면 평가 대상에 맞춰 고르는
 선택 편향이 생긴다. LOSO에서는 특히 그렇다(held-out 시퀀스가 곧 평가 대상이다).
 
 ## 5. 실행 환경
@@ -91,7 +91,7 @@ space**, 즉 위에서 내려다본 격자에서 "지금 갈 수 있는 칸"을 
 
 모든 실험이 같은 게이트를 통과해야 논문 숫자로 쓴다.
 
-1. 모든 런이 epoch 40까지 완주했는가
+1. 모든 런이 epoch 100까지 완주했는가
 2. 런 이름·시드·split을 제외한 설정이 전부 같은가
 3. lifting 기하(`height.json`)가 단일 값인가
 4. **학습 로그와 별도로 저장한 확률맵을 독립 경로로 재채점했을 때 일치하는가**

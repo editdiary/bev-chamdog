@@ -124,9 +124,10 @@ def build(curves, tau50):
     ax_curve.set_ylabel("precision  ↑\n(of cells called free, fraction right)",
                         fontsize=9.5, color=INK_MUTED)
     # 점에서 화면 좌표로 띄운다 -- 데이터 좌표로 적으면 지표·런이 바뀔 때마다 엉뚱한 데 간다.
-    ax_curve.annotate("open marks: where $\\tau = 0.5$\nlands on the same curve",
+    # 아래로 띄운다 -- 위로 띄우면 C_soft의 τ=0.5 표식(가장 높은 점)과 겹친다(2026-10-03).
+    ax_curve.annotate("open marks:\nwhere $\\tau = 0.5$\nlands",
                       xy=(tau50["A_ce"][0], tau50["A_ce"][1]),
-                      xytext=(18, 40), textcoords="offset points", fontsize=8.8,
+                      xytext=(14, -40), textcoords="offset points", fontsize=8.8,
                       color=INK_MUTED, ha="left", va="top",
                       arrowprops=dict(arrowstyle="->", color=INK_MUTED, linewidth=1.0,
                                       connectionstyle="arc3,rad=0.25"))
