@@ -1,0 +1,5 @@
+cell,cell_label,aggregation,boundary_target,aux_range_term,iou_free_mean,iou_free_sd,iou_non_free_mean,iou_non_free_sd,precision_mean,precision_sd,recall_mean,recall_sd,bf_10cm_mean,bf_10cm_sd,bf_20cm_mean,bf_20cm_sd,bf_30cm_mean,bf_30cm_sd
+A_ce,Weighted CE (baseline),inverse-frequency class weights,hard (all cells),none,0.806952,0.001409,0.941616,0.00057,0.873895,0.001696,0.91464,0.001923,0.61766,0.004738,0.837147,0.004018,0.896537,0.002844
+B_perset,Per-set mean (no boundary term),per-set mean,none (band unsupervised),none,0.673898,0.014635,0.892821,0.007625,0.69187,0.018064,0.969851,0.005547,0.197087,0.036014,0.466045,0.049874,0.662431,0.04058
+C_hard,"+ boundary term, hard target",per-set mean,hard 0/1,none,0.805756,0.001206,0.941436,0.000806,0.876206,0.001248,0.910607,0.001806,0.616088,0.005097,0.835721,0.003263,0.895315,0.001585
+C_soft,+ soft boundary target (proposed),per-set mean,"soft (Gaussian, sigma=0.10 m)",none,0.815213,0.00133,0.945107,0.000727,0.881939,0.002012,0.916756,0.001501,0.611267,0.004772,0.836745,0.006727,0.901917,0.003857

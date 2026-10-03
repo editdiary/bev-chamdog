@@ -1,0 +1,2 @@
+dataset,n_samples,grid,cell_m,observed_pct_of_grid,free_pct_of_observed,ego_cells,manual_refinement,visibility_rule
+synwoodscape_native_roi_15_15_15_h08,500,200x200,0.15,82.51,60.58,277,False,"gather column visibility, z=0..0.8 m, ego excluded"

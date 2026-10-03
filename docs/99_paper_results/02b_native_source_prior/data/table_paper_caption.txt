@@ -1,0 +1,1 @@
+Values are mean ± SD over 5 seeds at the fixed final epoch. * marks a significant difference from the control (two-sided paired t-test over seeds, 95% confidence interval excluding 0; each metric tested separately, no correction for multiple comparisons). Control: trained from scratch on the target data.

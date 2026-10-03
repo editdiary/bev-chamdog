@@ -1,0 +1,4 @@
+arm,hfov_deg,bev_coverage_pct,front_px_per_deg,iou_free_mean,iou_free_sd,margin_vs_constant_map,paired_diff_mean,paired_diff_sd,ci95_low,ci95_high,p_value,significant,sign_agreement
+DS-native (frozen),,99.8,2.55,0.815779,0.000377,0.297756,,,,,,,
+Undistort + pinhole 150deg,150,96.7,1.2,0.808396,0.000883,0.290372,-0.007383,0.000996,-0.00862,-0.006147,8e-05,True,5/5
+Undistort + pinhole 120deg,120,93.1,2.58,0.802935,0.002258,0.284912,-0.012843,0.002035,-0.01537,-0.010316,0.00015,True,5/5

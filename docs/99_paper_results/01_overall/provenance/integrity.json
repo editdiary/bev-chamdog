@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "fixed_split": {
+    "passed": true,
+    "n_prediction_files": 10,
+    "max_abs_diff": 0.000579833984375,
+    "failures": [],
+    "sources": [
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/99_full_campaign/01_overall/fixed_split/analysis/verify_predictions.json"
+    ],
+    "incomplete_runs": [],
+    "structural_failures": []
+  },
+  "loso": {
+    "passed": true,
+    "n_prediction_files": 70,
+    "max_abs_diff": 0.0007051145476949516,
+    "failures": [],
+    "sources": [
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/99_full_campaign/01_overall/loso/analysis/verify_predictions_raws1.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/99_full_campaign/01_overall/loso/analysis/verify_predictions_raws2.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/99_full_campaign/01_overall/loso/analysis/verify_predictions_raws3.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/99_full_campaign/01_overall/loso/analysis/verify_predictions_rawos1.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/99_full_campaign/01_overall/loso/analysis/verify_predictions_rawos2.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/99_full_campaign/01_overall/loso/analysis/verify_predictions_rawos3.json",
+      "/data/home/dhlee/Desktop/bev-chamdog/runs/99_full_campaign/01_overall/loso/analysis/verify_predictions_rawos4.json"
+    ],
+    "incomplete_runs": [],
+    "structural_failures": []
+  }
+}

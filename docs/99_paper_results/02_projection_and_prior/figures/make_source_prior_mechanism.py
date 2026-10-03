@@ -114,8 +114,10 @@ def main(formats="pdf,png,svg", dpi: int = 400, stem="fig2_source_prior_mechanis
                      fontsize=8, color=INK, linespacing=1.35,
                      arrowprops=dict(arrowstyle="-", color=INK_MUTED, linewidth=0.9))
 
-    fig.suptitle("Synthetic pretraining transfers a habit of being confident everywhere "
-                 "— and it washes out by epoch 3",
+    # [2026-10-03] 옛 제목 "it washes out by epoch 3"은 캠페인 v3에서 틀렸다 -- 초반 과신은
+    # 3 epoch에 사라지지만 epoch 100에서도 `iou_free`·BF가 대조군보다 유의하게 낮다.
+    fig.suptitle("Synthetic pretraining starts over-confident; the early gap closes by epoch 3, "
+                 "but a deficit remains at the end",
                  fontsize=10.5, color=INK, x=0.01, ha="left", y=1.02)
     fig.legend(handles=[
         Line2D([], [], color=color, linewidth=2.0, label=label)

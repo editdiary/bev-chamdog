@@ -1,0 +1,3 @@
+domain,grid,n_samples,free_pct_of_grid,free_pct_of_observed,observed_pct_of_grid
+synwoodscape_source,240x240 / front 8 / rear 4 / lateral +-6 m / 5 cm,500,82.18,87.61,93.8
+robot_target,120x120 / front 4 / rear 2 / lateral +-3 m / 5 cm,267,26.43,95.07,27.8

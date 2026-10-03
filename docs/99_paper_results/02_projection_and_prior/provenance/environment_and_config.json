@@ -1,0 +1,59 @@
+{
+  "experiment": "02_projection_and_prior",
+  "git_commit": "d6751cd15595fc1b94bc61ff1fa6be37f8715c45",
+  "runtime": {
+    "python": "3.11.15",
+    "torch": "2.7.0+cu128",
+    "numpy": "1.26.4",
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+    "conda_env": "bev-chamdog"
+  },
+  "protocol": {
+    "split": "fixed (train raws2,raws3,rawos1,rawos2,rawos4 = 192 frames; val raws1,rawos3 = 75 frames)",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "epoch": 100,
+    "control": "reused from runs/99_full_campaign/01_overall/fixed_split/logs (paired by seed)",
+    "constant_map_baseline_iou_free": 0.5180230692525705
+  },
+  "arms": {
+    "control": {
+      "label": "DS-native (frozen)",
+      "hfov_deg": null,
+      "coverage_pct": 99.8,
+      "front_px_per_deg": 2.55,
+      "edge_px_per_deg": 1.96
+    },
+    "pinhole120": {
+      "label": "Undistort + pinhole 120deg",
+      "hfov_deg": 120.0,
+      "coverage_pct": 93.1,
+      "front_px_per_deg": 2.58,
+      "edge_px_per_deg": 10.32
+    },
+    "pinhole150": {
+      "label": "Undistort + pinhole 150deg",
+      "hfov_deg": 150.0,
+      "coverage_pct": 96.7,
+      "front_px_per_deg": 1.2,
+      "edge_px_per_deg": 17.87
+    },
+    "source_prior": {
+      "label": "SynWoodScape pretrain",
+      "hfov_deg": null,
+      "coverage_pct": 99.8,
+      "front_px_per_deg": 2.55,
+      "edge_px_per_deg": 1.96
+    }
+  },
+  "statistics": {
+    "rule": "two-sided paired t-test over seeds (df = n-1); significant iff the 95% confidence interval of the mean paired difference excludes 0",
+    "definition": "projects/common/paired_stats.py",
+    "multiple_comparisons": "each metric tested separately, no correction"
+  }
+}

@@ -1,0 +1,61 @@
+arm,control,role,recall_anchor,metric,n,paired_diff_mean,paired_diff_sd,ci95_low,ci95_high,p_value,significant,sign_agreement,verdict,diff_seed0,diff_seed1,diff_seed2,diff_seed3,diff_seed4
+C_soft,A_ce,main: proposed vs baseline,0.926802,precision,5,0.00448,0.002095,0.001879,0.007081,0.00876,True,5/5,arm better,0.006729,0.005809,0.001224,0.004512,0.004125
+C_soft,A_ce,main: proposed vs baseline,0.926802,bf_10cm,5,-0.014271,0.001996,-0.01675,-0.011793,9e-05,True,5/5,control better,-0.013132,-0.015267,-0.017335,-0.012816,-0.012807
+C_soft,A_ce,main: proposed vs baseline,0.926802,iou_free,5,0.004069,0.001741,0.001907,0.006231,0.0064,True,5/5,arm better,0.005849,0.004974,0.001233,0.004345,0.003945
+C_soft,A_ce,main: proposed vs baseline,0.929567,precision,5,0.004422,0.002107,0.001806,0.007038,0.00936,True,5/5,arm better,0.00683,0.005705,0.001256,0.004432,0.003887
+C_soft,A_ce,main: proposed vs baseline,0.929567,bf_10cm,5,-0.017219,0.001637,-0.019252,-0.015186,2e-05,True,5/5,control better,-0.018737,-0.017275,-0.01841,-0.017095,-0.014576
+C_soft,A_ce,main: proposed vs baseline,0.929567,iou_free,5,0.004034,0.001736,0.001878,0.00619,0.00654,True,5/5,arm better,0.005954,0.004897,0.001298,0.004274,0.003745
+C_soft,A_ce,main: proposed vs baseline,0.932333,precision,5,0.003715,0.002509,0.000599,0.00683,0.02964,True,5/5,arm better,0.00636,0.005764,0.000114,0.003629,0.002708
+C_soft,A_ce,main: proposed vs baseline,0.932333,bf_10cm,5,-0.023372,0.002821,-0.026875,-0.019868,5e-05,True,5/5,control better,-0.025482,-0.018961,-0.025114,-0.025189,-0.022111
+C_soft,A_ce,main: proposed vs baseline,0.932333,iou_free,5,0.003354,0.002122,0.000719,0.005989,0.02413,True,5/5,arm better,0.005538,0.004984,0.000194,0.003468,0.002588
+C_soft,A_ce,main: proposed vs baseline,0.935098,precision,5,0.00291,0.00253,-0.000231,0.006052,0.06184,False,4/5,no significant difference (95% CI includes 0),0.005251,0.004957,-0.00099,0.003217,0.002117
+C_soft,A_ce,main: proposed vs baseline,0.935098,bf_10cm,5,-0.031731,0.002781,-0.035184,-0.028279,1e-05,True,5/5,control better,-0.034197,-0.02815,-0.034192,-0.03265,-0.029468
+C_soft,A_ce,main: proposed vs baseline,0.935098,iou_free,5,0.002578,0.002158,-0.000101,0.005257,0.05571,False,4/5,no significant difference (95% CI includes 0),0.004495,0.004191,-0.000855,0.003059,0.002
+C_soft,A_ce,main: proposed vs baseline,0.937864,precision,5,0.002226,0.002604,-0.001007,0.00546,0.1285,False,4/5,no significant difference (95% CI includes 0),0.004142,0.00432,-0.002094,0.002804,0.00196
+C_soft,A_ce,main: proposed vs baseline,0.937864,bf_10cm,5,-0.039585,0.0037,-0.044179,-0.034992,2e-05,True,5/5,control better,-0.042911,-0.03667,-0.04327,-0.040111,-0.034966
+C_soft,A_ce,main: proposed vs baseline,0.937864,iou_free,5,0.001933,0.002251,-0.000862,0.004729,0.12725,False,4/5,no significant difference (95% CI includes 0),0.003452,0.003587,-0.001903,0.002651,0.00188
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.926802,precision,5,0.010073,0.003539,0.005679,0.014467,0.00312,True,5/5,arm better,0.007743,0.013986,0.005516,0.013002,0.01012
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.926802,bf_10cm,5,-0.007425,0.00535,-0.014069,-0.000782,0.03611,True,4/5,control better,-0.00665,-0.013704,-0.008463,0.000945,-0.009254
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.926802,iou_free,5,0.008666,0.00294,0.005016,0.012316,0.00274,True,5/5,arm better,0.006481,0.011946,0.005053,0.01111,0.008741
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.929567,precision,5,0.010806,0.003448,0.006524,0.015087,0.00218,True,5/5,arm better,0.007899,0.01461,0.006703,0.013562,0.011253
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.929567,bf_10cm,5,-0.009487,0.004879,-0.015544,-0.003429,0.01217,True,5/5,control better,-0.010716,-0.015392,-0.011089,-0.002111,-0.008125
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.929567,iou_free,5,0.009371,0.002854,0.005827,0.012915,0.00183,True,5/5,arm better,0.006685,0.012531,0.00618,0.011597,0.009863
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.932333,precision,5,0.011659,0.004587,0.005963,0.017355,0.00473,True,5/5,arm better,0.007442,0.016655,0.006642,0.015687,0.011868
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.932333,bf_10cm,5,-0.012391,0.006761,-0.020786,-0.003997,0.01487,True,5/5,control better,-0.017318,-0.010597,-0.019478,-0.002139,-0.012423
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.932333,iou_free,5,0.010143,0.003917,0.00528,0.015006,0.00442,True,5/5,arm better,0.006293,0.01446,0.00606,0.013482,0.010419
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.935098,precision,5,0.012859,0.006658,0.004592,0.021125,0.01246,True,5/5,arm better,0.006738,0.017495,0.006234,0.021473,0.012354
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.935098,bf_10cm,5,-0.015514,0.014842,-0.033942,0.002914,0.07961,False,4/5,no significant difference (95% CI includes 0),-0.025341,-0.013978,-0.02947,0.008647,-0.017427
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.935098,iou_free,5,0.011217,0.00583,0.003978,0.018455,0.01262,True,5/5,arm better,0.005665,0.015166,0.005592,0.018816,0.010844
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.937864,precision,5,0.014647,0.008435,0.004174,0.02512,0.01779,True,5/5,arm better,0.006033,0.018329,0.008775,0.027259,0.012841
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.937864,bf_10cm,5,-0.016685,0.021124,-0.042914,0.009544,0.15211,False,4/5,no significant difference (95% CI includes 0),-0.033363,-0.017391,-0.029675,0.019433,-0.022432
+C_soft,C_hard,mechanism: soft vs hard band target (only knob),0.937864,iou_free,5,0.012854,0.007489,0.003556,0.022153,0.01849,True,5/5,arm better,0.005037,0.015867,0.00795,0.02415,0.011269
+C_hard,A_ce,mechanism: aggregation only (both hard),0.926802,precision,5,-0.005593,0.003078,-0.009415,-0.001772,0.0153,True,5/5,control better,-0.001014,-0.008177,-0.004291,-0.00849,-0.005995
+C_hard,A_ce,mechanism: aggregation only (both hard),0.926802,bf_10cm,5,-0.006846,0.004765,-0.012763,-0.00093,0.03251,True,5/5,control better,-0.006482,-0.001563,-0.008873,-0.013761,-0.003552
+C_hard,A_ce,mechanism: aggregation only (both hard),0.926802,iou_free,5,-0.004597,0.002584,-0.007805,-0.001389,0.01642,True,5/5,control better,-0.000632,-0.006971,-0.00382,-0.006765,-0.004797
+C_hard,A_ce,mechanism: aggregation only (both hard),0.929567,precision,5,-0.006384,0.003316,-0.010501,-0.002266,0.0126,True,5/5,control better,-0.001069,-0.008905,-0.005447,-0.00913,-0.007366
+C_hard,A_ce,mechanism: aggregation only (both hard),0.929567,bf_10cm,5,-0.007732,0.004709,-0.013579,-0.001885,0.02136,True,5/5,control better,-0.008021,-0.001883,-0.007321,-0.014984,-0.006451
+C_hard,A_ce,mechanism: aggregation only (both hard),0.929567,iou_free,5,-0.005337,0.002795,-0.008808,-0.001867,0.01295,True,5/5,control better,-0.000731,-0.007634,-0.004882,-0.007323,-0.006117
+C_hard,A_ce,mechanism: aggregation only (both hard),0.932333,precision,5,-0.007944,0.004364,-0.013362,-0.002526,0.01521,True,5/5,control better,-0.001083,-0.010891,-0.006528,-0.012058,-0.00916
+C_hard,A_ce,mechanism: aggregation only (both hard),0.932333,bf_10cm,5,-0.01098,0.006905,-0.019553,-0.002407,0.02367,True,5/5,control better,-0.008164,-0.008364,-0.005636,-0.02305,-0.009688
+C_hard,A_ce,mechanism: aggregation only (both hard),0.932333,iou_free,5,-0.006788,0.00374,-0.011433,-0.002144,0.01537,True,5/5,control better,-0.000756,-0.009476,-0.005866,-0.010015,-0.00783
+C_hard,A_ce,mechanism: aggregation only (both hard),0.935098,precision,5,-0.009948,0.006221,-0.017673,-0.002224,0.02326,True,5/5,control better,-0.001487,-0.012537,-0.007225,-0.018256,-0.010237
+C_hard,A_ce,mechanism: aggregation only (both hard),0.935098,bf_10cm,5,-0.016217,0.014465,-0.034178,0.001743,0.06627,False,5/5,no significant difference (95% CI includes 0),-0.008856,-0.014172,-0.004722,-0.041297,-0.01204
+C_hard,A_ce,mechanism: aggregation only (both hard),0.935098,iou_free,5,-0.008638,0.005402,-0.015347,-0.00193,0.02326,True,5/5,control better,-0.00117,-0.010975,-0.006447,-0.015757,-0.008843
+C_hard,A_ce,mechanism: aggregation only (both hard),0.937864,precision,5,-0.012421,0.008109,-0.022489,-0.002353,0.02665,True,5/5,control better,-0.001891,-0.01401,-0.010869,-0.024455,-0.010881
+C_hard,A_ce,mechanism: aggregation only (both hard),0.937864,bf_10cm,5,-0.0229,0.020786,-0.048709,0.002909,0.06943,False,5/5,no significant difference (95% CI includes 0),-0.009548,-0.019279,-0.013595,-0.059544,-0.012534
+C_hard,A_ce,mechanism: aggregation only (both hard),0.937864,iou_free,5,-0.010921,0.007148,-0.019797,-0.002045,0.02687,True,5/5,control better,-0.001585,-0.01228,-0.009853,-0.021499,-0.009389
+B_perset,A_ce,aggregation + band removal,0.926802,precision,5,-0.07373,0.017456,-0.095404,-0.052056,0.0007,True,5/5,control better,-0.069528,-0.099737,-0.069806,-0.05157,-0.078008
+B_perset,A_ce,aggregation + band removal,0.926802,bf_10cm,5,-0.256746,0.05926,-0.330327,-0.183164,0.00064,True,5/5,control better,-0.253591,-0.343619,-0.217702,-0.189866,-0.278949
+B_perset,A_ce,aggregation + band removal,0.926802,iou_free,5,-0.067927,0.017167,-0.089242,-0.046611,0.0009,True,5/5,control better,-0.065316,-0.093301,-0.061804,-0.046337,-0.072876
+B_perset,A_ce,aggregation + band removal,0.929567,precision,5,-0.07452,0.018226,-0.09715,-0.051889,0.00079,True,5/5,control better,-0.069948,-0.101799,-0.071369,-0.051278,-0.078206
+B_perset,A_ce,aggregation + band removal,0.929567,bf_10cm,5,-0.260454,0.060334,-0.335369,-0.185539,0.00064,True,5/5,control better,-0.257676,-0.349144,-0.222298,-0.191348,-0.281804
+B_perset,A_ce,aggregation + band removal,0.929567,iou_free,5,-0.068967,0.017894,-0.091185,-0.046748,0.001,True,5/5,control better,-0.065904,-0.095637,-0.063515,-0.046369,-0.073409
+B_perset,A_ce,aggregation + band removal,0.932333,precision,5,-0.0752,0.018984,-0.098772,-0.051628,0.0009,True,5/5,control better,-0.070379,-0.103697,-0.072857,-0.050874,-0.078194
+B_perset,A_ce,aggregation + band removal,0.932333,bf_10cm,5,-0.263644,0.061365,-0.339839,-0.18745,0.00066,True,5/5,control better,-0.260474,-0.354347,-0.22676,-0.192591,-0.28405
+B_perset,A_ce,aggregation + band removal,0.932333,iou_free,5,-0.069895,0.018611,-0.093004,-0.046786,0.0011,True,5/5,control better,-0.06653,-0.097808,-0.065148,-0.046275,-0.073714
+B_perset,A_ce,aggregation + band removal,0.935098,precision,5,-0.075667,0.019724,-0.100157,-0.051177,0.00101,True,5/5,control better,-0.071059,-0.105256,-0.074476,-0.05008,-0.077464
+B_perset,A_ce,aggregation + band removal,0.935098,bf_10cm,5,-0.266504,0.062257,-0.343806,-0.189202,0.00067,True,5/5,control better,-0.263621,-0.358877,-0.231411,-0.1932,-0.285412
+B_perset,A_ce,aggregation + band removal,0.935098,iou_free,5,-0.070631,0.019297,-0.094591,-0.04667,0.00121,True,5/5,control better,-0.067439,-0.099636,-0.066977,-0.045783,-0.07332
+B_perset,A_ce,aggregation + band removal,0.937864,precision,5,-0.076021,0.020438,-0.101398,-0.050644,0.00114,True,5/5,control better,-0.071738,-0.106641,-0.076139,-0.049286,-0.076302
+B_perset,A_ce,aggregation + band removal,0.937864,bf_10cm,5,-0.268842,0.062811,-0.346832,-0.190852,0.00067,True,5/5,control better,-0.266768,-0.362706,-0.236012,-0.193809,-0.284915
+B_perset,A_ce,aggregation + band removal,0.937864,iou_free,5,-0.071245,0.019942,-0.096006,-0.046484,0.00133,True,5/5,control better,-0.068347,-0.10127,-0.068858,-0.045291,-0.072457

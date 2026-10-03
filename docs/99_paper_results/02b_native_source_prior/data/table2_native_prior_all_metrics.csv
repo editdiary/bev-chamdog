@@ -1,0 +1,8 @@
+metric,better_direction,target_only_mean,native_pretrained_mean,paired_diff_mean,paired_diff_se,abs_mean_over_se,sign_agreement,ci95_low,ci95_high,p_value,significant,verdict
+iou_free,higher,0.815779,0.804816,-0.010963,0.001445,7.588,5/5,-0.014974,-0.006952,0.00162,True,control better
+iou_non_free,higher,0.945432,0.941826,-0.003605,0.000691,5.216,5/5,-0.005524,-0.001686,0.00644,True,control better
+precision,higher,0.882551,0.87543,-0.00712,0.001421,5.012,5/5,-0.011064,-0.003176,0.00743,True,control better
+recall,higher,0.916802,0.910046,-0.006756,0.001629,4.147,5/5,-0.01128,-0.002233,0.01429,True,control better
+bf_10cm,higher,0.614129,0.579677,-0.034452,0.004149,8.303,5/5,-0.045972,-0.022932,0.00115,True,control better
+bf_20cm,higher,0.839366,0.816551,-0.022815,0.002825,8.077,5/5,-0.030657,-0.014972,0.00128,True,control better
+bf_30cm,higher,0.903668,0.888628,-0.015039,0.003436,4.377,5/5,-0.024579,-0.005499,0.0119,True,control better

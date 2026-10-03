@@ -1,0 +1,1213 @@
+cell,cell_label,metric,epoch,mean,sd,n
+A_ce,Weighted CE (baseline),bce_free,1,0.098249,0.021889,5
+A_ce,Weighted CE (baseline),bce_free,2,0.056435,0.007311,5
+A_ce,Weighted CE (baseline),bce_free,3,0.048125,0.007305,5
+A_ce,Weighted CE (baseline),bce_free,4,0.04021,0.007187,5
+A_ce,Weighted CE (baseline),bce_free,5,0.035056,0.005227,5
+A_ce,Weighted CE (baseline),bce_free,6,0.033921,0.007036,5
+A_ce,Weighted CE (baseline),bce_free,7,0.0289,0.004915,5
+A_ce,Weighted CE (baseline),bce_free,8,0.025718,0.004053,5
+A_ce,Weighted CE (baseline),bce_free,9,0.024166,0.006388,5
+A_ce,Weighted CE (baseline),bce_free,10,0.023251,0.003804,5
+A_ce,Weighted CE (baseline),bce_free,11,0.024954,0.005126,5
+A_ce,Weighted CE (baseline),bce_free,12,0.024092,0.002517,5
+A_ce,Weighted CE (baseline),bce_free,13,0.026003,0.005067,5
+A_ce,Weighted CE (baseline),bce_free,14,0.025261,0.001755,5
+A_ce,Weighted CE (baseline),bce_free,15,0.024567,0.003907,5
+A_ce,Weighted CE (baseline),bce_free,16,0.028038,0.004216,5
+A_ce,Weighted CE (baseline),bce_free,17,0.026262,0.00523,5
+A_ce,Weighted CE (baseline),bce_free,18,0.0287,0.005199,5
+A_ce,Weighted CE (baseline),bce_free,19,0.026646,0.006135,5
+A_ce,Weighted CE (baseline),bce_free,20,0.026969,0.002208,5
+A_ce,Weighted CE (baseline),bce_free,21,0.029458,0.004441,5
+A_ce,Weighted CE (baseline),bce_free,22,0.030802,0.005184,5
+A_ce,Weighted CE (baseline),bce_free,23,0.029124,0.00373,5
+A_ce,Weighted CE (baseline),bce_free,24,0.032638,0.002572,5
+A_ce,Weighted CE (baseline),bce_free,25,0.02993,0.004262,5
+A_ce,Weighted CE (baseline),bce_free,26,0.034672,0.004108,5
+A_ce,Weighted CE (baseline),bce_free,27,0.033564,0.007176,5
+A_ce,Weighted CE (baseline),bce_free,28,0.03073,0.002561,5
+A_ce,Weighted CE (baseline),bce_free,29,0.032578,0.00341,5
+A_ce,Weighted CE (baseline),bce_free,30,0.036359,0.00163,5
+A_ce,Weighted CE (baseline),bce_free,31,0.031666,0.003939,5
+A_ce,Weighted CE (baseline),bce_free,32,0.032527,0.00324,5
+A_ce,Weighted CE (baseline),bce_free,33,0.036935,0.003267,5
+A_ce,Weighted CE (baseline),bce_free,34,0.035414,0.005502,5
+A_ce,Weighted CE (baseline),bce_free,35,0.037533,0.004079,5
+A_ce,Weighted CE (baseline),bce_free,36,0.042009,0.006443,5
+A_ce,Weighted CE (baseline),bce_free,37,0.038719,0.002369,5
+A_ce,Weighted CE (baseline),bce_free,38,0.042342,0.006092,5
+A_ce,Weighted CE (baseline),bce_free,39,0.043466,0.008636,5
+A_ce,Weighted CE (baseline),bce_free,40,0.040437,0.006215,5
+A_ce,Weighted CE (baseline),bce_free,41,0.0479,0.005673,5
+A_ce,Weighted CE (baseline),bce_free,42,0.04581,0.008285,5
+A_ce,Weighted CE (baseline),bce_free,43,0.046655,0.006437,5
+A_ce,Weighted CE (baseline),bce_free,44,0.045288,0.006668,5
+A_ce,Weighted CE (baseline),bce_free,45,0.050915,0.008818,5
+A_ce,Weighted CE (baseline),bce_free,46,0.047091,0.004266,5
+A_ce,Weighted CE (baseline),bce_free,47,0.048764,0.005792,5
+A_ce,Weighted CE (baseline),bce_free,48,0.051027,0.006577,5
+A_ce,Weighted CE (baseline),bce_free,49,0.050432,0.004774,5
+A_ce,Weighted CE (baseline),bce_free,50,0.047003,0.005304,5
+A_ce,Weighted CE (baseline),bce_free,51,0.053875,0.007801,5
+A_ce,Weighted CE (baseline),bce_free,52,0.053589,0.006082,5
+A_ce,Weighted CE (baseline),bce_free,53,0.053254,0.008561,5
+A_ce,Weighted CE (baseline),bce_free,54,0.054027,0.007459,5
+A_ce,Weighted CE (baseline),bce_free,55,0.054602,0.008509,5
+A_ce,Weighted CE (baseline),bce_free,56,0.051531,0.007529,5
+A_ce,Weighted CE (baseline),bce_free,57,0.05483,0.007243,5
+A_ce,Weighted CE (baseline),bce_free,58,0.05495,0.007354,5
+A_ce,Weighted CE (baseline),bce_free,59,0.056223,0.007828,5
+A_ce,Weighted CE (baseline),bce_free,60,0.05485,0.007443,5
+A_ce,Weighted CE (baseline),bce_free,61,0.056105,0.007104,5
+A_ce,Weighted CE (baseline),bce_free,62,0.056285,0.006455,5
+A_ce,Weighted CE (baseline),bce_free,63,0.058934,0.009339,5
+A_ce,Weighted CE (baseline),bce_free,64,0.055624,0.008954,5
+A_ce,Weighted CE (baseline),bce_free,65,0.061722,0.011246,5
+A_ce,Weighted CE (baseline),bce_free,66,0.058367,0.006875,5
+A_ce,Weighted CE (baseline),bce_free,67,0.062107,0.008929,5
+A_ce,Weighted CE (baseline),bce_free,68,0.062394,0.010147,5
+A_ce,Weighted CE (baseline),bce_free,69,0.062103,0.009663,5
+A_ce,Weighted CE (baseline),bce_free,70,0.06062,0.007654,5
+A_ce,Weighted CE (baseline),bce_free,71,0.062571,0.009069,5
+A_ce,Weighted CE (baseline),bce_free,72,0.062645,0.007868,5
+A_ce,Weighted CE (baseline),bce_free,73,0.062323,0.008526,5
+A_ce,Weighted CE (baseline),bce_free,74,0.062096,0.008284,5
+A_ce,Weighted CE (baseline),bce_free,75,0.061825,0.008271,5
+A_ce,Weighted CE (baseline),bce_free,76,0.062728,0.005966,5
+A_ce,Weighted CE (baseline),bce_free,77,0.063621,0.006006,5
+A_ce,Weighted CE (baseline),bce_free,78,0.063565,0.00699,5
+A_ce,Weighted CE (baseline),bce_free,79,0.064532,0.008247,5
+A_ce,Weighted CE (baseline),bce_free,80,0.065154,0.010313,5
+A_ce,Weighted CE (baseline),bce_free,81,0.065746,0.006364,5
+A_ce,Weighted CE (baseline),bce_free,82,0.065908,0.007776,5
+A_ce,Weighted CE (baseline),bce_free,83,0.06487,0.007715,5
+A_ce,Weighted CE (baseline),bce_free,84,0.065761,0.007407,5
+A_ce,Weighted CE (baseline),bce_free,85,0.066839,0.006934,5
+A_ce,Weighted CE (baseline),bce_free,86,0.067126,0.006276,5
+A_ce,Weighted CE (baseline),bce_free,87,0.067174,0.007321,5
+A_ce,Weighted CE (baseline),bce_free,88,0.066529,0.008714,5
+A_ce,Weighted CE (baseline),bce_free,89,0.067545,0.008189,5
+A_ce,Weighted CE (baseline),bce_free,90,0.068125,0.007951,5
+A_ce,Weighted CE (baseline),bce_free,91,0.067216,0.007349,5
+A_ce,Weighted CE (baseline),bce_free,92,0.067896,0.007997,5
+A_ce,Weighted CE (baseline),bce_free,93,0.068178,0.008728,5
+A_ce,Weighted CE (baseline),bce_free,94,0.068313,0.007417,5
+A_ce,Weighted CE (baseline),bce_free,95,0.068321,0.008056,5
+A_ce,Weighted CE (baseline),bce_free,96,0.068691,0.007872,5
+A_ce,Weighted CE (baseline),bce_free,97,0.068938,0.008162,5
+A_ce,Weighted CE (baseline),bce_free,98,0.06927,0.008152,5
+A_ce,Weighted CE (baseline),bce_free,99,0.069137,0.007312,5
+A_ce,Weighted CE (baseline),bce_free,100,0.069048,0.007834,5
+A_ce,Weighted CE (baseline),bce_non_free,1,0.31424,0.073345,5
+A_ce,Weighted CE (baseline),bce_non_free,2,0.198459,0.044899,5
+A_ce,Weighted CE (baseline),bce_non_free,3,0.153675,0.038121,5
+A_ce,Weighted CE (baseline),bce_non_free,4,0.128276,0.037229,5
+A_ce,Weighted CE (baseline),bce_non_free,5,0.117887,0.028423,5
+A_ce,Weighted CE (baseline),bce_non_free,6,0.101108,0.030758,5
+A_ce,Weighted CE (baseline),bce_non_free,7,0.087807,0.027625,5
+A_ce,Weighted CE (baseline),bce_non_free,8,0.080031,0.023657,5
+A_ce,Weighted CE (baseline),bce_non_free,9,0.074941,0.024675,5
+A_ce,Weighted CE (baseline),bce_non_free,10,0.067561,0.021382,5
+A_ce,Weighted CE (baseline),bce_non_free,11,0.063956,0.021021,5
+A_ce,Weighted CE (baseline),bce_non_free,12,0.059553,0.018166,5
+A_ce,Weighted CE (baseline),bce_non_free,13,0.058604,0.016941,5
+A_ce,Weighted CE (baseline),bce_non_free,14,0.054024,0.016341,5
+A_ce,Weighted CE (baseline),bce_non_free,15,0.055787,0.014199,5
+A_ce,Weighted CE (baseline),bce_non_free,16,0.051328,0.013009,5
+A_ce,Weighted CE (baseline),bce_non_free,17,0.050034,0.014467,5
+A_ce,Weighted CE (baseline),bce_non_free,18,0.047202,0.011689,5
+A_ce,Weighted CE (baseline),bce_non_free,19,0.046687,0.013141,5
+A_ce,Weighted CE (baseline),bce_non_free,20,0.045349,0.011841,5
+A_ce,Weighted CE (baseline),bce_non_free,21,0.042972,0.008555,5
+A_ce,Weighted CE (baseline),bce_non_free,22,0.043484,0.009856,5
+A_ce,Weighted CE (baseline),bce_non_free,23,0.045253,0.008757,5
+A_ce,Weighted CE (baseline),bce_non_free,24,0.041111,0.008651,5
+A_ce,Weighted CE (baseline),bce_non_free,25,0.040671,0.007344,5
+A_ce,Weighted CE (baseline),bce_non_free,26,0.040523,0.00537,5
+A_ce,Weighted CE (baseline),bce_non_free,27,0.039813,0.006082,5
+A_ce,Weighted CE (baseline),bce_non_free,28,0.044095,0.006364,5
+A_ce,Weighted CE (baseline),bce_non_free,29,0.038829,0.007923,5
+A_ce,Weighted CE (baseline),bce_non_free,30,0.038787,0.005158,5
+A_ce,Weighted CE (baseline),bce_non_free,31,0.039622,0.006735,5
+A_ce,Weighted CE (baseline),bce_non_free,32,0.039208,0.007218,5
+A_ce,Weighted CE (baseline),bce_non_free,33,0.038231,0.005197,5
+A_ce,Weighted CE (baseline),bce_non_free,34,0.038106,0.003712,5
+A_ce,Weighted CE (baseline),bce_non_free,35,0.03822,0.003837,5
+A_ce,Weighted CE (baseline),bce_non_free,36,0.036365,0.003475,5
+A_ce,Weighted CE (baseline),bce_non_free,37,0.036969,0.004851,5
+A_ce,Weighted CE (baseline),bce_non_free,38,0.039108,0.005783,5
+A_ce,Weighted CE (baseline),bce_non_free,39,0.037959,0.006482,5
+A_ce,Weighted CE (baseline),bce_non_free,40,0.039667,0.005129,5
+A_ce,Weighted CE (baseline),bce_non_free,41,0.035789,0.003091,5
+A_ce,Weighted CE (baseline),bce_non_free,42,0.036635,0.006627,5
+A_ce,Weighted CE (baseline),bce_non_free,43,0.036753,0.003844,5
+A_ce,Weighted CE (baseline),bce_non_free,44,0.038105,0.003139,5
+A_ce,Weighted CE (baseline),bce_non_free,45,0.036133,0.002807,5
+A_ce,Weighted CE (baseline),bce_non_free,46,0.036578,0.002334,5
+A_ce,Weighted CE (baseline),bce_non_free,47,0.036344,0.002993,5
+A_ce,Weighted CE (baseline),bce_non_free,48,0.036033,0.003972,5
+A_ce,Weighted CE (baseline),bce_non_free,49,0.037789,0.004173,5
+A_ce,Weighted CE (baseline),bce_non_free,50,0.037719,0.002599,5
+A_ce,Weighted CE (baseline),bce_non_free,51,0.036678,0.004659,5
+A_ce,Weighted CE (baseline),bce_non_free,52,0.036554,0.003144,5
+A_ce,Weighted CE (baseline),bce_non_free,53,0.036945,0.002779,5
+A_ce,Weighted CE (baseline),bce_non_free,54,0.035185,0.003475,5
+A_ce,Weighted CE (baseline),bce_non_free,55,0.03686,0.003788,5
+A_ce,Weighted CE (baseline),bce_non_free,56,0.038622,0.003643,5
+A_ce,Weighted CE (baseline),bce_non_free,57,0.036721,0.002368,5
+A_ce,Weighted CE (baseline),bce_non_free,58,0.037448,0.003385,5
+A_ce,Weighted CE (baseline),bce_non_free,59,0.035582,0.002633,5
+A_ce,Weighted CE (baseline),bce_non_free,60,0.03645,0.002966,5
+A_ce,Weighted CE (baseline),bce_non_free,61,0.036128,0.002768,5
+A_ce,Weighted CE (baseline),bce_non_free,62,0.036637,0.003016,5
+A_ce,Weighted CE (baseline),bce_non_free,63,0.036433,0.002882,5
+A_ce,Weighted CE (baseline),bce_non_free,64,0.038219,0.003955,5
+A_ce,Weighted CE (baseline),bce_non_free,65,0.036777,0.003388,5
+A_ce,Weighted CE (baseline),bce_non_free,66,0.037256,0.003712,5
+A_ce,Weighted CE (baseline),bce_non_free,67,0.037171,0.00382,5
+A_ce,Weighted CE (baseline),bce_non_free,68,0.036619,0.002875,5
+A_ce,Weighted CE (baseline),bce_non_free,69,0.036607,0.00416,5
+A_ce,Weighted CE (baseline),bce_non_free,70,0.03663,0.003821,5
+A_ce,Weighted CE (baseline),bce_non_free,71,0.036828,0.003096,5
+A_ce,Weighted CE (baseline),bce_non_free,72,0.036576,0.003559,5
+A_ce,Weighted CE (baseline),bce_non_free,73,0.037009,0.00282,5
+A_ce,Weighted CE (baseline),bce_non_free,74,0.036305,0.003466,5
+A_ce,Weighted CE (baseline),bce_non_free,75,0.036843,0.002473,5
+A_ce,Weighted CE (baseline),bce_non_free,76,0.037042,0.002127,5
+A_ce,Weighted CE (baseline),bce_non_free,77,0.036417,0.002308,5
+A_ce,Weighted CE (baseline),bce_non_free,78,0.036805,0.002926,5
+A_ce,Weighted CE (baseline),bce_non_free,79,0.036931,0.003197,5
+A_ce,Weighted CE (baseline),bce_non_free,80,0.037103,0.003712,5
+A_ce,Weighted CE (baseline),bce_non_free,81,0.037051,0.002689,5
+A_ce,Weighted CE (baseline),bce_non_free,82,0.036955,0.002736,5
+A_ce,Weighted CE (baseline),bce_non_free,83,0.036906,0.003671,5
+A_ce,Weighted CE (baseline),bce_non_free,84,0.037891,0.002647,5
+A_ce,Weighted CE (baseline),bce_non_free,85,0.036951,0.003644,5
+A_ce,Weighted CE (baseline),bce_non_free,86,0.036326,0.002983,5
+A_ce,Weighted CE (baseline),bce_non_free,87,0.037083,0.003099,5
+A_ce,Weighted CE (baseline),bce_non_free,88,0.037514,0.002921,5
+A_ce,Weighted CE (baseline),bce_non_free,89,0.037532,0.003678,5
+A_ce,Weighted CE (baseline),bce_non_free,90,0.037273,0.003171,5
+A_ce,Weighted CE (baseline),bce_non_free,91,0.037546,0.003333,5
+A_ce,Weighted CE (baseline),bce_non_free,92,0.037227,0.002796,5
+A_ce,Weighted CE (baseline),bce_non_free,93,0.037107,0.003234,5
+A_ce,Weighted CE (baseline),bce_non_free,94,0.037464,0.003304,5
+A_ce,Weighted CE (baseline),bce_non_free,95,0.0378,0.00344,5
+A_ce,Weighted CE (baseline),bce_non_free,96,0.037387,0.003189,5
+A_ce,Weighted CE (baseline),bce_non_free,97,0.03734,0.003613,5
+A_ce,Weighted CE (baseline),bce_non_free,98,0.037251,0.002953,5
+A_ce,Weighted CE (baseline),bce_non_free,99,0.037408,0.002924,5
+A_ce,Weighted CE (baseline),bce_non_free,100,0.03744,0.003821,5
+A_ce,Weighted CE (baseline),bce_boundary,1,0.719463,0.061195,5
+A_ce,Weighted CE (baseline),bce_boundary,2,0.624761,0.02285,5
+A_ce,Weighted CE (baseline),bce_boundary,3,0.590126,0.029486,5
+A_ce,Weighted CE (baseline),bce_boundary,4,0.578678,0.035826,5
+A_ce,Weighted CE (baseline),bce_boundary,5,0.60758,0.050615,5
+A_ce,Weighted CE (baseline),bce_boundary,6,0.554994,0.022055,5
+A_ce,Weighted CE (baseline),bce_boundary,7,0.576726,0.027587,5
+A_ce,Weighted CE (baseline),bce_boundary,8,0.614252,0.024259,5
+A_ce,Weighted CE (baseline),bce_boundary,9,0.575997,0.022373,5
+A_ce,Weighted CE (baseline),bce_boundary,10,0.581969,0.025594,5
+A_ce,Weighted CE (baseline),bce_boundary,11,0.607083,0.032792,5
+A_ce,Weighted CE (baseline),bce_boundary,12,0.592454,0.008557,5
+A_ce,Weighted CE (baseline),bce_boundary,13,0.593592,0.012755,5
+A_ce,Weighted CE (baseline),bce_boundary,14,0.611717,0.009986,5
+A_ce,Weighted CE (baseline),bce_boundary,15,0.643452,0.027357,5
+A_ce,Weighted CE (baseline),bce_boundary,16,0.628584,0.019004,5
+A_ce,Weighted CE (baseline),bce_boundary,17,0.635436,0.037259,5
+A_ce,Weighted CE (baseline),bce_boundary,18,0.634986,0.022249,5
+A_ce,Weighted CE (baseline),bce_boundary,19,0.66815,0.021027,5
+A_ce,Weighted CE (baseline),bce_boundary,20,0.675559,0.02401,5
+A_ce,Weighted CE (baseline),bce_boundary,21,0.671271,0.030577,5
+A_ce,Weighted CE (baseline),bce_boundary,22,0.684008,0.047075,5
+A_ce,Weighted CE (baseline),bce_boundary,23,0.692468,0.042555,5
+A_ce,Weighted CE (baseline),bce_boundary,24,0.720304,0.028848,5
+A_ce,Weighted CE (baseline),bce_boundary,25,0.708722,0.016229,5
+A_ce,Weighted CE (baseline),bce_boundary,26,0.724614,0.014867,5
+A_ce,Weighted CE (baseline),bce_boundary,27,0.735562,0.008624,5
+A_ce,Weighted CE (baseline),bce_boundary,28,0.760699,0.028988,5
+A_ce,Weighted CE (baseline),bce_boundary,29,0.759565,0.01817,5
+A_ce,Weighted CE (baseline),bce_boundary,30,0.761057,0.032341,5
+A_ce,Weighted CE (baseline),bce_boundary,31,0.785571,0.026727,5
+A_ce,Weighted CE (baseline),bce_boundary,32,0.765791,0.019095,5
+A_ce,Weighted CE (baseline),bce_boundary,33,0.79006,0.023737,5
+A_ce,Weighted CE (baseline),bce_boundary,34,0.783343,0.022918,5
+A_ce,Weighted CE (baseline),bce_boundary,35,0.814849,0.021219,5
+A_ce,Weighted CE (baseline),bce_boundary,36,0.791841,0.021634,5
+A_ce,Weighted CE (baseline),bce_boundary,37,0.825382,0.04444,5
+A_ce,Weighted CE (baseline),bce_boundary,38,0.832414,0.02096,5
+A_ce,Weighted CE (baseline),bce_boundary,39,0.835214,0.017421,5
+A_ce,Weighted CE (baseline),bce_boundary,40,0.841016,0.025974,5
+A_ce,Weighted CE (baseline),bce_boundary,41,0.850302,0.025421,5
+A_ce,Weighted CE (baseline),bce_boundary,42,0.861142,0.028635,5
+A_ce,Weighted CE (baseline),bce_boundary,43,0.848701,0.029606,5
+A_ce,Weighted CE (baseline),bce_boundary,44,0.868976,0.030146,5
+A_ce,Weighted CE (baseline),bce_boundary,45,0.874077,0.039288,5
+A_ce,Weighted CE (baseline),bce_boundary,46,0.89067,0.02779,5
+A_ce,Weighted CE (baseline),bce_boundary,47,0.895052,0.0214,5
+A_ce,Weighted CE (baseline),bce_boundary,48,0.89202,0.028623,5
+A_ce,Weighted CE (baseline),bce_boundary,49,0.915098,0.029714,5
+A_ce,Weighted CE (baseline),bce_boundary,50,0.921412,0.021698,5
+A_ce,Weighted CE (baseline),bce_boundary,51,0.926853,0.034693,5
+A_ce,Weighted CE (baseline),bce_boundary,52,0.936025,0.029667,5
+A_ce,Weighted CE (baseline),bce_boundary,53,0.946497,0.025257,5
+A_ce,Weighted CE (baseline),bce_boundary,54,0.949005,0.026573,5
+A_ce,Weighted CE (baseline),bce_boundary,55,0.965265,0.018805,5
+A_ce,Weighted CE (baseline),bce_boundary,56,0.979845,0.034108,5
+A_ce,Weighted CE (baseline),bce_boundary,57,0.974387,0.033925,5
+A_ce,Weighted CE (baseline),bce_boundary,58,0.969821,0.025248,5
+A_ce,Weighted CE (baseline),bce_boundary,59,0.986762,0.024049,5
+A_ce,Weighted CE (baseline),bce_boundary,60,0.988108,0.033267,5
+A_ce,Weighted CE (baseline),bce_boundary,61,0.999901,0.036071,5
+A_ce,Weighted CE (baseline),bce_boundary,62,1.004271,0.021949,5
+A_ce,Weighted CE (baseline),bce_boundary,63,1.004421,0.03696,5
+A_ce,Weighted CE (baseline),bce_boundary,64,1.014262,0.028691,5
+A_ce,Weighted CE (baseline),bce_boundary,65,1.01914,0.028986,5
+A_ce,Weighted CE (baseline),bce_boundary,66,1.02483,0.034464,5
+A_ce,Weighted CE (baseline),bce_boundary,67,1.027319,0.03426,5
+A_ce,Weighted CE (baseline),bce_boundary,68,1.03834,0.033388,5
+A_ce,Weighted CE (baseline),bce_boundary,69,1.042942,0.031613,5
+A_ce,Weighted CE (baseline),bce_boundary,70,1.052239,0.028611,5
+A_ce,Weighted CE (baseline),bce_boundary,71,1.052122,0.030846,5
+A_ce,Weighted CE (baseline),bce_boundary,72,1.067085,0.035631,5
+A_ce,Weighted CE (baseline),bce_boundary,73,1.07194,0.027914,5
+A_ce,Weighted CE (baseline),bce_boundary,74,1.066379,0.027861,5
+A_ce,Weighted CE (baseline),bce_boundary,75,1.077605,0.030983,5
+A_ce,Weighted CE (baseline),bce_boundary,76,1.079903,0.03071,5
+A_ce,Weighted CE (baseline),bce_boundary,77,1.077239,0.032343,5
+A_ce,Weighted CE (baseline),bce_boundary,78,1.090097,0.034546,5
+A_ce,Weighted CE (baseline),bce_boundary,79,1.094541,0.034391,5
+A_ce,Weighted CE (baseline),bce_boundary,80,1.10288,0.032961,5
+A_ce,Weighted CE (baseline),bce_boundary,81,1.101774,0.030221,5
+A_ce,Weighted CE (baseline),bce_boundary,82,1.105443,0.040218,5
+A_ce,Weighted CE (baseline),bce_boundary,83,1.109489,0.03372,5
+A_ce,Weighted CE (baseline),bce_boundary,84,1.113142,0.038309,5
+A_ce,Weighted CE (baseline),bce_boundary,85,1.117129,0.03756,5
+A_ce,Weighted CE (baseline),bce_boundary,86,1.120482,0.031878,5
+A_ce,Weighted CE (baseline),bce_boundary,87,1.123853,0.03524,5
+A_ce,Weighted CE (baseline),bce_boundary,88,1.130133,0.032209,5
+A_ce,Weighted CE (baseline),bce_boundary,89,1.132301,0.033927,5
+A_ce,Weighted CE (baseline),bce_boundary,90,1.132376,0.034173,5
+A_ce,Weighted CE (baseline),bce_boundary,91,1.137915,0.035631,5
+A_ce,Weighted CE (baseline),bce_boundary,92,1.140305,0.033818,5
+A_ce,Weighted CE (baseline),bce_boundary,93,1.141683,0.035501,5
+A_ce,Weighted CE (baseline),bce_boundary,94,1.141967,0.036066,5
+A_ce,Weighted CE (baseline),bce_boundary,95,1.146091,0.035109,5
+A_ce,Weighted CE (baseline),bce_boundary,96,1.144497,0.034946,5
+A_ce,Weighted CE (baseline),bce_boundary,97,1.146077,0.032752,5
+A_ce,Weighted CE (baseline),bce_boundary,98,1.146445,0.033524,5
+A_ce,Weighted CE (baseline),bce_boundary,99,1.148531,0.034549,5
+A_ce,Weighted CE (baseline),bce_boundary,100,1.147956,0.035943,5
+A_ce,Weighted CE (baseline),frac_free,100,0.105003,0.0,5
+A_ce,Weighted CE (baseline),frac_non_free,100,0.674057,0.0,5
+A_ce,Weighted CE (baseline),frac_boundary,100,0.22094,0.0,5
+B_perset,Per-set mean (no boundary term),bce_free,1,0.089791,0.023442,5
+B_perset,Per-set mean (no boundary term),bce_free,2,0.045516,0.006202,5
+B_perset,Per-set mean (no boundary term),bce_free,3,0.039351,0.002403,5
+B_perset,Per-set mean (no boundary term),bce_free,4,0.035761,0.007258,5
+B_perset,Per-set mean (no boundary term),bce_free,5,0.028703,0.005521,5
+B_perset,Per-set mean (no boundary term),bce_free,6,0.025949,0.003829,5
+B_perset,Per-set mean (no boundary term),bce_free,7,0.023503,0.00247,5
+B_perset,Per-set mean (no boundary term),bce_free,8,0.020626,0.003892,5
+B_perset,Per-set mean (no boundary term),bce_free,9,0.019092,0.002359,5
+B_perset,Per-set mean (no boundary term),bce_free,10,0.01803,0.002911,5
+B_perset,Per-set mean (no boundary term),bce_free,11,0.017661,0.002457,5
+B_perset,Per-set mean (no boundary term),bce_free,12,0.017201,0.002408,5
+B_perset,Per-set mean (no boundary term),bce_free,13,0.016951,0.002498,5
+B_perset,Per-set mean (no boundary term),bce_free,14,0.017162,0.002559,5
+B_perset,Per-set mean (no boundary term),bce_free,15,0.01663,0.002164,5
+B_perset,Per-set mean (no boundary term),bce_free,16,0.016698,0.00298,5
+B_perset,Per-set mean (no boundary term),bce_free,17,0.016245,0.002488,5
+B_perset,Per-set mean (no boundary term),bce_free,18,0.016306,0.002336,5
+B_perset,Per-set mean (no boundary term),bce_free,19,0.015976,0.002495,5
+B_perset,Per-set mean (no boundary term),bce_free,20,0.01578,0.002631,5
+B_perset,Per-set mean (no boundary term),bce_free,21,0.01563,0.002634,5
+B_perset,Per-set mean (no boundary term),bce_free,22,0.015883,0.00227,5
+B_perset,Per-set mean (no boundary term),bce_free,23,0.015704,0.00254,5
+B_perset,Per-set mean (no boundary term),bce_free,24,0.015432,0.002306,5
+B_perset,Per-set mean (no boundary term),bce_free,25,0.015084,0.002393,5
+B_perset,Per-set mean (no boundary term),bce_free,26,0.015452,0.002688,5
+B_perset,Per-set mean (no boundary term),bce_free,27,0.015002,0.001867,5
+B_perset,Per-set mean (no boundary term),bce_free,28,0.018362,0.007055,5
+B_perset,Per-set mean (no boundary term),bce_free,29,0.023596,0.018485,5
+B_perset,Per-set mean (no boundary term),bce_free,30,0.019747,0.009824,5
+B_perset,Per-set mean (no boundary term),bce_free,31,0.015013,0.002081,5
+B_perset,Per-set mean (no boundary term),bce_free,32,0.014731,0.002363,5
+B_perset,Per-set mean (no boundary term),bce_free,33,0.017194,0.005752,5
+B_perset,Per-set mean (no boundary term),bce_free,34,0.015162,0.002636,5
+B_perset,Per-set mean (no boundary term),bce_free,35,0.015025,0.002424,5
+B_perset,Per-set mean (no boundary term),bce_free,36,0.015423,0.003006,5
+B_perset,Per-set mean (no boundary term),bce_free,37,0.015032,0.002509,5
+B_perset,Per-set mean (no boundary term),bce_free,38,0.014645,0.0026,5
+B_perset,Per-set mean (no boundary term),bce_free,39,0.014898,0.00238,5
+B_perset,Per-set mean (no boundary term),bce_free,40,0.014741,0.002278,5
+B_perset,Per-set mean (no boundary term),bce_free,41,0.014465,0.002331,5
+B_perset,Per-set mean (no boundary term),bce_free,42,0.014686,0.001924,5
+B_perset,Per-set mean (no boundary term),bce_free,43,0.01609,0.002803,5
+B_perset,Per-set mean (no boundary term),bce_free,44,0.015709,0.002209,5
+B_perset,Per-set mean (no boundary term),bce_free,45,0.015521,0.002137,5
+B_perset,Per-set mean (no boundary term),bce_free,46,0.016938,0.005332,5
+B_perset,Per-set mean (no boundary term),bce_free,47,0.01785,0.006841,5
+B_perset,Per-set mean (no boundary term),bce_free,48,0.016057,0.003327,5
+B_perset,Per-set mean (no boundary term),bce_free,49,0.015774,0.002939,5
+B_perset,Per-set mean (no boundary term),bce_free,50,0.014541,0.001944,5
+B_perset,Per-set mean (no boundary term),bce_free,51,0.015515,0.002658,5
+B_perset,Per-set mean (no boundary term),bce_free,52,0.015067,0.002367,5
+B_perset,Per-set mean (no boundary term),bce_free,53,0.014816,0.002067,5
+B_perset,Per-set mean (no boundary term),bce_free,54,0.014626,0.002138,5
+B_perset,Per-set mean (no boundary term),bce_free,55,0.014986,0.002591,5
+B_perset,Per-set mean (no boundary term),bce_free,56,0.014894,0.002267,5
+B_perset,Per-set mean (no boundary term),bce_free,57,0.014648,0.002316,5
+B_perset,Per-set mean (no boundary term),bce_free,58,0.014629,0.002038,5
+B_perset,Per-set mean (no boundary term),bce_free,59,0.014814,0.001998,5
+B_perset,Per-set mean (no boundary term),bce_free,60,0.014643,0.002247,5
+B_perset,Per-set mean (no boundary term),bce_free,61,0.014767,0.002179,5
+B_perset,Per-set mean (no boundary term),bce_free,62,0.014714,0.002147,5
+B_perset,Per-set mean (no boundary term),bce_free,63,0.014626,0.00228,5
+B_perset,Per-set mean (no boundary term),bce_free,64,0.014611,0.002259,5
+B_perset,Per-set mean (no boundary term),bce_free,65,0.014819,0.002476,5
+B_perset,Per-set mean (no boundary term),bce_free,66,0.014695,0.002153,5
+B_perset,Per-set mean (no boundary term),bce_free,67,0.014601,0.002338,5
+B_perset,Per-set mean (no boundary term),bce_free,68,0.01435,0.002207,5
+B_perset,Per-set mean (no boundary term),bce_free,69,0.014652,0.002466,5
+B_perset,Per-set mean (no boundary term),bce_free,70,0.014211,0.002552,5
+B_perset,Per-set mean (no boundary term),bce_free,71,0.014531,0.002662,5
+B_perset,Per-set mean (no boundary term),bce_free,72,0.014375,0.002496,5
+B_perset,Per-set mean (no boundary term),bce_free,73,0.014629,0.002347,5
+B_perset,Per-set mean (no boundary term),bce_free,74,0.014549,0.002382,5
+B_perset,Per-set mean (no boundary term),bce_free,75,0.014599,0.002475,5
+B_perset,Per-set mean (no boundary term),bce_free,76,0.014562,0.002274,5
+B_perset,Per-set mean (no boundary term),bce_free,77,0.01466,0.002144,5
+B_perset,Per-set mean (no boundary term),bce_free,78,0.014779,0.002344,5
+B_perset,Per-set mean (no boundary term),bce_free,79,0.014467,0.002323,5
+B_perset,Per-set mean (no boundary term),bce_free,80,0.014544,0.002371,5
+B_perset,Per-set mean (no boundary term),bce_free,81,0.014392,0.002545,5
+B_perset,Per-set mean (no boundary term),bce_free,82,0.014596,0.002637,5
+B_perset,Per-set mean (no boundary term),bce_free,83,0.014478,0.002405,5
+B_perset,Per-set mean (no boundary term),bce_free,84,0.014341,0.002291,5
+B_perset,Per-set mean (no boundary term),bce_free,85,0.014473,0.002275,5
+B_perset,Per-set mean (no boundary term),bce_free,86,0.014593,0.002487,5
+B_perset,Per-set mean (no boundary term),bce_free,87,0.01455,0.002408,5
+B_perset,Per-set mean (no boundary term),bce_free,88,0.014358,0.002299,5
+B_perset,Per-set mean (no boundary term),bce_free,89,0.01436,0.00247,5
+B_perset,Per-set mean (no boundary term),bce_free,90,0.014342,0.002265,5
+B_perset,Per-set mean (no boundary term),bce_free,91,0.014394,0.002365,5
+B_perset,Per-set mean (no boundary term),bce_free,92,0.014496,0.002378,5
+B_perset,Per-set mean (no boundary term),bce_free,93,0.014514,0.002433,5
+B_perset,Per-set mean (no boundary term),bce_free,94,0.014413,0.00244,5
+B_perset,Per-set mean (no boundary term),bce_free,95,0.014435,0.002466,5
+B_perset,Per-set mean (no boundary term),bce_free,96,0.014396,0.002316,5
+B_perset,Per-set mean (no boundary term),bce_free,97,0.014554,0.002516,5
+B_perset,Per-set mean (no boundary term),bce_free,98,0.014395,0.002513,5
+B_perset,Per-set mean (no boundary term),bce_free,99,0.014402,0.002226,5
+B_perset,Per-set mean (no boundary term),bce_free,100,0.014479,0.002365,5
+B_perset,Per-set mean (no boundary term),bce_non_free,1,0.316992,0.073636,5
+B_perset,Per-set mean (no boundary term),bce_non_free,2,0.184669,0.044917,5
+B_perset,Per-set mean (no boundary term),bce_non_free,3,0.140566,0.039498,5
+B_perset,Per-set mean (no boundary term),bce_non_free,4,0.118962,0.037546,5
+B_perset,Per-set mean (no boundary term),bce_non_free,5,0.104422,0.030173,5
+B_perset,Per-set mean (no boundary term),bce_non_free,6,0.090354,0.029034,5
+B_perset,Per-set mean (no boundary term),bce_non_free,7,0.080885,0.025548,5
+B_perset,Per-set mean (no boundary term),bce_non_free,8,0.07328,0.023886,5
+B_perset,Per-set mean (no boundary term),bce_non_free,9,0.066383,0.020639,5
+B_perset,Per-set mean (no boundary term),bce_non_free,10,0.062876,0.019141,5
+B_perset,Per-set mean (no boundary term),bce_non_free,11,0.058519,0.01789,5
+B_perset,Per-set mean (no boundary term),bce_non_free,12,0.055886,0.016402,5
+B_perset,Per-set mean (no boundary term),bce_non_free,13,0.05312,0.015646,5
+B_perset,Per-set mean (no boundary term),bce_non_free,14,0.050771,0.014419,5
+B_perset,Per-set mean (no boundary term),bce_non_free,15,0.048174,0.013818,5
+B_perset,Per-set mean (no boundary term),bce_non_free,16,0.046631,0.013014,5
+B_perset,Per-set mean (no boundary term),bce_non_free,17,0.045384,0.012724,5
+B_perset,Per-set mean (no boundary term),bce_non_free,18,0.043736,0.011009,5
+B_perset,Per-set mean (no boundary term),bce_non_free,19,0.042729,0.010929,5
+B_perset,Per-set mean (no boundary term),bce_non_free,20,0.041568,0.010305,5
+B_perset,Per-set mean (no boundary term),bce_non_free,21,0.040306,0.010443,5
+B_perset,Per-set mean (no boundary term),bce_non_free,22,0.039164,0.009183,5
+B_perset,Per-set mean (no boundary term),bce_non_free,23,0.038849,0.008587,5
+B_perset,Per-set mean (no boundary term),bce_non_free,24,0.03843,0.008375,5
+B_perset,Per-set mean (no boundary term),bce_non_free,25,0.038019,0.008386,5
+B_perset,Per-set mean (no boundary term),bce_non_free,26,0.036706,0.008,5
+B_perset,Per-set mean (no boundary term),bce_non_free,27,0.036513,0.007764,5
+B_perset,Per-set mean (no boundary term),bce_non_free,28,0.03916,0.009722,5
+B_perset,Per-set mean (no boundary term),bce_non_free,29,0.039501,0.010916,5
+B_perset,Per-set mean (no boundary term),bce_non_free,30,0.039628,0.012468,5
+B_perset,Per-set mean (no boundary term),bce_non_free,31,0.040553,0.015149,5
+B_perset,Per-set mean (no boundary term),bce_non_free,32,0.035218,0.006288,5
+B_perset,Per-set mean (no boundary term),bce_non_free,33,0.032087,0.007182,5
+B_perset,Per-set mean (no boundary term),bce_non_free,34,0.032727,0.006959,5
+B_perset,Per-set mean (no boundary term),bce_non_free,35,0.032531,0.007115,5
+B_perset,Per-set mean (no boundary term),bce_non_free,36,0.031503,0.007391,5
+B_perset,Per-set mean (no boundary term),bce_non_free,37,0.03129,0.006805,5
+B_perset,Per-set mean (no boundary term),bce_non_free,38,0.031266,0.006293,5
+B_perset,Per-set mean (no boundary term),bce_non_free,39,0.030981,0.007156,5
+B_perset,Per-set mean (no boundary term),bce_non_free,40,0.030655,0.006785,5
+B_perset,Per-set mean (no boundary term),bce_non_free,41,0.030628,0.006227,5
+B_perset,Per-set mean (no boundary term),bce_non_free,42,0.029982,0.005826,5
+B_perset,Per-set mean (no boundary term),bce_non_free,43,0.029642,0.005968,5
+B_perset,Per-set mean (no boundary term),bce_non_free,44,0.031823,0.007742,5
+B_perset,Per-set mean (no boundary term),bce_non_free,45,0.044781,0.036184,5
+B_perset,Per-set mean (no boundary term),bce_non_free,46,0.033537,0.010617,5
+B_perset,Per-set mean (no boundary term),bce_non_free,47,0.033949,0.012654,5
+B_perset,Per-set mean (no boundary term),bce_non_free,48,0.030571,0.006399,5
+B_perset,Per-set mean (no boundary term),bce_non_free,49,0.03043,0.006007,5
+B_perset,Per-set mean (no boundary term),bce_non_free,50,0.029487,0.005104,5
+B_perset,Per-set mean (no boundary term),bce_non_free,51,0.027629,0.005229,5
+B_perset,Per-set mean (no boundary term),bce_non_free,52,0.028293,0.00531,5
+B_perset,Per-set mean (no boundary term),bce_non_free,53,0.02827,0.005183,5
+B_perset,Per-set mean (no boundary term),bce_non_free,54,0.028167,0.004848,5
+B_perset,Per-set mean (no boundary term),bce_non_free,55,0.028101,0.005244,5
+B_perset,Per-set mean (no boundary term),bce_non_free,56,0.027938,0.005057,5
+B_perset,Per-set mean (no boundary term),bce_non_free,57,0.027786,0.004696,5
+B_perset,Per-set mean (no boundary term),bce_non_free,58,0.028037,0.004587,5
+B_perset,Per-set mean (no boundary term),bce_non_free,59,0.027779,0.004846,5
+B_perset,Per-set mean (no boundary term),bce_non_free,60,0.027771,0.004597,5
+B_perset,Per-set mean (no boundary term),bce_non_free,61,0.027922,0.004925,5
+B_perset,Per-set mean (no boundary term),bce_non_free,62,0.027552,0.004511,5
+B_perset,Per-set mean (no boundary term),bce_non_free,63,0.027802,0.004485,5
+B_perset,Per-set mean (no boundary term),bce_non_free,64,0.027821,0.004381,5
+B_perset,Per-set mean (no boundary term),bce_non_free,65,0.027516,0.004132,5
+B_perset,Per-set mean (no boundary term),bce_non_free,66,0.027579,0.00437,5
+B_perset,Per-set mean (no boundary term),bce_non_free,67,0.02757,0.003846,5
+B_perset,Per-set mean (no boundary term),bce_non_free,68,0.028174,0.003904,5
+B_perset,Per-set mean (no boundary term),bce_non_free,69,0.027329,0.004212,5
+B_perset,Per-set mean (no boundary term),bce_non_free,70,0.027899,0.004324,5
+B_perset,Per-set mean (no boundary term),bce_non_free,71,0.02747,0.004267,5
+B_perset,Per-set mean (no boundary term),bce_non_free,72,0.027529,0.003744,5
+B_perset,Per-set mean (no boundary term),bce_non_free,73,0.027238,0.004067,5
+B_perset,Per-set mean (no boundary term),bce_non_free,74,0.027467,0.003831,5
+B_perset,Per-set mean (no boundary term),bce_non_free,75,0.027593,0.004452,5
+B_perset,Per-set mean (no boundary term),bce_non_free,76,0.027527,0.004124,5
+B_perset,Per-set mean (no boundary term),bce_non_free,77,0.027215,0.003909,5
+B_perset,Per-set mean (no boundary term),bce_non_free,78,0.026954,0.003568,5
+B_perset,Per-set mean (no boundary term),bce_non_free,79,0.027499,0.003986,5
+B_perset,Per-set mean (no boundary term),bce_non_free,80,0.027592,0.003861,5
+B_perset,Per-set mean (no boundary term),bce_non_free,81,0.02779,0.004127,5
+B_perset,Per-set mean (no boundary term),bce_non_free,82,0.027429,0.003872,5
+B_perset,Per-set mean (no boundary term),bce_non_free,83,0.027289,0.003476,5
+B_perset,Per-set mean (no boundary term),bce_non_free,84,0.027757,0.003708,5
+B_perset,Per-set mean (no boundary term),bce_non_free,85,0.02739,0.003708,5
+B_perset,Per-set mean (no boundary term),bce_non_free,86,0.027392,0.003767,5
+B_perset,Per-set mean (no boundary term),bce_non_free,87,0.027387,0.003844,5
+B_perset,Per-set mean (no boundary term),bce_non_free,88,0.027482,0.0038,5
+B_perset,Per-set mean (no boundary term),bce_non_free,89,0.027703,0.003458,5
+B_perset,Per-set mean (no boundary term),bce_non_free,90,0.027554,0.003557,5
+B_perset,Per-set mean (no boundary term),bce_non_free,91,0.027772,0.003451,5
+B_perset,Per-set mean (no boundary term),bce_non_free,92,0.027286,0.003107,5
+B_perset,Per-set mean (no boundary term),bce_non_free,93,0.027426,0.003829,5
+B_perset,Per-set mean (no boundary term),bce_non_free,94,0.027788,0.003778,5
+B_perset,Per-set mean (no boundary term),bce_non_free,95,0.027862,0.003519,5
+B_perset,Per-set mean (no boundary term),bce_non_free,96,0.027674,0.003999,5
+B_perset,Per-set mean (no boundary term),bce_non_free,97,0.027507,0.004029,5
+B_perset,Per-set mean (no boundary term),bce_non_free,98,0.027571,0.004012,5
+B_perset,Per-set mean (no boundary term),bce_non_free,99,0.027602,0.003469,5
+B_perset,Per-set mean (no boundary term),bce_non_free,100,0.027549,0.003756,5
+B_perset,Per-set mean (no boundary term),bce_boundary,1,0.842216,0.116334,5
+B_perset,Per-set mean (no boundary term),bce_boundary,2,0.911807,0.090808,5
+B_perset,Per-set mean (no boundary term),bce_boundary,3,0.940624,0.088499,5
+B_perset,Per-set mean (no boundary term),bce_boundary,4,0.950323,0.070877,5
+B_perset,Per-set mean (no boundary term),bce_boundary,5,0.969872,0.075734,5
+B_perset,Per-set mean (no boundary term),bce_boundary,6,0.985944,0.056841,5
+B_perset,Per-set mean (no boundary term),bce_boundary,7,1.019224,0.104899,5
+B_perset,Per-set mean (no boundary term),bce_boundary,8,1.046038,0.096829,5
+B_perset,Per-set mean (no boundary term),bce_boundary,9,1.068947,0.073904,5
+B_perset,Per-set mean (no boundary term),bce_boundary,10,1.117383,0.082361,5
+B_perset,Per-set mean (no boundary term),bce_boundary,11,1.130489,0.075149,5
+B_perset,Per-set mean (no boundary term),bce_boundary,12,1.153051,0.081886,5
+B_perset,Per-set mean (no boundary term),bce_boundary,13,1.161191,0.081261,5
+B_perset,Per-set mean (no boundary term),bce_boundary,14,1.18035,0.078463,5
+B_perset,Per-set mean (no boundary term),bce_boundary,15,1.188257,0.079826,5
+B_perset,Per-set mean (no boundary term),bce_boundary,16,1.206383,0.0859,5
+B_perset,Per-set mean (no boundary term),bce_boundary,17,1.225293,0.098779,5
+B_perset,Per-set mean (no boundary term),bce_boundary,18,1.228737,0.092043,5
+B_perset,Per-set mean (no boundary term),bce_boundary,19,1.247476,0.083751,5
+B_perset,Per-set mean (no boundary term),bce_boundary,20,1.250862,0.083398,5
+B_perset,Per-set mean (no boundary term),bce_boundary,21,1.266796,0.097902,5
+B_perset,Per-set mean (no boundary term),bce_boundary,22,1.268818,0.092447,5
+B_perset,Per-set mean (no boundary term),bce_boundary,23,1.282537,0.094462,5
+B_perset,Per-set mean (no boundary term),bce_boundary,24,1.298448,0.087868,5
+B_perset,Per-set mean (no boundary term),bce_boundary,25,1.310509,0.097162,5
+B_perset,Per-set mean (no boundary term),bce_boundary,26,1.315594,0.099794,5
+B_perset,Per-set mean (no boundary term),bce_boundary,27,1.314413,0.10212,5
+B_perset,Per-set mean (no boundary term),bce_boundary,28,1.290494,0.096969,5
+B_perset,Per-set mean (no boundary term),bce_boundary,29,1.317007,0.090479,5
+B_perset,Per-set mean (no boundary term),bce_boundary,30,1.290939,0.108464,5
+B_perset,Per-set mean (no boundary term),bce_boundary,31,1.331625,0.094122,5
+B_perset,Per-set mean (no boundary term),bce_boundary,32,1.29637,0.130752,5
+B_perset,Per-set mean (no boundary term),bce_boundary,33,1.315406,0.109979,5
+B_perset,Per-set mean (no boundary term),bce_boundary,34,1.343224,0.087724,5
+B_perset,Per-set mean (no boundary term),bce_boundary,35,1.350855,0.096619,5
+B_perset,Per-set mean (no boundary term),bce_boundary,36,1.362592,0.093835,5
+B_perset,Per-set mean (no boundary term),bce_boundary,37,1.366768,0.088463,5
+B_perset,Per-set mean (no boundary term),bce_boundary,38,1.386558,0.092096,5
+B_perset,Per-set mean (no boundary term),bce_boundary,39,1.38583,0.090698,5
+B_perset,Per-set mean (no boundary term),bce_boundary,40,1.387757,0.093038,5
+B_perset,Per-set mean (no boundary term),bce_boundary,41,1.398011,0.088838,5
+B_perset,Per-set mean (no boundary term),bce_boundary,42,1.407251,0.097984,5
+B_perset,Per-set mean (no boundary term),bce_boundary,43,1.40358,0.084494,5
+B_perset,Per-set mean (no boundary term),bce_boundary,44,1.425039,0.109777,5
+B_perset,Per-set mean (no boundary term),bce_boundary,45,1.379873,0.079312,5
+B_perset,Per-set mean (no boundary term),bce_boundary,46,1.364957,0.124541,5
+B_perset,Per-set mean (no boundary term),bce_boundary,47,1.352912,0.147213,5
+B_perset,Per-set mean (no boundary term),bce_boundary,48,1.357386,0.170297,5
+B_perset,Per-set mean (no boundary term),bce_boundary,49,1.343746,0.194386,5
+B_perset,Per-set mean (no boundary term),bce_boundary,50,1.368061,0.167172,5
+B_perset,Per-set mean (no boundary term),bce_boundary,51,1.374678,0.145563,5
+B_perset,Per-set mean (no boundary term),bce_boundary,52,1.393721,0.137995,5
+B_perset,Per-set mean (no boundary term),bce_boundary,53,1.399461,0.127675,5
+B_perset,Per-set mean (no boundary term),bce_boundary,54,1.406085,0.122102,5
+B_perset,Per-set mean (no boundary term),bce_boundary,55,1.413328,0.126139,5
+B_perset,Per-set mean (no boundary term),bce_boundary,56,1.429321,0.123578,5
+B_perset,Per-set mean (no boundary term),bce_boundary,57,1.424926,0.112569,5
+B_perset,Per-set mean (no boundary term),bce_boundary,58,1.437817,0.12312,5
+B_perset,Per-set mean (no boundary term),bce_boundary,59,1.441866,0.116386,5
+B_perset,Per-set mean (no boundary term),bce_boundary,60,1.445713,0.114446,5
+B_perset,Per-set mean (no boundary term),bce_boundary,61,1.456046,0.109185,5
+B_perset,Per-set mean (no boundary term),bce_boundary,62,1.459364,0.122523,5
+B_perset,Per-set mean (no boundary term),bce_boundary,63,1.465753,0.117516,5
+B_perset,Per-set mean (no boundary term),bce_boundary,64,1.471069,0.118066,5
+B_perset,Per-set mean (no boundary term),bce_boundary,65,1.474362,0.115116,5
+B_perset,Per-set mean (no boundary term),bce_boundary,66,1.476917,0.116875,5
+B_perset,Per-set mean (no boundary term),bce_boundary,67,1.47883,0.120574,5
+B_perset,Per-set mean (no boundary term),bce_boundary,68,1.49414,0.118178,5
+B_perset,Per-set mean (no boundary term),bce_boundary,69,1.485181,0.116207,5
+B_perset,Per-set mean (no boundary term),bce_boundary,70,1.494487,0.121039,5
+B_perset,Per-set mean (no boundary term),bce_boundary,71,1.49471,0.124832,5
+B_perset,Per-set mean (no boundary term),bce_boundary,72,1.499327,0.119543,5
+B_perset,Per-set mean (no boundary term),bce_boundary,73,1.49859,0.120983,5
+B_perset,Per-set mean (no boundary term),bce_boundary,74,1.503489,0.126125,5
+B_perset,Per-set mean (no boundary term),bce_boundary,75,1.509257,0.126503,5
+B_perset,Per-set mean (no boundary term),bce_boundary,76,1.513115,0.122798,5
+B_perset,Per-set mean (no boundary term),bce_boundary,77,1.511232,0.123525,5
+B_perset,Per-set mean (no boundary term),bce_boundary,78,1.51111,0.126768,5
+B_perset,Per-set mean (no boundary term),bce_boundary,79,1.516216,0.123962,5
+B_perset,Per-set mean (no boundary term),bce_boundary,80,1.522499,0.12729,5
+B_perset,Per-set mean (no boundary term),bce_boundary,81,1.52514,0.125249,5
+B_perset,Per-set mean (no boundary term),bce_boundary,82,1.525046,0.129903,5
+B_perset,Per-set mean (no boundary term),bce_boundary,83,1.525452,0.127177,5
+B_perset,Per-set mean (no boundary term),bce_boundary,84,1.533017,0.128758,5
+B_perset,Per-set mean (no boundary term),bce_boundary,85,1.529961,0.127468,5
+B_perset,Per-set mean (no boundary term),bce_boundary,86,1.530919,0.126814,5
+B_perset,Per-set mean (no boundary term),bce_boundary,87,1.532379,0.131598,5
+B_perset,Per-set mean (no boundary term),bce_boundary,88,1.532415,0.134853,5
+B_perset,Per-set mean (no boundary term),bce_boundary,89,1.539128,0.12976,5
+B_perset,Per-set mean (no boundary term),bce_boundary,90,1.538567,0.132554,5
+B_perset,Per-set mean (no boundary term),bce_boundary,91,1.54322,0.135608,5
+B_perset,Per-set mean (no boundary term),bce_boundary,92,1.538662,0.132987,5
+B_perset,Per-set mean (no boundary term),bce_boundary,93,1.540223,0.131441,5
+B_perset,Per-set mean (no boundary term),bce_boundary,94,1.546596,0.133883,5
+B_perset,Per-set mean (no boundary term),bce_boundary,95,1.546495,0.132892,5
+B_perset,Per-set mean (no boundary term),bce_boundary,96,1.546517,0.132158,5
+B_perset,Per-set mean (no boundary term),bce_boundary,97,1.544164,0.132091,5
+B_perset,Per-set mean (no boundary term),bce_boundary,98,1.545986,0.129608,5
+B_perset,Per-set mean (no boundary term),bce_boundary,99,1.546801,0.130826,5
+B_perset,Per-set mean (no boundary term),bce_boundary,100,1.546894,0.132421,5
+B_perset,Per-set mean (no boundary term),frac_free,100,0.105003,0.0,5
+B_perset,Per-set mean (no boundary term),frac_non_free,100,0.674057,0.0,5
+B_perset,Per-set mean (no boundary term),frac_boundary,100,0.22094,0.0,5
+C_hard,"+ boundary term, hard target",bce_free,1,0.119935,0.024091,5
+C_hard,"+ boundary term, hard target",bce_free,2,0.08107,0.006522,5
+C_hard,"+ boundary term, hard target",bce_free,3,0.064134,0.004514,5
+C_hard,"+ boundary term, hard target",bce_free,4,0.056064,0.008022,5
+C_hard,"+ boundary term, hard target",bce_free,5,0.052219,0.005844,5
+C_hard,"+ boundary term, hard target",bce_free,6,0.046813,0.007344,5
+C_hard,"+ boundary term, hard target",bce_free,7,0.042585,0.008745,5
+C_hard,"+ boundary term, hard target",bce_free,8,0.041764,0.008298,5
+C_hard,"+ boundary term, hard target",bce_free,9,0.035205,0.00568,5
+C_hard,"+ boundary term, hard target",bce_free,10,0.034375,0.002537,5
+C_hard,"+ boundary term, hard target",bce_free,11,0.034301,0.005275,5
+C_hard,"+ boundary term, hard target",bce_free,12,0.040209,0.008108,5
+C_hard,"+ boundary term, hard target",bce_free,13,0.037227,0.004215,5
+C_hard,"+ boundary term, hard target",bce_free,14,0.036156,0.006532,5
+C_hard,"+ boundary term, hard target",bce_free,15,0.034331,0.006594,5
+C_hard,"+ boundary term, hard target",bce_free,16,0.03669,0.005161,5
+C_hard,"+ boundary term, hard target",bce_free,17,0.03802,0.005329,5
+C_hard,"+ boundary term, hard target",bce_free,18,0.037204,0.001326,5
+C_hard,"+ boundary term, hard target",bce_free,19,0.035831,0.005253,5
+C_hard,"+ boundary term, hard target",bce_free,20,0.038203,0.003841,5
+C_hard,"+ boundary term, hard target",bce_free,21,0.038659,0.003078,5
+C_hard,"+ boundary term, hard target",bce_free,22,0.040771,0.002287,5
+C_hard,"+ boundary term, hard target",bce_free,23,0.040241,0.007947,5
+C_hard,"+ boundary term, hard target",bce_free,24,0.037344,0.001983,5
+C_hard,"+ boundary term, hard target",bce_free,25,0.042815,0.003196,5
+C_hard,"+ boundary term, hard target",bce_free,26,0.041753,0.001787,5
+C_hard,"+ boundary term, hard target",bce_free,27,0.046625,0.002024,5
+C_hard,"+ boundary term, hard target",bce_free,28,0.042848,0.005495,5
+C_hard,"+ boundary term, hard target",bce_free,29,0.0427,0.003374,5
+C_hard,"+ boundary term, hard target",bce_free,30,0.040364,0.003393,5
+C_hard,"+ boundary term, hard target",bce_free,31,0.044308,0.003544,5
+C_hard,"+ boundary term, hard target",bce_free,32,0.048112,0.003517,5
+C_hard,"+ boundary term, hard target",bce_free,33,0.043979,0.005949,5
+C_hard,"+ boundary term, hard target",bce_free,34,0.049307,0.006544,5
+C_hard,"+ boundary term, hard target",bce_free,35,0.043927,0.003158,5
+C_hard,"+ boundary term, hard target",bce_free,36,0.050166,0.008846,5
+C_hard,"+ boundary term, hard target",bce_free,37,0.044402,0.005273,5
+C_hard,"+ boundary term, hard target",bce_free,38,0.052,0.007954,5
+C_hard,"+ boundary term, hard target",bce_free,39,0.04715,0.003805,5
+C_hard,"+ boundary term, hard target",bce_free,40,0.053426,0.001578,5
+C_hard,"+ boundary term, hard target",bce_free,41,0.051714,0.004708,5
+C_hard,"+ boundary term, hard target",bce_free,42,0.050882,0.007652,5
+C_hard,"+ boundary term, hard target",bce_free,43,0.051954,0.005813,5
+C_hard,"+ boundary term, hard target",bce_free,44,0.055996,0.006825,5
+C_hard,"+ boundary term, hard target",bce_free,45,0.051746,0.005296,5
+C_hard,"+ boundary term, hard target",bce_free,46,0.061959,0.004267,5
+C_hard,"+ boundary term, hard target",bce_free,47,0.054059,0.003803,5
+C_hard,"+ boundary term, hard target",bce_free,48,0.058556,0.004853,5
+C_hard,"+ boundary term, hard target",bce_free,49,0.060445,0.006034,5
+C_hard,"+ boundary term, hard target",bce_free,50,0.056105,0.004862,5
+C_hard,"+ boundary term, hard target",bce_free,51,0.056389,0.007451,5
+C_hard,"+ boundary term, hard target",bce_free,52,0.058444,0.002387,5
+C_hard,"+ boundary term, hard target",bce_free,53,0.062055,0.006666,5
+C_hard,"+ boundary term, hard target",bce_free,54,0.059546,0.006467,5
+C_hard,"+ boundary term, hard target",bce_free,55,0.059679,0.007704,5
+C_hard,"+ boundary term, hard target",bce_free,56,0.060401,0.007161,5
+C_hard,"+ boundary term, hard target",bce_free,57,0.058549,0.005518,5
+C_hard,"+ boundary term, hard target",bce_free,58,0.064565,0.009817,5
+C_hard,"+ boundary term, hard target",bce_free,59,0.060834,0.003848,5
+C_hard,"+ boundary term, hard target",bce_free,60,0.064222,0.008141,5
+C_hard,"+ boundary term, hard target",bce_free,61,0.062508,0.005335,5
+C_hard,"+ boundary term, hard target",bce_free,62,0.060255,0.004687,5
+C_hard,"+ boundary term, hard target",bce_free,63,0.062666,0.00822,5
+C_hard,"+ boundary term, hard target",bce_free,64,0.064095,0.007309,5
+C_hard,"+ boundary term, hard target",bce_free,65,0.063205,0.010026,5
+C_hard,"+ boundary term, hard target",bce_free,66,0.064599,0.007478,5
+C_hard,"+ boundary term, hard target",bce_free,67,0.069278,0.011568,5
+C_hard,"+ boundary term, hard target",bce_free,68,0.064867,0.005465,5
+C_hard,"+ boundary term, hard target",bce_free,69,0.069149,0.008577,5
+C_hard,"+ boundary term, hard target",bce_free,70,0.06461,0.006791,5
+C_hard,"+ boundary term, hard target",bce_free,71,0.067268,0.008106,5
+C_hard,"+ boundary term, hard target",bce_free,72,0.067627,0.008921,5
+C_hard,"+ boundary term, hard target",bce_free,73,0.069086,0.009708,5
+C_hard,"+ boundary term, hard target",bce_free,74,0.068649,0.00902,5
+C_hard,"+ boundary term, hard target",bce_free,75,0.069193,0.007894,5
+C_hard,"+ boundary term, hard target",bce_free,76,0.069177,0.00599,5
+C_hard,"+ boundary term, hard target",bce_free,77,0.069734,0.006192,5
+C_hard,"+ boundary term, hard target",bce_free,78,0.068412,0.008077,5
+C_hard,"+ boundary term, hard target",bce_free,79,0.070607,0.009214,5
+C_hard,"+ boundary term, hard target",bce_free,80,0.070225,0.00888,5
+C_hard,"+ boundary term, hard target",bce_free,81,0.070662,0.008562,5
+C_hard,"+ boundary term, hard target",bce_free,82,0.071517,0.009053,5
+C_hard,"+ boundary term, hard target",bce_free,83,0.070023,0.008901,5
+C_hard,"+ boundary term, hard target",bce_free,84,0.071941,0.008053,5
+C_hard,"+ boundary term, hard target",bce_free,85,0.071397,0.006989,5
+C_hard,"+ boundary term, hard target",bce_free,86,0.072655,0.00808,5
+C_hard,"+ boundary term, hard target",bce_free,87,0.073198,0.007875,5
+C_hard,"+ boundary term, hard target",bce_free,88,0.072973,0.009144,5
+C_hard,"+ boundary term, hard target",bce_free,89,0.072529,0.008742,5
+C_hard,"+ boundary term, hard target",bce_free,90,0.072914,0.007472,5
+C_hard,"+ boundary term, hard target",bce_free,91,0.073327,0.008704,5
+C_hard,"+ boundary term, hard target",bce_free,92,0.073578,0.009442,5
+C_hard,"+ boundary term, hard target",bce_free,93,0.073541,0.008104,5
+C_hard,"+ boundary term, hard target",bce_free,94,0.074328,0.00942,5
+C_hard,"+ boundary term, hard target",bce_free,95,0.073995,0.00876,5
+C_hard,"+ boundary term, hard target",bce_free,96,0.074114,0.009219,5
+C_hard,"+ boundary term, hard target",bce_free,97,0.073944,0.009189,5
+C_hard,"+ boundary term, hard target",bce_free,98,0.074223,0.008888,5
+C_hard,"+ boundary term, hard target",bce_free,99,0.074181,0.008491,5
+C_hard,"+ boundary term, hard target",bce_free,100,0.074137,0.008468,5
+C_hard,"+ boundary term, hard target",bce_non_free,1,0.368039,0.099295,5
+C_hard,"+ boundary term, hard target",bce_non_free,2,0.219398,0.058377,5
+C_hard,"+ boundary term, hard target",bce_non_free,3,0.169908,0.043989,5
+C_hard,"+ boundary term, hard target",bce_non_free,4,0.14242,0.039051,5
+C_hard,"+ boundary term, hard target",bce_non_free,5,0.125154,0.034718,5
+C_hard,"+ boundary term, hard target",bce_non_free,6,0.110622,0.033683,5
+C_hard,"+ boundary term, hard target",bce_non_free,7,0.097005,0.031919,5
+C_hard,"+ boundary term, hard target",bce_non_free,8,0.086783,0.028722,5
+C_hard,"+ boundary term, hard target",bce_non_free,9,0.081664,0.026949,5
+C_hard,"+ boundary term, hard target",bce_non_free,10,0.076325,0.023962,5
+C_hard,"+ boundary term, hard target",bce_non_free,11,0.071127,0.020838,5
+C_hard,"+ boundary term, hard target",bce_non_free,12,0.065874,0.022259,5
+C_hard,"+ boundary term, hard target",bce_non_free,13,0.06367,0.018839,5
+C_hard,"+ boundary term, hard target",bce_non_free,14,0.061573,0.020792,5
+C_hard,"+ boundary term, hard target",bce_non_free,15,0.057851,0.016205,5
+C_hard,"+ boundary term, hard target",bce_non_free,16,0.053034,0.017776,5
+C_hard,"+ boundary term, hard target",bce_non_free,17,0.053447,0.015923,5
+C_hard,"+ boundary term, hard target",bce_non_free,18,0.051245,0.014413,5
+C_hard,"+ boundary term, hard target",bce_non_free,19,0.05203,0.013126,5
+C_hard,"+ boundary term, hard target",bce_non_free,20,0.048598,0.016113,5
+C_hard,"+ boundary term, hard target",bce_non_free,21,0.046165,0.010703,5
+C_hard,"+ boundary term, hard target",bce_non_free,22,0.045173,0.011248,5
+C_hard,"+ boundary term, hard target",bce_non_free,23,0.045017,0.011609,5
+C_hard,"+ boundary term, hard target",bce_non_free,24,0.045051,0.011212,5
+C_hard,"+ boundary term, hard target",bce_non_free,25,0.044326,0.010003,5
+C_hard,"+ boundary term, hard target",bce_non_free,26,0.042773,0.009073,5
+C_hard,"+ boundary term, hard target",bce_non_free,27,0.044132,0.00911,5
+C_hard,"+ boundary term, hard target",bce_non_free,28,0.043204,0.007696,5
+C_hard,"+ boundary term, hard target",bce_non_free,29,0.041928,0.009405,5
+C_hard,"+ boundary term, hard target",bce_non_free,30,0.041579,0.007687,5
+C_hard,"+ boundary term, hard target",bce_non_free,31,0.042043,0.00831,5
+C_hard,"+ boundary term, hard target",bce_non_free,32,0.040034,0.006346,5
+C_hard,"+ boundary term, hard target",bce_non_free,33,0.03984,0.007915,5
+C_hard,"+ boundary term, hard target",bce_non_free,34,0.038708,0.007057,5
+C_hard,"+ boundary term, hard target",bce_non_free,35,0.04031,0.006021,5
+C_hard,"+ boundary term, hard target",bce_non_free,36,0.03916,0.006288,5
+C_hard,"+ boundary term, hard target",bce_non_free,37,0.040326,0.005727,5
+C_hard,"+ boundary term, hard target",bce_non_free,38,0.040225,0.007193,5
+C_hard,"+ boundary term, hard target",bce_non_free,39,0.039078,0.006369,5
+C_hard,"+ boundary term, hard target",bce_non_free,40,0.038377,0.006841,5
+C_hard,"+ boundary term, hard target",bce_non_free,41,0.039041,0.004937,5
+C_hard,"+ boundary term, hard target",bce_non_free,42,0.038629,0.004816,5
+C_hard,"+ boundary term, hard target",bce_non_free,43,0.038377,0.004745,5
+C_hard,"+ boundary term, hard target",bce_non_free,44,0.03847,0.006591,5
+C_hard,"+ boundary term, hard target",bce_non_free,45,0.038621,0.003826,5
+C_hard,"+ boundary term, hard target",bce_non_free,46,0.036577,0.004414,5
+C_hard,"+ boundary term, hard target",bce_non_free,47,0.038653,0.002466,5
+C_hard,"+ boundary term, hard target",bce_non_free,48,0.036605,0.005007,5
+C_hard,"+ boundary term, hard target",bce_non_free,49,0.037571,0.00282,5
+C_hard,"+ boundary term, hard target",bce_non_free,50,0.038553,0.004266,5
+C_hard,"+ boundary term, hard target",bce_non_free,51,0.038169,0.003575,5
+C_hard,"+ boundary term, hard target",bce_non_free,52,0.037402,0.004464,5
+C_hard,"+ boundary term, hard target",bce_non_free,53,0.0367,0.002015,5
+C_hard,"+ boundary term, hard target",bce_non_free,54,0.037585,0.003964,5
+C_hard,"+ boundary term, hard target",bce_non_free,55,0.037752,0.003399,5
+C_hard,"+ boundary term, hard target",bce_non_free,56,0.038741,0.003716,5
+C_hard,"+ boundary term, hard target",bce_non_free,57,0.03836,0.003674,5
+C_hard,"+ boundary term, hard target",bce_non_free,58,0.03833,0.003355,5
+C_hard,"+ boundary term, hard target",bce_non_free,59,0.037316,0.002991,5
+C_hard,"+ boundary term, hard target",bce_non_free,60,0.037449,0.002985,5
+C_hard,"+ boundary term, hard target",bce_non_free,61,0.038289,0.003017,5
+C_hard,"+ boundary term, hard target",bce_non_free,62,0.038283,0.002416,5
+C_hard,"+ boundary term, hard target",bce_non_free,63,0.037774,0.003369,5
+C_hard,"+ boundary term, hard target",bce_non_free,64,0.037765,0.001889,5
+C_hard,"+ boundary term, hard target",bce_non_free,65,0.037792,0.003073,5
+C_hard,"+ boundary term, hard target",bce_non_free,66,0.037308,0.001661,5
+C_hard,"+ boundary term, hard target",bce_non_free,67,0.038033,0.002378,5
+C_hard,"+ boundary term, hard target",bce_non_free,68,0.038271,0.003244,5
+C_hard,"+ boundary term, hard target",bce_non_free,69,0.037217,0.002551,5
+C_hard,"+ boundary term, hard target",bce_non_free,70,0.038024,0.002155,5
+C_hard,"+ boundary term, hard target",bce_non_free,71,0.037865,0.001924,5
+C_hard,"+ boundary term, hard target",bce_non_free,72,0.037981,0.002566,5
+C_hard,"+ boundary term, hard target",bce_non_free,73,0.0384,0.00188,5
+C_hard,"+ boundary term, hard target",bce_non_free,74,0.037966,0.002578,5
+C_hard,"+ boundary term, hard target",bce_non_free,75,0.038204,0.001798,5
+C_hard,"+ boundary term, hard target",bce_non_free,76,0.0383,0.003136,5
+C_hard,"+ boundary term, hard target",bce_non_free,77,0.038087,0.002131,5
+C_hard,"+ boundary term, hard target",bce_non_free,78,0.038285,0.001812,5
+C_hard,"+ boundary term, hard target",bce_non_free,79,0.038225,0.002835,5
+C_hard,"+ boundary term, hard target",bce_non_free,80,0.038206,0.00176,5
+C_hard,"+ boundary term, hard target",bce_non_free,81,0.039419,0.002696,5
+C_hard,"+ boundary term, hard target",bce_non_free,82,0.038648,0.002073,5
+C_hard,"+ boundary term, hard target",bce_non_free,83,0.038391,0.002255,5
+C_hard,"+ boundary term, hard target",bce_non_free,84,0.038931,0.002144,5
+C_hard,"+ boundary term, hard target",bce_non_free,85,0.038588,0.002539,5
+C_hard,"+ boundary term, hard target",bce_non_free,86,0.038367,0.001638,5
+C_hard,"+ boundary term, hard target",bce_non_free,87,0.038518,0.002352,5
+C_hard,"+ boundary term, hard target",bce_non_free,88,0.038831,0.002279,5
+C_hard,"+ boundary term, hard target",bce_non_free,89,0.039144,0.002301,5
+C_hard,"+ boundary term, hard target",bce_non_free,90,0.038813,0.002195,5
+C_hard,"+ boundary term, hard target",bce_non_free,91,0.039178,0.002105,5
+C_hard,"+ boundary term, hard target",bce_non_free,92,0.039099,0.001828,5
+C_hard,"+ boundary term, hard target",bce_non_free,93,0.03874,0.002319,5
+C_hard,"+ boundary term, hard target",bce_non_free,94,0.038707,0.002256,5
+C_hard,"+ boundary term, hard target",bce_non_free,95,0.039501,0.002207,5
+C_hard,"+ boundary term, hard target",bce_non_free,96,0.039072,0.002169,5
+C_hard,"+ boundary term, hard target",bce_non_free,97,0.038946,0.002308,5
+C_hard,"+ boundary term, hard target",bce_non_free,98,0.038953,0.00233,5
+C_hard,"+ boundary term, hard target",bce_non_free,99,0.039087,0.002268,5
+C_hard,"+ boundary term, hard target",bce_non_free,100,0.039098,0.00298,5
+C_hard,"+ boundary term, hard target",bce_boundary,1,0.525166,0.026096,5
+C_hard,"+ boundary term, hard target",bce_boundary,2,0.48242,0.012062,5
+C_hard,"+ boundary term, hard target",bce_boundary,3,0.481029,0.015353,5
+C_hard,"+ boundary term, hard target",bce_boundary,4,0.474016,0.010987,5
+C_hard,"+ boundary term, hard target",bce_boundary,5,0.482072,0.013544,5
+C_hard,"+ boundary term, hard target",bce_boundary,6,0.477714,0.022865,5
+C_hard,"+ boundary term, hard target",bce_boundary,7,0.502232,0.021879,5
+C_hard,"+ boundary term, hard target",bce_boundary,8,0.502878,0.007386,5
+C_hard,"+ boundary term, hard target",bce_boundary,9,0.512006,0.01375,5
+C_hard,"+ boundary term, hard target",bce_boundary,10,0.52317,0.022822,5
+C_hard,"+ boundary term, hard target",bce_boundary,11,0.54857,0.041939,5
+C_hard,"+ boundary term, hard target",bce_boundary,12,0.549031,0.009577,5
+C_hard,"+ boundary term, hard target",bce_boundary,13,0.557584,0.010143,5
+C_hard,"+ boundary term, hard target",bce_boundary,14,0.5624,0.018241,5
+C_hard,"+ boundary term, hard target",bce_boundary,15,0.596958,0.018586,5
+C_hard,"+ boundary term, hard target",bce_boundary,16,0.589667,0.022424,5
+C_hard,"+ boundary term, hard target",bce_boundary,17,0.592811,0.014492,5
+C_hard,"+ boundary term, hard target",bce_boundary,18,0.606611,0.016306,5
+C_hard,"+ boundary term, hard target",bce_boundary,19,0.628024,0.015014,5
+C_hard,"+ boundary term, hard target",bce_boundary,20,0.642668,0.018694,5
+C_hard,"+ boundary term, hard target",bce_boundary,21,0.640631,0.013809,5
+C_hard,"+ boundary term, hard target",bce_boundary,22,0.652766,0.015349,5
+C_hard,"+ boundary term, hard target",bce_boundary,23,0.669483,0.02512,5
+C_hard,"+ boundary term, hard target",bce_boundary,24,0.681475,0.024426,5
+C_hard,"+ boundary term, hard target",bce_boundary,25,0.691464,0.022242,5
+C_hard,"+ boundary term, hard target",bce_boundary,26,0.705189,0.022242,5
+C_hard,"+ boundary term, hard target",bce_boundary,27,0.714497,0.028357,5
+C_hard,"+ boundary term, hard target",bce_boundary,28,0.725214,0.028877,5
+C_hard,"+ boundary term, hard target",bce_boundary,29,0.731776,0.024148,5
+C_hard,"+ boundary term, hard target",bce_boundary,30,0.735408,0.019722,5
+C_hard,"+ boundary term, hard target",bce_boundary,31,0.750153,0.014011,5
+C_hard,"+ boundary term, hard target",bce_boundary,32,0.750798,0.012518,5
+C_hard,"+ boundary term, hard target",bce_boundary,33,0.772837,0.02129,5
+C_hard,"+ boundary term, hard target",bce_boundary,34,0.765139,0.019541,5
+C_hard,"+ boundary term, hard target",bce_boundary,35,0.793834,0.014896,5
+C_hard,"+ boundary term, hard target",bce_boundary,36,0.786999,0.011717,5
+C_hard,"+ boundary term, hard target",bce_boundary,37,0.802693,0.022001,5
+C_hard,"+ boundary term, hard target",bce_boundary,38,0.805878,0.020852,5
+C_hard,"+ boundary term, hard target",bce_boundary,39,0.817553,0.023518,5
+C_hard,"+ boundary term, hard target",bce_boundary,40,0.832929,0.022005,5
+C_hard,"+ boundary term, hard target",bce_boundary,41,0.847098,0.021802,5
+C_hard,"+ boundary term, hard target",bce_boundary,42,0.856304,0.018057,5
+C_hard,"+ boundary term, hard target",bce_boundary,43,0.861416,0.027457,5
+C_hard,"+ boundary term, hard target",bce_boundary,44,0.858642,0.01844,5
+C_hard,"+ boundary term, hard target",bce_boundary,45,0.872487,0.018219,5
+C_hard,"+ boundary term, hard target",bce_boundary,46,0.881088,0.022561,5
+C_hard,"+ boundary term, hard target",bce_boundary,47,0.880907,0.024274,5
+C_hard,"+ boundary term, hard target",bce_boundary,48,0.886888,0.012563,5
+C_hard,"+ boundary term, hard target",bce_boundary,49,0.908269,0.028151,5
+C_hard,"+ boundary term, hard target",bce_boundary,50,0.910244,0.026097,5
+C_hard,"+ boundary term, hard target",bce_boundary,51,0.926086,0.024629,5
+C_hard,"+ boundary term, hard target",bce_boundary,52,0.927945,0.04036,5
+C_hard,"+ boundary term, hard target",bce_boundary,53,0.932415,0.036641,5
+C_hard,"+ boundary term, hard target",bce_boundary,54,0.947465,0.013713,5
+C_hard,"+ boundary term, hard target",bce_boundary,55,0.965178,0.033765,5
+C_hard,"+ boundary term, hard target",bce_boundary,56,0.962659,0.030988,5
+C_hard,"+ boundary term, hard target",bce_boundary,57,0.971842,0.028868,5
+C_hard,"+ boundary term, hard target",bce_boundary,58,0.979525,0.027532,5
+C_hard,"+ boundary term, hard target",bce_boundary,59,0.985259,0.023117,5
+C_hard,"+ boundary term, hard target",bce_boundary,60,0.988362,0.029804,5
+C_hard,"+ boundary term, hard target",bce_boundary,61,1.005756,0.02592,5
+C_hard,"+ boundary term, hard target",bce_boundary,62,1.014241,0.020949,5
+C_hard,"+ boundary term, hard target",bce_boundary,63,1.019841,0.031524,5
+C_hard,"+ boundary term, hard target",bce_boundary,64,1.020545,0.023058,5
+C_hard,"+ boundary term, hard target",bce_boundary,65,1.029398,0.035812,5
+C_hard,"+ boundary term, hard target",bce_boundary,66,1.032351,0.036432,5
+C_hard,"+ boundary term, hard target",bce_boundary,67,1.044595,0.027483,5
+C_hard,"+ boundary term, hard target",bce_boundary,68,1.043187,0.035446,5
+C_hard,"+ boundary term, hard target",bce_boundary,69,1.059834,0.023812,5
+C_hard,"+ boundary term, hard target",bce_boundary,70,1.062616,0.028553,5
+C_hard,"+ boundary term, hard target",bce_boundary,71,1.065291,0.026011,5
+C_hard,"+ boundary term, hard target",bce_boundary,72,1.076381,0.027317,5
+C_hard,"+ boundary term, hard target",bce_boundary,73,1.07874,0.030037,5
+C_hard,"+ boundary term, hard target",bce_boundary,74,1.082564,0.027313,5
+C_hard,"+ boundary term, hard target",bce_boundary,75,1.096816,0.029768,5
+C_hard,"+ boundary term, hard target",bce_boundary,76,1.098407,0.034134,5
+C_hard,"+ boundary term, hard target",bce_boundary,77,1.097359,0.036029,5
+C_hard,"+ boundary term, hard target",bce_boundary,78,1.102006,0.030099,5
+C_hard,"+ boundary term, hard target",bce_boundary,79,1.110365,0.034738,5
+C_hard,"+ boundary term, hard target",bce_boundary,80,1.120822,0.0346,5
+C_hard,"+ boundary term, hard target",bce_boundary,81,1.125097,0.034976,5
+C_hard,"+ boundary term, hard target",bce_boundary,82,1.127466,0.032917,5
+C_hard,"+ boundary term, hard target",bce_boundary,83,1.127995,0.034228,5
+C_hard,"+ boundary term, hard target",bce_boundary,84,1.131884,0.038119,5
+C_hard,"+ boundary term, hard target",bce_boundary,85,1.140106,0.036269,5
+C_hard,"+ boundary term, hard target",bce_boundary,86,1.143865,0.029512,5
+C_hard,"+ boundary term, hard target",bce_boundary,87,1.146465,0.03741,5
+C_hard,"+ boundary term, hard target",bce_boundary,88,1.152109,0.031938,5
+C_hard,"+ boundary term, hard target",bce_boundary,89,1.158751,0.031733,5
+C_hard,"+ boundary term, hard target",bce_boundary,90,1.157146,0.034554,5
+C_hard,"+ boundary term, hard target",bce_boundary,91,1.162574,0.037268,5
+C_hard,"+ boundary term, hard target",bce_boundary,92,1.167596,0.034998,5
+C_hard,"+ boundary term, hard target",bce_boundary,93,1.166823,0.03658,5
+C_hard,"+ boundary term, hard target",bce_boundary,94,1.167733,0.036715,5
+C_hard,"+ boundary term, hard target",bce_boundary,95,1.170234,0.035055,5
+C_hard,"+ boundary term, hard target",bce_boundary,96,1.173136,0.036307,5
+C_hard,"+ boundary term, hard target",bce_boundary,97,1.173572,0.035692,5
+C_hard,"+ boundary term, hard target",bce_boundary,98,1.174169,0.035512,5
+C_hard,"+ boundary term, hard target",bce_boundary,99,1.174081,0.036623,5
+C_hard,"+ boundary term, hard target",bce_boundary,100,1.174603,0.036056,5
+C_hard,"+ boundary term, hard target",frac_free,100,0.105003,0.0,5
+C_hard,"+ boundary term, hard target",frac_non_free,100,0.674057,0.0,5
+C_hard,"+ boundary term, hard target",frac_boundary,100,0.22094,0.0,5
+C_soft,+ soft boundary target (proposed),bce_free,1,0.120217,0.023348,5
+C_soft,+ soft boundary target (proposed),bce_free,2,0.082993,0.006175,5
+C_soft,+ soft boundary target (proposed),bce_free,3,0.066793,0.006207,5
+C_soft,+ soft boundary target (proposed),bce_free,4,0.06177,0.007602,5
+C_soft,+ soft boundary target (proposed),bce_free,5,0.057023,0.006311,5
+C_soft,+ soft boundary target (proposed),bce_free,6,0.048136,0.00686,5
+C_soft,+ soft boundary target (proposed),bce_free,7,0.046871,0.004687,5
+C_soft,+ soft boundary target (proposed),bce_free,8,0.042206,0.00403,5
+C_soft,+ soft boundary target (proposed),bce_free,9,0.037042,0.004181,5
+C_soft,+ soft boundary target (proposed),bce_free,10,0.036972,0.00219,5
+C_soft,+ soft boundary target (proposed),bce_free,11,0.034663,0.004055,5
+C_soft,+ soft boundary target (proposed),bce_free,12,0.034074,0.003312,5
+C_soft,+ soft boundary target (proposed),bce_free,13,0.034002,0.008688,5
+C_soft,+ soft boundary target (proposed),bce_free,14,0.031845,0.003466,5
+C_soft,+ soft boundary target (proposed),bce_free,15,0.031996,0.003984,5
+C_soft,+ soft boundary target (proposed),bce_free,16,0.033201,0.002349,5
+C_soft,+ soft boundary target (proposed),bce_free,17,0.031521,0.004108,5
+C_soft,+ soft boundary target (proposed),bce_free,18,0.03203,0.003541,5
+C_soft,+ soft boundary target (proposed),bce_free,19,0.032042,0.004144,5
+C_soft,+ soft boundary target (proposed),bce_free,20,0.033242,0.004027,5
+C_soft,+ soft boundary target (proposed),bce_free,21,0.030682,0.003873,5
+C_soft,+ soft boundary target (proposed),bce_free,22,0.032934,0.002941,5
+C_soft,+ soft boundary target (proposed),bce_free,23,0.030494,0.00338,5
+C_soft,+ soft boundary target (proposed),bce_free,24,0.03227,0.00622,5
+C_soft,+ soft boundary target (proposed),bce_free,25,0.031753,0.003991,5
+C_soft,+ soft boundary target (proposed),bce_free,26,0.03278,0.003349,5
+C_soft,+ soft boundary target (proposed),bce_free,27,0.030638,0.003556,5
+C_soft,+ soft boundary target (proposed),bce_free,28,0.030437,0.00349,5
+C_soft,+ soft boundary target (proposed),bce_free,29,0.031049,0.002269,5
+C_soft,+ soft boundary target (proposed),bce_free,30,0.032193,0.00337,5
+C_soft,+ soft boundary target (proposed),bce_free,31,0.03059,0.003072,5
+C_soft,+ soft boundary target (proposed),bce_free,32,0.030725,0.003093,5
+C_soft,+ soft boundary target (proposed),bce_free,33,0.03121,0.00395,5
+C_soft,+ soft boundary target (proposed),bce_free,34,0.031499,0.004477,5
+C_soft,+ soft boundary target (proposed),bce_free,35,0.030275,0.002333,5
+C_soft,+ soft boundary target (proposed),bce_free,36,0.03131,0.002381,5
+C_soft,+ soft boundary target (proposed),bce_free,37,0.030438,0.003213,5
+C_soft,+ soft boundary target (proposed),bce_free,38,0.032248,0.00322,5
+C_soft,+ soft boundary target (proposed),bce_free,39,0.030609,0.003201,5
+C_soft,+ soft boundary target (proposed),bce_free,40,0.033212,0.003495,5
+C_soft,+ soft boundary target (proposed),bce_free,41,0.030703,0.003061,5
+C_soft,+ soft boundary target (proposed),bce_free,42,0.030652,0.003132,5
+C_soft,+ soft boundary target (proposed),bce_free,43,0.030114,0.002708,5
+C_soft,+ soft boundary target (proposed),bce_free,44,0.031479,0.002363,5
+C_soft,+ soft boundary target (proposed),bce_free,45,0.030601,0.002814,5
+C_soft,+ soft boundary target (proposed),bce_free,46,0.030818,0.001929,5
+C_soft,+ soft boundary target (proposed),bce_free,47,0.030557,0.004025,5
+C_soft,+ soft boundary target (proposed),bce_free,48,0.03057,0.002142,5
+C_soft,+ soft boundary target (proposed),bce_free,49,0.03078,0.002959,5
+C_soft,+ soft boundary target (proposed),bce_free,50,0.029412,0.002898,5
+C_soft,+ soft boundary target (proposed),bce_free,51,0.030484,0.002738,5
+C_soft,+ soft boundary target (proposed),bce_free,52,0.030826,0.002288,5
+C_soft,+ soft boundary target (proposed),bce_free,53,0.030156,0.002631,5
+C_soft,+ soft boundary target (proposed),bce_free,54,0.030705,0.002942,5
+C_soft,+ soft boundary target (proposed),bce_free,55,0.030524,0.003194,5
+C_soft,+ soft boundary target (proposed),bce_free,56,0.029668,0.002613,5
+C_soft,+ soft boundary target (proposed),bce_free,57,0.029493,0.002286,5
+C_soft,+ soft boundary target (proposed),bce_free,58,0.030001,0.002399,5
+C_soft,+ soft boundary target (proposed),bce_free,59,0.030119,0.002692,5
+C_soft,+ soft boundary target (proposed),bce_free,60,0.029357,0.002841,5
+C_soft,+ soft boundary target (proposed),bce_free,61,0.030652,0.002517,5
+C_soft,+ soft boundary target (proposed),bce_free,62,0.029769,0.002021,5
+C_soft,+ soft boundary target (proposed),bce_free,63,0.031216,0.003299,5
+C_soft,+ soft boundary target (proposed),bce_free,64,0.02971,0.002476,5
+C_soft,+ soft boundary target (proposed),bce_free,65,0.030039,0.002401,5
+C_soft,+ soft boundary target (proposed),bce_free,66,0.029202,0.002265,5
+C_soft,+ soft boundary target (proposed),bce_free,67,0.029855,0.00248,5
+C_soft,+ soft boundary target (proposed),bce_free,68,0.030534,0.002802,5
+C_soft,+ soft boundary target (proposed),bce_free,69,0.030751,0.00285,5
+C_soft,+ soft boundary target (proposed),bce_free,70,0.029886,0.002991,5
+C_soft,+ soft boundary target (proposed),bce_free,71,0.029736,0.00152,5
+C_soft,+ soft boundary target (proposed),bce_free,72,0.02945,0.002561,5
+C_soft,+ soft boundary target (proposed),bce_free,73,0.029942,0.002334,5
+C_soft,+ soft boundary target (proposed),bce_free,74,0.03017,0.002366,5
+C_soft,+ soft boundary target (proposed),bce_free,75,0.029739,0.002414,5
+C_soft,+ soft boundary target (proposed),bce_free,76,0.02996,0.002265,5
+C_soft,+ soft boundary target (proposed),bce_free,77,0.029901,0.00181,5
+C_soft,+ soft boundary target (proposed),bce_free,78,0.029262,0.002085,5
+C_soft,+ soft boundary target (proposed),bce_free,79,0.029762,0.002319,5
+C_soft,+ soft boundary target (proposed),bce_free,80,0.029616,0.002161,5
+C_soft,+ soft boundary target (proposed),bce_free,81,0.029473,0.00218,5
+C_soft,+ soft boundary target (proposed),bce_free,82,0.029659,0.002295,5
+C_soft,+ soft boundary target (proposed),bce_free,83,0.029311,0.002475,5
+C_soft,+ soft boundary target (proposed),bce_free,84,0.02979,0.001939,5
+C_soft,+ soft boundary target (proposed),bce_free,85,0.029742,0.00217,5
+C_soft,+ soft boundary target (proposed),bce_free,86,0.030036,0.002145,5
+C_soft,+ soft boundary target (proposed),bce_free,87,0.029553,0.002419,5
+C_soft,+ soft boundary target (proposed),bce_free,88,0.029631,0.001977,5
+C_soft,+ soft boundary target (proposed),bce_free,89,0.029603,0.002104,5
+C_soft,+ soft boundary target (proposed),bce_free,90,0.029758,0.00181,5
+C_soft,+ soft boundary target (proposed),bce_free,91,0.029749,0.002046,5
+C_soft,+ soft boundary target (proposed),bce_free,92,0.029775,0.002272,5
+C_soft,+ soft boundary target (proposed),bce_free,93,0.029596,0.002122,5
+C_soft,+ soft boundary target (proposed),bce_free,94,0.029373,0.002131,5
+C_soft,+ soft boundary target (proposed),bce_free,95,0.029395,0.002051,5
+C_soft,+ soft boundary target (proposed),bce_free,96,0.029643,0.002343,5
+C_soft,+ soft boundary target (proposed),bce_free,97,0.029665,0.002255,5
+C_soft,+ soft boundary target (proposed),bce_free,98,0.02961,0.002139,5
+C_soft,+ soft boundary target (proposed),bce_free,99,0.029656,0.002098,5
+C_soft,+ soft boundary target (proposed),bce_free,100,0.029694,0.002257,5
+C_soft,+ soft boundary target (proposed),bce_non_free,1,0.366464,0.099409,5
+C_soft,+ soft boundary target (proposed),bce_non_free,2,0.21625,0.055233,5
+C_soft,+ soft boundary target (proposed),bce_non_free,3,0.165065,0.041352,5
+C_soft,+ soft boundary target (proposed),bce_non_free,4,0.133723,0.037179,5
+C_soft,+ soft boundary target (proposed),bce_non_free,5,0.11741,0.034426,5
+C_soft,+ soft boundary target (proposed),bce_non_free,6,0.100256,0.030731,5
+C_soft,+ soft boundary target (proposed),bce_non_free,7,0.091398,0.031353,5
+C_soft,+ soft boundary target (proposed),bce_non_free,8,0.078636,0.026241,5
+C_soft,+ soft boundary target (proposed),bce_non_free,9,0.072186,0.023936,5
+C_soft,+ soft boundary target (proposed),bce_non_free,10,0.065575,0.024029,5
+C_soft,+ soft boundary target (proposed),bce_non_free,11,0.061359,0.021219,5
+C_soft,+ soft boundary target (proposed),bce_non_free,12,0.057095,0.01914,5
+C_soft,+ soft boundary target (proposed),bce_non_free,13,0.053576,0.018406,5
+C_soft,+ soft boundary target (proposed),bce_non_free,14,0.050117,0.016147,5
+C_soft,+ soft boundary target (proposed),bce_non_free,15,0.047634,0.015906,5
+C_soft,+ soft boundary target (proposed),bce_non_free,16,0.044313,0.01415,5
+C_soft,+ soft boundary target (proposed),bce_non_free,17,0.042599,0.014516,5
+C_soft,+ soft boundary target (proposed),bce_non_free,18,0.040103,0.013164,5
+C_soft,+ soft boundary target (proposed),bce_non_free,19,0.038715,0.012892,5
+C_soft,+ soft boundary target (proposed),bce_non_free,20,0.03761,0.011851,5
+C_soft,+ soft boundary target (proposed),bce_non_free,21,0.036061,0.011158,5
+C_soft,+ soft boundary target (proposed),bce_non_free,22,0.034406,0.010139,5
+C_soft,+ soft boundary target (proposed),bce_non_free,23,0.034135,0.010251,5
+C_soft,+ soft boundary target (proposed),bce_non_free,24,0.032064,0.010461,5
+C_soft,+ soft boundary target (proposed),bce_non_free,25,0.031148,0.00926,5
+C_soft,+ soft boundary target (proposed),bce_non_free,26,0.03018,0.008219,5
+C_soft,+ soft boundary target (proposed),bce_non_free,27,0.029231,0.008408,5
+C_soft,+ soft boundary target (proposed),bce_non_free,28,0.028913,0.007647,5
+C_soft,+ soft boundary target (proposed),bce_non_free,29,0.028065,0.007386,5
+C_soft,+ soft boundary target (proposed),bce_non_free,30,0.026949,0.007283,5
+C_soft,+ soft boundary target (proposed),bce_non_free,31,0.026247,0.006619,5
+C_soft,+ soft boundary target (proposed),bce_non_free,32,0.025922,0.006751,5
+C_soft,+ soft boundary target (proposed),bce_non_free,33,0.025357,0.006319,5
+C_soft,+ soft boundary target (proposed),bce_non_free,34,0.024696,0.006163,5
+C_soft,+ soft boundary target (proposed),bce_non_free,35,0.024266,0.005738,5
+C_soft,+ soft boundary target (proposed),bce_non_free,36,0.023866,0.005935,5
+C_soft,+ soft boundary target (proposed),bce_non_free,37,0.023413,0.00489,5
+C_soft,+ soft boundary target (proposed),bce_non_free,38,0.022813,0.004989,5
+C_soft,+ soft boundary target (proposed),bce_non_free,39,0.0227,0.005526,5
+C_soft,+ soft boundary target (proposed),bce_non_free,40,0.021741,0.005047,5
+C_soft,+ soft boundary target (proposed),bce_non_free,41,0.021688,0.004272,5
+C_soft,+ soft boundary target (proposed),bce_non_free,42,0.021548,0.004526,5
+C_soft,+ soft boundary target (proposed),bce_non_free,43,0.021472,0.004513,5
+C_soft,+ soft boundary target (proposed),bce_non_free,44,0.021265,0.004427,5
+C_soft,+ soft boundary target (proposed),bce_non_free,45,0.020593,0.004506,5
+C_soft,+ soft boundary target (proposed),bce_non_free,46,0.020615,0.003778,5
+C_soft,+ soft boundary target (proposed),bce_non_free,47,0.020053,0.00415,5
+C_soft,+ soft boundary target (proposed),bce_non_free,48,0.02002,0.003823,5
+C_soft,+ soft boundary target (proposed),bce_non_free,49,0.020027,0.003943,5
+C_soft,+ soft boundary target (proposed),bce_non_free,50,0.019391,0.003773,5
+C_soft,+ soft boundary target (proposed),bce_non_free,51,0.019144,0.003987,5
+C_soft,+ soft boundary target (proposed),bce_non_free,52,0.019009,0.003336,5
+C_soft,+ soft boundary target (proposed),bce_non_free,53,0.019009,0.003539,5
+C_soft,+ soft boundary target (proposed),bce_non_free,54,0.018179,0.003452,5
+C_soft,+ soft boundary target (proposed),bce_non_free,55,0.018237,0.003419,5
+C_soft,+ soft boundary target (proposed),bce_non_free,56,0.018635,0.003352,5
+C_soft,+ soft boundary target (proposed),bce_non_free,57,0.018141,0.0029,5
+C_soft,+ soft boundary target (proposed),bce_non_free,58,0.018117,0.002863,5
+C_soft,+ soft boundary target (proposed),bce_non_free,59,0.017509,0.002882,5
+C_soft,+ soft boundary target (proposed),bce_non_free,60,0.017834,0.002841,5
+C_soft,+ soft boundary target (proposed),bce_non_free,61,0.017385,0.002827,5
+C_soft,+ soft boundary target (proposed),bce_non_free,62,0.017596,0.002623,5
+C_soft,+ soft boundary target (proposed),bce_non_free,63,0.01704,0.002988,5
+C_soft,+ soft boundary target (proposed),bce_non_free,64,0.017345,0.002496,5
+C_soft,+ soft boundary target (proposed),bce_non_free,65,0.017114,0.002604,5
+C_soft,+ soft boundary target (proposed),bce_non_free,66,0.017005,0.002655,5
+C_soft,+ soft boundary target (proposed),bce_non_free,67,0.016913,0.002511,5
+C_soft,+ soft boundary target (proposed),bce_non_free,68,0.016801,0.002676,5
+C_soft,+ soft boundary target (proposed),bce_non_free,69,0.016478,0.002818,5
+C_soft,+ soft boundary target (proposed),bce_non_free,70,0.016479,0.002549,5
+C_soft,+ soft boundary target (proposed),bce_non_free,71,0.016495,0.002447,5
+C_soft,+ soft boundary target (proposed),bce_non_free,72,0.016375,0.002407,5
+C_soft,+ soft boundary target (proposed),bce_non_free,73,0.01647,0.00228,5
+C_soft,+ soft boundary target (proposed),bce_non_free,74,0.016179,0.002302,5
+C_soft,+ soft boundary target (proposed),bce_non_free,75,0.015985,0.002302,5
+C_soft,+ soft boundary target (proposed),bce_non_free,76,0.016057,0.002332,5
+C_soft,+ soft boundary target (proposed),bce_non_free,77,0.015709,0.002116,5
+C_soft,+ soft boundary target (proposed),bce_non_free,78,0.015825,0.002157,5
+C_soft,+ soft boundary target (proposed),bce_non_free,79,0.015671,0.002274,5
+C_soft,+ soft boundary target (proposed),bce_non_free,80,0.015721,0.002117,5
+C_soft,+ soft boundary target (proposed),bce_non_free,81,0.015731,0.002123,5
+C_soft,+ soft boundary target (proposed),bce_non_free,82,0.015595,0.002009,5
+C_soft,+ soft boundary target (proposed),bce_non_free,83,0.015518,0.002116,5
+C_soft,+ soft boundary target (proposed),bce_non_free,84,0.015518,0.002174,5
+C_soft,+ soft boundary target (proposed),bce_non_free,85,0.015427,0.002079,5
+C_soft,+ soft boundary target (proposed),bce_non_free,86,0.015272,0.002126,5
+C_soft,+ soft boundary target (proposed),bce_non_free,87,0.015345,0.002144,5
+C_soft,+ soft boundary target (proposed),bce_non_free,88,0.015418,0.002096,5
+C_soft,+ soft boundary target (proposed),bce_non_free,89,0.015347,0.002132,5
+C_soft,+ soft boundary target (proposed),bce_non_free,90,0.01525,0.00198,5
+C_soft,+ soft boundary target (proposed),bce_non_free,91,0.01525,0.001935,5
+C_soft,+ soft boundary target (proposed),bce_non_free,92,0.015132,0.001843,5
+C_soft,+ soft boundary target (proposed),bce_non_free,93,0.015104,0.00205,5
+C_soft,+ soft boundary target (proposed),bce_non_free,94,0.015183,0.001956,5
+C_soft,+ soft boundary target (proposed),bce_non_free,95,0.015235,0.001981,5
+C_soft,+ soft boundary target (proposed),bce_non_free,96,0.015069,0.001961,5
+C_soft,+ soft boundary target (proposed),bce_non_free,97,0.015069,0.002045,5
+C_soft,+ soft boundary target (proposed),bce_non_free,98,0.015083,0.001979,5
+C_soft,+ soft boundary target (proposed),bce_non_free,99,0.015091,0.001921,5
+C_soft,+ soft boundary target (proposed),bce_non_free,100,0.015113,0.002051,5
+C_soft,+ soft boundary target (proposed),bce_boundary,1,0.5327,0.024274,5
+C_soft,+ soft boundary target (proposed),bce_boundary,2,0.483365,0.011583,5
+C_soft,+ soft boundary target (proposed),bce_boundary,3,0.467038,0.011981,5
+C_soft,+ soft boundary target (proposed),bce_boundary,4,0.455168,0.017928,5
+C_soft,+ soft boundary target (proposed),bce_boundary,5,0.448875,0.008832,5
+C_soft,+ soft boundary target (proposed),bce_boundary,6,0.435525,0.013823,5
+C_soft,+ soft boundary target (proposed),bce_boundary,7,0.445508,0.01159,5
+C_soft,+ soft boundary target (proposed),bce_boundary,8,0.441855,0.007008,5
+C_soft,+ soft boundary target (proposed),bce_boundary,9,0.432539,0.006545,5
+C_soft,+ soft boundary target (proposed),bce_boundary,10,0.42955,0.012927,5
+C_soft,+ soft boundary target (proposed),bce_boundary,11,0.429079,0.006983,5
+C_soft,+ soft boundary target (proposed),bce_boundary,12,0.427167,0.004133,5
+C_soft,+ soft boundary target (proposed),bce_boundary,13,0.431591,0.005791,5
+C_soft,+ soft boundary target (proposed),bce_boundary,14,0.431671,0.004917,5
+C_soft,+ soft boundary target (proposed),bce_boundary,15,0.432422,0.004764,5
+C_soft,+ soft boundary target (proposed),bce_boundary,16,0.42864,0.00705,5
+C_soft,+ soft boundary target (proposed),bce_boundary,17,0.43154,0.004319,5
+C_soft,+ soft boundary target (proposed),bce_boundary,18,0.432797,0.007016,5
+C_soft,+ soft boundary target (proposed),bce_boundary,19,0.429762,0.007105,5
+C_soft,+ soft boundary target (proposed),bce_boundary,20,0.434146,0.006906,5
+C_soft,+ soft boundary target (proposed),bce_boundary,21,0.43106,0.00846,5
+C_soft,+ soft boundary target (proposed),bce_boundary,22,0.433502,0.006102,5
+C_soft,+ soft boundary target (proposed),bce_boundary,23,0.43202,0.005409,5
+C_soft,+ soft boundary target (proposed),bce_boundary,24,0.433749,0.0087,5
+C_soft,+ soft boundary target (proposed),bce_boundary,25,0.433403,0.004416,5
+C_soft,+ soft boundary target (proposed),bce_boundary,26,0.436654,0.005141,5
+C_soft,+ soft boundary target (proposed),bce_boundary,27,0.434409,0.00431,5
+C_soft,+ soft boundary target (proposed),bce_boundary,28,0.437991,0.006596,5
+C_soft,+ soft boundary target (proposed),bce_boundary,29,0.435639,0.003816,5
+C_soft,+ soft boundary target (proposed),bce_boundary,30,0.438602,0.005455,5
+C_soft,+ soft boundary target (proposed),bce_boundary,31,0.434931,0.004135,5
+C_soft,+ soft boundary target (proposed),bce_boundary,32,0.437156,0.002487,5
+C_soft,+ soft boundary target (proposed),bce_boundary,33,0.439162,0.006567,5
+C_soft,+ soft boundary target (proposed),bce_boundary,34,0.436347,0.005714,5
+C_soft,+ soft boundary target (proposed),bce_boundary,35,0.436258,0.001286,5
+C_soft,+ soft boundary target (proposed),bce_boundary,36,0.434912,0.006121,5
+C_soft,+ soft boundary target (proposed),bce_boundary,37,0.438701,0.009005,5
+C_soft,+ soft boundary target (proposed),bce_boundary,38,0.43675,0.003628,5
+C_soft,+ soft boundary target (proposed),bce_boundary,39,0.434662,0.00232,5
+C_soft,+ soft boundary target (proposed),bce_boundary,40,0.435612,0.002845,5
+C_soft,+ soft boundary target (proposed),bce_boundary,41,0.435849,0.004395,5
+C_soft,+ soft boundary target (proposed),bce_boundary,42,0.440692,0.004291,5
+C_soft,+ soft boundary target (proposed),bce_boundary,43,0.438673,0.005457,5
+C_soft,+ soft boundary target (proposed),bce_boundary,44,0.437166,0.00389,5
+C_soft,+ soft boundary target (proposed),bce_boundary,45,0.437246,0.008309,5
+C_soft,+ soft boundary target (proposed),bce_boundary,46,0.437444,0.004913,5
+C_soft,+ soft boundary target (proposed),bce_boundary,47,0.438742,0.005041,5
+C_soft,+ soft boundary target (proposed),bce_boundary,48,0.439193,0.004086,5
+C_soft,+ soft boundary target (proposed),bce_boundary,49,0.438593,0.004236,5
+C_soft,+ soft boundary target (proposed),bce_boundary,50,0.438099,0.00296,5
+C_soft,+ soft boundary target (proposed),bce_boundary,51,0.440736,0.002454,5
+C_soft,+ soft boundary target (proposed),bce_boundary,52,0.438682,0.004326,5
+C_soft,+ soft boundary target (proposed),bce_boundary,53,0.439557,0.006289,5
+C_soft,+ soft boundary target (proposed),bce_boundary,54,0.439819,0.00456,5
+C_soft,+ soft boundary target (proposed),bce_boundary,55,0.439432,0.001646,5
+C_soft,+ soft boundary target (proposed),bce_boundary,56,0.442072,0.005932,5
+C_soft,+ soft boundary target (proposed),bce_boundary,57,0.43848,0.006989,5
+C_soft,+ soft boundary target (proposed),bce_boundary,58,0.43914,0.003393,5
+C_soft,+ soft boundary target (proposed),bce_boundary,59,0.43998,0.004205,5
+C_soft,+ soft boundary target (proposed),bce_boundary,60,0.439829,0.005606,5
+C_soft,+ soft boundary target (proposed),bce_boundary,61,0.44031,0.003047,5
+C_soft,+ soft boundary target (proposed),bce_boundary,62,0.441158,0.006403,5
+C_soft,+ soft boundary target (proposed),bce_boundary,63,0.439725,0.003409,5
+C_soft,+ soft boundary target (proposed),bce_boundary,64,0.441009,0.004785,5
+C_soft,+ soft boundary target (proposed),bce_boundary,65,0.442026,0.004141,5
+C_soft,+ soft boundary target (proposed),bce_boundary,66,0.440901,0.003658,5
+C_soft,+ soft boundary target (proposed),bce_boundary,67,0.441352,0.004163,5
+C_soft,+ soft boundary target (proposed),bce_boundary,68,0.439744,0.003817,5
+C_soft,+ soft boundary target (proposed),bce_boundary,69,0.439774,0.003047,5
+C_soft,+ soft boundary target (proposed),bce_boundary,70,0.441952,0.002995,5
+C_soft,+ soft boundary target (proposed),bce_boundary,71,0.44079,0.004425,5
+C_soft,+ soft boundary target (proposed),bce_boundary,72,0.441223,0.003036,5
+C_soft,+ soft boundary target (proposed),bce_boundary,73,0.441522,0.004287,5
+C_soft,+ soft boundary target (proposed),bce_boundary,74,0.441564,0.002885,5
+C_soft,+ soft boundary target (proposed),bce_boundary,75,0.440901,0.004235,5
+C_soft,+ soft boundary target (proposed),bce_boundary,76,0.442037,0.004488,5
+C_soft,+ soft boundary target (proposed),bce_boundary,77,0.440674,0.003297,5
+C_soft,+ soft boundary target (proposed),bce_boundary,78,0.441427,0.005053,5
+C_soft,+ soft boundary target (proposed),bce_boundary,79,0.441762,0.004327,5
+C_soft,+ soft boundary target (proposed),bce_boundary,80,0.442208,0.003286,5
+C_soft,+ soft boundary target (proposed),bce_boundary,81,0.442058,0.005181,5
+C_soft,+ soft boundary target (proposed),bce_boundary,82,0.44186,0.00395,5
+C_soft,+ soft boundary target (proposed),bce_boundary,83,0.44102,0.005469,5
+C_soft,+ soft boundary target (proposed),bce_boundary,84,0.442078,0.004057,5
+C_soft,+ soft boundary target (proposed),bce_boundary,85,0.441716,0.003905,5
+C_soft,+ soft boundary target (proposed),bce_boundary,86,0.441848,0.004137,5
+C_soft,+ soft boundary target (proposed),bce_boundary,87,0.441339,0.004709,5
+C_soft,+ soft boundary target (proposed),bce_boundary,88,0.441928,0.004423,5
+C_soft,+ soft boundary target (proposed),bce_boundary,89,0.441933,0.0042,5
+C_soft,+ soft boundary target (proposed),bce_boundary,90,0.441776,0.004249,5
+C_soft,+ soft boundary target (proposed),bce_boundary,91,0.442209,0.004195,5
+C_soft,+ soft boundary target (proposed),bce_boundary,92,0.442158,0.004596,5
+C_soft,+ soft boundary target (proposed),bce_boundary,93,0.441986,0.004436,5
+C_soft,+ soft boundary target (proposed),bce_boundary,94,0.442776,0.004016,5
+C_soft,+ soft boundary target (proposed),bce_boundary,95,0.442225,0.004219,5
+C_soft,+ soft boundary target (proposed),bce_boundary,96,0.442017,0.004086,5
+C_soft,+ soft boundary target (proposed),bce_boundary,97,0.441939,0.003738,5
+C_soft,+ soft boundary target (proposed),bce_boundary,98,0.442284,0.003998,5
+C_soft,+ soft boundary target (proposed),bce_boundary,99,0.442445,0.004279,5
+C_soft,+ soft boundary target (proposed),bce_boundary,100,0.442338,0.004136,5
+C_soft,+ soft boundary target (proposed),frac_free,100,0.105003,0.0,5
+C_soft,+ soft boundary target (proposed),frac_non_free,100,0.674057,0.0,5
+C_soft,+ soft boundary target (proposed),frac_boundary,100,0.22094,0.0,5

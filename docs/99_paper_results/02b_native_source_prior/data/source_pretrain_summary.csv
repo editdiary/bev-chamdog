@@ -1,0 +1,3 @@
+arm,label,source_grid,source_cell_m,epoch,source_iou_free_mean,source_iou_free_sd,n_seeds
+source_pretrain,SynWoodScape pretrain (adapted),240x240,0.05,100,0.986841,4.8e-05,5
+source_pretrain_native,SynWoodScape pretrain (native),200x200,0.15,100,0.870565,0.000949,5

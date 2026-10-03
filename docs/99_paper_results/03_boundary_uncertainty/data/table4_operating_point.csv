@@ -1,0 +1,5 @@
+cell,cell_label,target_recall,tau_star_mean,tau_star_sd,precision_at_matched_recall_mean,precision_at_matched_recall_sd,precision_at_tau_0.5_mean,precision_at_tau_0.5_sd
+A_ce,Weighted CE (baseline),0.932333,0.317207,0.106097,0.857995,0.001968,0.873895,0.001696
+B_perset,Per-set mean (no boundary term),0.932333,0.73242,0.082468,0.782794,0.018981,0.69187,0.018064
+C_hard,"+ boundary term, hard target",0.932333,0.186202,0.030895,0.850051,0.003481,0.876206,0.001248
+C_soft,+ soft boundary target (proposed),0.932333,0.386319,0.00891,0.86171,0.001342,0.881939,0.002012

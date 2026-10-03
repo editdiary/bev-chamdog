@@ -1,0 +1,9 @@
+{
+  "tolerance": 0.001,
+  "tau": 0.5,
+  "n_files": 10,
+  "n_checks": 190,
+  "n_failures": 0,
+  "max_abs_diff": 0.0002607117264639136,
+  "method": "exported pre-threshold probability maps re-scored on an independent path and compared against the training logs"
+}
