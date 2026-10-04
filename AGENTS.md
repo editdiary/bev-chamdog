@@ -12,9 +12,10 @@ AI agent와 협업할 때 항상 참고할 **핵심 지침**이다. 특정 플�
 - **논문 실험 캠페인 v3 완료.** 90런(`runs/99_full_campaign/`), 100 epoch, 광선 보조항 없음, 새 지표.
   **논문 숫자·표·그림·해석의 정본은 [`docs/99_paper_results/`](docs/99_paper_results/README.md)**다.
   실행 기록은 원장 [`docs/paper_final_experiments.md`](docs/paper_final_experiments.md) §5 "2026-10-02 (8)".
-- **남은 실험: Jetson AGX Orin 엣지 배포 측정**(논문 Results 4절). 옛 측정 20.2 FPS(512×288 fp16,
-  PyTorch)는 **`Y=1` 모델 값이라 `Y=4`로 다시 재야 한다.** TensorRT는 아직 해 보지 않았고 목표 FPS는 미정이다.
-  옛 측정의 절차·환경 함정은 [`docs/archive/research/finetune_overfitting_diagnosis.md`](docs/archive/research/finetune_overfitting_diagnosis.md) §32.
+- **[2026-10-04] 실험 04 Edge Deployment 완료**(Jetson AGX Orin, 모델 5개): PyTorch fp32 67.5 ms(14.8 FPS) →
+  **인코더만 TensorRT fp16 23.6 ms(42.3 FPS), 정확도 차이 없음** → INT8 18.6 ms(53.7 FPS), 유의한 손실.
+  정본 [`docs/99_paper_results/04_edge_deployment/`](docs/99_paper_results/04_edge_deployment/REPORT.md), 도구 `tools/jetson/`.
+  **논문 실험은 전부 끝났다.** 목표 FPS는 여전히 미정이다.
 - **가중치는 v3 마지막 체크포인트 90개만 남아 있다**(2026-10-04 정리, `runs/99_full_campaign/**/model-000000100.pth`).
   다른 트리는 로그·분석만 있어 다시 채점할 수 없다.
 - **캠페인을 다시 돌릴 때**는 [`docs/paper_campaign_protocol.md`](docs/paper_campaign_protocol.md)부터 읽는다

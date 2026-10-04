@@ -11,7 +11,7 @@
 | 실험별 러너 | `run_paper_final_overall.py`, `run_paper_final_projection_prior.py`, `run_paper_final_native_prior.py` |
 | 분석 | `export_run_scalars.py`, `export_val_predictions.py`, `verify_val_predictions.py`(확률맵 재채점), `summarize_repeats.py`, `report_paired_arms.py`, `report_loso.py`, `report_threshold_sweep.py`, `build_results_bundle.py` |
 | 검증·정리 | `clean_incomplete_runs.py`(**지금 돌리는 캠페인 루트에만**), `audit_paper_prose_numbers.py`(산문 숫자 감사), `paper_final_run_command.py`(멈춤 감시) |
-| 지연 측정 | `benchmark_inference.py` |
+| 지연 측정 | `benchmark_inference.py`(옛 무작위 가중치 측정), **`jetson/`**(학습된 모델의 Orin 측정: 꾸러미 생성 → 보드에서 TensorRT 빌드·측정 → 서버 채점. 사용법은 `jetson/README.md`) |
 
 절차 정본은 `docs/paper_campaign_protocol.md` §9("지금 쓰는 도구 목록")다. 그 밖의 `report_*`·`probe`·`sweep`
 관련 스크립트는 v3 이전 연구에 쓴 것이고 근거 문서는 `docs/archive/research/`에 있다.

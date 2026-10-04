@@ -309,6 +309,21 @@ fold 하나의 SD 0 나누기) → 생성기 4·그림 6 전부 rc=0.
 
 ---
 
+### 2026-10-04 — **실험 04 Edge Deployment 완료** (Jetson AGX Orin)
+
+사용자 결정: 주목적은 추론 속도, DLA 제외, 구성은 PyTorch fp32 / **인코더만** TensorRT fp16·INT8, 모델은
+실험 1 고정 split 시드 0~4. 모델을 인코더와 BEV 단계로 나누고 투영을 fp32 상수로 박았다
+(`projects/deploy/split_model.py`, 원본과 비트 단위로 같음). 보드 L4T R36.4 / TensorRT 10.3, MAXN + `jetson_clocks`.
+
+| 단계 | 결과 |
+|---|---|
+| 사전 측정(시드 0) | 15시. 첫 시도는 sudo 실패로 클럭이 고정되지 않아 다시 잼. 결과는 `runs/jetson_pilot_2026-10-04/` |
+| 본 측정 | 16:38~17:02. 모델 5 × 구성 3, 라운드 3 번갈아, 60초 연속 실행, tegrastats 구간 분리 |
+| 결과 | fp32 67.5 ms(인코더 81.8 %) → fp16 23.6 ms(2.86×, 정확도 차이 없음) → INT8 18.6 ms(3.63×, IoU_free −0.0055* 등, 모델마다 −0.0021~−0.0115) |
+
+정본: `docs/99_paper_results/04_edge_deployment/REPORT.md`. 도구: `tools/jetson/`. INT8 정확도는 TensorRT 버전에
+따라 다르다(서버 10.16은 합성곱 60/95만 INT8로 골라 손실이 작았다) -- **보드에서 잰 값만 쓴다.**
+
 ### 2026-10-02 (7) — **사전 실험: 높이 범위** (C_soft 3런) **+ 같은 설정의 A_ce 1런** (시드 0, 100 epoch)
 
 결과 `runs/99_height_exp/`, 드라이버 `configs/height_range_probe.sh`, 그림·표

@@ -1,6 +1,6 @@
 # 논문 결과 패키지 — 캠페인 v3
 
-`runs/99_full_campaign/`(90런, 2026-10-02 18:04 ~ 10-03 21:40)에서 생성한 논문용 숫자·표·그림이다.
+`runs/99_full_campaign/`(90런, 2026-10-02 18:04 ~ 10-03 21:40)과 그 모델의 Jetson 측정(2026-10-04)에서 생성한 논문용 숫자·표·그림이다.
 **이 폴더가 논문 숫자의 정본이다.** 옛 패키지 `docs/archive/paper_package_v2/`는 지표·학습 길이·목적함수가
 달라(아래) 숫자를 섞지 않는다.
 
@@ -19,6 +19,7 @@
 | [`02_projection_and_prior`](02_projection_and_prior/REPORT.md) | 어안 직접 투영 · 합성 사전학습 | 20 | 핀홀로 펴면 손해, 사전학습도 손해(경계에 집중) |
 | [`02b_native_source_prior`](02b_native_source_prior/REPORT.md) | 사전학습 손해가 기하 맞춤 탓인가 | 10 | 아니다 — 원래 기하로도 같은 방향 |
 | [`03_boundary_uncertainty`](03_boundary_uncertainty/REPORT.md) | soft 경계 target의 효과 | 20 | 학습 거동·문턱 재현성은 확실히 낫고, 정확도 이득은 동작점을 맞추면 줄며, BF@0.10을 잃는다 |
+| [`04_edge_deployment`](04_edge_deployment/REPORT.md) | Jetson AGX Orin 속도와 TensorRT 교환 | 모델 5개 | fp32 14.8 FPS → 인코더 TensorRT fp16 42.3 FPS(정확도 차이 없음), INT8 53.7 FPS(유의한 손실) |
 
 공통 문서: [`common/setup.md`](common/setup.md) · [`common/metrics.md`](common/metrics.md) ·
 [`common/evaluation_protocol.md`](common/evaluation_protocol.md) · [`common/training_details.md`](common/training_details.md)
@@ -28,6 +29,7 @@
 - 90런 전부 epoch 100 완주, 재시도 0회. 결과 트리가 `runs/99_full_campaign` 밖을 가리키지 않음(순수성 검사).
 - 확률맵 160개를 학습 로그와 별도 경로로 재채점, 실패 0(최대 차이 7.05e-4, 허용 1e-3).
 - REPORT 넷의 소수 셋째 자리 이상 숫자 357개를 `tools/audit_paper_prose_numbers.py`로 CSV와 대조, 불일치 0.
+- 실험 04: 분할 모델이 원래 모델과 비트 단위로 같음(모델 5개 × 검증 75프레임), 보드 측정은 MAXN·클럭 고정, REPORT 숫자 55개 감사 불일치 0.
 
 ## 재생성
 

@@ -141,8 +141,23 @@ class DoubleSphereVoxUtil(utils.vox.Vox_util):
 
     def unproject_image_to_mem(self, rgb_camB, pixB_T_camA, camB_T_camA, Z, Y, X,
                                assert_cube=False, xyz_camA=None):
-        assert getattr(self, "camera_count", None), "먼저 set_camera_calibrations()를 호출해야 한다"
         B, C, H, W = list(rgb_camB.shape)
+        xyz_pixB, valid_mem = self.sampling_grid(camB_T_camA, Z, Y, X, H, W,
+                                                 assert_cube=assert_cube, xyz_camA=xyz_camA)
+        values = F.grid_sample(rgb_camB.unsqueeze(2), xyz_pixB, align_corners=False)
+
+        values = torch.reshape(values, (B, C, Z, Y, X))
+        return values * valid_mem
+
+    def sampling_grid(self, camB_T_camA, Z, Y, X, H, W, assert_cube=False, xyz_camA=None):
+        """BEV 복셀마다 **특징맵(H, W)의 어느 위치를 읽을지**와 유효 마스크 -- 이미지와 무관하다.
+
+        `unproject_image_to_mem`에서 떼어냈다(2026-10-04). 카메라가 고정된 배포에서는 이 둘이
+        상수이므로 한 번 fp32로 계산해 박아 둘 수 있다(`projects/deploy/split_model.py`).
+        반환: `xyz_pixB` `(B, Z, Y, X, 3)`(`grid_sample` 정규화 좌표), `valid_mem` `(B, 1, Z, Y, X)`.
+        """
+        assert getattr(self, "camera_count", None), "먼저 set_camera_calibrations()를 호출해야 한다"
+        B = camB_T_camA.shape[0]
         device = camB_T_camA.device
 
         if xyz_camA is None:
@@ -182,10 +197,7 @@ class DoubleSphereVoxUtil(utils.vox.Vox_util):
         y_pixB, x_pixB = normalize_pixel_grid2d(y, x, H, W, self.pixel_convention)
         xyz_pixB = torch.stack([x_pixB, y_pixB, torch.zeros_like(x)], dim=2)
         xyz_pixB = torch.reshape(xyz_pixB, [B, Z, Y, X, 3])
-        values = F.grid_sample(rgb_camB.unsqueeze(2), xyz_pixB, align_corners=False)
-
-        values = torch.reshape(values, (B, C, Z, Y, X))
-        return values * valid_mem
+        return xyz_pixB, valid_mem
 
 
 def build_double_sphere_vox_util(grid_spec: OccupancyGridSpec, cameras,

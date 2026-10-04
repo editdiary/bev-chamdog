@@ -46,11 +46,10 @@ Simple-BEV 데이터로더, 어안 `radial_poly` 투영 주입(`projects/models/
 - 90런: 01 대표 성능 + LOSO, 02 투영·사전학습, 02b 원래 기하 사전학습, 03 손실 사다리
 - **결과·표·그림·해석: `docs/99_paper_results/`** (실행 원장 `docs/paper_final_experiments.md`, 절차 `docs/paper_campaign_protocol.md`)
 
-## Phase 6 — Jetson AGX Orin 배포 측정 ⬅️ 현재 단계
+## Phase 6 — Jetson AGX Orin 배포 측정 ✅ 완료 (2026-10-04)
 
-- 옛 측정 20.2 FPS(512×288 fp16, PyTorch)는 `Y=1` 모델 값 → **`Y=4` 재측정 필요**
-- 정할 것: 보고할 지표(지연·FPS·전력·메모리), TensorRT 변환 여부, 목표 FPS
-- 옛 측정 절차·환경 함정: `docs/archive/research/finetune_overfitting_diagnosis.md` §32
+- 모델 5개 × (PyTorch fp32 / 인코더만 TensorRT fp16·INT8). fp32 14.8 FPS → fp16 42.3 FPS(정확도 차이 없음) → INT8 53.7 FPS(유의한 손실)
+- 결과 `docs/99_paper_results/04_edge_deployment/`, 도구 `tools/jetson/`. 남은 것: 논문 집필, 목표 FPS 결정
 
 ---
 

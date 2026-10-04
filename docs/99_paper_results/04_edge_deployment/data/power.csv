@@ -1,0 +1,5 @@
+config,sustain_median_ms,VDD_GPU_SOC_mW,VDD_CPU_CV_mW,VIN_SYS_5V0_mW,total_mW,energy_per_frame_mJ,energy_above_idle_per_frame_mJ,gr3d_util_median_pct,n_samples
+idle,,5185.0,1596.0,4213.0,10994.0,,,0,85
+pytorch_fp32,67.4979,32708.0,3192.0,10180.0,46080.0,3110.3,2368.23,99,273
+trt_fp16,23.6399,35899.0,3192.0,9273.0,48364.0,1143.32,883.42,98.0,272
+trt_int8,18.6163,32309.0,3192.0,9072.0,44573.0,829.79,625.12,98,273

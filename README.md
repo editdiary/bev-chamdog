@@ -17,7 +17,8 @@
 4. **자체 데이터셋 학습과 설계 확정** — 이진 free-space 정식화, 어안 직접 투영(Double Sphere), `Y=4` lifting,
    soft-boundary 손실 *(완료)*
 5. **논문 실험 캠페인 v3** — 대표 성능·LOSO, 투영·사전학습 ablation, 손실 사다리 90런 *(완료, 2026-10-03)*
-6. **Jetson AGX Orin 배포 측정** ← *현재 단계*
+6. **Jetson AGX Orin 배포 측정** *(완료, 2026-10-04)*
+7. **논문 집필** ← *현재 단계*
 
 ## 🔧 학습 프레임워크
 
@@ -56,7 +57,8 @@ bev-chamdog/
 - [x] **설계 확정** — 연구 기록은 [`docs/archive/research/`](docs/archive/research/)
 - [x] **논문 실험 캠페인 v3** — 결과·표·그림·해석은 [`docs/99_paper_results/`](docs/99_paper_results/README.md).
       고정 split `iou_free` 0.816(이미지를 보지 않는 기준선 대비 +0.298), LOSO 7 fold 평균 0.830
-- [ ] **Jetson AGX Orin 배포 측정** ← *현재 단계*
+- [x] **Jetson AGX Orin 배포 측정** — 인코더 TensorRT fp16으로 42.3 FPS, 정확도 차이 없음 (→ [`docs/99_paper_results/04_edge_deployment/`](docs/99_paper_results/04_edge_deployment/REPORT.md))
+- [ ] **논문 집필** ← *현재 단계*
 
 ## 🚀 시작하기
 

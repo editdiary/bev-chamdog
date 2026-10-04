@@ -1,0 +1,105 @@
+{
+  "board": {
+    "torch": "2.8.0",
+    "torch_cuda": "12.6",
+    "tensorrt": "10.3.0",
+    "python": "3.10.12",
+    "l4t": [
+      "# R36 (release), REVISION: 4.0, GCID: 37537400, BOARD: generic, EABI: aarch64, DATE: Fri Sep 13 04:36:44 UTC 2024"
+    ],
+    "nvpmodel": "NV Power Mode: MAXN\n0",
+    "device": "Orin",
+    "torch_peak_allocated_mb": 1163.9,
+    "time": "2026-10-04 17:02:21",
+    "utc_offset_s": 32400
+  },
+  "tensorrt_build": {
+    "tensorrt": "10.3.0",
+    "torch": "2.8.0",
+    "time": "2026-10-04 16:03:29"
+  },
+  "protocol": {
+    "iters": 300,
+    "warmup": 50,
+    "rounds": 3,
+    "idle_seconds": 20,
+    "sustain_seconds": 60
+  },
+  "bundle": {
+    "runs": [
+      "final_s0",
+      "final_s1",
+      "final_s2",
+      "final_s3",
+      "final_s4"
+    ],
+    "root": "runs/99_full_campaign/01_overall/fixed_split",
+    "input_shape": [
+      3,
+      3,
+      288,
+      512
+    ],
+    "output_shape": [
+      1,
+      120,
+      120
+    ],
+    "camera_names": [
+      "front",
+      "left",
+      "right"
+    ],
+    "n_val_frames": 75,
+    "n_calib_frames": 192,
+    "calib_sequences": "raws2,raws3,rawos1,rawos2,rawos4",
+    "onnx_opset": 17,
+    "server": {
+      "torch": "2.7.0+cu128",
+      "onnx": "1.23.1",
+      "onnxruntime": "1.30.0"
+    }
+  },
+  "bundle_checks": {
+    "final_s0": {
+      "split_vs_full_forward_max_abs": 0.0,
+      "split_vs_campaign_npz_max_abs": 0.0022745132446289062,
+      "split_vs_campaign_npz_decision_flips": 26,
+      "onnx_vs_torch_feat_max_abs": 5.7220458984375e-06,
+      "feat_abs_max": 5.677464962005615,
+      "torchscript_vs_split_max_abs": 0.0
+    },
+    "final_s1": {
+      "split_vs_full_forward_max_abs": 0.0,
+      "split_vs_campaign_npz_max_abs": 0.001809239387512207,
+      "split_vs_campaign_npz_decision_flips": 21,
+      "onnx_vs_torch_feat_max_abs": 8.121132850646973e-06,
+      "feat_abs_max": 6.1155290603637695,
+      "torchscript_vs_split_max_abs": 0.0
+    },
+    "final_s2": {
+      "split_vs_full_forward_max_abs": 0.0,
+      "split_vs_campaign_npz_max_abs": 0.0018897652626037598,
+      "split_vs_campaign_npz_decision_flips": 23,
+      "onnx_vs_torch_feat_max_abs": 9.28342342376709e-06,
+      "feat_abs_max": 4.732979774475098,
+      "torchscript_vs_split_max_abs": 0.0
+    },
+    "final_s3": {
+      "split_vs_full_forward_max_abs": 0.0,
+      "split_vs_campaign_npz_max_abs": 0.0024503469467163086,
+      "split_vs_campaign_npz_decision_flips": 19,
+      "onnx_vs_torch_feat_max_abs": 9.298324584960938e-06,
+      "feat_abs_max": 5.360744476318359,
+      "torchscript_vs_split_max_abs": 0.0
+    },
+    "final_s4": {
+      "split_vs_full_forward_max_abs": 0.0,
+      "split_vs_campaign_npz_max_abs": 0.0025544464588165283,
+      "split_vs_campaign_npz_decision_flips": 24,
+      "onnx_vs_torch_feat_max_abs": 7.569789886474609e-06,
+      "feat_abs_max": 6.7597737312316895,
+      "torchscript_vs_split_max_abs": 0.0
+    }
+  }
+}

@@ -1,0 +1,4 @@
+config,label,end_to_end_ms_mean,end_to_end_ms_sd,end_to_end_p99_ms_mean,end_to_end_p99_ms_sd,fps_mean,fps_sd,encoder_ms_mean,encoder_ms_sd,bev_stage_ms_mean,bev_stage_ms_sd,encoder_share_mean,encoder_share_sd,speedup_vs_pytorch_fp32_mean,speedup_vs_pytorch_fp32_sd,engine_device_memory_mb
+pytorch_fp32,PyTorch fp32 (whole model),67.4872,0.0087,68.0371,0.0659,14.8176,0.0019,55.1944,0.0099,12.3731,0.0041,0.8179,0.0002,1.0,0.0,
+trt_fp16,TensorRT fp16 encoder + PyTorch fp32 BEV stage,23.6145,0.0363,23.8399,0.2559,42.3469,0.0651,11.2261,0.0363,12.3733,0.0033,0.4754,0.0009,2.8579,0.0045,44.2
+trt_int8,TensorRT INT8 encoder + PyTorch fp32 BEV stage,18.6147,0.0164,18.7054,0.0196,53.7212,0.0473,6.228,0.012,12.3735,0.0038,0.3346,0.0004,3.6255,0.0033,33.6

@@ -1,0 +1,4 @@
+config,seconds,calls,first_10pct_median_ms,last_10pct_median_ms,last_over_first,all_p99_ms
+pytorch_fp32,60,888,67.5199,67.4822,0.9994,68.3007
+trt_fp16,60,2532,23.639,23.6386,1.0,23.7818
+trt_int8,60,3214,18.6171,18.6148,0.9999,18.7341

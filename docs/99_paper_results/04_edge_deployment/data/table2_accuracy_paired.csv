@@ -1,0 +1,22 @@
+config,metric,mean,sd,paired_diff_vs_fp32_mean,paired_diff_sd,ci95_low,ci95_high,p_value,significant,sign_agreement,verdict,decision_flip_rate_mean
+pytorch_fp32,iou_free,0.81579,0.000369,,,,,,,,,
+pytorch_fp32,iou_non_free,0.945434,0.000482,,,,,,,,,
+pytorch_fp32,precision,0.882557,0.000489,,,,,,,,,
+pytorch_fp32,recall,0.916809,0.000679,,,,,,,,,
+pytorch_fp32,bf_10cm,0.614161,0.004154,,,,,,,,,
+pytorch_fp32,bf_20cm,0.839465,0.003922,,,,,,,,,
+pytorch_fp32,bf_30cm,0.903735,0.003059,,,,,,,,,
+trt_fp16,iou_free,0.815797,0.00035,7e-06,2.7e-05,-2.7e-05,4.1e-05,0.60658,False,3/5,no significant difference (95% CI includes 0),0.00013296
+trt_fp16,iou_non_free,0.945436,0.000477,1e-06,1.4e-05,-1.6e-05,1.8e-05,0.85324,False,3/5,no significant difference (95% CI includes 0),0.00013296
+trt_fp16,precision,0.882563,0.000494,6e-06,2.3e-05,-2.3e-05,3.5e-05,0.59172,False,3/5,no significant difference (95% CI includes 0),0.00013296
+trt_fp16,recall,0.91681,0.000673,0.0,1.4e-05,-1.7e-05,1.8e-05,0.95937,False,3/5,no significant difference (95% CI includes 0),0.00013296
+trt_fp16,bf_10cm,0.614087,0.004518,-7.4e-05,0.000817,-0.001089,0.000941,0.84902,False,3/5,no significant difference (95% CI includes 0),0.00013296
+trt_fp16,bf_20cm,0.83962,0.004106,0.000155,0.000287,-0.000202,0.000511,0.29479,False,4/5,no significant difference (95% CI includes 0),0.00013296
+trt_fp16,bf_30cm,0.903668,0.003118,-6.7e-05,0.000182,-0.000293,0.000158,0.45418,False,3/5,no significant difference (95% CI includes 0),0.00013296
+trt_int8,iou_free,0.810265,0.004189,-0.005525,0.003847,-0.010301,-0.000748,0.03254,True,5/5,control better,0.00624759
+trt_int8,iou_non_free,0.943051,0.001907,-0.002383,0.001679,-0.004469,-0.000298,0.03375,True,5/5,control better,0.00624759
+trt_int8,precision,0.874454,0.006039,-0.008103,0.005865,-0.015385,-0.000821,0.0366,True,5/5,control better,0.00624759
+trt_int8,recall,0.918935,0.001698,0.002126,0.001723,-1.3e-05,0.004265,0.05085,False,5/5,no significant difference (95% CI includes 0),0.00624759
+trt_int8,bf_10cm,0.601927,0.008764,-0.012234,0.012587,-0.027863,0.003395,0.09545,False,5/5,no significant difference (95% CI includes 0),0.00624759
+trt_int8,bf_20cm,0.828887,0.005598,-0.010578,0.007609,-0.020026,-0.001131,0.03591,True,5/5,control better,0.00624759
+trt_int8,bf_30cm,0.895923,0.004866,-0.007812,0.005192,-0.014259,-0.001365,0.02819,True,5/5,control better,0.00624759
