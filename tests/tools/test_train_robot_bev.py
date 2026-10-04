@@ -136,7 +136,7 @@ def test_periodic_checkpoints_are_kept_for_every_saved_epoch_by_default():
 
     2026-08-18 fine-tuning 진단에서 실제로 겪었다: `save_freq_epochs=10`으로 60 epoch을
     돌렸는데 40/50/60만 남고, val 지표가 최고였던 epoch 10~30이 전부 삭제돼 재채점으로
-    복구할 수 없었다(`docs/finetune_overfitting_diagnosis.md` §5).
+    복구할 수 없었다(`docs/archive/research/finetune_overfitting_diagnosis.md` §5).
 
     기본값이 `num_epochs / save_freq_epochs`(= 60/10 = 6)보다 작아지면 같은 일이 반복된다.
     """

@@ -1,7 +1,7 @@
 # 실험 02 — Design Choices: 카메라 투영 모델과 초기화
 
 > 대상 `runs/99_full_campaign/02_projection_and_prior` · 학습 2026-10-03 03:58 ~ 11:46 · 캠페인 v3
-> 인용 수치는 같은 폴더 `data/*.csv`에 있다. 옛 패키지(`docs/paper_package/`)와 섞지 않는다.
+> 인용 수치는 같은 폴더 `data/*.csv`에 있다. 옛 패키지(`docs/archive/paper_package_v2/`)와 섞지 않는다.
 
 ---
 

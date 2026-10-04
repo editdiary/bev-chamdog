@@ -22,7 +22,7 @@ from projects.common.metric_spec import (  # noqa: E402
     BF_DETAIL_METRICS, PAPER_METRICS, RING_METRICS, ring_names,
 )
 
-# 캠페인 v3(2026-10-02~). 옛 캠페인 결과는 `docs/paper_package/`에 있다.
+# 캠페인 v3(2026-10-02~). 옛 캠페인 결과는 `docs/archive/paper_package_v2/`에 있다.
 DEFAULT_ROOT = HERE.parents[2] / "runs/99_full_campaign/01_overall"
 
 #: 고정 split이 보고하는 지표 순서 -- **정본은 `projects/common/metric_spec.py`다**(2026-10-02:

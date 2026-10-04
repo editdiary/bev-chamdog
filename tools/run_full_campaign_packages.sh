@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **캠페인 v3 Phase 3** -- 논문 패키지 `docs/99_paper_results/` 생성 + 그림 재생성.
 #
-# 새 폴더라 덮어쓸 옛 것이 없다(옛 캠페인은 `docs/paper_package/`에 그대로 있다). 생성기마다
+# 새 폴더라 덮어쓸 옛 것이 없다(옛 캠페인은 `docs/archive/paper_package_v2/`에 그대로 있다). 생성기마다
 # 무결성 게이트가 있어 하나라도 실패하면 그 실험은 아무것도 쓰지 않는다.
 #
 # 리허설: ROOT=runs/99_rehearsal OUT=<임시 폴더> SEEDS=0 FIXED_EPOCH=1 REHEARSAL=1 bash tools/run_full_campaign_packages.sh

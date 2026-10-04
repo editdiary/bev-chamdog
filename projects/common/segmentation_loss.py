@@ -11,7 +11,7 @@ import torch.nn.functional as F
 #
 # **2026-08-18 실측 결론: 20은 해롭고, 그렇다고 상한을 고르는 문제도 아니다.**
 # 근본 원인은 CE가 **면적** loss인데 `occupied`가 두께 1셀 **표면**이라는 것이다
-# (`docs/finetune_overfitting_diagnosis.md` §12-§13). binary 정식화에서는 클래스가
+# (`docs/archive/research/finetune_overfitting_diagnosis.md` §12-§13). binary 정식화에서는 클래스가
 # free/not-free 둘뿐이라 순수 역빈도가 3.94에 그쳐 이 캡이 아예 걸리지 않는다 --
 # 그래도 같은 기본값을 쓰는 이유는 `--max_class_weight` 플래그가 두 경로에서 같은 뜻이어야
 # 하기 때문이다.

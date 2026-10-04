@@ -3,7 +3,7 @@
 **왜 클래스를 둘로 줄이나.** 3-class에서 `occupied`는 셀의 1.1 %인데 val loss의 67 %를
 만들었고, 어떤 클래스 가중치도 그것을 고치지 못했다 -- CE는 면적 loss인데 GT `occupied`는
 두께 1셀 표면이라 셀 단위 정확도가 본질적으로 달성 불가능하기 때문이다
-(`docs/finetune_overfitting_diagnosis.md` §12-§13).
+(`docs/archive/research/finetune_overfitting_diagnosis.md` §12-§13).
 
 **무엇을 잃나 -- 실측으로 거의 없다(§15).** 라벨에서 `occupied = ~occ & vis`이고 `vis`가 ego
 원점 raycast이므로 GT `occupied`는 free 영역의 ego 기준 경계다. GT free를 광선에 되돌리면
@@ -246,7 +246,7 @@ def run_batch_soft_boundary(model, batch, vox_util, device, rays, permanent_blin
                             delta_r_over=None, huber_beta=DEFAULT_HUBER_BETA_M,
                             kappa=DEFAULT_KAPPA, eps=DEFAULT_EPS,
                             range_loss_mode="arc_huber"):
-    """soft-boundary loss로 한 배치. 설계는 `docs/soft_boundary_loss_design.md`.
+    """soft-boundary loss로 한 배치. 설계는 `docs/archive/research/soft_boundary_loss_design.md`.
 
     `run_batch`와 **지표 계산은 완전히 같다** -- 다른 것은 loss 하나뿐이다. 그래야 두 loss의
     런을 한 표에 놓을 수 있고, 그 비교가 이 변경의 판정 근거다.

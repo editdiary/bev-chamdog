@@ -17,7 +17,7 @@
 
 | 스크립트 | 무엇 | 산출물 | 근거 문서 |
 |---|---|---|---|
-| `train_robot_bev_finetune.sh` | **모든 실험의 진입점.** 환경변수로 인자를 넘긴다. 다른 스크립트는 전부 이것을 부른다 | — | `docs/finetuning_guide.md` |
+| `train_robot_bev_finetune.sh` | **모든 실험의 진입점.** 환경변수로 인자를 넘긴다. 다른 스크립트는 전부 이것을 부른다 | — | `docs/archive/finetuning_guide.md` |
 | `ablation_loss.sh` | **loss 사다리 4칸 × 시드 3 = 12런.** `A_ce → B_perset → C_soft → D_range` | `runs/ablation/` | 설계 §15·§16 |
 | `sweep_soft_boundary.sh` / `sweep_soft_alpha.sh` | soft-boundary 1·2차 스윕(δ, α, λ_B) | `runs/robot_bev_cv/loss_sweep/` | 설계 §9~§11 |
 | `sweep_range_loss.sh` / `sweep_range_asymmetric.sh` | `L_range` 스윕, 비대칭 dead zone | 같음 | 설계 §13.6·§13.8 |

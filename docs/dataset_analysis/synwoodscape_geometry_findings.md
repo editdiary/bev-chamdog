@@ -1,7 +1,7 @@
 # SynWoodScape 기하 검증 결과 노트 (Phase 1 · Phase 2 · Phase 2.5)
 
 - 작성일: 2026-07-30 / **2026-08-02 visibility·raycast 설계(§3) 추가**
-- 대상 스펙: [`docs/superpowers/specs/2026-07-29-synwoodscape-fisheye-bev-occupancy-design.md`](../superpowers/specs/2026-07-29-synwoodscape-fisheye-bev-occupancy-design.md)
+- 대상 스펙: [`docs/archive/superpowers/specs/2026-07-29-synwoodscape-fisheye-bev-occupancy-design.md`](../archive/superpowers/specs/2026-07-29-synwoodscape-fisheye-bev-occupancy-design.md)
 - 대상 코드: `projects/geometry/`, `projects/bev_gt/`(`grid.py`, `bev_crop.py`, `visibility.py`,
   `raycast_occupancy.py`), `tools/verify_fisheye_projection.py`, `tools/calibrate_bev_scale.py`,
   `tools/build_occupancy_gt.py`(§2, 구 파이프라인), `tools/build_visibility_mask.py`(§3.1, 폐기),

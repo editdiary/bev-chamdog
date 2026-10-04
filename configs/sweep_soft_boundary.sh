@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# soft-boundary loss의 1차 판정 스윕. 설계는 docs/soft_boundary_loss_design.md.
+# soft-boundary loss의 1차 판정 스윕. 설계는 docs/archive/research/soft_boundary_loss_design.md.
 #
 # 무엇을 답하는가:
 #   (1) soft-boundary가 현행 역빈도 가중 CE보다 나은가          -> `ce` 대 `sb_*`

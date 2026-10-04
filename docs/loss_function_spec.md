@@ -2,7 +2,11 @@
 
 **이 문서의 역할은 하나다: "현재 loss가 수식으로 정확히 무엇인가"에 답한다.**
 
-- **왜 별도 문서인가.** [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md)는 설계
+> **[2026-10-04] 캠페인 v3(`docs/99_paper_results/`)의 목적함수는 `½L_F + ½L_N + λ_B·L_B`다 —
+> 광선 보조항 `L_range`(§8·§9)는 쓰지 않는다(`λ_R = 0`, 2026-10-02 사용자 결정).** §3~§7의
+> 거리장·영역 분할·soft target·엔트로피 하한은 그대로 유효하다. 확정값 δ = 0.30 m, σ = 0.10 m, λ_B = 0.5.
+
+- **왜 별도 문서인가.** [`soft_boundary_loss_design.md`](archive/research/soft_boundary_loss_design.md)는 설계
   근거와 스윕 결과의 정본이고 그래서 길다(14개 절, 철회 기록 포함). 그 안에서 "그래서 지금
   쓰는 식이 뭐냐"를 뽑아내려면 §2–§5, §13, 그리고 §10.3·§11의 철회 표까지 대조해야 한다.
   여기는 **대조 없이 읽히는 명세**다.
@@ -32,7 +36,7 @@ $$
 확정 계수: $\lambda_B = 0.5$. **기본 `arc_huber`의 확정값은 $\lambda_R = 0.3$**이다.
 2026-09-21에 `cumulative_l1`을 $\lambda_R = 0.15$로 `runs/loss_effect` 사다리에 넣었고
 (`E_cumulative`, n=5), **논문에는 기본형 `arc_huber`(`D_range`)를 빼고 이쪽을 쓴다**
-(사용자 결정, [`loss_effect_results.md`](loss_effect_results.md) **§16.7**).
+(사용자 결정, [`loss_effect_results.md`](archive/research/loss_effect_results.md) **§16.7**).
 **다만 저장소의 기본값은 아직 `arc_huber`이고 `runs/paper_final/`의 캠페인도 그것으로
 학습돼 있다** -- **[2026-09-22 결정] 캠페인은 다시 돌리지 않고, 논문에 그 설정을 명시한다**
 (결과 문서 §16.7 말미).
@@ -878,9 +882,9 @@ seed 1~4에 대해 run name을 분리하도록 먼저 확장해야 한다.
 
 | 질문 | 정본 |
 |---|---|
-| 왜 이 설계인가, 무엇을 기각했나, 스윕 결과 | [`soft_boundary_loss_design.md`](soft_boundary_loss_design.md) |
-| 지표 하나하나의 정의와 채택 사유 | [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) |
-| 이 loss가 CE보다 나은가, 각 항이 얼마나 기여하나 | 설계 문서 §13.7, `configs/ablation_loss.sh` → `tools/report_ablation.py`, 누적형 probe는 [`loss_effect_results.md`](loss_effect_results.md) §15 |
-| 왜 binary 정식화인가, 경계 대역 loss 분해 | [`finetune_overfitting_diagnosis.md`](finetune_overfitting_diagnosis.md) §15, §26 |
-| 전체 서사와 현재 지점 | [`experiment_history.md`](experiment_history.md) §5 |
+| 왜 이 설계인가, 무엇을 기각했나, 스윕 결과 | [`soft_boundary_loss_design.md`](archive/research/soft_boundary_loss_design.md) |
+| 지표 하나하나의 정의와 채택 사유 | [`BEV_loss_and_metrics_design.md`](archive/research/BEV_loss_and_metrics_design.md) |
+| 이 loss가 CE보다 나은가, 각 항이 얼마나 기여하나 | 설계 문서 §13.7, `configs/ablation_loss.sh` → `tools/report_ablation.py`, 누적형 probe는 [`loss_effect_results.md`](archive/research/loss_effect_results.md) §15 |
+| 왜 binary 정식화인가, 경계 대역 loss 분해 | [`finetune_overfitting_diagnosis.md`](archive/research/finetune_overfitting_diagnosis.md) §15, §26 |
+| 전체 서사와 현재 지점 | [`experiment_history.md`](archive/research/experiment_history.md) §5 |
 | 라벨이 무엇을 `vis=0`/`valid=0`으로 두나 | 진단 문서 §23 |

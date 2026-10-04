@@ -6,7 +6,7 @@ Last updated: 2026-08-14
 >
 > 이 문서는 **pretraining(Phase 3) 시점의 핸드오프**다. 그 뒤 자체 데이터셋 fine-tuning
 > 파이프라인이 완성됐으므로, 지금 무엇을 하면 되는지는
-> [`docs/finetuning_guide.md`](../finetuning_guide.md)를 본다.
+> [`docs/archive/finetuning_guide.md`](finetuning_guide.md)를 본다.
 >
 > 여기 적힌 "Not tried yet" 항목들은 **pretraining을 다시 손댈 때만** 유효하다. 현재
 > 병목은 pretrain 성능이 아니라 자체 데이터셋의 어노테이션 물량이다.
@@ -383,6 +383,6 @@ Tests: `tests/tools/test_train_synwoodscape_logging.py`,
 - Do not edit `third_party/` or `mmdetection3d/`.
 - Fine-tuning may use a smaller ROI; pretraining uses a larger one because SynWoodScape has
   sparse near-ego obstacle coverage.
-- `docs/BEV_loss_and_metrics_design.md` is fine-tuning-oriented and includes concepts not
+- `docs/archive/research/BEV_loss_and_metrics_design.md` is fine-tuning-oriented and includes concepts not
   implemented in the pretrain yet, such as soft visibility.
 - Merge and push are user-controlled actions.

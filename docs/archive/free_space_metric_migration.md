@@ -6,7 +6,7 @@
 > **여기 적힌 값과 새 런의 값을 직접 비교하지 않는다.** 이 문서는 지표 이관의 근거 기록이고,
 > 현재 상태는 [`next_session_threeclass_training.md`](next_session_threeclass_training.md)를 본다.
 
-이 문서는 `docs/superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md`
+이 문서는 `docs/archive/superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md`
 Phase 1 게이트(C7–C9)의 실측 기록이다. **재학습 없이** 기존 체크포인트를 새 지표
 (`projects/common/free_space_metrics.py`)로 다시 재고, 옛 지표(`iou_drivable`/`iou_obstacle`)와
 비교해 배선이 맞는지 확인한다. 아래 숫자는 전부 실제로 실행한 명령의 표준출력에서
@@ -70,7 +70,7 @@ holdout이며 constant map은 train만으로 만든다(val을 섞으면 baseline
 ### 2-1. `fatal_rate`만 정확히 재현되지 않는다 -- 깨끗한 일치로 포장하지 않는다
 
 다섯 값은 소수 넷째 자리까지 사실상 그대로(delta 0.000~0.001) 재현됐지만 `fatal_rate`는
-정밀 측정값 **0.055681**(≈0.056)이고 스펙(`docs/superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md:69`)의
+정밀 측정값 **0.055681**(≈0.056)이고 스펙(`docs/archive/superpowers/specs/2026-08-17-bev-free-space-task-redefinition-design.md:69`)의
 **0.0587**과 상대 오차 약 −5.1%다 -- 나머지 다섯 값의 오차(최대 상대 0.1%대)의 약 30배다.
 허용 오차(±0.005) 안에는 들어오고, 최초 재채점(base 환경, §1의 표)과 `bev-chamdog` 환경
 재실행이 표에 찍히는 소수 셋째 자리(0.056)까지 동일해 환경 문제는 아니다. 하지만 0.0587을

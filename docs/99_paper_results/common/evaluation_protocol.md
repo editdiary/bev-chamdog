@@ -15,7 +15,7 @@
 > 2026-10-02에 지표를 바꿨고(사용자 확정), 이 폴더의 CSV와 아래 인용 수치는 그 정의로 다시 돌린
 > **캠페인 v3**(`runs/99_full_campaign`, 90런, 100 epoch, 광선 보조항 없음) 값이다.
 >
-> | 옛 (`docs/paper_package/`) | 새 (이 폴더) |
+> | 옛 (`docs/archive/paper_package_v2/`) | 새 (이 폴더) |
 > |---|---|
 > | `fatal_rate` (= 1 − precision, **micro**) | **Precision** (프레임 **macro**) |
 > | `free_miss_rate` (= 1 − recall, **micro**) | **Recall** (프레임 **macro**) |

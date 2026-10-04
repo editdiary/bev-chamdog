@@ -2,7 +2,7 @@
 
 `02_projection_and_prior` 축 B의 근거다. 학습이 필요 없고 라벨 `.npy`만 읽는다.
 
-**왜 필요한가.** `docs/paper_experiment_compendium.md` §4는 사전학습이 해로운 이유를
+**왜 필요한가.** `docs/archive/research/paper_experiment_compendium.md` §4는 사전학습이 해로운 이유를
 "SynWoodScape는 격자의 83 %가 free인데 로봇은 20 %"라고 적었다. 그런데 그 대조는 **두 가지
 다른 양**을 비교한 것이다 -- 로봇 쪽 숫자가 낮은 이유는 free/장애물 균형이 아니라
 **관측된 셀이 격자의 28 %뿐**이라는 데 있다. 관측된 셀만 놓고 보면 로봇이 오히려 더 free하다.

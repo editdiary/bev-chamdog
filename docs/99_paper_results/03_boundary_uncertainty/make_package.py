@@ -6,7 +6,7 @@ CSV를 손으로 고치지 않는다 -- 다음 재생성 때 사라지고, 그 �
 (`01_overall`·`02_projection_and_prior`의 `make_package.py`와 같은 계약).
 
 **원자료는 캠페인 v3의 `runs/99_full_campaign/03_boundary_uncertainty/`다**(4칸 x 5시드 = 20런,
-`docs/paper_campaign_v3_plan.md`). 옛 캠페인(`runs/loss_effect/`) 결과는 `docs/paper_package/`에 있다.
+`docs/archive/paper_campaign_v3_plan.md`). 옛 캠페인(`runs/loss_effect/`) 결과는 `docs/archive/paper_package_v2/`에 있다.
 
 **[2026-10-02] 두 가지가 바뀌었다.** (1) 광선 보조항을 뺐다 -- 사다리는 `A_ce -> B_perset
 -> C_hard -> C_soft` 넷이고 보조항 부록 표(`appendix_aux_range_term.csv`)는 없어졌다.
@@ -14,7 +14,7 @@ CSV를 손으로 고치지 않는다 -- 다음 재생성 때 사라지고, 그 �
 동작점 분석은 "같은 free_miss에서 fatal" 대신 **"같은 recall에서 precision"**으로 읽는다.
 **옛 `runs/loss_effect/` 런은 새 지표 tag가 없어 이 스크립트가 거부한다** -- 다음 캠페인에서
 다시 학습한 루트를 `--root`로 넘긴다(되올림 분석이 epoch 곡선을 써서 재채점으로는 안 된다).
-해석 정본은 [`docs/loss_effect_results.md`](../../loss_effect_results.md)이고 여기는 숫자만 만든다.
+해석 정본은 [`docs/archive/research/loss_effect_results.md`](../../loss_effect_results.md)이고 여기는 숫자만 만든다.
 
 서버에서만 돈다:
     cd docs/99_paper_results/03_boundary_uncertainty && python make_package.py

@@ -34,7 +34,7 @@ LOSS_PART_NAMES = ("unknown", "free", "occupied")
 # **표면**이라 셀 단위 정확도가 본질적으로 달성 불가능하다는 것이다.
 #
 # 다음 단계는 상한 스윕이 아니라 정식화를 바꾸는 것이다 -- (D) binary로 갔다(§15).
-# **정본: `docs/finetune_overfitting_diagnosis.md` §12(실측)·§13(설계)·§15(판정).**
+# **정본: `docs/archive/research/finetune_overfitting_diagnosis.md` §12(실측)·§13(설계)·§15(판정).**
 # 호출부는 `max_class_weight=`로 이 값을 덮어쓸 수 있다(`1`이면 가중치 없음).
 MAX_CLASS_WEIGHT = DEFAULT_MAX_CLASS_WEIGHT
 

@@ -30,7 +30,7 @@ LR="${LR:-1e-4}"
 AUGMENT="${AUGMENT:-False}"
 
 # 아래 둘은 과적합 스윕 대상이라 환경변수로 노출한다
-# (`docs/finetune_overfitting_diagnosis.md` §2). 1e-7은 Simple-BEV 기본값이고 실질적으로
+# (`docs/archive/research/finetune_overfitting_diagnosis.md` §2). 1e-7은 Simple-BEV 기본값이고 실질적으로
 # 정규화가 없다 -- 192장 로봇 데이터에서 val loss가 epoch 4부터 올라간다.
 WEIGHT_DECAY="${WEIGHT_DECAY:-1e-7}"
 # **기본값을 60 -> 30으로 내렸다 (2026-08-19, 사용자 결정).** val이 ep19 근처에서 끝나고
@@ -38,17 +38,17 @@ WEIGHT_DECAY="${WEIGHT_DECAY:-1e-7}"
 # 실험 한 번이 13분 -> 6분이 된다. 옛 60 epoch 런과 곡선을 비교할 때만 60으로 되돌린다.
 NUM_EPOCHS="${NUM_EPOCHS:-30}"
 # 역빈도 가중치의 상한. 1이면 가중치 없음. 20이 기존 기본값이고 근거가 없다
-# (`docs/finetune_overfitting_diagnosis.md` §3, §12).
+# (`docs/archive/research/finetune_overfitting_diagnosis.md` §3, §12).
 MAX_CLASS_WEIGHT="${MAX_CLASS_WEIGHT:-20}"
 
 # 정식화. `three_class`(free/occupied/unknown) 또는 `binary`(free/not-free).
 # binary는 `occupied`를 예측하지 않고 예측 free의 경계에서 유도해 보고한다 -- 근거와 상한
-# 실측은 `docs/finetune_overfitting_diagnosis.md` §15. 지표 집합과 체크포인트 선택 기준은
+# 실측은 `docs/archive/research/finetune_overfitting_diagnosis.md` §15. 지표 집합과 체크포인트 선택 기준은
 # 두 정식화가 완전히 같으므로 두 런을 한 표에 놓고 비교할 수 있다.
 # binary에서는 순수 역빈도가 free 3.94라 MAX_CLASS_WEIGHT가 아예 걸리지 않는다.
 FORMULATION="${FORMULATION:-three_class}"
 
-# 과적합 손잡이 세 개 (`docs/finetune_overfitting_diagnosis.md` §16.3(b), §17).
+# 과적합 손잡이 세 개 (`docs/archive/research/finetune_overfitting_diagnosis.md` §16.3(b), §17).
 # train이 192장인데 res101은 41.0 M 파라미터(그중 encoder 37.0 M = 90 %)다. Y=4 기준.
 ENCODER_TYPE="${ENCODER_TYPE:-res101}"      # res101 / res50 / res18 -- 용량 자체를 줄인다
 FREEZE_ENCODER="${FREEZE_ENCODER:-False}"   # ImageNet 특징 고정, BEV decoder만 학습(3.5 M)
@@ -82,7 +82,7 @@ if [ "${PROJECTION}" != "pinhole" ] && [ "${PINHOLE_HFOV_DEG}" != "None" ]; then
 fi
 
 # loss 종류: `weighted_ce`(현행 역빈도 가중 CE, 대조군) 또는 `soft_boundary`.
-# 설계는 docs/soft_boundary_loss_design.md. 아래 넷은 soft_boundary에서만 쓰인다.
+# 설계는 docs/archive/research/soft_boundary_loss_design.md. 아래 넷은 soft_boundary에서만 쓰인다.
 #   SIGMA_M      **라벨 경계 불확실성 [m]. 여기에 사전 지식이 들어간다.** 확정 0.10
 #   DELTA_M      절대 상한 [m] -- "오차가 이걸 넘는 일은 없다"는 단정. 확정 0.30
 #   LAMBDA_B     경계 항 가중치. 0.0으로 두면 "soft 항이 일을 하는가" ablation
@@ -106,7 +106,7 @@ else
     SIGMA_M="${SIGMA_M:-0.10}"
 fi
 
-# 방위각 자유거리 보조항 `L_range` (docs/soft_boundary_loss_design.md §13).
+# 방위각 자유거리 보조항 `L_range` (docs/archive/research/soft_boundary_loss_design.md §13).
 #   LAMBDA_R      보조항 가중치. **0이면 항이 계산되지 않는다.** 추측하지 말고
 #                 `python tools/measure_range_gradient.py --lambda_r=1.0`로 캘리브레이션한다
 #                 (목표: gradient 비 G_R/G_B ~ 0.1)
@@ -155,7 +155,7 @@ HEIGHT_BINS="${HEIGHT_BINS:-4}"
 HEIGHT_MIN_M="${HEIGHT_MIN_M:--0.25}"
 HEIGHT_MAX_M="${HEIGHT_MAX_M:-1.75}"
 
-# 특징맵 표본 좌표의 기하 (`docs/finetune_overfitting_diagnosis.md` §18.3).
+# 특징맵 표본 좌표의 기하 (`docs/archive/research/finetune_overfitting_diagnosis.md` §18.3).
 #   PIXEL_CONVENTION  pixel_center(기본·옳은 규약) 또는 legacy_index(옛 동작).
 #                     legacy_index는 정규화(픽셀 인덱스)와 grid_sample(픽셀 가장자리) 규약이
 #                     섞여 표본 위치가 `x*W/(W-1) - 0.5`로 어긋난다 -- 배율 오차라 오프셋으로

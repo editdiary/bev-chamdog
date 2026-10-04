@@ -63,7 +63,7 @@ from projects.common.metric_spec import PAPER_METRICS  # noqa: E402
 # 사다리 순서. 표와 JSON의 키 순서가 이걸 따른다.
 # **[2026-10-02 사용자 결정] 광선 보조항을 뺐다 -- 사다리는 soft-boundary BCE(`C_soft`)까지
 # 넷이다.** 옛 `D_range`·`E_cumulative`는 `C_soft`에서 갈라지는 대체 팔이었다
-# (`docs/loss_effect_results.md` §16). 옛 런을 다시 묶을 때는 `--cells`로 넘긴다.
+# (`docs/archive/research/loss_effect_results.md` §16). 옛 런을 다시 묶을 때는 `--cells`로 넘긴다.
 LADDER = ("A_ce", "B_perset", "C_hard", "C_soft")
 
 # (TensorBoard 태그, 짧은 이름, 높을수록 좋은가). 논문 지표는 `metric_spec`이 정본이다
@@ -114,7 +114,7 @@ def _write_readme(analysis: Path, bundle: dict) -> Path:
         "## 어디부터 보나",
         "",
         "1. **`RESULTS.json`** -- 결과 전부가 여기 있다. 맨 위 `_about`과 `_schema`가 읽는 법을",
-        "   설명한다. 사람이 읽는 해석은 `docs/loss_effect_results.md`.",
+        "   설명한다. 사람이 읽는 해석은 `docs/archive/research/loss_effect_results.md`.",
         "2. 표를 직접 만지고 싶으면 **`RESULTS.csv`**.",
         "3. 더 파고들 때만 아래 원본으로 내려간다.",
         "",
@@ -591,7 +591,7 @@ def main(root="runs/loss_effect", cells=LADDER, seeds=(0, 1, 2, 3, 4),
         "_about": (
             "이 파일 하나가 실험의 핵심 결과 전부다. `runs/*/analysis/`의 개별 산출물을"
             " 모은 것이고, 숫자마다 `_source`로 어느 파일에서 왔는지 적혀 있다."
-            " 사람이 읽는 해석은 `docs/loss_effect_results.md`에 있고 여기는 숫자만 있다."
+            " 사람이 읽는 해석은 `docs/archive/research/loss_effect_results.md`에 있고 여기는 숫자만 있다."
             " 읽는 순서 제안: environment -> experiment -> integrity -> headline -> axes"
             " -> per_cell -> runs."),
         "_schema": {

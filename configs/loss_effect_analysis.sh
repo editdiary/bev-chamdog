@@ -83,7 +83,7 @@ step verify_val_predictions \
     python tools/verify_val_predictions.py --root="${ROOT}"
 
 # ── 2. 집계 ─────────────────────────────────────────────────────────────────────
-# **[2026-10-02] 패키지(`docs/paper_package/03_boundary_uncertainty`)가 실제로 읽는 것만
+# **[2026-10-02] 패키지(`docs/archive/paper_package_v2/03_boundary_uncertainty`)가 실제로 읽는 것만
 # 남겼다**: 고정 epoch 집계와 τ 스윕. 아래 도구들은 옛 지표(`fatal_rate`·`free_miss_rate`·
 # `range_*`·`f1@τ` micro)로 짜여 있어 파이프라인에서 뺐다 -- 코드는 옛 런 재분석용으로 남는다.
 #   report_ablation              (σ_run 대조 -- 옛 지표 tag)

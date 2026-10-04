@@ -95,7 +95,7 @@
 ## Phase 4 — 자체 데이터셋 fine-tuning ⬅️ 현재 단계
 
 **파이프라인 ✅ 완료 (2026-08-14).** 실행 방법·지표 해석·문제 대응은
-[`docs/finetuning_guide.md`](docs/finetuning_guide.md)를 정본으로 본다.
+[`docs/archive/finetuning_guide.md`](docs/archive/finetuning_guide.md)를 정본으로 본다.
 설계 근거는 [`docs/archive/finetuning_preparation.md`](docs/archive/finetuning_preparation.md).
 
 - Phase 3의 체크포인트를 **pre-trained weight**로 사용 ✅ — 240×240 4-cam → 120×120 3-cam으로

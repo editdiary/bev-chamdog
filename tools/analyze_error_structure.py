@@ -5,7 +5,7 @@
 1. **라벨 애매성 가설.** 대부분의 프레임은 잘 맞고, annotation이 애매했던 소수 프레임이
    점수를 끌어내린다. -> 프레임별 `iou_free`가 **꼬리가 긴 분포**가 되고, 나쁜 프레임은
    모델이 GT보다 free를 넓게 본 쪽(`fatal`)으로 치우친다.
-2. **기하/캘리브레이션 결함 가설**(`docs/finetune_overfitting_diagnosis.md` §18).
+2. **기하/캘리브레이션 결함 가설**(`docs/archive/research/finetune_overfitting_diagnosis.md` §18).
    모든 프레임이 고르게 0.80이고 경계가 일정하게 몇 셀 밀려 있다. -> 프레임별 분포가
    **좁은 단봉형**이고, 방위각별 오차에 좌우 비대칭 같은 구조가 남는다.
 

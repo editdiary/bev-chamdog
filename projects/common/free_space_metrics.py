@@ -159,7 +159,7 @@ def free_metrics_from_masks(pred_parts, gt_parts, valid) -> dict:
       **task 정의와 충돌한다.** 이 프로젝트의 (D) 정식화는 "보이면서 빈 곳"만 drivable이고
       **보이지 않는 곳은 전부 non-drivable**이다. `unknown`을 채점에서 빼면 라벨이
       non-drivable이라고 선언한 셀의 78.5 %를 빼는 것이므로 다른 task를 재게 된다.
-      실측 근거는 `docs/finetune_overfitting_diagnosis.md` §22.4/§23에 남아 있다.
+      실측 근거는 `docs/archive/research/finetune_overfitting_diagnosis.md` §22.4/§23에 남아 있다.
 
     마스크를 함께 실어 보내는 이유: BF@τ는 광선 루프와 거리변환이 CPU numpy라 학습 step마다
     돌리면 병목이 된다. val 경로가 forward를 다시 하지 않고 이 마스크를 받아 따로 계산한다.

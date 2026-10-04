@@ -377,7 +377,7 @@ val: obstacle IoU 0.8607 / drivable IoU 0.9889 / `missed_obstacle` 0.0380 /
 - 그럼에도 **38장 fine-tuning에서는 이 초기값 자체가 best checkpoint였다**(epoch 1).
   물량이 부족해 학습할수록 val이 나빠지는 구간이라, 초기 가중치의 품질이 그대로 남았다.
 
-자세한 내용은 `docs/finetuning_guide.md` §8.
+자세한 내용은 `docs/archive/finetuning_guide.md` §8.
 
 **커밋**:
 

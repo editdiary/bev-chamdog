@@ -58,9 +58,9 @@
 > **그때까지는 현재 숫자로 논문을 쓰고 자릿수만 갈아끼운다**(실험 1은 약 1σ 이동, 실험 2는
 > 짝지은 차이라 상쇄). 범위와 근거는 원장 맨 위 결정 블록.
 >
-> 정본: 판정·논문 규칙 [`docs/loss_effect_results.md`](docs/loss_effect_results.md) **§16** ·
+> 정본: 판정·논문 규칙 [`docs/archive/research/loss_effect_results.md`](docs/archive/research/loss_effect_results.md) **§16** ·
 > 수식 [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §8.8·§9.1 · 서사
-> [`docs/experiment_history.md`](docs/experiment_history.md) §5 · 산출물 `runs/loss_effect/`
+> [`docs/archive/research/experiment_history.md`](docs/archive/research/experiment_history.md) §5 · 산출물 `runs/loss_effect/`
 > (무결성 60/60) · 전체 테스트 **470 passed**.
 >
 > **곁가지 둘(참고용).** `runs/cumulative_ray_loss/`는 같은 실험을 `λ_R=0.1526`으로 먼저 돌린
@@ -74,7 +74,7 @@
 > −0.25~1.75 m다(표본 높이 지면 기준 **0, 0.5, 1.0, 1.5 m**). n=3에서
 > `iou_free` 0.7950 → **0.8104**, `f1@10cm` 0.5437 → **0.6085**, 지연 +3.2 %,
 > 재현성 불변. **이 프로젝트에서 단일 변경으로 얻은 가장 큰 개선이다.**
-> 근거 정본은 [`docs/paper_experiment_compendium.md`](docs/paper_experiment_compendium.md) §12.
+> 근거 정본은 [`docs/archive/research/paper_experiment_compendium.md`](docs/archive/research/paper_experiment_compendium.md) §12.
 >
 > **왜 열렸나**: 라벨 생성 코드(`dataset/sj_datasets/common/temp/slab_label.py`)가
 > occupancy를 **"로봇이 통과해야 하는 높이 구간"의 2D 기둥 누적**(지상 0.87~1.67 m)으로
@@ -93,7 +93,7 @@
 > **남은 것**: 논문 집필 -- **지금은 아래 2026-09-21 블록의 최종 실험 캠페인으로 진행 중이다.**
 > 그리고 **`Y=4`에서 Orin 재실측**(사용자, 캠페인 `04`). 20.2 FPS는 `Y=1` 값이다.
 >
-> **여기까지의 서사: [`docs/experiment_history.md`](docs/experiment_history.md)** (2026-08-27, 단계 J)
+> **여기까지의 서사: [`docs/archive/research/experiment_history.md`](docs/archive/research/experiment_history.md)** (2026-08-27, 단계 J)
 >
 > 2-head → 3-class → binary로 정식화를 두 번 바꾼 이유, 각 단계에서 기각된 가설, 그리고
 > **병목이 모델·loss·지표가 아니라 라벨이 정의한 task 자체라는 결론**과 그 근거가 여기 있다.
@@ -133,7 +133,7 @@
 > 통과, 8시간 43분). **기존 `runs/paper_final/`은 옛 `arc_huber` 캠페인으로 보존했다.**
 > 자세한 것은 원장 §5의 `2026-09-23` 항목.
 >
-> **⚠ 논문 숫자의 정본은 `docs/paper_package/`다.** 원장 §4·§6의 표는 **옛 `arc_huber`
+> **⚠ 논문 숫자의 정본은 `docs/archive/paper_package_v2/`다.** 원장 §4·§6의 표는 **옛 `arc_huber`
 > 캠페인 것이고 이력으로만 둔다.** 둘이 다르면 패키지가 맞다.
 >
 > **바뀐 결론 셋**(자릿수만 바뀐 게 아니다):
@@ -159,10 +159,10 @@
 >
 > | ID | 상태 |
 > |---|---|
-> | [`01_overall`](docs/paper_package/01_overall/) | **완료** (2026-09-23 재학습, 40런) |
-> | [`02_projection_and_prior`](docs/paper_package/02_projection_and_prior/) | **완료** (2026-09-23 재학습, 20런). 원장 §6. **front-only는 기각**(§6.1, 기하로 이미 답이 나온다) |
-> | [`03_boundary_uncertainty`](docs/paper_package/03_boundary_uncertainty/) | **완료** (2026-09-22, 30런). 표 5·그림 3 |
-> | [`02b_native_source_prior`](docs/paper_package/02b_native_source_prior/) | **완료** (2026-09-23, 10런). 원본 기하 사전학습은 scratch보다 `iou_free` **−0.0073**(8.30, 5/5) 나쁘다. 가공 기하보다도 −0.0046이지만 **그 비교는 `iou_free` 하나에서만 갈린다**. 원장 §6b |
+> | [`01_overall`](docs/archive/paper_package_v2/01_overall/) | **완료** (2026-09-23 재학습, 40런) |
+> | [`02_projection_and_prior`](docs/archive/paper_package_v2/02_projection_and_prior/) | **완료** (2026-09-23 재학습, 20런). 원장 §6. **front-only는 기각**(§6.1, 기하로 이미 답이 나온다) |
+> | [`03_boundary_uncertainty`](docs/archive/paper_package_v2/03_boundary_uncertainty/) | **완료** (2026-09-22, 30런). 표 5·그림 3 |
+> | [`02b_native_source_prior`](docs/archive/paper_package_v2/02b_native_source_prior/) | **완료** (2026-09-23, 10런). 원본 기하 사전학습은 scratch보다 `iou_free` **−0.0073**(8.30, 5/5) 나쁘다. 가공 기하보다도 −0.0046이지만 **그 비교는 `iou_free` 하나에서만 갈린다**. 원장 §6b |
 | `04_edge_deployment` | Orin 측정 대기. **20.2 FPS는 `Y=1` 값이라 `Y=4` 재실측 필요** |
 >
 > **실험 1 결과.** 고정 split `iou_free` **0.8146 ± 0.0007**(constant-map 기준선 0.5180,
@@ -214,9 +214,9 @@
 >    판정이 한 번 뒤집혔다(`tools/report_paired_arms.py`).
 >
 > **논문 M&M을 쓸 때의 정본 둘** -- 각각 따로 떼어 넘겨도 자족적이다.
-> [`common/training_details.md`](docs/paper_package/common/training_details.md)(optimizer·
+> [`common/training_details.md`](docs/archive/paper_package_v2/common/training_details.md)(optimizer·
 > schedule·증강·정밀도·환경 + **`config.json`에 있지만 동작하지 않는 값 목록**)과
-> [`common/evaluation_protocol.md`](docs/paper_package/common/evaluation_protocol.md)
+> [`common/evaluation_protocol.md`](docs/archive/paper_package_v2/common/evaluation_protocol.md)
 > (지표를 **의도별로 수식과 함께** 정의, 집계 단위가 지표마다 다름, 평가 마스크가 둘인데
 > 취급이 반대, Results 절별 지표 선택표).
 >
@@ -224,7 +224,7 @@
 > 2) 설계 선택 ablation(제목 미정 -- `evaluation_protocol.md` §11.2에 제안)
 > 3) Effect of Boundary-Uncertainty-Aware Learning  4) Edge Deployment.
 >
-> **논문 작성용 패키지는 [`docs/paper_package/`](docs/paper_package)다**(2 MB 미만).
+> **논문 작성용 패키지는 [`docs/archive/paper_package_v2/`](docs/archive/paper_package_v2)다**(2 MB 미만).
 > `common/`에 지표 정의·보고 규칙·동결 설정을 한 번만 두고 실험별 폴더는 독립이다.
 > **`data/`의 CSV와 `figures/`의 그림은 생성 스크립트가 정본이고 손으로 고치지 않는다**
 > (그림은 재생성해도 바이트가 같게 맞춰 뒀다).
@@ -233,7 +233,7 @@
 > 못 찾는 사고가 났고, submodule 때문에 `git worktree move`/`remove`가 둘 다 거부된다.
 > 깨끗한 커밋 상태가 필요하면 **실험 전에 커밋을 먼저 한다.**
 
-> ## ▶▶ [2026-09-02] loss가 무엇을 바꿨나 -- **원인은 hard target이다.** 정본 `docs/loss_effect_results.md`
+> ## ▶▶ [2026-09-02] loss가 무엇을 바꿨나 -- **원인은 hard target이다.** 정본 `docs/archive/research/loss_effect_results.md`
 >
 > **`runs/loss_effect`, 사다리 5칸 × 시드 5개 = 25런.** 정본 환경 `bev-chamdog`
 > (Python 3.11.15 · torch 2.7.0+cu128). 확정 config가 세 번 바뀌어(`Y=1→4`, `(δ,α)→(δ,σ)`,
@@ -285,7 +285,7 @@
 >
 > **`δ = 0.30 m`, `σ = 0.10 m`(`k = δ/σ = 3`).** 옛 값은 `δ = 0.15`, `α = 1.0`이었다.
 > 셸은 `DELTA_M=0.30 SIGMA_M=0.10`이고 **`SIGMA_ALPHA`는 더 쓰지 않는다**(동시 지정은 거부됨).
-> 근거 정본은 [`docs/soft_boundary_loss_design.md`](docs/soft_boundary_loss_design.md) **§21**,
+> 근거 정본은 [`docs/archive/research/soft_boundary_loss_design.md`](docs/archive/research/soft_boundary_loss_design.md) **§21**,
 > 형태는 [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §6.2·§10. **52런, 시드 5개.**
 >
 > **① `α`를 고정한 `δ` 스윕은 두 효과를 섞고 있었다**(§21.2). `σ = αδ`이므로 `α`를 고정하고
@@ -328,7 +328,7 @@
 >
 > 사용자 질문 "`L_B`가 수렴을 안 하는데 최소한 수렴은 해야 정상 아닌가"에서 출발해
 > **모양 α, 폭 δ, 대역 수축 κ, 전역 평활 ε**을 Y=4에서 12런으로 훑었다.
-> 근거 정본은 [`docs/soft_boundary_loss_design.md`](docs/soft_boundary_loss_design.md) **§20**.
+> 근거 정본은 [`docs/archive/research/soft_boundary_loss_design.md`](docs/archive/research/soft_boundary_loss_design.md) **§20**.
 >
 > **① [방법론 정정 -- 이게 제일 중요하다] `kl_boundary`는 config끼리 비교할 수 없다**(§20.1).
 > 각 런이 **자기 `Ω_B`에서 자기 target에 대해** 잰 평균이라, δ가 커지면 쉬운 셀이 섞이고
@@ -362,7 +362,7 @@
 > 다시 재고 있다.** 그리고 train `arc_mae`가 epoch 3에 dead zone에 들어가 `share_range`가
 > 0.33 %로 떨어진다 -- **40 epoch 중 3 epoch만 살아 있다.**
 >
-> **현재 작업: soft-boundary loss -- [`docs/soft_boundary_loss_design.md`](docs/soft_boundary_loss_design.md)** (2026-08-21)
+> **현재 작업: soft-boundary loss -- [`docs/archive/research/soft_boundary_loss_design.md`](docs/archive/research/soft_boundary_loss_design.md)** (2026-08-21)
 >
 > 라벨의 불완전성을 **loss에 명시적으로 모델링**한다(경계 대역에 soft target). 여기에
 > 방위각 자유거리 보조항 `L_range`를 더한 것이 **현재 확정 config**다(§13:
@@ -402,7 +402,7 @@
 > **[교훈] 안정성 지표를 단독으로 읽으면 "아무것도 안 배우는 것"이 1등이다** -- `B_perset`이
 > 안정성 3개를 다 이기는데 품질은 전부 최악이다(§15.6). 반드시 품질과 같이 읽는다.
 >
-> `f1@10cm`은 주 판정에서 강등돼 있다(§14, [`docs/BEV_loss_and_metrics_design.md`](docs/BEV_loss_and_metrics_design.md) §2.9).
+> `f1@10cm`은 주 판정에서 강등돼 있다(§14, [`docs/archive/research/BEV_loss_and_metrics_design.md`](docs/archive/research/BEV_loss_and_metrics_design.md) §2.9).
 > `--loss=weighted_ce`는 대조군이므로 지우지 않는다.
 >
 > **[종결] 비대칭 dead zone `δ_R⁺`는 채택하지 않는다**(§16.8). 판정의 σ가 위 (a)로 무효가
@@ -420,7 +420,7 @@
 > (`(δ,α)→(δ,σ)`, `(δ_R,β)`), **loss 영향력 대조 실험 25런**이 추가됐다(위 2026-09-02 블록).
 > 아래 표의 "끝난 것"은 여전히 유효하지만 **"남은 것은 논문 집필뿐"은 아니었다.**
 >
-> **새 세션은 [`docs/paper_experiment_compendium.md`](docs/paper_experiment_compendium.md)를
+> **새 세션은 [`docs/archive/research/paper_experiment_compendium.md`](docs/archive/research/paper_experiment_compendium.md)를
 > 읽는다.** 모든 실험을 목적→설계→결과(수치)→해석으로 모은 문서이고, **다른 파일을 열지
 > 않아도 읽히도록 용어 정의까지 안에 들어 있다**(§0.6). 정본은 여전히 진단·설계 문서다.
 >
@@ -453,7 +453,7 @@
 > **한때 "다음 병목"으로 지목된 §18.3(특징맵 표본 좌표)은 종결됐다** -- 고쳤고 성능 영향은
 > 15런 스윕 51칸 전부 노이즈였다(§18.3.5).
 >
-> **옛 인수인계 문서**: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)(2026-08-19)는
+> **옛 인수인계 문서**: [`docs/archive/next_session_binary_and_verification.md`](docs/archive/next_session_binary_and_verification.md)(2026-08-19)는
 > **운영 메모**다 -- 도구 목록·`cam0..3` 매핑 함정(**`left=cam3`**) 같은 실무 정보만 본다.
 > 3-class 시대 인수인계는 [`docs/archive/next_session_threeclass_training.md`](docs/archive/next_session_threeclass_training.md).
 > 학습 산출물 정리 규약은 진단 문서 §14 (`tools/prune_runs.py`).
@@ -480,7 +480,7 @@
     체크포인트에서 trunk만 받고 출력 head는 랜덤 초기화로 시작한다(배너 `weight transfer` 줄로 확인).
   - fine-tuning ⬅️ 현재 단계 — **자체 리그는 3-cam(front/left/right), Double Sphere,
     120×120 그리드다.** 리그에 카메라는 4대지만 rear는 라벨 생성에 쓰이지 않았다.
-    실행 방법은 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)가 정본.
+    실행 방법은 [`docs/archive/finetuning_guide.md`](docs/archive/finetuning_guide.md)가 정본.
 - **MMDetection3D는 현재 학습 경로에서 사용하지 않는다.** `mmdetection3d/` submodule은 이후 3D 검출로 확장할 경우를 위해 남겨둔 것일 뿐이다.
 - 상세: [`README.md`](README.md)
 

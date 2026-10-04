@@ -1,6 +1,6 @@
 """GT `occupied`가 free 경계에서 복원되는가 -- (D) binary 정식화의 전제 실측.
 
-**왜 이 측정이 먼저인가.** `docs/finetune_overfitting_diagnosis.md` §13.3의 (D)는 `occupied`를
+**왜 이 측정이 먼저인가.** `docs/archive/research/finetune_overfitting_diagnosis.md` §13.3의 (D)는 `occupied`를
 예측 클래스에서 빼는 안이고, 그 비용으로 "왜 못 가는가(장애물인가 미관측인가)를 구별할 수
 없어진다"가 적혀 있다. 그런데 라벨 정의(`free_space.decompose`)에서
 `occupied = ~occ & vis`이고 `vis`는 ego 원점 2D raycast이므로, **보이는 장애물 셀은 정의상

@@ -4,7 +4,7 @@
 # 왜 alpha인가: 정규화된 target은 `u = d/delta`로 쓰면 alpha만의 함수라 delta가 식에서
 # 사라진다. 즉 delta는 폭(gradient 희석 -> 수렴)만, alpha는 모양(경계 정밀도)만 정한다.
 # sigma를 미터로 주면 delta를 바꿀 때 모양이 조용히 딸려간다
-# (docs/soft_boundary_loss_design.md §10).
+# (docs/archive/research/soft_boundary_loss_design.md §10).
 #
 # 이미 아는 두 점: alpha=0.5 -> f1@10cm 0.5491 / 되올림 +16.5%
 #                 alpha=inf(=linear) -> 0.5430 / +14.6%

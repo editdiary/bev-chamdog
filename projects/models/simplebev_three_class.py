@@ -7,7 +7,7 @@ segmentation projection with one N-channel softmax-ready head.
 **출력 채널 수는 `num_classes`로 정한다** (기본 3 = free/occupied/unknown).
 `num_classes=2`는 (D) binary 정식화(free / not-free)이고 나머지는 전부 같다 --
 클래스 이름은 역사적이지만 채널 수는 호출부가 명시하고 학습 배너에 찍힌다.
-근거는 `docs/finetune_overfitting_diagnosis.md` §15.
+근거는 `docs/archive/research/finetune_overfitting_diagnosis.md` §15.
 """
 import sys
 from contextlib import contextmanager

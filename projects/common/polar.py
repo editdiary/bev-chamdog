@@ -183,7 +183,7 @@ def signed_boundary_distance(free: np.ndarray, rays: RayIndex,
     """`d_i = R_gt(theta_i) - r_i` -- 셀별 부호 있는 GT 경계 거리 [m].
 
     `d > 0`이면 경계보다 안쪽(drivable 쪽), `d < 0`이면 바깥쪽이다. soft-boundary loss가
-    영역을 나누는 양이고 정의는 `docs/soft_boundary_loss_design.md` §2가 정본이다.
+    영역을 나누는 양이고 정의는 `docs/archive/research/soft_boundary_loss_design.md` §2가 정본이다.
 
     **경계가 없는 광선은 무한으로 보낸다** -- `nan`으로 두면 비교 연산이 조용히 False가 되어
     그 셀들이 세 영역 어디에도 안 들어가고 사라진다.

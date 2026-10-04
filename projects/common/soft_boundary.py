@@ -1,7 +1,7 @@
 """경계 불확실성을 명시적으로 모델링하는 loss -- `L_region + λ_B · L_soft-boundary`.
 
-설계 정본은 `docs/soft_boundary_loss_design.md`이고 근거 실측은
-`docs/finetune_overfitting_diagnosis.md` §26이다. 한 줄 요약: val loss 증가분의 90 %가 GT
+설계 정본은 `docs/archive/research/soft_boundary_loss_design.md`이고 근거 실측은
+`docs/archive/research/finetune_overfitting_diagnosis.md` §26이다. 한 줄 요약: val loss 증가분의 90 %가 GT
 경계 ±20 cm 안에서 나오고 경계에서 먼 영역은 오히려 좋아진다. 경계는 라벨이 신뢰할 수 없는
 자리인데 hard CE가 거기서도 `p→1`을 요구하는 것이 원인이다.
 

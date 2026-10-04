@@ -54,7 +54,7 @@ bev-chamdog/
       (→ [`docs/archive/synwoodscape_pretrain_experiment_log.md`](docs/archive/synwoodscape_pretrain_experiment_log.md))
 - [ ] **자체 데이터셋 fine-tuning** ← *현재 단계* — 파이프라인은 완성·검증됐고
       (Double Sphere 3-cam, 마스킹, 학습·시각화 도구) **어노테이션 물량을 기다리는 중**.
-      실행 방법은 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)
+      실행 방법은 [`docs/archive/finetuning_guide.md`](docs/archive/finetuning_guide.md)
 
 ## 🚀 시작하기
 

@@ -5,7 +5,7 @@ Last updated: 2026-08-18
 > **목적**: "어떤 데이터를 어떻게 읽어서 → 어떤 텐서가 되어 → 어떤 loss로 학습되고 →
 > 무엇으로 평가·선택되는가"를 실제 코드 위치와 함께 따라갈 수 있게 한다.
 > 실행 방법(명령·플래그)은 [`AGENTS.md`](../AGENTS.md)와 각 `configs/*.sh`를 본다.
-> loss의 미해결 항목은 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §1.7.
+> loss의 미해결 항목은 [`BEV_loss_and_metrics_design.md`](archive/research/BEV_loss_and_metrics_design.md) §1.7.
 
 ## 0. 전체 그림
 
@@ -74,7 +74,7 @@ return occupancy, visible & ~permanent_blind, ~invalid
 - `valid=0` = **수집 아티팩트**(카트 손잡이, 미는 사람). 배포 때 없으므로 loss·지표 양쪽에서 제외.
 
 둘을 합치면 "후방은 항상 가려져 있다"는 거짓을 학습한다. SynWoodScape 쪽에서 실제로 겪은 버그다.
-라벨 계약의 정본은 [`finetuning_guide.md`](finetuning_guide.md) §1.3.
+라벨 계약의 정본은 [`finetuning_guide.md`](archive/finetuning_guide.md) §1.3.
 
 ### 1.3 ⚠️ `occupancy`는 이름과 반대다
 
@@ -203,7 +203,7 @@ total    = (per_cell * valid).sum() / (valid.sum() + 1e-6)     # ← backward되
 - `.mean()`이 아니라 **`valid.sum()`으로 정규화**한다. 프레임마다 유효 셀 수가 크게 달라
   (로봇은 20.9%) `.mean()`을 쓰면 batch 내 프레임 기여도가 불균등해진다.
 - `class_weights`는 train split에서 역빈도로 계산된다(`:47`). 상한 `MAX_CLASS_WEIGHT=20`이
-  실제로 작동 중이며 미해결 항목이다 → [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §1.7.
+  실제로 작동 중이며 미해결 항목이다 → [`BEV_loss_and_metrics_design.md`](archive/research/BEV_loss_and_metrics_design.md) §1.7.
 
 ### 4.1 `loss_unknown` / `loss_free` / `loss_occupied`는 total의 분해가 아니다
 
@@ -289,7 +289,7 @@ train에서 안 하는 이유: 광선 루프와 거리변환이 CPU numpy라 매
 집합까지의 거리변환(`scipy.ndimage.distance_transform_edt`, `sampling=cell_m`)을 만들고 τ
 이내를 맞은 것으로 센다. **카운트를 모아 마지막에 한 번 나눈다**(micro-average) — 배치별 F1을
 평균하면 프레임당 occupied 셀 수가 수십 배 차이 나 batch 크기에 값이 딸려 간다.
-정의와 실측은 [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §2.8이 정본이다.
+정의와 실측은 [`BEV_loss_and_metrics_design.md`](archive/research/BEV_loss_and_metrics_design.md) §2.8이 정본이다.
 
 ### 5.3 체크포인트 선택
 
@@ -464,7 +464,7 @@ cam0 = [1,2,3,4]   cam1 = [5,6,0,8]   cam2 = 화각 밖(전부 0)
 
 ## 8. 관련 문서
 
-- loss 미해결 항목: [`BEV_loss_and_metrics_design.md`](BEV_loss_and_metrics_design.md) §1.7
+- loss 미해결 항목: [`BEV_loss_and_metrics_design.md`](archive/research/BEV_loss_and_metrics_design.md) §1.7
 - 지표 근거 정본: [`archive/free_space_metric_migration.md`](archive/free_space_metric_migration.md)
-- 라벨 계약 정본: [`finetuning_guide.md`](finetuning_guide.md) §1.3
+- 라벨 계약 정본: [`finetuning_guide.md`](archive/finetuning_guide.md) §1.3
 - 현재 작업 인수인계: [`archive/next_session_threeclass_training.md`](archive/next_session_threeclass_training.md)

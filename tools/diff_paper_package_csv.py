@@ -5,7 +5,7 @@
 CSV 열두 개에 수천 칸이다. 이 도구는 바뀐 칸만 뽑고, 그중 **판정이 뒤집힌 칸**을
 따로 세운다. 원장 §8 Phase 3: "결론이 뒤집히는 칸이 나오면 그것 자체가 보고 대상이다."
 
-    python tools/diff_paper_package_csv.py --old=docs/paper_package/01_overall \\
+    python tools/diff_paper_package_csv.py --old=docs/archive/paper_package_v2/01_overall \\
         --new=/tmp/pkg01 --rel_tol=0.05
 
 `--rel_tol`보다 크게 움직인 수치 칸과, 글자가 바뀐 칸을 모두 보고한다.
