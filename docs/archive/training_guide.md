@@ -9,7 +9,7 @@
 >
 > 지금 유효한 문서:
 > - 실행 방법과 현재 상태: [`next_session_threeclass_training.md`](next_session_threeclass_training.md)
-> - 코드 정독 가이드(데이터 → 텐서 → 모델 → loss → 지표): [`../training_pipeline_walkthrough.md`](../training_pipeline_walkthrough.md)
+> - 코드 정독 가이드(데이터 → 텐서 → 모델 → loss → 지표): [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md)
 > - 지표 정의 정본: [`../BEV_loss_and_metrics_design.md`](research/BEV_loss_and_metrics_design.md) §2.8
 > - loss 설계 현황과 다음 단계: [`../finetune_overfitting_diagnosis.md`](research/finetune_overfitting_diagnosis.md) §13
 >

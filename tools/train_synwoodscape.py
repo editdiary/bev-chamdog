@@ -4,7 +4,7 @@ Simple-BEV 원본(`train_nuscenes.py`)의 관례를 따라 `Fire`로 `main(...)`
 CLI에서 받는다 — config 파일 체계 대신 실행 스크립트(`configs/train_synwoodscape_baseline.sh`)에
 인자를 나열한다.
 
-값을 보고 어떻게 튜닝할지는 `docs/training_pipeline_walkthrough.md`(코드 정독)와
+값을 보고 어떻게 튜닝할지는 `docs/archive/training_pipeline_walkthrough.md`(코드 정독)와
 `docs/archive/research/BEV_loss_and_metrics_design.md` §2.8(지표 정의)을 본다.
 `docs/archive/training_guide.md`는 2-head 시절 문서이므로 플래그·경로를 그대로 쓰면 안 된다.
 

@@ -19,7 +19,6 @@
 | [`paper_final_experiments.md`](paper_final_experiments.md) | **실행 원장** — 무엇을 언제 어떻게 돌렸고 무결성이 어땠나. v3는 §5 "2026-10-02 (8)". §4·§6의 표는 옛 캠페인 이력이다 |
 | [`paper_campaign_protocol.md`](paper_campaign_protocol.md) | **캠페인을 다시 돌릴 때의 사용법** — Phase 0~4 절차, 비용 실측, **실제로 물린 지뢰 목록** |
 | [`loss_function_spec.md`](loss_function_spec.md) | 손실함수의 수식·기호·코드 위치. **v3는 `L_range`를 쓰지 않는다**(§8은 이력) |
-| [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드(데이터 → 텐서 → loss → 지표) |
 | [`project_structure.md`](project_structure.md) | 폴더 구조와 `tools/` 색인 |
 | [`setup_guide_pro6000.md`](setup_guide_pro6000.md) | 학습 서버 환경 세팅(RTX PRO 6000, `cu128`) |
 | [`git_workflow.md`](git_workflow.md) | 브랜치·커밋 규칙. `merge`/`push`는 사용자만 한다 |
@@ -39,6 +38,8 @@
 | [`archive/paper_package_v2/`](archive/paper_package_v2) | 옛 캠페인(2026-09) 논문 패키지. 지표·목적함수가 v3와 달라 **숫자를 섞지 않는다** |
 | [`archive/paper_campaign_v3_plan.md`](archive/paper_campaign_v3_plan.md) | v3 실행 전 계획서(결정 §6·§7) |
 | [`archive/superpowers/`](archive/superpowers) | 2026-07~09 작업 계획·명세 |
+| [`archive/agents_history_2026-08_to_10.md`](archive/agents_history_2026-08_to_10.md) | 2026-10-04 이전 AGENTS.md 상단의 날짜별 상태 블록 |
+| [`archive/training_pipeline_walkthrough.md`](archive/training_pipeline_walkthrough.md) | 코드 정독 가이드 — **3-class 시절 기준**이라 손실·head 서술이 지금과 다르다. 데이터 로딩·lifting 부분은 아직 유효 |
 | `archive/` 나머지 | 2-head·3-class 시절 인수인계·가이드, 옛 서버(RTX 3080) 세팅, fine-tuning 준비 기록 |
 
 `docs/temp/`(외부 검토와 주고받은 메모)는 2026-10-04에 지웠다. git 이력에 남아 있다.

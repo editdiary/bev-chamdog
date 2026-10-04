@@ -36,7 +36,7 @@ Last updated: 2026-08-18
 |---|---|---|
 | **[`../finetune_overfitting_diagnosis.md`](research/finetune_overfitting_diagnosis.md)** | **지금 막힌 곳·실험 기록·다음 단계(§13)·산출물 정리 규약(§14)** | **활성** |
 | [`../BEV_loss_and_metrics_design.md`](research/BEV_loss_and_metrics_design.md) | 지표 정의 정본(**§2.8**), loss 배경(§1.7) | 활성 (§1–2.7은 2-head 설계) |
-| [`../training_pipeline_walkthrough.md`](../training_pipeline_walkthrough.md) | 코드 정독 가이드 (파일 → 텐서 → 모델 → loss → 지표) | 활성 |
+| [`training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md) | 코드 정독 가이드 (파일 → 텐서 → 모델 → loss → 지표) | 활성 |
 | [`synwoodscape_pretrain_experiment_log.md`](synwoodscape_pretrain_experiment_log.md) | pretrain 실험 기록. **§7**이 3-class 진단 런 | 활성 |
 | [`../finetuning_guide.md`](finetuning_guide.md) | fine-tuning 실행 절차 | 활성 |
 | 이 문서 | 진입점, git/실행 명령, 결정 이력 | 활성 |
@@ -214,7 +214,7 @@ runs/robot_bev/ckpt/ft_aug_*, ft_wd*_*                                          
   nuScenes instance segmentation용이라 이 태스크에는 라벨도 loss도 없다. 파라미터 459,267개
   (decoder의 12.0%)와 decoder forward 시간 44%가 사라진다 -- 임베디드 배포가 주 동기다.
   weight transfer가 `loaded 677` -> `loaded 668`로 줄어든 것이 확인이고, 초기화 RNG 소비량은
-  원본과 같아 초기 가중치는 바뀌지 않는다. 상세: `../training_pipeline_walkthrough.md` §6.1.
+  원본과 같아 초기 가중치는 바뀌지 않는다. 상세: `training_pipeline_walkthrough.md` §6.1.
 - **`occ & vis & valid` 중복 제거.** 두 trainer, `class_weights_from_labels`,
   `rescore_checkpoints`, `measure_label_geometry`가 각자 조합하던 것을 전부
   `free_space.decompose()`로 모았다. **`occ=1`이 free라는 규약을 해석하는 지점이 이제 한 곳이다.**
@@ -313,7 +313,7 @@ run-to-run 잡음과 같은 자릿수일 가능성이 크다.**
 
 ### 2.2 [완료 2026-08-18] pretrain / fine-tuning 코드 파악
 
-**결과물: [`docs/training_pipeline_walkthrough.md`](../training_pipeline_walkthrough.md).**
+**결과물: [`docs/archive/training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md).**
 데이터 파일 -> 텐서 -> 모델 -> loss -> 지표 -> 체크포인트 선택을 코드 위치와 함께 따라간다.
 §6에 읽다가 걸리는 것들(안 쓰는 decoder head의 실측 비용, `pix_T_cams`가 왜 무시되는지,
 range 백분위수의 batch-size 의존), §7에 파일을 읽을 순서가 있다.
@@ -410,7 +410,7 @@ pretrain 60 epoch과 fine-tuning ablation 8개를 돌렸다. 결과는 각각
 
 ## 6. 관련 문서
 
-- **코드 정독 가이드**: [`docs/training_pipeline_walkthrough.md`](../training_pipeline_walkthrough.md)
+- **코드 정독 가이드**: [`docs/archive/training_pipeline_walkthrough.md`](training_pipeline_walkthrough.md)
   -- 데이터 파일 -> 텐서 -> 모델 -> loss -> 지표 -> 체크포인트 선택. §6에 함정, §7에 읽는 순서.
 - **loss 설계 현황과 다음 단계**: [`docs/archive/research/finetune_overfitting_diagnosis.md`](research/finetune_overfitting_diagnosis.md) §13
   (loss 구현의 배경·실측 분포는 [`../BEV_loss_and_metrics_design.md`](research/BEV_loss_and_metrics_design.md) §1.7)
