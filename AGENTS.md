@@ -1,516 +1,90 @@
 # AGENTS.md
 
-이 문서는 AI agent와 협업할 때 항상 참고할 **핵심 지침**입니다. 특정 플랫폼에 종속되지 않는 공통 규칙만 둡니다. 상세 내용은 `docs/`의 개별 문서를 필요할 때만 찾아봅니다.
+AI agent와 협업할 때 항상 참고할 **핵심 지침**이다. 특정 플랫폼에 종속되지 않는 공통 규칙만 둔다.
+어떤 문서를 믿어야 하는지는 [`docs/README.md`](docs/README.md)가 정한다.
 
-> **어떤 문서를 믿어야 하는지는 [`docs/README.md`](docs/README.md)가 정합니다.** 각 문서의
-> 역할과 상태(🟢 정본 / 🔵 운영 메모 / 📚 참고 / 🗄 아카이브)가 거기 있습니다.
-> **`docs/archive/`의 문서는 인용용이고, 거기 적힌 플래그·경로·숫자를 그대로 쓰면 안 됩니다.**
+> **[2026-10-04] 다시 썼다.** 2026-08-26 ~ 10-03에 이 파일 위에 쌓였던 날짜별 상태 블록(loss 연구,
+> 옛 캠페인 두 번, 철회 기록)은 [`docs/archive/agents_history_2026-08_to_10.md`](docs/archive/agents_history_2026-08_to_10.md)로
+> 옮겼다. 거기 적힌 숫자·플래그는 옛 설정 값이다.
 
-> ## ▶▶▶ [2026-09-21] `L_range`를 누적형으로 바꿨다 -- **논문은 `D`가 아니라 `E`를 쓴다**
->
-> **결정(사용자).** loss ablation 표의 `L_range` 팔은 **`E_cumulative` 하나**다. `D_range`는
-> 본문 표에서 빼고 각주·부록에서만 언급한다. 확정 표기는
-> **`RANGE_LOSS_MODE=cumulative_l1`, `λ_R = 0.15`**이고, **`δ_R`·`β`는 이 식에 없으므로
-> 표에 쓰지 않는다**(쓰면 독자가 `arc_huber` 설정을 읽는다).
->
-> **`D`와 `E`는 이어지는 계단이 아니라 `C_soft`에서 갈라지는 대체 팔이다.**
->
-> ```
-> C_soft ──(+ arc_huber,      λ_R = 0.3 )──▶ D_range      (옛 형태)
->        └─(+ cumulative_l1,  λ_R = 0.15)──▶ E_cumulative (논문에 쓰는 것)
-> ```
->
-> **왜 바꿨나.** 기존 `arc_huber`는 광선 전체를 종점 스칼라 하나로 합쳐 비교하므로
-> (1) `δ_R` dead zone이 경계의 **수직 거리 band가 아니라 ray 방향 arc 오차**에 걸리고,
-> (2) 앞쪽 과대예측과 뒤쪽 과소예측이 **상쇄**된다. 누적형은 `L_cell`과 **같은 soft target**을
-> ray에 gather해 각 반경까지의 누적 오차를 L1로 벌한다. **`δ_R`과 `β`가 식에서 사라진다.**
->
-> **`λ_R` 0.3 → 0.15를 "가중치를 절반으로 줄였다"고 쓰면 안 된다.** 두 식의 **gradient 기여를
-> 맞춘 결과**다(명세 §9.1). 0.15는 측정값 0.1526을 측정 정밀도에 맞춰 반올림한 것이다.
->
-> **결과(`runs/loss_effect/`, 30런, 고정 epoch 40, n=5).**
->
-> | | `C_soft` | `D_range` | `E_cumulative` |
-> |---|---:|---:|---:|
-> | `iou_free` | 0.81253±0.00083 | 0.81201±0.00050 | **0.81396±0.00166** |
-> | `fatal` / `free_miss` | 0.12200 / **0.08148** | 0.12052 / 0.08413 | **0.11869** / 0.08360 |
-> | `f1@10cm` | 0.59956 | 0.60031 | **0.60580** |
-> | range MAE | 0.21353 m | 0.21154 m | **0.20828 m** |
->
-> **짝지은 판정 규약(`|Δ| > σ_seed` **그리고** `|Δ| ≥ 2·SE`)을 통과한 것은 셋뿐이다.**
->
-> - ✅ `iou_free` **+0.0020** (대 `D_range`, 4/5) -- 대 `C_soft`는 **통과 못 한다**
-> - ✅ `range_mae` **−0.0053 / −0.0033 m** (대 `C_soft` / `D_range`, 둘 다 **5/5**) -- 가장 단단하다
-> - ❌ `missed_obstacle` **+0.0010** (대 `D_range`, 5/5) -- **나빠진다. 같이 보고한다**
->
-> **기각된 것 셋.** (1) **안전 개선이 아니다** -- 같은 `free_miss`에서 `A`·`C_soft`·`D`·`E`
-> 곡선이 전부 겹친다(차이 ≤0.0017, seed σ 0.0014~0.0052). τ=0.5의 `fatal` −0.0033은
-> **동작점 이동**이다. (2) **재현성은 안 좋아진다**(`iou_free` σ_seed 0.00166 대 `D` 0.00050).
-> (3) **되올림은 안 움직인다** -- loss와 무관한 진단 CE로 재면 세 칸이 구분되지 않는다.
-> **그리고 (3)은 오히려 "되올림의 원인은 경계의 hard target"이라는 결론을 보강한다** --
-> 원인이 거기라면 ray 항을 바꿔도 안 움직여야 하고, 실제로 안 움직였다.
->
-> **⚠⚠ 캠페인과 불일치했다 -- [2026-09-22 오후 결정] 연휴에 **70런**을 다시 돌려 해소한다.**
-> `runs/paper_final/`의 실험 1(40런)·실험 2(20런)·SynWoodScape 사전학습(5런)이 전부
-> `arc_huber`(`λ_R=0.3`)로 학습돼 있다. 사용자가 **`arc_huber`를 논문에서 완전히 걷어내기로**
-> 해서 `cumulative_l1`(`λ_R=0.15`)로 다시 돌린다. **사전학습 스크립트의 `--lambda_r=0.3`을
-> 먼저 고쳐야 한다** -- 빠뜨리면 실험 2의 사전학습 팔이 `arc_huber` 가중치를 물려받는다.
-> **그때까지는 현재 숫자로 논문을 쓰고 자릿수만 갈아끼운다**(실험 1은 약 1σ 이동, 실험 2는
-> 짝지은 차이라 상쇄). 범위와 근거는 원장 맨 위 결정 블록.
->
-> 정본: 판정·논문 규칙 [`docs/loss_effect_results.md`](docs/loss_effect_results.md) **§16** ·
-> 수식 [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §8.8·§9.1 · 서사
-> [`docs/experiment_history.md`](docs/experiment_history.md) §5 · 산출물 `runs/loss_effect/`
-> (무결성 60/60) · 전체 테스트 **470 passed**.
->
-> **곁가지 둘(참고용).** `runs/cumulative_ray_loss/`는 같은 실험을 `λ_R=0.1526`으로 먼저 돌린
-> **재현 시도**다(**두 트리를 한 표에 섞지 않는다**). `runs/cumulative_primary/`는 누적항을
-> 보조가 아니라 **정식 loss**로 올린 n=1 탐색이고, **주 지표가 안 움직였다**(§15.10).
+## 현재 상태 (2026-10-04)
 
-
-> ## ▶ [2026-08-27] lifting 높이 축 `Y=1 → 4` **채택** -- 새 세션은 이것부터 안다
->
-> **확정 config가 바뀌었다.** `Segnet(Z, Y, X)`의 `Y`가 1 → **4**이고 높이 범위는
-> −0.25~1.75 m다(표본 높이 지면 기준 **0, 0.5, 1.0, 1.5 m**). n=3에서
-> `iou_free` 0.7950 → **0.8104**, `f1@10cm` 0.5437 → **0.6085**, 지연 +3.2 %,
-> 재현성 불변. **이 프로젝트에서 단일 변경으로 얻은 가장 큰 개선이다.**
-> 근거 정본은 [`docs/paper_experiment_compendium.md`](docs/paper_experiment_compendium.md) §12.
->
-> **왜 열렸나**: 라벨 생성 코드(`dataset/sj_datasets/common/temp/slab_label.py`)가
-> occupancy를 **"로봇이 통과해야 하는 높이 구간"의 2D 기둥 누적**(지상 0.87~1.67 m)으로
-> 정의하고 있었다. 라벨은 처음부터 지면 occupancy가 아니었는데 lifting은 `ego z=0` 한
-> 평면만 표본했다. `Y=1`은 실험값이 아니라 로더 커밋의 하드코딩이었다.
->
-> **⚠ 절단선**: **2026-08-27 이전의 모든 런은 `Y=1`이고 lifting 기하가 다르다.**
-> `runs/ablation`·`runs/pixel_offset`·`runs/stride4`·`runs/frame_blocks`·LOSO·시드 스윕이
-> 전부 그렇다. 옛 숫자와 한 표에 세우려면 `HEIGHT_BINS=1 HEIGHT_MIN_M=None
-> HEIGHT_MAX_M=None`을 명시한다. 도구는 체크포인트 옆 `height.json`으로 자동 구분하고,
-> 파일이 없으면 `LEGACY_HEIGHT_BINS = 1`로 읽는다(**이 상수는 바꾸면 안 된다**).
->
-> **`Y`의 단일 출처는 `projects/datasets/simplebev_vox.vox_dims(grid_spec, height_bins)`다.**
-> 리터럴 `1`을 다시 쓰지 않는다 -- 예전에 20곳에 퍼져 있었다.
->
-> **남은 것**: 논문 집필 -- **지금은 아래 2026-09-21 블록의 최종 실험 캠페인으로 진행 중이다.**
-> 그리고 **`Y=4`에서 Orin 재실측**(사용자, 캠페인 `04`). 20.2 FPS는 `Y=1` 값이다.
->
-> **여기까지의 서사: [`docs/experiment_history.md`](docs/experiment_history.md)** (2026-08-27, 단계 J)
->
-> 2-head → 3-class → binary로 정식화를 두 번 바꾼 이유, 각 단계에서 기각된 가설, 그리고
-> **병목이 모델·loss·지표가 아니라 라벨이 정의한 task 자체라는 결론**과 그 근거가 여기 있다.
-> 방법론 교훈 요약(§7)과 다음 데이터 수집 권고(§6)도 같은 문서다. **새 세션은 이것을 먼저
-> 읽는다** -- 개별 숫자의 근거 정본은 각 절이 가리키는 원본 문서다.
->
-> ## ▶▶▶ [2026-10-03] 캠페인 v3 완료 -- **논문 숫자의 정본은 이제 `docs/99_paper_results/`다**
->
-> 90런(`runs/99_full_campaign/`, 100 epoch, 광선 보조항 없음, 새 지표) 전부 완주·무결성 통과.
-> 결과와 해석은 [`docs/99_paper_results/README.md`](docs/99_paper_results/README.md) → 실험별 `REPORT.md`.
-> 실행 기록은 원장 §5 "2026-10-02 (8)". **아래 블록들(옛 `paper_package`, `cumulative_l1`, `E_cumulative`)은
-> 이력이다** — v3 목적함수에는 `L_range`가 없다. 옛 패키지 숫자와 섞지 않는다.
->
-> 핵심 결과: 01 `iou_free` 0.816(기준선 +0.298) · 02 어안 직접 투영 > 핀홀, SynWoodScape 사전학습은 해롭다 ·
-> 02b 원래 기하로도 해롭다 · 03 soft target은 학습 거동(되올림 113 % → 2.4 %)·문턱 재현성(9~14배)이 확실히
-> 낫고, 정확도 이득은 동작점을 맞추면 줄며, BF@0.10을 잃는다.
->
-> ## ▶▶▶ 논문 최종 실험 캠페인 -- **01·02·02b·03 완료. 04는 보류. 다음은 설정 변경 후 재실행 논의**
->
-> **[2026-10-02] 사용자가 논문을 쓰면서 바꿔야 할 실험과 새로 해볼 테스트가 생겼다.
-> 설정이 확정되면 캠페인을 처음부터 다시 돌린다.** 그 전까지는 아래 결과가 정본이다.
->
-> **▶ 다시 돌릴 때는 [`docs/paper_campaign_protocol.md`](docs/paper_campaign_protocol.md)를
-> 먼저 읽는다.** Phase 0~4 절차·비용·**실제로 물린 지뢰**가 거기 있다. 원장은
-> "무엇이 나왔나", 프로토콜 문서는 "어떻게 돌리나", 패키지는 "논문에 쓸 숫자"다.
->
-> **[2026-10-02] 논의 ① 확정·구현됨(학습은 안 돌림).** **지표 개편** — Precision·Recall·
-> BF@{0.10,0.20,0.30} m·IoU_non-free·거리 고리별, **전부 프레임 macro**, `range_*` 제거.
-> 정본 `projects/common/metric_spec.py`. **광선 보조항 제거** — 목적함수는 soft-boundary BCE까지
-> (`tools/paper_final_aux_loss.py` 기본값 `none`), 03 사다리는 `C_soft`까지 넷. **지금 패키지의
-> CSV는 옛 지표·옛 목적함수 결과**이고, 생성기는 이미 새 지표라 옛 런을 거부한다. 원장 §5
-> "2026-10-02 (2)", 다음 캠페인 설계 항목은 프로토콜 §10.1. **본 실험은 100 epoch이 기본이다**
-> (`tools/paper_final_epochs.py`, 사전학습은 `--pretrain_epochs`로 분리, 캠페인 약 25시간 추정).
->
-> **[2026-09-23 02:13] 재학습 전 Phase 완료.** 70런을 `cumulative_l1`로 새 루트
-> `runs/paper_final_cumulative/`에 돌렸다(70/70 정상, watchdog 0회, 무결성 다섯 팔 전부
-> 통과, 8시간 43분). **기존 `runs/paper_final/`은 옛 `arc_huber` 캠페인으로 보존했다.**
-> 자세한 것은 원장 §5의 `2026-09-23` 항목.
->
-> **⚠ 논문 숫자의 정본은 `docs/paper_package/`다.** 원장 §4·§6의 표는 **옛 `arc_huber`
-> 캠페인 것이고 이력으로만 둔다.** 둘이 다르면 패키지가 맞다.
->
-> **바뀐 결론 셋**(자릿수만 바뀐 게 아니다):
-> 1. `02` 합성 사전학습의 `iou_free`가 "차이 없음" → **"target-only 우세"**(−0.0027,
->    |Δ|/SE 3.00). 묶음 눈금 0.0026과는 0.0001 차이로 아슬아슬하다
-> 2. `02` §4.2 기전 논증이 **fatal 급등 하나**에 기대게 좁아졌다(free-miss가 산포 안으로)
-> 3. `01` 두 프로토콜 마진의 소수 넷째 자리 일치가 사라졌다 — "우연"이라던 판단이 맞았다
->
-> **판정 눈금은 사전 등록값 0.0018을 유지한다.** 새 대조군에서 재면 0.0007이 나오지만
-> 8군 묶음 추정(df=32)으로는 0.0025 → 0.0026, 변화 없다 — 5표본 sd의 흔들림이다.
-> **눈금을 낮추면 주장이 공짜로 강해지므로 근거 없이 낮추지 않는다.**
->
-> 재실행이 필요하면: `tools/run_paper_final_cumulative_{campaign,analysis,packages}.sh`
-> (Phase 3은 **`APPLY=1`이어야 덮어쓴다**). 멈춤 방지는 `tools/paper_final_run_command.py`
-> (침묵 20분 / 총 2시간, 프로세스 그룹째 종료).
->
-> **논문 표에 쓸 결과는 `runs/paper_final/`에서 다시 관리한다.** 과거 실험은 lifting
-> 높이·loss·range 설정이 확정되기 전후가 섞여 있기 때문이다. 캠페인의 **단일 진행 원장은
-> [`docs/paper_final_experiments.md`](docs/paper_final_experiments.md)**이고, 계획·동결
-> 설정·실행 상태·무결성·결과가 전부 거기 있다. **새 세션은 이 원장부터 읽는다.**
->
-> **캠페인 4개 중 3개 완료.**
->
-> | ID | 상태 |
-> |---|---|
-> | [`01_overall`](docs/paper_package/01_overall/) | **완료** (2026-09-23 재학습, 40런) |
-> | [`02_projection_and_prior`](docs/paper_package/02_projection_and_prior/) | **완료** (2026-09-23 재학습, 20런). 원장 §6. **front-only는 기각**(§6.1, 기하로 이미 답이 나온다) |
-> | [`03_boundary_uncertainty`](docs/paper_package/03_boundary_uncertainty/) | **완료** (2026-09-22, 30런). 표 5·그림 3 |
-> | [`02b_native_source_prior`](docs/paper_package/02b_native_source_prior/) | **완료** (2026-09-23, 10런). 원본 기하 사전학습은 scratch보다 `iou_free` **−0.0073**(8.30, 5/5) 나쁘다. 가공 기하보다도 −0.0046이지만 **그 비교는 `iou_free` 하나에서만 갈린다**. 원장 §6b |
-| `04_edge_deployment` | Orin 측정 대기. **20.2 FPS는 `Y=1` 값이라 `Y=4` 재실측 필요** |
->
-> **실험 1 결과.** 고정 split `iou_free` **0.8146 ± 0.0007**(constant-map 기준선 0.5180,
-> margin **+0.2966**). LOSO 7 fold × 5 seeds macro **0.8302**, margin **+0.2935**.
-> **σ_fold가 σ_seed의 10.1배**, **raw IoU 순위와 margin 순위가 뒤집힌다**.
-> 확률맵 재채점 무결성 80건 전부 통과(최대 차이 6.9e-4, 허용치 1e-3).
->
-> **실험 2 결과.** 어안 원본이 가상 핀홀을 이긴다 -- 핀홀 120°에서 `iou_free`
-> **−0.0149**, 150°에서 **−0.0094**(둘 다 5/5 시드, |Δ|/SE 13~23). **그런데 핀홀 150°가
-> 120°보다 낫다**(+0.0055) -- 150°는 정면 각해상도가 0.46배인데 커버리지가 3.6 %p 넓다.
-> 즉 **어안의 이득은 해상도가 아니라 시야다.** SynWoodScape 사전학습은 경계를 흐리고
-> (`f1@10cm` **−0.0220**, 5/5) `iou_free`도 **−0.0027**(3.00, 5/5) 깎는다 -- 단
-> **40 cm 허용오차에서는 +0.0033으로 뒤집힌다**(부서진 게 아니라 흐려졌다).
-> 무결성 240건 전부 통과(최대 5.3e-4).
->
-> **실험 3 결과.** 되올림을 만든 것은 **경계 대역의 hard target**이다 -- `C_hard`(`C_soft`와
-> 모든 것이 같고 대역 target만 hard)의 되올림이 **47.6 %**로 기존 CE(45.0 %)와 같고, soft로
-> 바꾸면 **0.5 %**가 된다(95배). 그 오차 증가분의 **96.5 %**가 셀의 12.7 %인 경계 대역에서
-> 나온다(loss와 무관한 진단 CE로 측정). 목적함수가 품질과 다시 정렬되고(간격 **22.6 → 2.2
-> epoch**, regret 0.0161 → 0.0004), 같은 안전 수준을 만드는 문턱의 시드 간 산포가 **4~16배**
-> 좁아진다(앵커 5개 전부에서). 무결성 480건 전부 통과(최대 4.07e-4).
->
-> **⚠ 그런데 정확도는 개선되지 않고 경계는 번진다.** τ=0.5의 `iou_free` +0.0018은 **동작점
-> 이동**이다 -- 같은 `free_miss`에서 보면 −0.0005~−0.0030으로 부호가 뒤집힌다. 그리고
-> **`f1@10cm` −0.012는 동작점을 맞춰도 남는 실재 비용**이다(허용 오차 0.40 m에서는 사라지므로
-> "경계가 끊긴" 것이 아니라 **"번진"** 것이다). **논문에 교환으로 정면에 쓴다.**
-> 본문 사다리는 **`A_ce→B_perset→C_hard→C_soft` 넷**이다 -- **[2026-10-02 사용자 결정] 보조항을
-> 아예 뺐다.** (위 숫자는 옛 지표·옛 런 값이다. 다음 캠페인에서 사다리를 새 지표로 재학습한다.)
->
-> **표를 읽는 법 다섯 -- 이걸 모르면 결론이 뒤집힌다.**
->
-> 1. **σ_fold가 σ_seed의 10.1배다**(0.0251 대 0.0025). 서로 다른 fold의 숫자를 맞대어
->    조건을 비교하지 않는다. 이후 ablation을 전부 고정 split에서 하는 이유다.
-> 2. **raw `iou_free` 순위와 margin 순위가 뒤집힌다.** constant-map 기준선이 통로 폭에
->    좌우되기 때문이다(좁음 4 fold 0.648 / 넓음 3 fold 0.388). `rawos1`은 raw 2위인데
->    margin 7위, 외삽 fold `raws3`는 raw 5위인데 margin 1위다. **기준선 없이
->    `iou_free`를 단독 보고하지 않는다.**
-> 3. **고정 split과 LOSO를 합치지 않는다.** margin이 +0.2966 대 +0.2935로 가까워도
->    train 크기(192 대 229~231 프레임)와 질문이 다르다. (옛 캠페인에서는 이 둘이 소수
->    넷째 자리까지 같았는데, 목적함수만 바꿔 다시 학습하니 갈렸다 -- **"우연의 일치"라던
->    판단이 맞았다.**)
-> 4. **두 도메인의 격차는 free 비율이 아니라 관측 비율이다.** 옛 문서의 "SynWoodScape
->    83 % 대 로봇 20 % free"는 서로 다른 양을 비교한 것이었다. 같은 정의로 재면 관측된
->    셀 기준 87.6 % 대 **95.1 %**로 로봇이 더 free하고, 진짜 차이는 **관측 비율 93.8 % 대
->    27.8 %**다(`tools/measure_domain_prior.py`). compendium §4에 정정 기록을 남겼다.
-> 5. **짝지은 비교는 문턱 둘을 다 넘어야 한다.** `|Δ| > σ_seed`(0.0018)만 보면
->    안 된다 -- σ_seed는 *한 런*의 산포이지 *짝지은 차이*의 산포가 아니다.
->    `|Δ| >= 2·SE`(`SE = sd(차이)/√n`)를 같이 요구한다. 실제로 실험 2에서 이것 때문에
->    판정이 한 번 뒤집혔다(`tools/report_paired_arms.py`).
->
-> **논문 M&M을 쓸 때의 정본 둘** -- 각각 따로 떼어 넘겨도 자족적이다.
-> [`common/training_details.md`](docs/paper_package/common/training_details.md)(optimizer·
-> schedule·증강·정밀도·환경 + **`config.json`에 있지만 동작하지 않는 값 목록**)과
-> [`common/evaluation_protocol.md`](docs/paper_package/common/evaluation_protocol.md)
-> (지표를 **의도별로 수식과 함께** 정의, 집계 단위가 지표마다 다름, 평가 마스크가 둘인데
-> 취급이 반대, Results 절별 지표 선택표).
->
-> **논문 Results 구성(2026-09-22 사용자 확정).** 1) Overall BEV Perception Performance
-> 2) 설계 선택 ablation(제목 미정 -- `evaluation_protocol.md` §11.2에 제안)
-> 3) Effect of Boundary-Uncertainty-Aware Learning  4) Edge Deployment.
->
-> **논문 작성용 패키지는 [`docs/paper_package/`](docs/paper_package)다**(2 MB 미만).
-> `common/`에 지표 정의·보고 규칙·동결 설정을 한 번만 두고 실험별 폴더는 독립이다.
-> **`data/`의 CSV와 `figures/`의 그림은 생성 스크립트가 정본이고 손으로 고치지 않는다**
-> (그림은 재생성해도 바이트가 같게 맞춰 뒀다).
->
-> **⚠ worktree를 쓰지 않는다.** 2026-09-18~21에 `/tmp`의 worktree로 작업하다 산출물을
-> 못 찾는 사고가 났고, submodule 때문에 `git worktree move`/`remove`가 둘 다 거부된다.
-> 깨끗한 커밋 상태가 필요하면 **실험 전에 커밋을 먼저 한다.**
-
-> ## ▶▶ [2026-09-02] loss가 무엇을 바꿨나 -- **원인은 hard target이다.** 정본 `docs/loss_effect_results.md`
->
-> **`runs/loss_effect`, 사다리 5칸 × 시드 5개 = 25런.** 정본 환경 `bev-chamdog`
-> (Python 3.11.15 · torch 2.7.0+cu128). 확정 config가 세 번 바뀌어(`Y=1→4`, `(δ,α)→(δ,σ)`,
-> `(δ_R,β)=0.20/0.10 → 0.15/0.15`) 2026-08-28 이전 loss 실험은 **지금 코드와 다른 모델을
-> 학습한다** -- 옛 숫자와 한 표에 세우지 않는다(사용자 방침).
->
-> **① 원인 귀속이 끝났다 -- `C_hard` 대조군.** `C_soft`와 집계·가중치·δ가 전부 같고
-> **대역 target만 hard 0/1**인 칸을 넣었다(`SIGMA_M=0.001`, target 엔트로피 실측 0.000000).
->
-> | 칸 | 대역 target | 되올림 | Δep(loss↔iou) | regret iou |
-> |---|---|---|---|---|
-> | `A_ce` | hard | 45.0 % | 22.6 | 0.0161 |
-> | `C_hard` | **hard** | **47.6 %** | 19.2 | 0.0117 |
-> | `C_soft` | **soft** | **0.5 %** | **2.2** | **0.0004** |
->
-> **되올림의 원인은 per-set 평균이 아니라 경계 대역의 hard 감독이다.** 집계만 바꾸면
-> (`A_ce`→`C_hard`) 되올림이 안 줄고, target만 soft로 바꾸면 95배 줄어든다.
-> **`C_hard`의 정확도는 `C_soft`와 같다**(`iou_free` 0.8115, `f1@10cm` 0.6120으로 최고) --
-> **hard 감독은 모델을 망치지 않고 목적함수의 거동을 망친다.**
->
-> **② 되올림은 경계에 국소화돼 있다.** loss와 무관한 공통 눈금(hard CE, `|d|≤0.15 m`)을
-> 학습 로그에 넣었다. CE의 **val 오차 증가분의 96.5 %가 셀의 12.7 %인 대역에서** 온다
-> (대역 CE +65.3 %, 대역 밖 +4.2 %). soft target은 대역 상승을 65 % → 7 %로 줄인다.
-> **train은 다섯 칸 모두 단조 하강**이다. 진단 §26을 loss 비의존 눈금으로 재확인.
->
-> **③ 개선된 축과 안 된 축.** ✅ 목적함수 수렴 · 경계 국소성 · 목적함수↔품질 정렬 ·
-> **동작점 재현성**(같은 free_miss를 만드는 τ의 시드 σ 0.087 → 0.009, 9.7배).
-> ❌ 정확도(`iou_free` 0.8115 → 0.8130, 판정 불가) · **최종 지표 재현성**(고정 epoch에서
-> 유의 없음) · 광선/셀 재현성(σ_ray 4.11 → 4.47 cm, 상태 불일치 18.5 → 24.3 %) ·
-> 안전(같은 free_miss에서 곡선 겹침 -- §16.2 재확인).
->
-> **④ [방법론] 재현성은 선택 epoch에서 재면 안 된다.** 선택 epoch은 40 epoch에 대한
-> argmax라 그 자체가 확률변수다. `A_ce`는 **한 런 안에서** epoch만 바꿔도 `fatal`이 0.0045
-> 흔들리는데 고정 epoch의 시드 간 산포는 0.0012다 -- **선택 위치가 시드보다 큰 변동원**이고
-> 곡선의 평평함이 칸마다 달라 오염 크기도 다르다. **재현성 주장은 선택·고정 두 기준에서
-> 모두 성립하는 것만 한다.** 이 검사로 2026-09-01 판의 주장 둘을 철회했다
-> (`C_soft` 재현성 3~4배 개선 / `L_range`가 손해).
->
-> **⑤ σ_run을 처음 제대로 쟀다.** 같은 config·같은 시드를 따로 실행한 18쌍에서
-> `iou_free` **0.0009**(`runs/archive/loss_effect_v1` 대조). 시드 분산은 그 1.8배다.
->
-> **⑥ [규칙] conda 환경을 확인한다.** 2026-09-01에 20런 전체를 `base`(Python 3.14 +
-> torch 2.13)에서 돌린 사고가 있었다. 그 환경의 numpy는 **256 KB 넘는 배열에 `~`를 쓰면
-> 원본을 뒤집는다**(정본 환경은 멀쩡하다). 학습·분석 스크립트에 **환경 가드**를 넣었다 --
-> `bev-chamdog`가 아니면 시작되지 않는다(예외 `ALLOW_ANY_ENV=1`).
-> 진단 `tools/check_numpy_elision.py`, 방어 `projects/common/npsafe.bool_not`.
-
-> ## ▶ [2026-08-28] soft target을 `(σ, k)`로 다시 세웠다 -- **확정 config가 바뀌었다**
->
-> **`δ = 0.30 m`, `σ = 0.10 m`(`k = δ/σ = 3`).** 옛 값은 `δ = 0.15`, `α = 1.0`이었다.
-> 셸은 `DELTA_M=0.30 SIGMA_M=0.10`이고 **`SIGMA_ALPHA`는 더 쓰지 않는다**(동시 지정은 거부됨).
-> 근거 정본은 [`docs/soft_boundary_loss_design.md`](docs/soft_boundary_loss_design.md) **§21**,
-> 형태는 [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §6.2·§10. **52런, 시드 5개.**
->
-> **① `α`를 고정한 `δ` 스윕은 두 효과를 섞고 있었다**(§21.2). `σ = αδ`이므로 `α`를 고정하고
-> `δ`를 훑으면 **σ가 같이 커진다.** §20이 "δ를 넓히면 재현성이 나빠진다"고 읽은 것은 실은
-> **"σ를 키우면 나빠진다"**였다. `δ`를 고정하고 `k`만 올리면 두 경우 모두 좋아진다.
->
-> **② `k < 3`이면 `σ`가 자기 이름값을 못 한다**(명세 §6.2). target은 `[−δ, δ]`로 **절단된**
-> 정규 사전분포의 사후확률이라, `k = 1`이면 꼬리가 잘려 지정한 σ의 **54 %만 남는다.**
-> 옛 확정값은 `k = 1`이어서 **"σ=15 cm"라고 써 놓고 실제로는 8 cm를 뜻하고 있었다.**
->
-> **③ 재현성은 `실효 산포`(= `dy/dd`의 표준편차)가 지배한다**(§21.3). 시드 5개짜리 10 config에서
-> 광선별 시드 간 산포와 `r = 0.93`. **`δ`도 독립적으로 비용이지만 계수가 훨씬 작다** --
-> 이건 한 번 "δ는 공짜"라고 썼다가 대조쌍(σ 같고 δ만 다름)으로 반박된 것이다.
->
-> **④ "val loss가 조기 수렴 후 발산 = 과적합"은 성립하지 않는다**(§21.1). 경계 KL의 최저점이
-> **epoch 1~4**이고 거기 모델의 `f1@10cm`이 0.40~0.57이다(끝에서는 0.59~0.60).
-> **그 loss로 early stopping을 걸면 덜 학습된 모델을 집는다.** 어느 δ에서도 val 품질은
-> 정점 뒤에 안 떨어진다. 다만 **δ가 크면 총 loss 최저와 품질 정점이 겹쳐 모델 선택에 쓸 수
-> 있다** -- 확정값에서 16 ↔ 16, 옛 값에서 4 ↔ 23이다.
->
-> **⑤ `δ ≤ δ_R`은 불필요한 제약이었다**(§21.5). soft target이 대칭이라 `arc`의 기댓값이 GT와
-> 같아서 dead zone과 겹쳐도 안 싸운다. δ를 0.15 → 0.30으로 넓혀도 val `loss_range`가
-> 0.0867 → 0.0871로 불변이다. **`δ_R = 0.20`은 그대로 둔다.**
->
-> **⑥ 넓은 대역이 곧 흐릿한 감독은 아니다**(§21.4). σ가 작으면 대역 바깥쪽 target이 0.99+라
-> 사실상 hard다. **δ를 두 배로 넓혀도 `y < 0.90`인 셀은 18.6 %로 같다.** 같은 δ에서 σ만
-> 키우면 36.1 %가 된다. **흐릿함을 만드는 건 δ가 아니라 σ다.**
->
-> **⑦ 득실을 정직하게**(§21.6). 옛 값 대비 `iou_free`·`f1@10cm`·`fatal_rate`·σ_ray median은
-> 같고 σ_ray P90은 낫다(14.08 → 13.39 cm). **지는 것은 상태 불일치 하나** -- 21.9 % → 25.5 %,
-> 잔차 잡음의 2.8배로 실재한다. **논문에 한계로 적시할 것.** 더 나은 재현성을 원하면
-> `σ=0.08, δ=0.24`가 옛 값을 세 지표 모두에서 이기지만, **δ=0.24는 방어할 근거가 없어서**
-> 채택하지 않았다 -- δ=0.30은 "경계가 통로 중앙까지 나올 일 없다"는 **기하에서 온 값**이다.
->
-> **⑧ σ는 데이터가 못 정한다.** 재현성만 보면 `σ → 0`(=hard CE)이 이긴다. 실측 경계선은
-> 둘뿐이다: **`σ ≤ 0.15`**(위에서 `f1@10cm` 붕괴), **`δ ≤ 0.30`**(δ=0.45는 품질의 시드 간
-> σ가 2~4배). 그 안에서 **σ는 라벨 정밀도에 대한 사용자 판단**이다.
-
-> ## ▶ [2026-08-27] 경계 target 하이퍼파라미터 네 축 -- **전부 같은 축으로 붕괴했다**
->
-> 사용자 질문 "`L_B`가 수렴을 안 하는데 최소한 수렴은 해야 정상 아닌가"에서 출발해
-> **모양 α, 폭 δ, 대역 수축 κ, 전역 평활 ε**을 Y=4에서 12런으로 훑었다.
-> 근거 정본은 [`docs/soft_boundary_loss_design.md`](docs/soft_boundary_loss_design.md) **§20**.
->
-> **① [방법론 정정 -- 이게 제일 중요하다] `kl_boundary`는 config끼리 비교할 수 없다**(§20.1).
-> 각 런이 **자기 `Ω_B`에서 자기 target에 대해** 잰 평균이라, δ가 커지면 쉬운 셀이 섞이고
-> α·κ·ε이 바뀌면 target 자체가 쉬워진다. δ=0.45의 0.0870을 분해하면
-> `0.0870 → 0.1052`(셀 통일) `→ 0.2691`(target 통일)이고 대조군은 0.4780이다 --
-> **"96 % 개선"이 실제로는 44 %다.** **정본 지표는 `tools/report_boundary_calibration.py`의
-> `공통 kl`이다**(같은 셀 `|d| ≤ 0.15`, 같은 target). 옛 절의 `kl_boundary` 비교는 인용 금지.
->
-> **② 네 축이 하나로 붕괴한다.** 12런에서 **공통 kl과 예측 엔트로피의 r = −0.901, R² = 0.81**.
-> **보정 개선의 81 %가 "얼마나 덜 확신하게 됐는가" 하나로 설명된다.** 어떤 손잡이인지는 거의 무관.
->
-> **③ 능력은 안 움직인다.** `iou_free`는 엔트로피와 무관(r = −0.25, 전부 0.805~0.815),
-> **`f1@10cm`은 음의 상관(r = −0.71)** -- 덜 확신할수록 나빠진다. **val/train 배율 23~27배로
-> 암기 그대로.** **한 문장: 경계를 더 잘 알게 된 것이 아니라 모른다고 말하게 됐다.**
->
-> **④ [철회됨 -- §21에서 바뀌었다] 확정 config는 안 바뀐다**(§20.9). δ=0.15가 `f1@10cm` 최고 근처다. 굳이 고르면
-> δ=0.20~0.25 또는 ε=0.05~0.10(보정 −20~−46 %, 품질 잡음 안)인데 **확률을 쓰는 하류가 없으면
-> 실익이 없다.** δ≥0.45는 `f1@10cm` −5.9σ에 자유공간의 69 %가 hard 감독을 잃는다
-> (자유 셀 절반이 벽에서 32 cm 이내다).
->
-> **⑤ 새 손잡이 둘이 구현됐고 기본은 꺼져 있다**(bit 단위 항등, 테스트 고정):
-> `BAND_KAPPA`(κ, 기본 1.0)와 `LABEL_EPS`(ε, 기본 0.0). 형태는
-> [`docs/loss_function_spec.md`](docs/loss_function_spec.md) §6.4·§6.5.
->
-> **⑥ [해소됨 -- §21] α=0.5의 채택 근거는 남아 있지 않다**(§20.2). **`α`는 이제 쓰지 않는다** -- `1/k`로 유도된다. 근거였던 f1 차이 0.0021은 σ_run 0.0037의
-> 0.57배다. Y=4 재측정도 1.6σ. **α는 미결이고 n=3이 필요하다.** 이 절 전체가 **n=1**이다.
->
-> **⑦ `L_range` 진단**(§19): 상쇄로 면제되는 "실제로 틀린" 광선은 val의 **0.6~0.8 %**뿐이라
-> 실질 누수는 작다. 그런데 **val 오차의 71 %가 경계 대역에서 온다** -- 설계 목적이던
-> far(벽 뒤 free 섬)는 분산의 2.9 %이고 이미 일반화된다. **이 항은 경계 오차를 반경 방향으로
-> 다시 재고 있다.** 그리고 train `arc_mae`가 epoch 3에 dead zone에 들어가 `share_range`가
-> 0.33 %로 떨어진다 -- **40 epoch 중 3 epoch만 살아 있다.**
->
-> **현재 작업: soft-boundary loss -- [`docs/soft_boundary_loss_design.md`](docs/soft_boundary_loss_design.md)** (2026-08-21)
->
-> 라벨의 불완전성을 **loss에 명시적으로 모델링**한다(경계 대역에 soft target). 여기에
-> 방위각 자유거리 보조항 `L_range`를 더한 것이 **현재 확정 config**다(§13:
-> gaussian δ=0.15 α=0.5 λ_B=0.5, λ_R=0.3 δ_R=0.20 β=0.10).
-> **loss가 수식으로 정확히 무엇인지는 [`docs/loss_function_spec.md`](docs/loss_function_spec.md)가
-> 정본이다** -- 근거·결과 없이 형태만 있어 대조 없이 읽힌다.
->
-> **[정본] loss 연구는 §16으로 종결됐다.** 근거는 §15의 n=3 ablation(`runs/ablation/`,
-> `configs/ablation_loss.sh` → `tools/report_ablation.py`, 사다리 4칸
-> `A_ce → B_perset → C_soft → D_range` × 시드 3개)과 그것을 threshold sweep으로 재판독한 §16이다.
-> **살아남은 주장은 하나다.**
->
-> ① ✅ **재학습 재현성 5~22배** (시드 간 σ: `fatal` 0.0063 → 0.0007, `range_bias`
-> 0.0190 → 0.0023). **τ ∈ [0.2, 0.8] 전 구간에서 성립**하고, 유효 threshold jitter로는 17배다.
-> ② ✅ **되올림 2.4배 감소** (61.8 → 19.3 %, 엔트로피 하한 제거 후). val loss 발산이
-> **±15 cm 경계 대역으로 국소화되고 크기가 절반 이하**가 된다(CE +0.2003 대 `D_range` +0.0839).
-> ③ ❌ **[철회] "안전 개선"은 동작점 이동이었다**(§16.2). 같은 `free_miss`에서 `fatal`·
-> `missed_obstacle` 곡선이 **CE와 시드 σ 안에서 겹친다.** **CE도 τ를 0.5 → 0.7로 올리면
-> 같은 자리에 온다.**
->
-> **정확도는 CE와 동일**하고 **τ를 최적화해도 그렇다**(최대 `iou_free` A 0.7992 / D 0.7979).
-> **암기는 안 줄었다.** → **한 문장: 더 좋은 모델을 주지 않고, 같은 모델을 더 일관되게 준다.**
->
-> **표기 규약: 절대값(pp) 먼저, 상대값은 괄호**(§16.5). `fatal −1.25 pp (−9.2 % relative)`.
-> **"남은 오차의 98.9 %가 편향"은 과했다**(§16.6) -- "현재 pipeline이 공유하는 오차"가 맞고
-> `task ceiling`이라고 부르지 않는다. **`σ_target = √(σ_label²+σ_model²)`는 유도가 아니라
-> 진단이다**(§16.7).
->
-> **[철회 두 개 -- 옛 절의 σ를 인용하지 말 것]**
-> (a) **σ_run은 하한이다**(§15.4). 같은 config·같은 시드의 재현 노이즈이므로 **서로 다른
-> config 비교에는 부족하다** -- 시드 분산은 config마다 다르고 `ce`가 soft보다 4~9배 크다.
-> §13.6·§13.7·§13.8의 **순위는 인용 가능, σ 값은 불가.**
-> (b) **되올림은 loss 종류를 넘어 그대로 비교 불가**(§15.3). soft loss의 target 엔트로피
-> 상수(`λ_B·H̄`=0.1496)가 비를 기계적으로 줄여 45 % 부풀려져 있었다. **주 근거는 loss가
-> 등장하지 않는 축**(`iou 최고→끝 하락`·`fatal/iou 흔들림`·`train−val iou 격차`)**으로 옮겼다.**
->
-> **[교훈] 안정성 지표를 단독으로 읽으면 "아무것도 안 배우는 것"이 1등이다** -- `B_perset`이
-> 안정성 3개를 다 이기는데 품질은 전부 최악이다(§15.6). 반드시 품질과 같이 읽는다.
->
-> `f1@10cm`은 주 판정에서 강등돼 있다(§14, [`docs/BEV_loss_and_metrics_design.md`](docs/BEV_loss_and_metrics_design.md) §2.9).
-> `--loss=weighted_ce`는 대조군이므로 지우지 않는다.
->
-> **[종결] 비대칭 dead zone `δ_R⁺`는 채택하지 않는다**(§16.8). 판정의 σ가 위 (a)로 무효가
-> 됐고, n=3에 그 칸이 없고, 무엇보다 **"range 보조항이 좋아진 건지 safety bias를 넣어
-> 좋아진 건지 원인 분리가 안 된다."** 확정 config는 대칭 `δ_R=0.20`이다.
->
-> ## ▶▶ [2026-08-26] **계획된 실험이 전부 끝났다. 남은 것은 논문 집필이다.**
->
-> **⚠ [2026-09-21] 이 블록은 부분적으로 낡았다.** 논문 집필을 준비하면서 최종 설정
-> 재실험 캠페인 4개가 새로 열렸다 -- 맨 위 2026-09-21 블록과
-> [`docs/paper_final_experiments.md`](docs/paper_final_experiments.md)를 본다.
-> 아래 서술은 그 시점까지의 이력으로 읽는다.
->
-> **⚠ [2026-09-02] 이 문장은 더 이상 맞지 않다.** 그 뒤로 확정 config가 두 번 더 바뀌고
-> (`(δ,α)→(δ,σ)`, `(δ_R,β)`), **loss 영향력 대조 실험 25런**이 추가됐다(위 2026-09-02 블록).
-> 아래 표의 "끝난 것"은 여전히 유효하지만 **"남은 것은 논문 집필뿐"은 아니었다.**
->
-> **새 세션은 [`docs/paper_experiment_compendium.md`](docs/paper_experiment_compendium.md)를
-> 읽는다.** 모든 실험을 목적→설계→결과(수치)→해석으로 모은 문서이고, **다른 파일을 열지
-> 않아도 읽히도록 용어 정의까지 안에 들어 있다**(§0.6). 정본은 여전히 진단·설계 문서다.
->
-> **끝난 것 (계획했던 남은 작업 넷 전부).**
->
-> | 무엇 | 결과 | 정본 |
-> |---|---|---|
-> | `stride 8→4` 6런 | ❌ **표본 밀도 가설 기각, 미채택.** 사전 선언한 무늬가 안 나왔고 `iou_free`·`fatal_rate`도 노이즈. **기본 encoder는 `res101`(stride 8)** | 진단 **§29.9** |
-> | **LOSO 7-fold × 시드 3 = 21런** | ✅ **7 fold 전부 상수 지도를 +0.158 이상 이긴다.** `σ_fold` = 0.0405(`σ_seed`의 **27배**)이고 **그 분산의 거의 전부가 통로 폭 하나로 설명된다**(계층 안 마진 std 0.012~0.030) | 진단 **§31** |
-> | 안정성 축 둘 (perturbation + frame-gap) | ✅ **흔들림 세 원천이 전부 모델 오차보다 작다.** 지배적 불확실성은 불안정성이 아니라 정확도 | 진단 **§30** |
-> | **Orin 실측** | ✅ **512×288 fp16 = 20.2 FPS**, 32.7 W, 359 MB. 8.2분 지속 부하에서 **throttling 없음** | 진단 **§32** |
->
-> **남은 것 둘 -- 둘 다 사용자 몫이다.**
->
-> | # | 무엇 | 상태 |
-> |---|---|---|
-> | 1 | **논문 집필** | compendium §18에 구성 제안과 주 기여 후보 셋이 있다 |
-> | 2 | **Orin 목표 FPS** | 미정. 이 값이 없으면 "배포 가능" 진술만 못 쓴다(진단 §32.7) |
->
-> **하지 않기로 한 것 (되돌리지 않는다).** TensorRT 변환(진단 §32.6에 정찰 결과와 막힐 지점
-> 셋을 적어 뒀다) · 라벨 재수집·재어노테이션 · `traj_recall`/pose · `δ` 스윕 계열 ·
-> ROI crop · BEV 격자 변경 · stride-4에서 파생되는 작업.
->
-> > **[규칙] 결과가 예상과 달라도 새 가지를 열지 않는다**(진단 §28.8, 사용자 방침).
-> > 현재 데이터·아키텍처에서 관측된 한계를 그대로 결과로 정리한다.
->
-> **과적합은 파라미터로 못 고친다**(설계 §15.8, 진단 §10.2·§17.1·§19·§20.2). `weight_decay`
-> ·`res50`·`freeze_encoder`·`flip_augment`·`label_smoothing` 전부 기각. train을 20 % 버려
-> 과적합을 2배로 만들어도 `iou_free`는 노이즈 안이었다.
-> **한때 "다음 병목"으로 지목된 §18.3(특징맵 표본 좌표)은 종결됐다** -- 고쳤고 성능 영향은
-> 15런 스윕 51칸 전부 노이즈였다(§18.3.5).
->
-> **옛 인수인계 문서**: [`docs/next_session_binary_and_verification.md`](docs/next_session_binary_and_verification.md)(2026-08-19)는
-> **운영 메모**다 -- 도구 목록·`cam0..3` 매핑 함정(**`left=cam3`**) 같은 실무 정보만 본다.
-> 3-class 시대 인수인계는 [`docs/archive/next_session_threeclass_training.md`](docs/archive/next_session_threeclass_training.md).
-> 학습 산출물 정리 규약은 진단 문서 §14 (`tools/prune_runs.py`).
+- **논문 실험 캠페인 v3 완료.** 90런(`runs/99_full_campaign/`), 100 epoch, 광선 보조항 없음, 새 지표.
+  **논문 숫자·표·그림·해석의 정본은 [`docs/99_paper_results/`](docs/99_paper_results/README.md)**다.
+  실행 기록은 원장 [`docs/paper_final_experiments.md`](docs/paper_final_experiments.md) §5 "2026-10-02 (8)".
+- **남은 실험: Jetson AGX Orin 엣지 배포 측정**(논문 Results 4절). 옛 측정 20.2 FPS(512×288 fp16,
+  PyTorch)는 **`Y=1` 모델 값이라 `Y=4`로 다시 재야 한다.** TensorRT는 아직 해 보지 않았고 목표 FPS는 미정이다.
+  옛 측정의 절차·환경 함정은 [`docs/archive/research/finetune_overfitting_diagnosis.md`](docs/archive/research/finetune_overfitting_diagnosis.md) §32.
+- **가중치는 v3 마지막 체크포인트 90개만 남아 있다**(2026-10-04 정리, `runs/99_full_campaign/**/model-000000100.pth`).
+  다른 트리는 로그·분석만 있어 다시 채점할 수 없다.
+- **캠페인을 다시 돌릴 때**는 [`docs/paper_campaign_protocol.md`](docs/paper_campaign_protocol.md)부터 읽는다
+  (Phase 0~4 절차, 실제로 물린 지뢰 목록).
 
 ## [중요] 소통 규칙
 
-- **사용자와의 모든 대화는 한국어로 한다.** 최종 답변뿐 아니라 **작업 중간의 진행 설명·판단 근거·질문도 한국어**로 쓴다.
-- 예외는 두 가지뿐: **커밋 메시지는 영어**(아래 Git 규칙), 그리고 코드 안의 식별자·주석은 주변 코드 스타일을 따른다.
+- **사용자와의 모든 대화는 한국어로 한다.** 작업 중간의 진행 설명·판단 근거·질문도 한국어로 쓴다.
+- 예외는 두 가지뿐: **커밋 메시지는 영어**(아래 Git 규칙), 코드 안의 식별자·주석은 주변 코드 스타일을 따른다.
 
 ## 프로젝트 한 줄 요약
 
-자체 구축한 Fisheye 4-cam 데이터셋으로 **BEV free-space map**(각 BEV 격자 셀이 free / occupied / unknown 중 무엇인지)을 예측하는 모델을 학습한다. baseline은 **Simple-BEV**.
+온실 로봇의 **전방 어안 카메라 3대**(front·left·right, Double Sphere 모델)로 **BEV free space**
+(위에서 본 120×120 격자, 5 cm 칸에서 "지금 갈 수 있는 칸")를 예측한다. baseline은 **Simple-BEV**.
 
-## Task & 모델
+## Task & 모델 (확정 설정)
 
-- Task: 어안 이미지 → **BEV 3-class free-space map** (`free` / `occupied` / `unknown`). 3D bbox 검출과 세밀 semantic 구분은 **이후 확장 과제**로 분리.
-- **정식화는 3-class 단일 head 하나다.** 옛 2-head(occupancy + visibility) 정식화는 Phase 3 A/B 이후 코드에서 제거됐다 — `visibility = raycast(occupancy)`라 두 head가 같은 라벨의 두 인코딩이었기 때문이다. 근거와 A/B 결과는 [`docs/archive/free_space_metric_migration.md`](docs/archive/free_space_metric_migration.md) §8–9.
-- **주 지표는 `iou_free`이고 `fatal_rate`를 항상 같이 읽는다.** 옛 `iou_drivable`/`iou_obstacle`은 이미지를 안 보는 트리비얼 예측기에 지는 지표였다(같은 문서 §1). 새 학습·평가는 반드시 constant-map baseline과 병기해 판단한다.
-- baseline: **Simple-BEV** (`third_party/models/simple_bev`) — mmdet3d에 의존하지 않는 standalone PyTorch 구현.
-- 학습 순서: **SynWoodScape로 먼저 학습·검증 → pre-training → 자체 데이터셋 fine-tuning.**
-  - pretraining — 2-head 시절 것은 완료돼 있다 (SynWoodScape 4-cam, `radial_poly`, 240×240 그리드).
-    **3-class pretrain은 아직 돌리지 않았다** — 코드는 준비됐다
-    (`configs/train_synwoodscape_threeclass_pretrain.sh`). 그때까지 fine-tuning은 옛 2-head
-    체크포인트에서 trunk만 받고 출력 head는 랜덤 초기화로 시작한다(배너 `weight transfer` 줄로 확인).
-  - fine-tuning ⬅️ 현재 단계 — **자체 리그는 3-cam(front/left/right), Double Sphere,
-    120×120 그리드다.** 리그에 카메라는 4대지만 rear는 라벨 생성에 쓰이지 않았다.
-    실행 방법은 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)가 정본.
-- **MMDetection3D는 현재 학습 경로에서 사용하지 않는다.** `mmdetection3d/` submodule은 이후 3D 검출로 확장할 경우를 위해 남겨둔 것일 뿐이다.
-- 상세: [`README.md`](README.md)
+- **이진 분할**: 칸마다 free / not-free. 볼 수 없는 칸(사각지대)은 not-free로 채점한다.
+- **모델**: Simple-BEV + ResNet-101(ImageNet, stride 8), 어안을 펴지 않고 DS 투영으로 직접 lifting,
+  **`Y=4` 높이 평면**(−0.25~1.75 m). BEV 사전학습 없음(실험 02·02b에서 사전학습은 해로웠다).
+- **목적함수**: `½L_F + ½L_N + λ_B·L_B` — 경계 대역(|d| ≤ δ)에 soft target. **δ = 0.30 m, σ = 0.10 m,
+  λ_B = 0.5. 광선 보조항 `L_range` 없음**(`λ_R = 0`). 수식은 [`docs/loss_function_spec.md`](docs/loss_function_spec.md).
+- **학습**: AdamW lr 1e-4(one-cycle), batch 8, **100 epoch, 마지막 epoch 고정으로 평가**(검증으로 고르지 않는다).
+  상세는 [`docs/99_paper_results/common/training_details.md`](docs/99_paper_results/common/training_details.md).
+- **지표**: `iou_free`(항상 constant-map 기준선·마진과 함께), Precision·Recall(같은 동작점에서 한 쌍으로),
+  BF@{0.10, 0.20, 0.30} m, 보조로 `iou_non_free`·거리 고리별. **전부 프레임 macro.** 이름 정본은
+  `projects/common/metric_spec.py`, 정의는 [`docs/99_paper_results/common/metrics.md`](docs/99_paper_results/common/metrics.md).
+- **유의성**: 시드로 짝지은 양측 t-검정의 95 % 신뢰구간이 0을 빼면 유의(`projects/common/paired_stats.py`).
+  논문 표에는 mean ± SD와 `*`만 싣는다.
+- **MMDetection3D는 쓰지 않는다.** `mmdetection3d/` submodule은 이후 3D 검출 확장용으로만 남겨 두었다.
+
+## 꼭 지킬 규칙 — 실제로 사고가 났던 것들
+
+- **conda 환경은 `bev-chamdog`**(Python 3.11 + torch 2.7.0+cu128). `base`에서 돌렸다가 numpy가 큰 배열을
+  조용히 망가뜨린 사고가 있었다. 학습·분석 스크립트는 다른 환경이면 시작하지 않는다(`ALLOW_ANY_ENV=1`로만 우회).
+- **`Y`의 단일 출처는 `projects/datasets/simplebev_vox.vox_dims()`**다. 리터럴 `1`을 쓰지 않는다.
+  체크포인트 옆 `height.json`이 없으면 `LEGACY_HEIGHT_BINS = 1`로 읽는다 — **이 상수는 바꾸지 않는다.**
+- **긴 학습은 `setsid nohup … &`로 분리해 띄운다.** 도구의 실행 시간 상한에 학습이 같이 죽은 적이 있다.
+- **지연·FPS를 재기 전에 `nvidia-smi`로 GPU 점유를 확인한다.** 공유 GPU가 측정을 두 번 망쳤다(최대 4.6배).
+- **프로세스는 정확한 PID로 종료한다.** `pkill -f` 패턴이 자기 셸을 죽인 적이 있다. 실행 중인 bash 스크립트는 편집하지 않는다.
+- **생성 스크립트가 정본이다.** 패키지 CSV·SVG·PDF를 손으로 고치지 않는다. 그림은 열어서 눈으로 확인한다.
+- **결과가 예상과 달라도 사용자 확인 없이 새 실험 가지를 열지 않는다.**
+- **git worktree를 쓰지 않는다**(submodule 때문에 정리가 안 되고 산출물을 잃은 적이 있다).
+- 작업 트리를 다른 세션과 공유할 수 있다 — **`git stash`·다른 브랜치 checkout·`reset --hard`·`branch -f`·
+  `push -f`를 하지 않고, `git add`는 파일을 명시한다.**
 
 ## 개발 환경
 
-- conda 환경명: **`bev-chamdog`** (Python 3.11)
-- **PyTorch는 반드시 `cu128` 빌드**(2.7.0+cu128)를 쓴다. GPU가 sm_120이라 `cu118` 빌드로는 커널이 실행되지 않는다. `torch.cuda.is_available()`이 True로 나와도 실제 연산에서 죽으므로 속지 말 것.
-- 의존성은 `constraints.txt`(numpy<2·opencv<5) + `requirements.txt` 조합으로 설치하고, 이후 항상 `pip check`.
-- **`third_party/models/simple_bev/requirements.txt`를 그대로 쓰면 안 된다** (Python 3.7~3.8 시절 핀 → 3.11에서 설치 실패). 루트의 `requirements.txt`를 쓴다.
-- **mmcv / mmdet / mmdet3d는 설치하지 않는다.** prebuilt wheel이 torch 2.1까지만 존재한다. 이후 3D 검출로 확장할 때는 별도 conda 환경으로 분리한다.
-- 상세: [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md) (이전 RTX 3080 환경 이력은 [`docs/archive/setup_guide.md`](docs/archive/setup_guide.md))
+- **PyTorch는 반드시 `cu128` 빌드**를 쓴다. GPU가 sm_120이라 `cu118` 빌드는 `is_available()`이 True여도 실제 연산에서 죽는다.
+- 의존성은 `constraints.txt`(numpy<2·opencv<5) + `requirements.txt`로 설치하고 `pip check`.
+  `third_party/models/simple_bev/requirements.txt`는 쓰지 않는다(3.7~3.8 시절 핀).
+- mmcv / mmdet / mmdet3d는 설치하지 않는다.
+- 상세: [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md)
 
 ## 하드웨어
 
-- GPU: **RTX PRO 6000 Blackwell / VRAM 96GB** (단일 GPU, sm_120)
-- CPU 32코어 / RAM 250GB / `/dev/shm` 126GB
-- 데이터셋은 루트 파티션이 아니라 **`/data`(3.7T)** 에 두고 symlink를 건다.
-- VRAM이 넉넉해 `batch_size` 축소나 gradient accumulation 회피가 **불필요**하다. 오히려 **데이터 로딩이 병목**이 되기 쉬우므로 `num_workers`(8~16)와 GPU 활용률을 먼저 살핀다. 최대 batch size는 추측하지 말고 실측한다.
-- 상세: [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md)
+- 학습: **RTX PRO 6000 Blackwell / VRAM 96 GB** 단일 GPU(다른 연구실과 공유), CPU 32코어, RAM 250 GB.
+  데이터와 `runs/`는 **`/data`(3.7 T)**에 둔다. 병목은 대개 데이터 로딩이다.
+- 배포 대상: **Jetson AGX Orin.** 환경 함정 둘 — `efficientnet_pytorch`는 `--no-deps`로 설치, cuSOLVER 우회 필요.
 
 ## 폴더 규칙
 
-- 커스텀 코드는 `projects/`(데이터 로더·투영·모델 래퍼 등 파이썬 모듈), `configs/`(config), `tools/`(스크립트)에 둔다.
-- **`third_party/`와 `mmdetection3d/`는 git submodule → 직접 수정하지 말 것.** Simple-BEV 동작을 바꿔야 하면 submodule을 고치지 않고 `projects/`에서 래핑한다.
+- 커스텀 코드는 `projects/`(모듈), `configs/`(셸 진입점), `tools/`(스크립트)에 둔다.
+- **`third_party/`와 `mmdetection3d/`는 git submodule — 직접 수정하지 않는다.** Simple-BEV 동작을 바꿔야 하면 `projects/`에서 래핑한다.
 - 상세: [`docs/project_structure.md`](docs/project_structure.md)
 
 ## [중요] Git 규칙
 
-- **`commit`은 자율적으로 수행해도 됨. 단, 큰 논리 단위로 묶어서 남긴다** (자잘한 변경마다 쪼개지 말 것).
-- **커밋 메시지는 영어로 작성한다** (파일/문서 내용은 한글 무방).
-- **`merge`와 `push`는 절대 임의로 수행하지 말 것 — 반드시 사용자가 직접 수행한다.**
-- 기능 개발은 항상 새 브랜치(`feat/*` 등)에서 진행한다.
+- **`commit`은 자율적으로 해도 된다. 단, 큰 논리 단위로 묶는다**(자잘한 변경마다 쪼개지 않는다).
+- **커밋 메시지는 영어로 쓴다**(파일·문서 내용은 한글 무방).
+- **`merge`와 `push`는 절대 임의로 하지 않는다 — 사용자가 직접 한다.** 필요하면 명령만 알려 준다.
+- 기능 개발은 새 브랜치(`feat/*`, `exp/*` 등)에서 한다.
 - 상세: [`docs/git_workflow.md`](docs/git_workflow.md)

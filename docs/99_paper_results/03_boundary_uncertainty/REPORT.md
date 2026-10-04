@@ -1,8 +1,8 @@
 # 실험 03 — Effect of Boundary-Uncertainty-Aware Learning (loss 사다리)
 
 > 대상 `runs/99_full_campaign/03_boundary_uncertainty` · 학습 2026-10-03 16:50 ~ 21:40 · 캠페인 v3
-> 인용 수치는 같은 폴더 `data/*.csv`에 있다. 옛 캠페인의 loss 결과(`docs/loss_effect_results.md`,
-> `docs/paper_package/03_*`)는 보조항·학습 길이·지표가 달라 **숫자를 섞지 않는다.**
+> 인용 수치는 같은 폴더 `data/*.csv`에 있다. 옛 캠페인의 loss 결과(`docs/archive/research/loss_effect_results.md`,
+> `docs/archive/paper_package_v2/03_*`)는 보조항·학습 길이·지표가 달라 **숫자를 섞지 않는다.**
 
 ---
 

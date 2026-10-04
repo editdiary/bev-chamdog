@@ -3,7 +3,7 @@
 > ## ⚠ [상태: 낡음 — 2-head 시절 계획서다]
 >
 > `TwoHeadSegnet`과 `iou_drivable`/`iou_obstacle`을 전제로 쓴 문서다. 둘 다 제거됐다.
-> 현재 개선 안건은 [`../finetune_overfitting_diagnosis.md`](../finetune_overfitting_diagnosis.md) §13.
+> 현재 개선 안건은 [`../finetune_overfitting_diagnosis.md`](research/finetune_overfitting_diagnosis.md) §13.
 
 
 ## Current Baseline

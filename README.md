@@ -1,19 +1,23 @@
 # bev-chamdog
 
-자체 구축한 **Fisheye 4-cam 데이터셋**으로 **BEV(Bird's-Eye-View) occupancy map**을 예측하는 모델을 학습하는 것을 최종 목표로 하는 프로젝트입니다. baseline 모델은 [Simple-BEV](https://github.com/aharley/simple_bev)이며, standalone PyTorch로 동작합니다.
+온실 로봇의 **전방 어안 카메라 3대**로 로봇 주변의 **BEV free space**(위에서 본 격자에서 "지금 갈 수 있는 칸")를
+예측하는 연구 프로젝트입니다. baseline 모델은 [Simple-BEV](https://github.com/aharley/simple_bev)이며, standalone PyTorch로 동작합니다.
 
 ## 🎯 목표
 
-서라운드뷰 fisheye 카메라 4대의 이미지만으로 **로봇 주변의 BEV occupancy map**을 예측한다. 각 BEV 격자 셀이 **로봇이 지나갈 수 있는 영역(drivable)인지 아닌지**를 판단하는 task이다.
-
-즉 3D bounding box 검출이 아니라, **주행성(traversability) 판단을 위한 BEV 상의 영역 예측**이 목표다. 세밀한 semantic 구분이나 3D 객체 검출은 이후 확장 과제로 분리한다.
+어안 이미지만으로 **로봇 주변 120×120 격자(5 cm 칸, 전방 4 m / 후방 2 m / 좌우 ±3 m)의 각 칸이
+지금 지나갈 수 있는지(free / not-free)** 를 판단합니다. 3D bounding box 검출이나 세밀한 semantic 구분이
+아니라 **주행성 판단을 위한 BEV 영역 예측**이 목표입니다.
 
 ## 🗺️ 접근 흐름
 
-1. **벤치마크 분석** — `WoodScape` / `SynWoodScape`의 구조·annotation·fisheye 특성 파악 *(완료)*
-2. **자체 데이터셋 구축** — 수집 → 캘리브레이션 → 라벨링 *(별도 프로젝트에서 완료)*
-3. **SynWoodScape로 학습** — Simple-BEV baseline이 어안 4-cam 입력으로 동작하는지 검증 ← *현재 단계*
-4. **자체 데이터셋으로 fine-tuning** — 3단계가 잘 되는 것을 확인한 뒤, SynWoodScape pre-training → 자체 데이터셋 fine-tuning
+1. **벤치마크 분석** — WoodScape / SynWoodScape의 구조·annotation·어안 특성 파악 *(완료)*
+2. **자체 데이터셋 구축** — 수집 → 캘리브레이션 → 라벨링 *(별도 프로젝트에서 완료, 7시퀀스 267프레임)*
+3. **SynWoodScape로 파이프라인 검증** — Simple-BEV가 어안 입력으로 동작하는지 확인 *(완료)*
+4. **자체 데이터셋 학습과 설계 확정** — 이진 free-space 정식화, 어안 직접 투영(Double Sphere), `Y=4` lifting,
+   soft-boundary 손실 *(완료)*
+5. **논문 실험 캠페인 v3** — 대표 성능·LOSO, 투영·사전학습 ablation, 손실 사다리 90런 *(완료, 2026-10-03)*
+6. **Jetson AGX Orin 배포 측정** ← *현재 단계*
 
 ## 🔧 학습 프레임워크
 
@@ -46,15 +50,13 @@ bev-chamdog/
 
 ## ✅ 진행 상황
 
-- [x] **개발 환경 세팅** — conda 환경 및 버전 고정 (→ [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md))
-- [x] **벤치마크 분석** — WoodScape 분석 완료 (→ [`docs/dataset_analysis/`](docs/dataset_analysis/)), SynWoodScape 구조 파악
-- [x] **자체 데이터셋 구축** — 별도 프로젝트에서 수집·캘리브레이션·라벨링 마무리
-- [x] **SynWoodScape + Simple-BEV 학습** — two-head(occupancy + visibility) pretraining 완료.
-      val obstacle IoU 0.861 / drivable 0.989
-      (→ [`docs/archive/synwoodscape_pretrain_experiment_log.md`](docs/archive/synwoodscape_pretrain_experiment_log.md))
-- [ ] **자체 데이터셋 fine-tuning** ← *현재 단계* — 파이프라인은 완성·검증됐고
-      (Double Sphere 3-cam, 마스킹, 학습·시각화 도구) **어노테이션 물량을 기다리는 중**.
-      실행 방법은 [`docs/finetuning_guide.md`](docs/finetuning_guide.md)
+- [x] **개발 환경 세팅** (→ [`docs/setup_guide_pro6000.md`](docs/setup_guide_pro6000.md))
+- [x] **벤치마크 분석** (→ [`docs/dataset_analysis/`](docs/dataset_analysis/))
+- [x] **자체 데이터셋 구축** — 별도 프로젝트
+- [x] **설계 확정** — 연구 기록은 [`docs/archive/research/`](docs/archive/research/)
+- [x] **논문 실험 캠페인 v3** — 결과·표·그림·해석은 [`docs/99_paper_results/`](docs/99_paper_results/README.md).
+      고정 split `iou_free` 0.816(이미지를 보지 않는 기준선 대비 +0.298), LOSO 7 fold 평균 0.830
+- [ ] **Jetson AGX Orin 배포 측정** ← *현재 단계*
 
 ## 🚀 시작하기
 

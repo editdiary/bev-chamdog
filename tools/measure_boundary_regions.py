@@ -1,6 +1,6 @@
 """soft-boundary loss의 세 영역을 **라벨만으로** 실측한다.
 
-무엇을 답하는가 (`docs/soft_boundary_loss_design.md` §6의 남은 항목):
+무엇을 답하는가 (`docs/archive/research/soft_boundary_loss_design.md` §6의 남은 항목):
 
 1. `delta`별 `Omega_F` / `Omega_N` / `Omega_B`의 실제 셀 비율 -> §5.6의 셀당 가중치 배분
 2. `Omega_F` 안에 라벨이 free가 **아닌** 셀이 몇 %인가 -> §4.1(라벨 목표 대 기하 목표)

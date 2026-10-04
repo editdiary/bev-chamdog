@@ -351,7 +351,7 @@ class RobotBEVDataset(Dataset):
             return torch.from_numpy(mask.astype(np.float32)).unsqueeze(0)
 
         # `d_bev_g` -- GT 경계까지의 부호 있는 수직 거리 [m]. **라벨만으로 결정되는 값이고
-        # 하이퍼파라미터가 아니다** (`docs/soft_boundary_loss_design.md` §2.1). soft-boundary
+        # 하이퍼파라미터가 아니다** (`docs/archive/research/soft_boundary_loss_design.md` §2.1). soft-boundary
         # loss가 영역을 나누는 데 쓴다.
         #
         # 여기서 계산하는 이유: 거리변환이 CPU numpy(scipy)라 학습 루프에서 부르면 매 배치

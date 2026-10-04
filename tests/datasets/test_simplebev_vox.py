@@ -54,7 +54,7 @@ def test_ref_T_cam_applies_rotation_and_preserves_translation_norm():
 
 
 # --- 높이 bin (Y>1) -----------------------------------------------------------------
-# `docs/finetuning_guide.md` §9가 한계로 적어 둔 "Y=1이라 ego z=0 한 평면에서만 표본한다"를
+# `docs/archive/finetuning_guide.md` §9가 한계로 적어 둔 "Y=1이라 ego z=0 한 평면에서만 표본한다"를
 # 여는 손잡이다. 라벨 파이프라인(`slab_label.py`)의 occupancy는 지상 0.87~1.67 m 슬래브의
 # 기둥 질의이므로 표본 높이와 어긋나 있다.
 

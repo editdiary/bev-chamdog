@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 3차 스윕 -- **방위각 자유거리 보조항 `L_range`** (docs/soft_boundary_loss_design.md §13).
+# 3차 스윕 -- **방위각 자유거리 보조항 `L_range`** (docs/archive/research/soft_boundary_loss_design.md §13).
 #
 # 베이스는 프론티어 중간점(gaussian, delta=0.15, alpha=0.5 -> f1@10cm 0.5491 / 되올림 +16.5%)이다.
 # alpha=0.5를 고른 이유: §10.3에서 alpha가 성능<->수렴의 단일 교환 축이었고, 그 중간점에서

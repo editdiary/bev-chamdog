@@ -3,7 +3,7 @@
 정식화는 `--formulation`으로 고른다: `three_class`(free/occupied/unknown) 또는
 `binary`(free/not-free). 갈리는 것은 출력 채널 수·loss·로그 항 이름뿐이고 데이터·지표·
 체크포인트 선택 기준은 공유한다 -- 두 런을 한 표에 놓고 비교하기 위해서다
-(`docs/finetune_overfitting_diagnosis.md` §15).
+(`docs/archive/research/finetune_overfitting_diagnosis.md` §15).
 
 SynWoodScape pretrain(`tools/train_synwoodscape.py`)과 지표·로깅을 공유하며
 (`projects/common/bev_occupancy_metrics.py`), 다른 것은 세 가지뿐이다:
@@ -253,18 +253,18 @@ def main(
     # 주기 저장분을 몇 개까지 남길지. **기본값 3은 유효 구간을 지운다** -- `save_freq_epochs=10`
     # 으로 60 epoch을 돌리면 10/20/30/40/50/60에 저장되는데 3개만 남아 40/50/60이 되고,
     # 과적합이 빠른 리그에서 정작 쓸 만한 초기 epoch이 통째로 사라진다(2026-08-18 fine-tuning
-    # 진단에서 실제로 겪었다: `docs/finetune_overfitting_diagnosis.md` §5). 체크포인트 하나가
+    # 진단에서 실제로 겪었다: `docs/archive/research/finetune_overfitting_diagnosis.md` §5). 체크포인트 하나가
     # 약 487 MB이므로 `num_epochs / save_freq_epochs` 만큼 남기는 것을 기본으로 둔다.
     keep_checkpoints=6,
     # 역빈도 가중치의 상한. 기본값(20)의 근거와 실측 병리는
-    # `docs/finetune_overfitting_diagnosis.md` §3, §12에 있다. `1`이면 가중치 없음.
+    # `docs/archive/research/finetune_overfitting_diagnosis.md` §3, §12에 있다. `1`이면 가중치 없음.
     max_class_weight=None,
     n_theta=None,
     # 정식화. `three_class` = free/occupied/unknown (기존), `binary` = free/not-free (§15).
     # binary는 `occupied`를 예측하지 않고 예측 free의 경계에서 유도해 보고하므로 지표 집합은
     # 완전히 같다 -- 두 런을 한 표에 놓고 비교하는 것이 이 플래그의 목적이다.
     formulation="three_class",
-    # --- 과적합 손잡이 (§16.3 (b)). 근거는 `docs/finetune_overfitting_diagnosis.md` §17 ---
+    # --- 과적합 손잡이 (§16.3 (b)). 근거는 `docs/archive/research/finetune_overfitting_diagnosis.md` §17 ---
     # encoder를 얼린다. 41.0 M 파라미터 중 37.0 M(90 %)이 encoder인데 train은 192장이다.
     # ImageNet 특징을 그대로 쓰고 BEV decoder만 학습하면 학습 가능한 파라미터가 1/12로 준다.
     freeze_encoder=False,
@@ -295,7 +295,7 @@ def main(
     # loss 종류. `weighted_ce`(현행, 역빈도 가중 CE) 또는 `soft_boundary`.
     # **현행 경로를 지우지 않는 이유: 대조군이다.** soft-boundary가 이겼다는 판정은 같은
     # 시드·같은 split에서 두 loss를 나란히 돌려서만 나온다
-    # (`docs/soft_boundary_loss_design.md` §6).
+    # (`docs/archive/research/soft_boundary_loss_design.md` §6).
     loss="weighted_ce",
     # 이하 셋은 `--loss=soft_boundary`에서만 쓰인다.
     # `delta_m` -- 불확실 대역의 반폭 [m]. 0.15 = 3셀. **라벨에서 추정할 수 없다** --
@@ -316,11 +316,11 @@ def main(
     # 식에서 사라진다 -- 즉 `δ`는 폭(gradient 희석 → 수렴)만, `α`는 모양(경계 정밀도)만
     # 정해 두 손잡이가 직교한다. `σ`를 미터로 주면 `δ`를 바꿀 때 모양이 조용히 딸려간다.
     # `α → ∞`는 정확히 선형 target이고, `α ≲ 0.2`는 5 cm 격자에서 사실상 hard가 된다
-    # (`docs/soft_boundary_loss_design.md` §10).
+    # (`docs/archive/research/soft_boundary_loss_design.md` §10).
     sigma_alpha=None,
     # `sigma_m` -- `α` 대신 σ를 미터로 직접 줄 때. 대역 안에서 정규화한다(§5.3).
     sigma_m=None,
-    # 이하 셋은 **방위각 자유거리 보조항** `L_range`다 (`docs/soft_boundary_loss_design.md` §13).
+    # 이하 셋은 **방위각 자유거리 보조항** `L_range`다 (`docs/archive/research/soft_boundary_loss_design.md` §13).
     #
     # `lambda_r` -- 보조항 가중치. **0.0이면 항이 계산조차 되지 않는다**(대조군 보호).
     # **이 값은 추측하지 말고 `tools/measure_range_gradient.py`로 캘리브레이션한다** --
@@ -362,7 +362,7 @@ def main(
     # **기하를 안 건드린다** -- `Ω_F`가 셀을 잃지 않으므로 좁은 통로가 안전하다.
     # 근거 전체는 `projects/common/soft_boundary.py`의 `DEFAULT_EPS` 주석에 있다.
     label_eps=0.0,
-    # 이하 둘은 **특징맵 표본 좌표의 기하**다 (`docs/finetune_overfitting_diagnosis.md` §18.3,
+    # 이하 둘은 **특징맵 표본 좌표의 기하**다 (`docs/archive/research/finetune_overfitting_diagnosis.md` §18.3,
     # `projects/models/pixel_grid.py`). loss와 무관하게 lifting 단계에서만 쓰인다.
     #
     # `pixel_convention` -- `pixel_center`(기본, 옳은 규약) 또는 `legacy_index`(옛 동작).

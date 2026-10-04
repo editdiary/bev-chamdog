@@ -16,8 +16,8 @@ CSV 값은 산문이 쓴 **자릿수로 반올림해서** 비교한다 -- 산문
 `-0.013354`로 적혀 있기 때문이다.
 
     python tools/audit_paper_prose_numbers.py \\
-        --old=docs/paper_package/01_overall --new=/tmp/stage/01_overall
-    python tools/audit_paper_prose_numbers.py --old=docs/paper_package/01_overall
+        --old=docs/archive/paper_package_v2/01_overall --new=/tmp/stage/01_overall
+    python tools/audit_paper_prose_numbers.py --old=docs/archive/paper_package_v2/01_overall
 """
 import argparse
 import csv

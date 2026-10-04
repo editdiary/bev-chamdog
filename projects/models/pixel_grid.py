@@ -1,6 +1,6 @@
 """특징맵 표본 좌표의 **규약** -- `grid_sample` 정규화와 상수 오프셋.
 
-근거: `docs/finetune_overfitting_diagnosis.md` §18.3.
+근거: `docs/archive/research/finetune_overfitting_diagnosis.md` §18.3.
 
 upstream Simple-BEV(`utils/vox.py:337`)와 우리 두 래퍼(`double_sphere_vox`,
 `fisheye_vox`)는 표본 좌표를 `utils.basic.normalize_grid2d`로 정규화한 뒤

@@ -2,12 +2,18 @@
 
 이 프로젝트 고유의 **커스텀 파이썬 모듈**을 두는 패키지입니다. `third_party/`와 `mmdetection3d/`는 submodule이라 직접 수정하지 않고, 확장은 모두 여기서 합니다.
 
-## 예상 구성
+## 구성 (2026-10-04)
 
-- **데이터 로더** — SynWoodScape / 자체 데이터셋을 Simple-BEV 입력 형태로 변환 (아직 미착수)
-- **BEV GT 변환** — `bev_gt/` 참고
-- **어안 투영** — `geometry/` (`radial_poly` project / unproject, 캘리브레이션 규약은 `docs/study/camera_models_and_calibration.md` 참고)
-- **모델 래퍼** — Simple-BEV의 lifting 투영을 어안으로 교체. **submodule을 고치지 않고 래핑한다.** (아직 미착수)
+| 폴더 | 무엇 | 지금 쓰는 핵심 |
+|---|---|---|
+| `datasets/` | 데이터 로더 | `robot_simplebev.py`(자체 3-cam 데이터, 마스크), `simplebev_vox.py`(`vox_dims` = `Y`의 단일 출처), `photometric.py`(증강), `synwoodscape_*.py`(사전학습) |
+| `geometry/` | 카메라 모델 | `double_sphere.py`(자체 리그), `fisheye.py`(SynWoodScape `radial_poly`) |
+| `models/` | Simple-BEV 래퍼(submodule 무수정) | `double_sphere_vox.py`(어안 직접 lifting), `virtual_pinhole.py`(실험 02의 핀홀 대조), `pixel_grid.py` |
+| `common/` | 손실·지표·통계 | `soft_boundary.py`(목적함수), `metric_spec.py`(**지표 이름·tag 정본**), `free_space_metrics.py`·`occupied_metrics.py`(지표), `binary_metrics.py`(학습 루프의 손실 분해), `paired_stats.py`(**유의성 판정 정본**), `npsafe.py` |
+| `bev_gt/` | BEV 라벨 생성(SynWoodScape 시절) | 아래 표 |
+
+옛 정식화(2-head·3-class)용 모듈(`three_class_*`, `segmentation_loss.py`, `simplebev_three_class.py`)과
+광선 보조항(`range_loss.py`)은 코드·테스트가 남아 있지만 v3 경로에서는 쓰지 않는다.
 
 ## `bev_gt/` 모듈별 역할 (현재 vs 폐기)
 

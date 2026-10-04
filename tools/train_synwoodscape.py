@@ -4,8 +4,8 @@ Simple-BEV 원본(`train_nuscenes.py`)의 관례를 따라 `Fire`로 `main(...)`
 CLI에서 받는다 — config 파일 체계 대신 실행 스크립트(`configs/train_synwoodscape_baseline.sh`)에
 인자를 나열한다.
 
-값을 보고 어떻게 튜닝할지는 `docs/training_pipeline_walkthrough.md`(코드 정독)와
-`docs/BEV_loss_and_metrics_design.md` §2.8(지표 정의)을 본다.
+값을 보고 어떻게 튜닝할지는 `docs/archive/training_pipeline_walkthrough.md`(코드 정독)와
+`docs/archive/research/BEV_loss_and_metrics_design.md` §2.8(지표 정의)을 본다.
 `docs/archive/training_guide.md`는 2-head 시절 문서이므로 플래그·경로를 그대로 쓰면 안 된다.
 
 `tools/train_robot_bev.py`(fine-tuning)와 지표·로깅·체크포인트 선택 기준을 공유한다
@@ -164,11 +164,11 @@ def main(
     # 주기 저장분을 몇 개까지 남길지. **기본값 3은 유효 구간을 지운다** -- `save_freq_epochs=10`
     # 으로 60 epoch을 돌리면 10/20/30/40/50/60에 저장되는데 3개만 남아 40/50/60이 되고,
     # 과적합이 빠른 리그에서 정작 쓸 만한 초기 epoch이 통째로 사라진다(2026-08-18 fine-tuning
-    # 진단에서 실제로 겪었다: `docs/finetune_overfitting_diagnosis.md` §5). 체크포인트 하나가
+    # 진단에서 실제로 겪었다: `docs/archive/research/finetune_overfitting_diagnosis.md` §5). 체크포인트 하나가
     # 약 487 MB이므로 `num_epochs / save_freq_epochs` 만큼 남기는 것을 기본으로 둔다.
     keep_checkpoints=6,
     # 역빈도 가중치의 상한. 기본값(20)의 근거와 실측 병리는
-    # `docs/finetune_overfitting_diagnosis.md` §3, §12에 있다. `1`이면 가중치 없음.
+    # `docs/archive/research/finetune_overfitting_diagnosis.md` §3, §12에 있다. `1`이면 가중치 없음.
     max_class_weight=None,
     n_theta=None,
     # ---- 아래는 `02_projection_and_prior` 축 B를 위해 추가됐다 (2026-09-21) ----

@@ -130,7 +130,7 @@ def _format_share_field(loss_parts, part_names):
     합이 1이라 숫자를 붙여 놓는 것이 가장 읽기 쉽다. 이것을 로그에 넣는 이유: 클래스별
     평균(`loss_*`)만으로는 "occupied가 셀의 1.1 %인데 총 loss의 67 %"라는 사실이 보이지 않아
     실측에서 셀 비율을 손으로 곱해 봐야 알 수 있었다
-    (`docs/finetune_overfitting_diagnosis.md` §12).
+    (`docs/archive/research/finetune_overfitting_diagnosis.md` §12).
     """
     values = [(loss_parts or {}).get(f"share_{name}") for name in part_names]
     if any(value is None or (isinstance(value, float) and math.isnan(value)) for value in values):

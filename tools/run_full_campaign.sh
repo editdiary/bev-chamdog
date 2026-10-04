@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **캠페인 v3 본 실험 드라이버** -- 학습 -> 끊긴 런 정리·재시도 -> 그 실험의 분석, 실험마다.
 #
-# 계획: `docs/paper_campaign_v3_plan.md` (2026-10-02 사용자 승인). 절차 정본:
+# 계획: `docs/archive/paper_campaign_v3_plan.md` (2026-10-02 사용자 승인). 절차 정본:
 # `docs/paper_campaign_protocol.md`.
 #
 #   01_overall (고정 split 5 -> LOSO 35)  ->  02_projection_and_prior (20)

@@ -172,7 +172,7 @@ def test_loss_shares_sum_to_one_and_expose_which_class_dominates():
 
     클래스별 평균(`loss_*`)만으로는 병리가 안 보인다 -- 실측에서 val `loss_occupied` 145가
     "occupied가 셀의 1.1 %인데 총 loss의 67 %"라는 뜻이라는 것을 셀 비율을 손으로 곱해야
-    알 수 있었다(`docs/finetune_overfitting_diagnosis.md` §12).
+    알 수 있었다(`docs/archive/research/finetune_overfitting_diagnosis.md` §12).
 
     셀 4개 중 occupied 1개만 틀리게 만들고 그 클래스에 가중치 10을 준다. 나머지는 정답이라
     loss가 거의 0이므로, occupied의 몫이 1에 가까워야 한다.

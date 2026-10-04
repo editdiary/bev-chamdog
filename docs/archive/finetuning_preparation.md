@@ -7,13 +7,13 @@
 > 이 문서는 데이터 실물을 받기 **전에** 쓴 계획서다. 여기서 "만들어야 한다"고 적은 것은
 > 같은 날 전부 구현·검증됐고, §6의 미결 질문도 모두 답이 나왔다(§8 참고).
 >
-> **실제로 fine-tuning을 돌릴 때는 [`docs/finetuning_guide.md`](../finetuning_guide.md)를 본다.**
+> **실제로 fine-tuning을 돌릴 때는 [`docs/archive/finetuning_guide.md`](finetuning_guide.md)를 본다.**
 > 이 문서는 "왜 그렇게 만들었는지"의 근거로만 남긴다.
 
 SynWoodScape pretraining(Phase 3)에서 자체 온실 데이터셋 fine-tuning(Phase 4)으로 넘어가기 위해
 **무엇이 준비돼 있고, 무엇을 만들어야 하며, 무엇을 결정해야 하는지**를 정리한다.
 
-관련 문서: `ROADMAP.md` Phase 4, `docs/BEV_loss_and_metrics_design.md`(fine-tuning 기준 loss/지표
+관련 문서: `ROADMAP.md` Phase 4, `docs/archive/research/BEV_loss_and_metrics_design.md`(fine-tuning 기준 loss/지표
 설계), `docs/archive/synwoodscape_pretrain_experiment_log.md`(pretrain 실험 기록).
 
 ---
@@ -70,7 +70,7 @@ shape mismatches: 0
 
 ## 3. 지금 코드가 이미 fine-tuning 설계에 맞는 부분
 
-`docs/BEV_loss_and_metrics_design.md`가 요구하는 계약과 현재 구현을 대조하면 이렇다.
+`docs/archive/research/BEV_loss_and_metrics_design.md`가 요구하는 계약과 현재 구현을 대조하면 이렇다.
 
 | 설계 문서 요구사항 | 현재 상태 |
 |---|---|
@@ -155,7 +155,7 @@ visible   = np.load(...).astype(bool)   # 0.01 -> True (거의 안 보이는 셀
 > `projects/common/two_head_metrics.py`로 추출해 양쪽이 공유한다 — 스크립트끼리 import하면
 > pretrain 쪽을 손댈 때 fine-tune이 깨지기 때문이다.
 > 인자는 `--init_checkpoint`로 이름이 바뀌었고, **`--freeze_encoder`는 아직 없다**
-> (`docs/finetuning_guide.md` §9).
+> (`docs/archive/finetuning_guide.md` §9).
 
 ### 4.5 온실 기준 지표 (권장)
 

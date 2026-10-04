@@ -10,14 +10,27 @@
 
 ---
 
-## 스크립트 색인 (2026-08-26)
+## 지금 쓰는 것 (캠페인 v3, 2026-10-04)
+
+| 스크립트 | 무엇 |
+|---|---|
+| `train_robot_bev_finetune.sh` | **모든 자체 데이터 학습의 진입점.** 환경변수로 인자를 넘긴다 |
+| `paper_final_overall.sh` / `paper_final_*_analysis.sh` | 실험 01·02·02b의 학습·분석 (드라이버 `tools/run_full_campaign.sh`가 부른다) |
+| `loss_effect.sh` / `loss_effect_analysis.sh` | 실험 03 손실 사다리(`A_ce`·`B_perset`·`C_hard`·`C_soft`)와 분석 |
+| `train_synwoodscape_binary_pretrain.sh` / `train_synwoodscape_native_pretrain.sh` | 실험 02·02b의 SynWoodScape 사전학습 |
+| `epoch_length_probe.sh` / `height_range_probe.sh` | v3 직전 사전 실험(epoch 40 대 100, 높이 범위) |
+
+v3 설정은 `docs/99_paper_results/common/training_details.md`가 정본이다. **아래 색인은 v3 이전 연구 이력이다**
+— 산출물 경로의 가중치는 2026-10-04에 지웠고(로그만 남음), "근거 문서"는 `docs/archive/research/`에 있다.
+
+## 스크립트 색인 (2026-08-26) — 이력
 
 **각 스크립트 맨 위 주석이 정본이다** -- 무엇을 묻는 실험인지, 대조군이 어디 있는지,
 읽는 법이 무엇인지가 거기 적혀 있다. 아래는 찾아가기용 목차다.
 
 | 스크립트 | 무엇 | 산출물 | 근거 문서 |
 |---|---|---|---|
-| `train_robot_bev_finetune.sh` | **모든 실험의 진입점.** 환경변수로 인자를 넘긴다. 다른 스크립트는 전부 이것을 부른다 | — | `docs/finetuning_guide.md` |
+| `train_robot_bev_finetune.sh` | **모든 실험의 진입점.** 환경변수로 인자를 넘긴다. 다른 스크립트는 전부 이것을 부른다 | — | `docs/archive/finetuning_guide.md` |
 | `ablation_loss.sh` | **loss 사다리 4칸 × 시드 3 = 12런.** `A_ce → B_perset → C_soft → D_range` | `runs/ablation/` | 설계 §15·§16 |
 | `sweep_soft_boundary.sh` / `sweep_soft_alpha.sh` | soft-boundary 1·2차 스윕(δ, α, λ_B) | `runs/robot_bev_cv/loss_sweep/` | 설계 §9~§11 |
 | `sweep_range_loss.sh` / `sweep_range_asymmetric.sh` | `L_range` 스윕, 비대칭 dead zone | 같음 | 설계 §13.6·§13.8 |

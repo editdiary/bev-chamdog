@@ -43,7 +43,7 @@ from projects.common.paired_stats import (  # noqa: E402
 from tools.summarize_repeats import read_run  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-# 캠페인 v3(2026-10-02~). 옛 캠페인 결과는 `docs/paper_package/`에 있다.
+# 캠페인 v3(2026-10-02~). 옛 캠페인 결과는 `docs/archive/paper_package_v2/`에 있다.
 CAMPAIGN_ROOT = _REPO_ROOT / "runs/99_full_campaign"
 DEFAULT_ROOT = CAMPAIGN_ROOT / "02b_native_source_prior"
 DEFAULT_CONTROL = CAMPAIGN_ROOT / "01_overall/fixed_split/logs"

@@ -8,7 +8,7 @@
 > 모든 값은 **실제로 돈 런(`runs/99_full_campaign/`, 2026-10-02~03)의 `config.json`·학습 로그와
 > 소스 코드**에서 확인했다. 파라미터 수와 특징맵 크기는 모델을 실제로 생성해 측정했다.
 
-> **[2026-10-03] 캠페인 v3로 고쳐 썼다.** 옛 캠페인(`docs/paper_package/`)과 다른 점은 셋이다.
+> **[2026-10-03] 캠페인 v3로 고쳐 썼다.** 옛 캠페인(`docs/archive/paper_package_v2/`)과 다른 점은 셋이다.
 > ① 광선 보조항 `L_range`를 **뺐다**(목적함수는 `½L_F + ½L_N + λ_B·L_B`), ② 학습 길이 40 →
 > **100 epoch**(사전학습도 100), ③ 지표 개편(`metrics.md`). 옛 패키지의 숫자와 섞지 않는다.
 
@@ -299,7 +299,7 @@ encoder는 **ImageNet 사전학습**이고, BEV decoder와 출력 head만 무작
 | optimizer·scheduler·clipping | `tools/train_robot_bev.py` (`OneCycleLR`, `clip_grad_norm_`) |
 | 증강 범위 | `projects/datasets/photometric.py` |
 | 입력 해상도·정규화 | `projects/datasets/robot_simplebev.py`, `third_party/models/simple_bev/nets/segnet.py` |
-| 목적함수 | `projects/common/soft_boundary.py`, 설계 정본 `docs/soft_boundary_loss_design.md` |
+| 목적함수 | `projects/common/soft_boundary.py`, 설계 정본 `docs/archive/research/soft_boundary_loss_design.md` |
 | BEV 격자·lifting | `projects/bev_gt/grid.py`, `projects/datasets/simplebev_vox.py` |
 | 실험별 해석된 설정 | `docs/99_paper_results/*/provenance/environment_and_config.json` |
 | 동결 설정 요약 | [`setup.md`](setup.md) §4 |

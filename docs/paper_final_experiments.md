@@ -10,7 +10,7 @@
 |---|---|
 | **이 문서** | 무엇을 왜 했고 무엇이 나왔나 (이력 포함) |
 | [`paper_campaign_protocol.md`](paper_campaign_protocol.md) | **어떻게 돌리나** -- 처음부터 다시 돌릴 때의 사용법 |
-| [`paper_package/`](paper_package/) | **논문에 쓸 숫자** (정본) |
+| [`paper_package/`](archive/paper_package_v2) | **논문에 쓸 숫자** (정본) |
 
 > **⚠ §4·§6의 결과 표는 옛 `arc_huber` 캠페인 것이고 이력으로만 둔다.** 2026-09-23에
 > 캠페인 전체를 `cumulative_l1`로 다시 돌렸고, **논문 숫자의 정본은 패키지다.** 둘이
@@ -36,7 +36,7 @@
 >
 > 같은 날 `runs/loss_effect`에 `E_cumulative`(`RANGE_LOSS_MODE=cumulative_l1`, `λ_R=0.15`)를
 > 넣었고, **사용자 결정으로 논문의 loss ablation 표에서는 `D_range`(`arc_huber`, `λ_R=0.3`)를
-> 빼고 `E`만 쓴다**([`loss_effect_results.md`](loss_effect_results.md) **§16.7**).
+> 빼고 `E`만 쓴다**([`loss_effect_results.md`](archive/research/loss_effect_results.md) **§16.7**).
 >
 > **그런데 이 캠페인의 런은 전부 `arc_huber`, `λ_R=0.3`으로 학습돼 있다** — 완료된
 > `01_overall` 40런과 `02_projection_and_prior`가 모두 그렇다(각 런의 `config.json`에서 확인).
@@ -92,7 +92,7 @@
 > 3. 두 형태의 차이가 위 세 숫자뿐이라는 것을 같이 적으면, "왜 다시 안 돌렸나"에 대한
 >    답이 본문 안에서 끝난다.
 >
-> 반영 위치: `docs/paper_package/common/training_details.md` §9.2와 [`setup.md`](paper_package/common/setup.md) §4.
+> 반영 위치: `docs/archive/paper_package_v2/common/training_details.md` §9.2와 [`setup.md`](archive/paper_package_v2/common/setup.md) §4.
 >
 > </details>
 
@@ -125,7 +125,7 @@
 |---|---|---|---|
 | `01_overall` | 최종 모델의 대표 성능과 시퀀스 일반화 | 고정 split × 5 seeds + LOSO 7 folds × 5 seeds | **완료: 40/40, 무결성 통과, bundle 생성** |
 | `02_projection_and_prior` | 카메라 모델(DS-native 대 undistort+pinhole)과 source prior(SynWoodScape) | 고정 split × 5 seeds (대조군은 `01`의 5런 재사용, 시드 1:1) | **완료: 20/20, 무결성 통과, 논문 패키지 생성.** front-only는 기각(§6.1) |
-| [`03_boundary_uncertainty`](paper_package/03_boundary_uncertainty/) | boundary-aware loss의 효과와 원인 | 고정 split, **6조건 × 5 seeds = 30런** (`runs/loss_effect`) | **완료** (2026-09-22). 되올림 47.6 → 0.5 % · 증가분의 96.5 %가 경계에서 · 목적함수-품질 정렬 22.6 → 2.2 epoch · **정확도 불변, `f1@10cm` −0.012**. 본문 사다리는 `A_ce→B_perset→C_hard→C_soft→E_cumulative` 다섯이고 `D_range`는 뺀다 |
+| [`03_boundary_uncertainty`](archive/paper_package_v2/03_boundary_uncertainty) | boundary-aware loss의 효과와 원인 | 고정 split, **6조건 × 5 seeds = 30런** (`runs/loss_effect`) | **완료** (2026-09-22). 되올림 47.6 → 0.5 % · 증가분의 96.5 %가 경계에서 · 목적함수-품질 정렬 22.6 → 2.2 epoch · **정확도 불변, `f1@10cm` −0.012**. 본문 사다리는 `A_ce→B_perset→C_hard→C_soft→E_cumulative` 다섯이고 `D_range`는 뺀다 |
 | `04_edge_deployment` | Jetson AGX Orin 지연·FPS·전력·메모리 | Orin 반복 측정 | 사용자 장비 실행 대기 |
 
 고정 split은 모든 통제 ablation의 공통 benchmark다. LOSO는 최종 모델 하나에 대해서만
@@ -250,10 +250,10 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 
 ### 2026-10-02 (8) — **캠페인 v3 완료** (사용자 승인, 자율 실행, 2026-10-03 21:40 종료)
 
-계획 `docs/paper_campaign_v3_plan.md`(결정 §6·§7). **결과 루트 `runs/99_full_campaign/`, 논문 패키지
-`docs/99_paper_results/`**(옛 `docs/paper_package/`는 그대로). 90런, 약 27 h, GPU 0 순차.
+계획 `docs/archive/paper_campaign_v3_plan.md`(결정 §6·§7). **결과 루트 `runs/99_full_campaign/`, 논문 패키지
+`docs/99_paper_results/`**(옛 `docs/archive/paper_package_v2/`는 그대로). 90런, 약 27 h, GPU 0 순차.
 
-**실행.** 2026-10-02 18:04:38 시작, 커밋 `a4ba10e`. 드라이버 `tools/run_full_campaign.sh`(분리 세션),
+**실행.** 2026-10-02 18:04:38 시작, 커밋 `be7086d`(2026-10-04 이력 통합 전 `a4ba10e`, 코드 동일). 드라이버 `tools/run_full_campaign.sh`(분리 세션),
 로그 `runs/99_full_campaign/campaign.log`. 순서 01 고정 split → 01 LOSO → 01 분석 → 02 → 02 분석 →
 02b → 02b 분석 → 03 → 03 분석. 단계마다 `PHASE_DONE <이름> rc=<n>`이 찍힌다. 끝나면 `CAMPAIGN_V3_DONE`.
 
@@ -286,6 +286,12 @@ fold 표준편차는 기술통계이고, seed별·fold별 전체 행은 appendix
 - **03** `C_soft` − `A_ce`: τ=0.5 `iou_free` +0.0083*, **같은 recall에서는 +0.0019~+0.0041(앵커 5개 중 3개 유의)**.
   `C_soft` − `C_hard`는 전 앵커 유의(+0.0087~+0.0129). 되올림 113 % → 2.4 %, val-loss 선택 손해 0.0137 → 0.0008,
   문턱 시드 SD 9~14배 작음. 비용 BF@0.10(같은 recall에서 −0.014~−0.040, 전부 유의), BF@0.30은 +0.0054*.
+
+**[2026-10-04] 정리(사용자 승인).** `runs/` 290 GB → 46 GB: v3 밖의 가중치 전부와 v3의 검증 최고
+체크포인트를 지웠다. **남은 가중치는 v3 마지막 체크포인트 90개**(`runs/99_full_campaign/**/model-000000100.pth`)뿐이고,
+모든 트리의 TensorBoard 로그·`analysis/`·예측 npz는 그대로다. 옛 트리는 다시 채점할 수 없다.
+`docs/`는 v3 이전 연구 기록을 `docs/archive/research/`, 옛 패키지를 `docs/archive/paper_package_v2/`로 옮기고
+`docs/temp/`를 지웠다(색인 `docs/README.md`).
 
 **Phase 3·4에서 고친 것.** 03 생성기에 같은 recall 짝지은 검정(`matched_recall_paired.csv`) 추가 ·
 02 그림 2 제목("washes out by epoch 3"이 v3 데이터와 맞지 않음 — epoch 100에도 유의한 손해) · 03 그림 2 주석 겹침 · `loss_effect_analysis.sh`의
@@ -517,7 +523,7 @@ iou_free 최근 10 평균 0.8087, 이번은 0.8050(차이 0.0037, cuDNN 비결�
 
 사용자가 논문을 쓰면서 **바꿔야 할 실험과 새로 해볼 테스트가 생겼다.** 설정이 확정되면
 캠페인을 **처음부터 다시** 돌린다. 그때까지는 `runs/paper_final_cumulative/` 결과와
-`docs/paper_package/`가 정본이다.
+`docs/archive/paper_package_v2/`가 정본이다.
 
 **지금 열려 있는 것 — 사용자 결정 대기**
 
@@ -549,7 +555,7 @@ Phase 0~4 절차, 비용 실측(70런 = 8시간 43분 / 65 GB), 패키지 구조
 
 연휴 계획(§8)대로 70런을 `runs/paper_final_cumulative/`에 다시 돌렸다. **아래 §4·§6의
 숫자는 모두 옛 `arc_huber` 캠페인 것이고, 논문에 쓰는 정본은 패키지
-(`docs/paper_package/`)에 있는 새 숫자다.** 이 절이 그 차이를 요약한다.
+(`docs/archive/paper_package_v2/`)에 있는 새 숫자다.** 이 절이 그 차이를 요약한다.
 
 #### 바뀌지 않은 것 (논문 주장 그대로)
 
@@ -758,13 +764,13 @@ LOSO 7 fold 각각 5런이며 held-out 시퀀스가 train에 섞이지 않았고
 | `fixed_split/analysis/verify_predictions.json` · `loso/analysis/verify_predictions_{fold}.json` | 재채점 대조 8건, 전부 `failures=0` |
 | `training_queue.log` · `analysis_driver.log` | 학습·분석 콘솔 전문 |
 
-**논문 작성용 패키지.** 위 산출물 중 논문에 필요한 것만 추려 `docs/paper_package/`에
+**논문 작성용 패키지.** 위 산출물 중 논문에 필요한 것만 추려 `docs/archive/paper_package_v2/`에
 모았다(1 MB 미만, 가중치·확률맵 제외). 노트북에 통째로 받아 서버 접속 없이 논문을 쓸 수
 있게 구성했다. 실험이 넷이므로 **실험별 폴더는 독립으로 두되 공통 사항은 `common/`에만**
 둔다 — 지표 정의를 실험마다 복사하면 하나만 고쳤을 때 나머지가 조용히 틀려진다.
 
 ```
-docs/paper_package/
+docs/archive/paper_package_v2/
 ├── README.md                 색인 + 실험 폴더 규약
 ├── common/setup.md           과제·시퀀스 7개·라벨 출처·동결 설정·환경·무결성 방식
 ├── common/metrics.md         지표 정의·range_bias 부호 규약·보고 규칙
@@ -782,7 +788,7 @@ docs/paper_package/
 
 ### 2026-09-21 — worktree를 `/tmp`에서 Desktop으로 옮김
 
-사용자가 `docs/paper_package/`가 자기 폴더에서 보이지 않는다고 지적했다. 원인은 캠페인
+사용자가 `docs/archive/paper_package_v2/`가 자기 폴더에서 보이지 않는다고 지적했다. 원인은 캠페인
 worktree가 `/tmp/bev-chamdog-paper-final`에 있었기 때문이다. 실행 중에는 메인 체크아웃의
 미커밋 변경과 분리하는 합리적인 격리였지만, 산출물을 전달하는 단계에서는 잘못된 위치였다.
 
@@ -942,13 +948,13 @@ GPU 0, 출력은 `runs/paper_final/02_projection_and_prior/training_queue.log`�
 | 짝지은 비교 (정본) | `runs/paper_final/02_projection_and_prior/analysis/paired_arms.json`, `report_paired_arms.txt` |
 | 무결성 | `runs/paper_final/02_projection_and_prior/*/analysis/verify_predictions.json` |
 | 런 목록·설정 | `runs/paper_final/02_projection_and_prior/experiment_manifest.json` |
-| **논문 패키지** | **`docs/paper_package/02_projection_and_prior/`** (표 2개·그림 2개·CSV 10개) |
+| **논문 패키지** | **`docs/archive/paper_package_v2/02_projection_and_prior/`** (표 2개·그림 2개·CSV 10개) |
 | 설계 근거 측정 | `tools/measure_projection_tradeoff.py`, `tools/measure_domain_prior.py` |
 
 ### 다음 작업
 
 `01_overall`·`02_projection_and_prior`·`03_boundary_uncertainty`가 **셋 다 끝났다.**
-결과·해석·논문 구성 제안은 각각 `docs/paper_package/<실험>/REPORT.md`에 있다.
+결과·해석·논문 구성 제안은 각각 `docs/archive/paper_package_v2/<실험>/REPORT.md`에 있다.
 
 **남은 것 둘.**
 
@@ -1124,7 +1130,7 @@ python tools/measure_domain_prior.py
 
 #### 무엇을 말하려는가 — 기록된 설명을 정정하면서
 
-기존 문서(`docs/paper_experiment_compendium.md` §4)는 사전학습이 해로운 이유를
+기존 문서(`docs/archive/research/paper_experiment_compendium.md` §4)는 사전학습이 해로운 이유를
 **"SynWoodScape는 격자의 83 %가 free인데 로봇은 20 %"**라고 적었다. 두 데이터셋 **전수**를
 **같은 정의**로 다시 재 보니 그 대조가 두 가지 다른 양을 비교한 것이었다
 (`tools/measure_domain_prior.py`, 500 + 267샘플 전수):
@@ -1216,7 +1222,7 @@ SynWoodScape는 시뮬레이터가 전지적이라 격자의 94 %에 정답이 �
 - **paired difference**를 주 통계로 쓴다(시드 1:1). 평균 차이와 시드별 차이를 둘 다 싣는다.
 - σ_seed(0.0018)보다 작은 차이는 우열로 쓰지 않는다.
 - 확률맵 무결성 검사(허용오차 1e-3)를 통과해야 bundle을 만든다.
-- 결과는 `docs/paper_package/02_projection_and_prior/`에 `01_overall`과 같은 구조로 쌓는다.
+- 결과는 `docs/archive/paper_package_v2/02_projection_and_prior/`에 `01_overall`과 같은 구조로 쌓는다.
 
 ### 6.5 실험 2 외의 미동결 사항
 
@@ -1556,7 +1562,7 @@ APPLY=1 bash tools/run_paper_final_cumulative_packages.sh    # 검토 뒤 반영
 
 | Phase | 시각 | 결과 |
 |---|---|---|
-| 0 보조항 노출 | 09-22 16:40~17:10 | 스모크 둘로 계산 경로가 실제로 바뀌는지 확인 (커밋 `03ee463`) |
+| 0 보조항 노출 | 09-22 16:40~17:10 | 스모크 둘로 계산 경로가 실제로 바뀌는지 확인 (커밋 `cf060a1`, 통합 전 `03ee463`) |
 | 리허설 1 epoch × 7런 | 17:10~17:17 | 체크포인트 의존 사슬·Phase 2 전 경로 관통 |
 | 1 학습 70런 | 17:18~02:01 (8시간 43분) | **70/70 정상.** watchdog 0회, Traceback·OOM 0건, 65 GB |
 | 2 무결성·분석 | 02:02~02:10 | 다섯 팔 전부 재채점 통과, 최대 절대차 6.9e-4 |

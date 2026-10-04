@@ -7,7 +7,7 @@
 ## 1. 지표 정의
 
 > **[2026-10-02] 지표를 바꿨다(사용자 확정).** 이 폴더(`docs/99_paper_results/`)의 CSV는 전부
-> 이 정의로 나왔다(캠페인 v3, 2026-10-03). 옛 패키지 `docs/paper_package/`는 옛 지표
+> 이 정의로 나왔다(캠페인 v3, 2026-10-03). 옛 패키지 `docs/archive/paper_package_v2/`는 옛 지표
 > (`fatal_rate`·`free_miss_rate`·`occupied_f1_{10,20,40}cm`·`range_*`)라 숫자를 섞지 않는다. 수식·집계 규칙은
 > [`evaluation_protocol.md`](evaluation_protocol.md) §4~§5, 코드 정본은
 > `projects/common/metric_spec.py`.
